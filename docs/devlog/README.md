@@ -2,6 +2,12 @@
 
 開發過程的思維紀錄。
 
+## 目錄
+
+- [專案起跑](#devlog-project-kickoff)
+- [專案管理前置作業：建立 Backlog 與 Workflow](#devlog-project-management-setup)
+
+<a id="devlog-project-kickoff"></a>
 ### 專案起跑
 
 基於某種深植於靈魂的呼喚，我深深的被軟體工程所吸引。我不是資訊領域背景的，也不是甚麼天賦異稟的奇才，我只是**喜歡**這件事，從我第一個專案開始，我就意識到，軟體開發過程中不可避免的混亂，都會體現在程式碼中，最終化成埋藏在專案裡深處的地雷，在未來的某個時間點引爆。因此，在我連迴圈都寫得零零落落的菜鳥時期，我就在思考程式碼的結構、命名，乃至團隊開發流程等議題。
@@ -20,6 +26,7 @@
 
 2026/04/25 02:53。
 
+<a id="devlog-project-management-setup"></a>
 ### 專案管理前置作業：建立 [Backlog](../tech-base/backlog.md) 與 [Workflow](../tech-base/workflow.md)
 
 在我對敏捷初淺的理解內，[Backlog](../tech-base/backlog.md) 大致等同於待辦清單，把一個專案分解成若干個待辦事項，可以更清楚的掌握專案進度，如果使用 [Kanban](../tech-base/kanban.md) 等方式管理專案，更可以統計出每個流程的 [WIP](../tech-base/wip.md)，更能夠確認是哪個環節是瓶頸，進而挹注必要資源，提升產能。
