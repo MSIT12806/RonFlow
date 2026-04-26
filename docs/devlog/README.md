@@ -90,7 +90,7 @@
 
 2026/04/25 09:09。
 
-### 梳理業務規則
+### 梳理業務規則-事件風暴01
 <a id="devlog-domain-rules"></a>
 
 接下來，我打算透過 [Event Storming](../tech-base/event-storming.md) 來梳理專案管理工具的業務規則，在這一步，通常會有所謂的領域專家一同參與，釐清流程。
@@ -695,3 +695,673 @@ flowchart LR
     A -.-> F1((TaskSplit))
     A -.-> F2((TaskDependencyAdded))
 ```
+
+2026/04/25 13:30。
+
+### 梳理業務規則-事件風暴02
+
+Facilitator：
+
+「我們開始第二輪事件風暴。」
+
+「上一輪我們已經先發散出一批候選 Domain Events，例如：
+
+TaskCreated
+TaskAssigned
+TaskStarted
+TaskStatusChanged
+TaskSubmittedForReview
+TaskAccepted
+TaskRejected
+TaskReopened
+TaskCompleted
+TaskCanceled
+TaskArchived
+TaskDeleted
+TaskBlocked
+TaskUnblocked
+TaskMovedOnBoard
+TaskOrderChanged
+」
+
+「但在進入下一步之前，RD 提出了一個重要觀點：RonFlow 是一個專案管理工具，不是某個固定流程的內部系統。因此，我們不應該把所有狀態寫死。」
+
+「也就是說，像這些事件：
+TaskStarted
+TaskSubmittedForReview
+TaskCompleted
+TaskBlocked
+
+」
+
+「可能不應該都成為固定的系統事件，而是要考慮是否能抽象成：」
+
+TaskStateChanged
+
+「再由使用者自訂的 Workflow State 來承載具體語意。」
+
+「所以本輪目標不是繼續找更多事件，而是整理上一輪事件，並建立第一版任務生命週期時間線。」
+
+「本輪要完成三件事：」
+
+1. 排出 Task 從建立到完成的最小主流程。
+2. 找出哪些具體事件應該被抽象成 TaskStateChanged。
+3. 標記哪些事件暫時放到 Future / Open Questions。
+
+Domain Expert：
+
+「我同意這輪先整理流程。不過我想補充一下，雖然系統不一定要寫死 TaskStarted 或 TaskCompleted，但在真實專案管理裡，這些詞還是有業務意義。」
+
+「例如：」
+
+任務開始了
+任務進入驗收
+任務完成了
+任務被退回了
+
+「我也同意。RonFlow 應該允許不同團隊自己定義流程，但產品本身還是要知道某些狀態的大分類。」
+
+「例如使用者可以把狀態命名為：」
+
+開發中
+處理中
+施工中
+
+「但系統可能需要知道它們都屬於：」
+
+Active
+
+「同樣地，使用者可以把完成狀態叫：」
+
+Done
+完成
+已結案
+已交付
+
+「但系統可能需要知道它們都屬於：」
+
+Done / Final
+
+PM：
+
+「從管理角度來看，我關心的是：」
+
+任務是否尚未開始
+任務是否正在進行
+任務是否等待檢查
+任務是否完成
+任務是否被取消
+
+「所以我不一定要求狀態名稱固定，但希望系統至少能判斷任務目前在哪一種管理階段。」
+
+QA：
+
+「那我會在意一件事：如果狀態可以自訂，我們怎麼判斷任務是否真的完成？」
+
+「例如使用者可以建立一個狀態叫 Finished，也可以叫 Closed，也可以叫 已驗收。如果沒有狀態分類，測試和驗收會很難判斷。」
+
+Facilitator：
+
+「目前聽起來，本輪有一個初步共識：」
+
+RonFlow 不應該寫死所有任務狀態名稱。
+但 RonFlow 需要保留一些狀態語意分類，讓系統可以理解任務目前的大致階段。
+
+「也就是可能需要類似：」
+
+WorkflowState.Category
+
+「例如：」
+
+Backlog
+Ready
+Active
+Review
+Done
+Canceled
+
+「但這只是候選，這一輪先不定案。」
+
+RD：
+
+「上述這些我都同意。不過我想補充兩個問題。」
+
+「第一個問題是：同一個任務狀態，對不同角色可能有不同含意。」
+
+「例如需求尚未釐清時，對 RD 來說，這個任務可能是 not ready 或 blocked，因為 RD 無法開始開發；但對 PM 來說，這件事反而可能是 active，因為 PM 必須立刻協調人員、釐清需求，讓任務變得可執行。」
+
+「同樣地，如果任務已經交付 QA 驗收，對 RD 來說可能是 done，因為 RD 的工作結束了；但對 QA 來說，這件事才剛進入 ready，因為 QA 的驗收工作準備開始。」
+
+「第二個問題是：系統是否需要支援『緊急任務』或『插單』？」
+
+「實務開發上，總是會遇到突如其來的緊急事件，例如 production bug、主管臨時交辦、客戶重大問題。這些任務會打斷原本的排序與 Sprint 節奏。」
+
+「所以我想問：RonFlow 是否應該在任務上支援 urgent 標記？或者它其實不只是標記，而是會影響任務排序、WIP、目前進行中的工作，甚至影響 Sprint 承諾？」
+
+Facilitator：
+
+「這兩個問題都很重要，而且它們指出了同一件事：」
+
+Task 的狀態不一定只有一條線。
+同一個 Task 可能同時在不同角色、不同工作流、不同責任視角下呈現不同狀態。
+
+「上一輪我們討論的是 TaskStateChanged，但現在 RD 提出：」
+
+TaskState 可能不是單一狀態，而是與 Workflow / Role / Responsibility 有關。
+
+「這代表我們需要小心，不要太早把 Task 設計成只有一個 CurrentStateId。」
+
+Domain Expert：
+
+「RD 的說法很真實。」
+
+「在實務上，一個任務常常不是一個人完成，而是經過多個角色接力。」
+
+「例如一張任務卡可能叫：」
+
+建立登入功能
+
+「但它背後可能包含：」
+
+PM 釐清需求
+RD 開發
+QA 測試
+PO 驗收
+
+「所以如果只問『這個 Task 現在是什麼狀態』，答案可能會太粗。」
+
+「比較真實的問法可能是：」
+
+這個 Task 對哪個角色而言，現在處於什麼狀態？
+
+PM：
+
+「我會把它拆成兩個層次。」
+
+「第一層是任務本身在整體流程中的狀態，例如：」
+
+Backlog
+Ready
+In Progress
+Review
+Done
+
+「第二層是目前誰需要採取行動。」
+
+「例如需求未釐清時，任務整體可能還不是 Ready，但目前 action owner 是 PM。」
+
+「所以對 PM 來說它是 active，但不是因為 Task 已經可以開發，而是因為 PM 有一個待處理責任。」
+
+PO：
+
+「我覺得 RD 提出的問題會導出一個很重要的模型區分。」
+
+「我們可能不能只設計：」
+
+Task.CurrentState
+
+「而要區分：」
+
+Task Workflow State
+Responsibility / Assignment State
+
+「例如：」
+
+層次	問題
+Task Workflow State	這張任務在整體流程中走到哪裡？
+Responsibility State	現在輪到誰處理？
+Role-specific View	對某個角色來說，這件事是 ready、active、done 還是 blocked？
+
+QA：
+
+「RD 說『交付 QA 對 RD 是 done，但對 QA 是 ready』，這個很精準。」
+
+「如果系統只記錄 TaskCompleted，會誤導。」
+
+「對 RD 來說，可能是：」
+
+DevelopmentCompleted
+
+「對 QA 來說，可能是：」
+
+TestingReady
+
+「對整個 Task 來說，可能只是：」
+
+TaskEnteredReviewState
+
+「所以我認為整體任務完成和某個角色的工作完成，應該分開。」
+
+Facilitator：
+
+「目前產生幾個候選概念，我先記在白板上，不代表定案。」
+
+TaskState
+WorkflowState
+RoleViewState
+Responsibility
+ActionOwner
+Urgency
+Interruption
+
+```mermaid
+flowchart LR
+    T["Task"]
+
+    T --> WS["Workflow State
+    例：Review"]
+
+    T --> R1["RD View
+    例：Done for RD"]
+
+    T --> R2["QA View
+    例：Ready for QA"]
+
+    T --> R3["PM View
+    例：Active if needs coordination"]
+
+    T --> AO["Current Action Owner
+    例：QA / PM / RD"]
+
+    WS --> C["State Category
+    Backlog / Ready / Active / Review / Done / Canceled"]
+
+    AO --> RESP["Responsibility State
+    Who needs to act now?"]
+```
+
+Facilitator：
+
+「接著討論第二個問題：緊急任務或插單。」
+
+「我們先不要急著決定 UI 上是不是一個紅色標籤。先問業務上發生了什麼。」
+
+PM：
+
+「緊急任務不只是 priority 高。」
+
+「在實務上，緊急任務通常代表：」
+
+原本的工作順序被打斷
+原本的 Sprint 承諾被影響
+某些正在進行中的任務可能被暫停
+團隊需要重新分配人力
+
+「所以如果只做一個 Priority = High，可能不夠。」
+
+Domain Expert：
+
+「實務上插單通常需要留下原因。」
+
+「例如：」
+
+Production issue
+客戶重大問題
+法規期限
+主管指示
+安全漏洞
+資料錯誤
+
+「否則一堆人都標 urgent，最後 urgent 就失去意義。」
+
+QA：
+
+「緊急不代表可以跳過驗收。」
+
+「反而 emergency task 常常風險更高，因為它打斷流程、壓縮時間。」
+
+「系統應該至少讓團隊知道：」
+
+這是緊急任務
+為什麼緊急
+誰宣告緊急
+是否影響原本工作
+是否需要後續補測或補文件
+
+PO：
+
+「我會區分 Priority 和 Urgency。」
+
+概念	意義
+Priority	相對重要性，代表這件事和其他工作相比的產品價值或排序
+Urgency	時間壓力，代表這件事需要立即處理
+Interruption	對原本計畫造成中斷，需要調整工作流
+
+「有些事情 priority 很高，但不一定 urgent。」
+
+「有些事情 urgent，但長期產品價值不一定高，例如 production bug。」
+
+RD：
+
+「如果是緊急任務，技術上可能不只是把卡片排序拉到最上面。」
+
+「它可能需要：」
+
+建立任務
+標記為緊急
+記錄插單原因
+中斷或暫停某些工作
+重新安排 assignee
+改變 Sprint Backlog
+
+「這可能會產生一串事件，不只是一個欄位變更。」
+
+```mermaid
+flowchart LR
+    A((TaskCreated))
+    B((TaskMarkedUrgent))
+    C((UrgencyReasonRecorded))
+    D((TaskPrioritized))
+    E((WorkInterrupted))
+    F((TaskAssigned))
+    G((TaskStateChanged))
+
+    A --> B --> C --> D
+    D --> F --> G
+
+    D -.-> E
+
+    Q1["Open Question:
+    Urgent 是 Task 屬性、Flag、事件，還是獨立 Interruption 流程？"]
+
+    B -.-> Q1
+    E -.-> Q1
+
+
+```
+
+Facilitator：
+
+「RD 的兩個問題讓我們發現，本輪不能只把上一輪事件全部粗暴合併成 TaskStateChanged。」
+
+「我們需要保留幾個新的 Open Questions。」
+
+1. Task 是否只有一個 CurrentState？
+   還是需要區分整體 Workflow State 與 Role-specific State？
+
+2. 同一個 Task 對不同角色的 ready / active / done 是否需要被系統建模？
+   還是只是不同角色在看板上的 View？
+
+3. 是否需要 Current Action Owner？
+   用來表示現在輪到誰處理。
+
+4. RD 的 done、QA 的 ready、整體 Task 的 review 是否應該用同一個 workflow 表達？
+
+5. Urgent 是否只是 priority？
+   還是獨立於 priority 的 urgency / interruption 概念？
+
+6. 緊急插單是否需要留下原因與影響紀錄？
+
+7. v0.1 是否要處理 urgent task？
+   或先放入 Future / Maybe？
+
+
+
+1. RonFlow 不應寫死 TaskStarted / TaskCompleted 等固定狀態事件。
+
+2. 多數狀態變化可以先抽象成 TaskStateChanged。
+
+3. 但 TaskStateChanged 背後可能需要 WorkflowState.Category，
+   否則系統無法理解狀態的大致語意。
+
+4. 同一個 Task 的狀態可能依角色視角不同而有不同含意。
+   這可能導出 Current Action Owner、Role-specific View 或 Responsibility State。
+
+5. 緊急任務不是單純 priority high。
+   它可能是一種 urgency / interruption，會影響排序、責任分配與原本工作計畫。
+
+6. v0.1 暫時不急著實作角色視角狀態與緊急插單，
+   但應該在事件風暴中保留為重要設計議題。
+
+   PO：
+
+「我會先把 RonFlow v0.1 定位成：」
+
+一個小團隊可以自架使用的最小專案管理工具。
+
+「v0.1 的目標不是一次做出最完整的企業級流程，而是先讓使用者可以完成最基本的事情：」
+
+建立 Project
+建立 Task
+把 Task 放進看板流程
+改變 Task 狀態
+看到 Task 是否完成
+保留基本開發與管理紀錄
+
+「所以我不希望 v0.1 太早進入複雜的角色視角狀態。」
+
+「像 RD 說的：同一個 Task 對 RD 是 done、對 QA 是 ready，這是很真實的情境。但這可能意味著我們要處理：」
+
+角色
+責任轉移
+工作交接
+驗收階段
+多角色 workflow
+
+「這些對產品長期很重要，但對 v0.1 來說會太大。」
+
+Domain Expert：
+
+「我也同意這是真實業務問題。」
+
+「在實際團隊裡，同一張任務卡確實常常同時對不同角色有不同意義。」
+
+「例如：」
+
+PM：需求待釐清，是 active
+RD：需求不清楚，是 blocked / not ready
+QA：尚未交付，是 not ready
+
+「但如果我們是做第一版工具，我會建議先不要把每個角色的狀態都建成獨立 workflow。」
+
+「比較務實的做法是：」
+
+Task 有一個整體 Workflow State
+再用 Assignee / Current Action Owner / Comment / Activity Log 輔助說明目前誰需要處理
+
+「也就是說，v0.1 先回答：」
+
+這張任務整體走到哪裡？
+
+「未來再回答：」
+
+這張任務對每個角色而言分別走到哪裡？
+
+PM：
+
+「我覺得 PO 和 Domain Expert 的方向合理。」
+
+「但我會建議 v0.1 至少要保留一個概念：」
+
+現在輪到誰處理？
+
+「因為如果需求不清楚，Task 整體可能還在 Backlog 或 Ready 之前，但實務上 PM 正在處理。這時如果沒有任何欄位表示目前責任人，管理上會不清楚。」
+
+「所以我會建議：」
+
+v0.1 不做 Role-specific State。
+但可以有 Current Action Owner 或 Assignee。
+
+「不過如果 v0.1 只想更小，也可以先只做 Assignee，Current Action Owner 放到後面。」
+
+QA：
+
+「我可以接受 v0.1 先不做多角色狀態。」
+
+「但我會要求一點：」
+
+Done 的定義要清楚。
+
+「如果 v0.1 允許使用者自己定義 workflow state，那至少要有 state category，否則系統不知道哪個狀態是完成。」
+
+「例如使用者可以叫：」
+
+Done
+已完成
+已結案
+已驗收
+
+「但系統至少要知道它屬於：」
+
+Done
+
+「不然測試、統計、完成率、看板篩選都會很難做。」
+
+```mermaid
+flowchart LR
+    A["問題：同一個 Task 對不同角色可能有不同狀態含意"]
+
+    A --> B["v0.1 不做 Role-specific Workflow"]
+    A --> C["v0.1 保留單一 Task Workflow State"]
+    A --> D["使用 WorkflowState.Category 表達狀態語意"]
+    A --> E["Current Action Owner / Responsibility 先列為 Future 或 Optional"]
+
+    C --> F["TaskStateChanged"]
+    D --> F
+```
+
+Facilitator：
+
+「那緊急任務呢？PO，你認為 v0.1 要不要支援？」
+
+PO：
+
+「我認為緊急任務是實務上非常重要的情境。」
+
+「但是，如果我們要完整處理插單，可能會牽涉到：」
+
+Sprint 承諾變更
+原任務中斷
+人力重新分配
+插單原因
+影響評估
+事後檢討
+
+「這會變成另一個大功能。」
+
+「所以我建議 v0.1 不做完整 Interruption Workflow，但可以做最小支援：」
+
+Urgent flag
+Urgency reason
+Priority
+
+「這樣至少可以讓使用者標記：」
+
+這是一個緊急任務
+為什麼緊急
+它和普通高優先度任務不同
+
+Domain Expert：
+
+「我同意要做簡化版，但緊急不能只是勾選。」
+
+「因為真實團隊裡很容易每個人都說自己的任務很急。」
+
+「所以如果有 Urgent，至少應該要求：」
+
+Urgency Reason
+
+「例如：」
+
+Production Bug
+Security Issue
+Customer Escalation
+Legal Deadline
+Data Correction
+Manager Request
+
+「不一定一開始就做完整分類，但至少要有文字原因。」
+
+PM：
+
+「我也建議 v0.1 區分 Priority 和 Urgent。」
+
+Priority：相對重要性
+Urgent：是否需要立即處理
+
+「例如技術債可能 Priority 高，但不一定 urgent。」
+
+「Production bug 可能 urgent，即使它不是產品路線圖中最有價值的項目。」
+
+QA：
+
+「我希望系統語意上不要暗示 urgent 可以跳過品質流程。」
+
+「如果只是 Urgent flag，那還可以接受。」
+
+「如果做完整 Interruption Workflow，就要處理緊急任務是否需要補測、補文件、補 review。這個 v0.1 先不要做。」
+
+```mermaid
+flowchart LR
+    A["問題：如何處理緊急任務 / 插單"]
+
+    A --> B["Priority"]
+    A --> C["Urgent Flag"]
+    A --> D["Urgency Reason"]
+    A --> E["Interruption Workflow"]
+
+    B --> F["v0.1 可納入"]
+    C --> F
+    D --> F
+
+    E --> G["Future"]
+```
+
+暫定產品決策
+v0.1 支援基本 Urgent 標記。
+Urgent 與 Priority 分開。
+Urgent 需要留下原因。
+v0.1 不做完整 Interruption Workflow。
+完整插單影響分析、暫停原任務、Sprint 承諾變更，列為 Future。
+
+Round 1 最終收斂結論
+角色視角狀態
+v0.1 不做 Role-specific Workflow。
+v0.1 採用單一 Task Workflow State。
+Workflow State 可由使用者命名。
+但系統需要 WorkflowState.Category 來理解狀態語意。
+Current Action Owner / Responsibility 先列為 Open Question 或 Future。
+緊急任務
+v0.1 支援 Priority。
+v0.1 支援 Urgent flag。
+Urgent 與 Priority 分開。
+Urgent 需要 reason。
+完整插單流程列為 Future。
+
+```mermaid
+flowchart LR
+    T["Task"]
+
+    T --> S["Single Workflow State"]
+    S --> C["WorkflowState.Category
+    Backlog / Ready / Active / Review / Done / Canceled"]
+
+    S --> E((TaskStateChanged))
+
+    T --> P["Priority"]
+    T --> U["Urgent Flag"]
+    U --> R["Urgency Reason"]
+
+    T -.-> RSV["Role-specific State"]
+    RSV -.-> F1["Future"]
+
+    T -.-> AO["Current Action Owner"]
+    AO -.-> Q1["Open Question / Optional"]
+
+    U -.-> IW["Interruption Workflow"]
+    IW -.-> F2["Future"]
+
+
+```
+
+本輪新增事件候選
+
+因為 PO / Domain Expert 決定 v0.1 支援簡化緊急任務，所以事件清單可能新增：
+
+TaskMarkedUrgent
+TaskUrgencyReasonRecorded
+TaskUnmarkedUrgent
+TaskPriorityChanged
+
+但這些在本輪先列為候選，不急著定案。
+
