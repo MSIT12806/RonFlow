@@ -7,7 +7,6 @@
 - [專案起跑](#devlog-project-kickoff)
 - [專案管理前置作業：建立 Backlog 與 Workflow](#devlog-project-management-setup)
 - [梳理業務規則-事件風暴01](#devlog-domain-rules)
-- [事件風暴會議模擬-第一輪](#devlog-event-storming-simulation)
 - [梳理業務規則-事件風暴02](#devlog-domain-rules-02)
 
 ### 專案起跑
@@ -110,7 +109,6 @@
 6. 最後才進一步形成流程、邊界與系統設計。
 
 #### 事件風暴會議模擬
-<a id="devlog-event-storming-simulation"></a>
 
 接下來，這一輪會由 AI 模擬一段 [Event Storming](../tech-base/event-storming.md) 的工作過程，參與人物如下：
 
@@ -1369,3 +1367,2143 @@ flowchart LR
 
 但這些在本輪先列為候選，不急著定案。
 
+
+Facilitator：
+
+「上一輪我們先收斂出幾個暫定產品方向：」
+
+1. v0.1 採用單一 Task Workflow State。
+2. 不寫死 TaskStarted、TaskCompleted 這類固定狀態事件。
+3. 狀態流轉先抽象成 TaskStateChanged。
+4. WorkflowState 可以由使用者命名，但系統需要 Category。
+5. v0.1 支援 Priority、Urgent flag、Urgency reason。
+6. Role-specific State、完整插單流程先列為 Future。
+
+「這一輪我們要把任務從建立到完成的最小主流程排出來。」
+
+「提醒一下，本輪仍然不討論 Command、Actor、Aggregate、資料表、API、UI。只整理事件時間線。」
+
+```mermaid
+flowchart LR
+    A((TaskCreated))
+    B((TaskStateChanged))
+    C((TaskAssigned))
+    D((TaskStateChanged))
+    E((TaskStateChanged))
+
+    A --> B --> C --> D --> E
+
+    N1["暫定語意：
+    Backlog → Ready"]
+    N2["暫定語意：
+    Ready → Active"]
+    N3["暫定語意：
+    Active → Done"]
+
+    B -.-> N1
+    D -.-> N2
+    E -.-> N3
+```
+
+Facilitator：
+
+「我先提出一條最小主流程候選：」
+
+TaskCreated
+→ TaskStateChanged: Backlog → Ready
+→ TaskAssigned
+→ TaskStateChanged: Ready → Active
+→ TaskStateChanged: Active → Done
+
+「這條流程的意思是：」
+
+1. 任務被建立。
+2. 任務從 Backlog 變成 Ready，代表它已經足夠清楚，可以被處理。
+3. 任務被指派。
+4. 任務從 Ready 變成 Active，代表開始被處理。
+5. 任務從 Active 變成 Done，代表任務完成。
+
+Domain Expert：
+
+「這條流程大致合理，但我會提醒一件事：任務不一定要先 Ready 才能被指派。」
+
+「有些團隊會先指派給 PM 或某個負責人去釐清需求。也就是說，任務剛建立時可能還在 Backlog，但已經有人負責整理它。」
+
+「所以我不確定 TaskAssigned 一定要發生在 Backlog → Ready 之後。」
+
+PM：
+
+「我同意。從管理角度來看，任務被指派不一定代表任務可開發。」
+
+「例如：」
+
+TaskCreated
+→ TaskAssigned to PM
+→ TaskStateChanged: Backlog → Ready
+→ TaskAssigned to RD
+→ TaskStateChanged: Ready → Active
+
+「但如果 v0.1 不做 Current Action Owner 或角色視角，那我們可能要先接受一個簡化：Assignee 代表目前主要負責人，不一定代表開發者。」
+
+PO：
+
+「我覺得 v0.1 可以先簡化，但文件裡要講清楚：」
+
+TaskAssigned 代表任務目前有主要負責人。
+它不代表任務一定已經 Ready，也不代表一定已經開始執行。
+
+「否則 Assignee 的語意會太窄。」
+
+QA：
+
+「我比較在意 Done 的語意。」
+
+「如果 v0.1 沒有完整 Review 流程，那 Active → Done 可以代表任務完成。」
+
+「但我們要留下 Open Question：未來如果加入 Review，Done 可能要經過 Review 或 Accepted。」
+
+Facilitator：
+
+「這裡我先替 RD 標出一個待確認問題：」
+
+TaskAssigned 是否應該放在 Ready 之前或之後？
+
+「因為這會影響主流程怎麼畫。」
+
+Facilitator：
+
+「目前看起來，大家比較接近候選流程 C。」
+
+「也就是：」
+
+Task 的 Workflow State 流程是一條線；
+TaskAssigned 是可以在不同狀態中發生的事件，不一定是主流程中的固定一步。
+
+「這樣會比較符合平台彈性。」
+
+```mermaid
+flowchart LR
+    A((TaskCreated))
+    B((TaskStateChanged:
+    Backlog → Ready))
+    C((TaskStateChanged:
+    Ready → Active))
+    D((TaskStateChanged:
+    Active → Done))
+
+    A --> B --> C --> D
+
+    X((TaskAssigned))
+    A -.-> X
+    B -.-> X
+    C -.-> X
+
+    P((TaskPriorityChanged))
+    U((TaskMarkedUrgent))
+    R((TaskUrgencyReasonRecorded))
+
+    A -.-> P
+    A -.-> U --> R
+```
+
+Round 2 暫定事件語意
+TaskCreated
+
+代表任務被建立。
+
+目前暫定：
+
+Task 建立後進入 Workflow 的 initial state。
+
+例如：
+
+Backlog
+
+但 initial state 由 Workflow 設定決定。
+
+TaskStateChanged
+
+代表任務從某個 Workflow State 移動到另一個 Workflow State。
+
+範例：
+
+Backlog → Ready
+Ready → Active
+Active → Done
+
+這個事件取代上一輪中的多數具體狀態事件，例如：
+
+TaskStarted
+TaskSubmittedForReview
+TaskCompleted
+TaskAssigned
+
+代表任務被指派主要負責人。
+
+暫定語意：
+
+TaskAssigned 不必然代表 Task Ready。
+TaskAssigned 不必然代表 Task Started。
+TaskAssigned 只代表目前有人被指定為主要負責人。
+TaskPriorityChanged
+
+代表任務優先度被調整。
+
+暫時列為支援事件。
+
+TaskMarkedUrgent
+
+代表任務被標記為緊急。
+
+暫定要求：
+
+若 TaskMarkedUrgent，需記錄 urgency reason。
+TaskUrgencyReasonRecorded
+
+代表緊急原因被記錄。
+
+Round 2 目前 Open Questions
+1. Task 建立後是否一定進入 Backlog？
+   還是由 Workflow.InitialState 決定？
+
+2. TaskAssigned 是否只允許一位 assignee？
+   v0.1 是否先採單一 assignee？
+
+3. TaskAssigned 是否應改名為 TaskAssigneeChanged？
+   因為它可能涵蓋初次指派與重新指派。
+
+4. TaskStateChanged 是否需要記錄 fromState / toState 的 Category？
+   還是只記錄 StateId，再查 WorkflowState？
+
+5. Active → Done 是否足以代表 v0.1 的完成？
+   還是 v0.1 至少要有 Review？
+
+6. TaskMarkedUrgent 和 TaskPriorityChanged 的關係是什麼？
+   Urgent 是否會自動影響排序？
+
+Facilitator：
+
+「Round 2 先停在這裡。」
+
+「目前我們把主流程收斂成：」
+
+TaskCreated
+→ TaskStateChanged
+→ TaskStateChanged
+→ TaskStateChanged
+
+「而 TaskAssigned、TaskPriorityChanged、TaskMarkedUrgent 不作為主流程固定節點，而是可以在任務生命週期中發生的支援事件。」
+
+RD：
+
+「從目前主流程圖來看，TaskAssigned 似乎不是必要事件。也就是說，從 TaskCreated 到 Task 進入 Done，中間都沒有經過 TaskAssigned，是否可以被接受？」
+
+「另外，TaskAssigned 是否只會發生一次？如果發生多次，第二次之後仍然叫 TaskAssigned，還是應該變成 TaskAssigneeChanged？我們是否需要額外區分第一次指派和第二次指派？」
+
+Facilitator：
+
+「這是一個很好的問題。它其實包含兩個議題：」
+
+1. 任務完成前是否一定要被指派？
+2. 初次指派與重新指派是否需要不同事件？
+
+「我們先請 PO 和 Domain Expert 回答業務語意，再讓 PM、QA、RD補充。」
+
+PO：
+
+「我認為從產品角度來看，TaskAssigned 不應該是完成任務的絕對必要條件。」
+
+「原因是有些團隊的工作方式不一定會正式指派任務。例如：」
+
+小型團隊中，任務可能由成員自行認領。
+個人使用者使用 RonFlow 時，所有任務其實都是自己做。
+某些文件或研究任務可能只是被完成，不一定需要明確 assignee。
+
+「所以如果我們把 TaskAssigned 設為必經事件，會讓 RonFlow 的使用方式變窄。」
+
+「不過，如果任務沒有 assignee，系統仍然應該允許使用者完成它。」
+
+Domain Expert：
+
+「我同意 PO 的說法。真實專案裡，任務可以沒有負責人，但管理上會有風險。」
+
+「沒有 assignee 的任務可能代表：」
+
+尚未分工
+團隊自行認領
+任務太小，大家默認有人會處理
+個人專案，不需要指派
+流程設計不成熟
+
+「所以我會說：」
+
+TaskAssigned 不應該是任務完成的硬性前置條件。
+但系統可以用提示或警示提醒：未指派任務被推進或完成。
+
+「這是管理品質問題，不一定是領域規則。」
+
+PM：
+
+「從 PM 角度，我不會要求 v0.1 強制所有任務都要有 assignee。」
+
+「但是我會要求系統能支援這種管理視角：」
+
+哪些任務尚未指派？
+哪些未指派任務已經進入 Active？
+哪些未指派任務已經 Done？
+
+「因為未指派任務進入 Active 或 Done 不一定錯，但它是值得注意的訊號。」
+
+QA：
+
+「如果 v0.1 不強制指派，那驗收測試就要明確寫出來。」
+
+「例如：」
+
+Scenario: Task can be completed without assignee
+Given a task exists without assignee
+When the task state is changed to Done
+Then the task should be considered completed
+And no assignment error should be raised
+
+「這樣未來才不會有人誤以為完成任務一定要先指派。」
+
+```mermaid
+flowchart LR
+    A((TaskCreated))
+    B((TaskStateChanged:
+    Initial → Ready))
+    C((TaskStateChanged:
+    Ready → Active))
+    D((TaskStateChanged:
+    Active → Done))
+
+    A --> B --> C --> D
+
+    X((TaskAssigned))
+    A -. optional .-> X
+    B -. optional .-> X
+    C -. optional .-> X
+
+    N["Decision Candidate:
+    TaskAssigned is optional in v0.1"]
+
+    X -.-> N
+```
+
+Facilitator：
+
+「接著討論第二個問題：第一次指派和之後的改派，要不要分成不同事件？」
+
+Domain Expert：
+
+「在真實管理上，第一次指派和改派確實有不同意思。」
+
+「第一次指派代表：」
+
+這個任務開始有負責人。
+
+「重新指派代表：」
+
+責任從一個人轉移到另一個人。
+
+「改派通常更需要知道原因，例如：」
+
+原負責人請假
+工作內容改變
+更適合的人接手
+人力重新分配
+緊急插單導致重新安排
+
+「所以從業務語意來看，TaskAssigned 和 TaskReassigned 是可以分開的。」
+
+PO：
+
+「我理解兩者語意不同，但 v0.1 不一定要暴露兩種事件。」
+
+「如果我們設計成一個通用事件：」
+
+TaskAssigneeChanged
+
+「事件內容包含：」
+
+previousAssignee
+newAssignee
+
+「那第一次指派時：」
+
+previousAssignee = null
+newAssignee = Ron
+
+「取消指派時：」
+
+previousAssignee = Ron
+newAssignee = null
+
+「重新指派時：」
+
+previousAssignee = Ron
+newAssignee = Alice
+
+「這樣技術模型比較簡潔，也能表達三種情境。」
+
+PM：
+
+「我傾向 PO 的設計，但希望系統仍然能查出：」
+
+初次指派
+重新指派
+取消指派
+
+「如果用 TaskAssigneeChanged，只要有 previousAssignee 和 newAssignee，其實可以推導。」
+
+情境	previousAssignee	newAssignee	可推導語意
+初次指派	null	user	Assigned
+重新指派	user A	user B	Reassigned
+取消指派	user	null	Unassigned
+
+「所以我可以接受用一個事件。」
+
+QA：
+
+「如果用一個事件 TaskAssigneeChanged，測試會比較一致。」
+
+「但需要明確定義不合法情境，例如：」
+
+previousAssignee 和 newAssignee 都是 null，不應該產生事件。
+previousAssignee 等於 newAssignee，不應該產生事件。
+
+「還要確認是否支援未指派狀態。」
+
+```mermaid
+flowchart LR
+    A["Assignment Change"]
+
+    A --> B["TaskAssigned
+    previous = null
+    new = user"]
+
+    A --> C["TaskReassigned
+    previous = user A
+    new = user B"]
+
+    A --> D["TaskUnassigned
+    previous = user
+    new = null"]
+
+    A --> E["Option:
+    TaskAssigneeChanged
+    previousAssignee
+    newAssignee"]
+
+    B -.-> E
+    C -.-> E
+    D -.-> E
+
+```
+
+Round 2 更新後主流程
+
+```mermaid
+flowchart LR
+    A((TaskCreated))
+    B((TaskStateChanged:
+    Initial → Ready))
+    C((TaskStateChanged:
+    Ready → Active))
+    D((TaskStateChanged:
+    Active → Done))
+
+    A --> B --> C --> D
+
+    X((TaskAssigneeChanged))
+    A -. optional .-> X
+    B -. optional .-> X
+    C -. optional .-> X
+
+    N1["Task can be completed without assignee"]
+    N2["Assignee change is optional and can happen at multiple states"]
+
+    X -.-> N2
+    D -.-> N1
+```
+
+新增 Open Questions
+1. TaskAssigneeChanged 是否需要 reason？
+   v0.1 可以先 nullable。
+
+2. 是否允許多人 assignee？
+   v0.1 暫定單一 assignee。
+
+3. 未指派任務進入 Active / Done 是否需要 warning？
+   v0.1 可先不強制，只保留未來管理視角。
+
+4. 若 previousAssignee = newAssignee，是否應拒絕產生事件？
+   傾向是：不產生事件。
+
+
+Facilitator：
+
+「我們目前仍在第二輪事件風暴，目標是梳理 RonFlow v0.1 的最小流程。」
+
+「上一段已經確認：」
+
+TaskAssigneeChanged 不是主流程必經事件。
+Task 可以不經指派而完成。
+初次指派、重新指派、取消指派，v0.1 先用 TaskAssigneeChanged 統一處理。
+
+「現在我們要處理主流程裡最核心的事件：」
+
+TaskStateChanged
+
+「這個事件會承接上一輪提到的許多具體狀態語意，例如：」
+
+TaskStarted
+TaskSubmittedForReview
+TaskCompleted
+TaskRejected
+TaskReopened
+
+「但問題是，如果只記錄 TaskStateChanged，系統怎麼知道任務是開始了、進入驗收了，還是完成了？」
+
+「這一段我們先處理四個問題：」
+
+1. TaskCreated 後是否一定進入 Backlog？
+2. WorkflowState.Category 是否必要？
+3. TaskStateChanged 要記錄什麼？
+4. Active → Done 是否足以代表 v0.1 的完成？
+
+PO：
+
+「我認為不應該寫死一定進入 Backlog。」
+
+「RonFlow 是平台，不是固定流程系統。不同團隊可能會希望新任務一建立就進入不同初始狀態。」
+
+「例如有些團隊的初始狀態叫：」
+
+Backlog
+Todo
+待處理
+未開始
+需求池
+
+「所以系統不應該假設初始狀態名稱一定是 Backlog。」
+
+Domain Expert：
+
+「從實務上來說，大多數任務剛建立時確實會進入某種類似 Backlog / Todo 的狀態。」
+
+「但 PO 說得對，名稱不應該寫死。」
+
+「我會建議 RonFlow 需要一個概念：」
+
+Workflow.InitialState
+
+「任務建立後，自動進入該 Workflow 的初始狀態。」
+
+PM：
+
+「我同意。管理上我只需要知道任務剛建立時是在某個初始狀態。」
+
+「至於那個狀態叫 Backlog、Todo、待辦，應該由團隊自己定義。」
+
+QA：
+
+「那測試上要明確定義：」
+
+When Task is created
+Then Task current state should be Workflow.InitialState
+
+「而不是：」
+
+Then Task current state should be Backlog
+
+「這樣才不會把 Backlog 寫死。」
+
+Facilitator：
+
+「目前這點看起來有共識：」
+
+TaskCreated 後不固定進入 Backlog。
+TaskCreated 後進入該 Workflow 的 Initial State。
+
+```mermaid
+
+flowchart LR
+    W["Workflow"]
+    I["Initial State
+    由 Workflow 設定"]
+
+    W --> I
+
+    A((TaskCreated))
+    A --> S["Task.CurrentState = Workflow.InitialState"]
+
+    I --> S
+
+
+```
+
+Facilitator：
+
+「接著討論 WorkflowState.Category。」
+
+「如果狀態名稱可以自訂，例如：」
+
+待辦
+處理中
+驗收中
+已完成
+
+「那系統怎麼知道哪個是未開始、哪個是進行中、哪個是完成？」
+
+PO：
+
+「我認為 Category 必要。」
+
+「因為 RonFlow 不只是把卡片放在欄位裡。系統至少要能回答：」
+
+這個任務是否完成？
+這個任務是否正在進行？
+這個任務是否已取消？
+
+「如果只有使用者自訂名稱，系統無法穩定判斷。」
+
+PM：
+
+「從管理角度，Category 很重要。」
+
+「例如不同團隊可能這樣命名：」
+
+Team A	Team B	Category
+Todo	待處理	NotStarted
+Doing	開發中	Active
+QA	驗收中	Review
+Done	已完成	Done
+
+「如果沒有 Category，跨專案統計、完成率、逾期狀態都很難做。」
+
+QA：
+
+「我也支持 Category。否則測試很難寫。」
+
+「例如我要測：任務移到完成狀態後，系統應該記錄 CompletedAt。」
+
+「如果沒有 Category，我只能依賴狀態名稱叫 Done。這很危險。」
+
+Domain Expert：
+
+「但 Category 不應該太多。」
+
+「如果一開始設太細，使用者會被迫理解系統分類，反而失去自訂 workflow 的彈性。」
+
+「我建議 v0.1 先有少量 Category。」
+
+Facilitator：
+
+「目前候選 Category 可以是：」
+
+Backlog
+Ready
+Active
+Review
+Done
+Canceled
+
+「但這裡有一個問題：Backlog 和 Ready 是否都必要？」
+
+PM：
+
+「從管理上，Backlog 和 Ready 有差異。」
+
+Backlog = 還只是工作池，未必可以開始做。
+Ready = 已經釐清，可以開始安排。
+
+「但 v0.1 如果要簡化，也可以先只有：」
+
+NotStarted
+Active
+Review
+Done
+Canceled
+
+PO：
+
+「我會偏向先做：」
+
+Todo
+Active
+Review
+Done
+Canceled
+
+「但 Todo 這個字可能不夠表達 Backlog / Ready 的差別。」
+
+QA：
+
+「我建議 Category 用更中性的命名，不要太像看板欄位名稱。」
+
+例如：
+
+NotStarted
+InProgress
+WaitingForReview
+Completed
+Canceled
+
+Facilitator：
+
+「目前看起來，大家同意 Category 必要，但 Category 命名還未定案。」
+
+「本段先不決定最終枚舉名稱，只確認：」
+
+WorkflowState 必須有系統可理解的 Category。
+
+```mermaid
+flowchart LR
+    WS["WorkflowState"]
+
+    WS --> N["Name
+    使用者自訂
+    例：開發中 / QA / 已完成"]
+
+    WS --> C["Category
+    系統語意
+    例：NotStarted / Active / Review / Done / Canceled"]
+
+    C --> SYS["System can understand:
+    是否開始
+    是否進行中
+    是否驗收中
+    是否完成
+    是否取消"]
+
+```
+
+Facilitator：
+
+「如果 TaskStateChanged 是主流程核心事件，那它至少需要記錄 from / to。」
+
+「但要記錄到什麼程度？」
+
+Facilitator：
+
+「可能有兩種做法：」
+
+方案 A：
+事件只記錄 FromStateId / ToStateId。
+
+方案 B：
+事件同時記錄 StateId、StateName、StateCategory snapshot。
+
+PO：
+
+「我傾向方案 B。」
+
+「因為 workflow state 名稱可能之後被改。」
+
+「例如原本叫 QA，後來改成 驗收中。如果事件只記 StateId，未來看歷史紀錄時，會看到新的名稱，可能和當時情境不一致。」
+
+QA：
+
+「我也支持 snapshot。」
+
+「事件是已發生的事實，應該盡量保留當下語意。」
+
+「不然測試歷史或 audit log 時會有問題。」
+
+PM：
+
+「從管理角度，如果我要看一個月前任務怎麼流動，我希望看到當時的狀態名稱，而不是後來被改過的名稱。」
+
+Domain Expert：
+
+「這也符合業務紀錄。歷史事件應該反映當下發生時的語言。」
+
+Facilitator：
+
+「目前看起來，TaskStateChanged 應該記錄：」
+
+TaskId
+FromStateId
+FromStateName snapshot
+FromStateCategory snapshot
+ToStateId
+ToStateName snapshot
+ToStateCategory snapshot
+ChangedAt
+ChangedBy
+
+「至於 Reason 是否需要，先列為 optional。」
+
+```mermaid
+classDiagram
+    class TaskStateChanged {
+        TaskId
+        FromStateId
+        FromStateNameSnapshot
+        FromStateCategorySnapshot
+        ToStateId
+        ToStateNameSnapshot
+        ToStateCategorySnapshot
+        ChangedAt
+        ChangedBy
+        Reason?
+    }
+```
+
+Facilitator：
+
+「最後處理本段最關鍵問題：在 v0.1 裡，任務從 Active 類型狀態進入 Done 類型狀態，是否就代表完成？」
+
+PO：
+
+「以 v0.1 來說，我認為可以。」
+
+「v0.1 目標是最小可用開源版本，不應該一開始就強制完整 Review 流程。」
+
+「如果某個團隊想要 Review，可以建立一個 Category 是 Review 的 state，但系統不應該強迫每個任務一定經過 Review。」
+
+QA：
+
+「我可以接受 v0.1 不強制 Review。」
+
+「但完成的定義要清楚：」
+
+Task 進入 Category = Done 的 WorkflowState 時，視為完成。
+
+「並且應該記錄 CompletedAt。」
+
+PM：
+
+「同意。不一定每個任務都需要 Review。」
+
+「有些任務像文件整理、小型修正，直接 Done 是合理的。」
+
+Domain Expert：
+
+「我建議保留 Review Category，但不強制。」
+
+「這樣工具有彈性：」
+
+簡單團隊：
+Todo → Doing → Done
+
+稍微正式的團隊：
+Backlog → Ready → In Progress → Review → Done
+
+Facilitator：
+
+「目前共識是：」
+
+v0.1 不強制 Review。
+Task 進入 Category = Done 的 state 時，視為完成。
+是否經過 Review，由 workflow 設定決定。
+
+第 3 段暫定結論
+1. TaskCreated 後的初始狀態
+TaskCreated 後，Task 進入 Workflow.InitialState。
+不寫死為 Backlog。
+2. WorkflowState.Category
+WorkflowState 必須有 Category。
+使用者可以自訂 State Name。
+系統透過 Category 理解狀態語意。
+3. TaskStateChanged
+TaskStateChanged 是 v0.1 任務流程的核心事件。
+它取代 TaskStarted、TaskSubmittedForReview、TaskCompleted 等固定狀態事件。
+4. TaskStateChanged 事件內容
+需要記錄 from / to state 的 id、name snapshot、category snapshot。
+5. 完成語意
+Task 進入 Category = Done 的 WorkflowState 時，視為完成。
+v0.1 不強制 Review。
+Review 可作為 workflow 的 optional state。
+
+```mermaid
+flowchart LR
+    A((TaskCreated))
+    B["Task.CurrentState = Workflow.InitialState"]
+    C((TaskStateChanged))
+    D((TaskStateChanged))
+    E["State.Category = Done"]
+    F["Task considered completed"]
+
+    A --> B --> C --> D --> E --> F
+
+    X((TaskAssigneeChanged))
+    B -. optional .-> X
+    C -. optional .-> X
+    D -. optional .-> X
+
+    U((TaskMarkedUrgent))
+    B -. optional .-> U
+```
+
+新增 Open Questions
+1. WorkflowState.Category 的正式枚舉值要怎麼命名？
+2. 是否允許多個 Done 類型 state？
+3. 是否允許從 Done 回到非 Done？
+4. 進入 Done 時是否要產生額外 TaskCompleted 事件？
+5. CompletedAt 是 Task 欄位，還是由事件推導？
+6. StateName / Category snapshot 是否會造成事件資料冗餘？
+7. Workflow.InitialState 是否必須是 Category = NotStarted / Backlog 類型？
+
+RD：
+
+「我目前的看法是：」
+
+1. 需要 WorkflowState.Category。
+2. TaskStateChanged 應該記錄 snapshot。
+3. 需要 TaskCompleted。
+   因為未來可能會有主任務 / 子任務情境。
+   當多個子任務完成時，可能會連帶代表主任務完成。
+   這會產生 TaskCompleted 傳播行為。
+4. 應該要有 CompletedAt。
+   至於是否保留在 Task 上，目前想到主要是查詢效能差異。
+5. Done → Active 讓我想到 bug 修復後，下一版又復發的情境。
+   這時到底應該建立新 Task，還是把原本 Task 重新回到 Active，需要討論。
+
+Facilitator：
+
+「RD 這幾點很重要，尤其是 TaskCompleted。」
+
+「我們剛才原本傾向只用：」
+
+TaskStateChanged(toState.Category = Done)
+
+「來表示完成。」
+
+「但 RD 提出主任務 / 子任務的情境後，TaskCompleted 可能就不只是狀態變更的別名，而是一個具有後續傳播意義的業務事件。」
+
+PO：
+
+「我同意 TaskCompleted 有價值。」
+
+「但我會區分兩種事件：」
+
+1. TaskStateChanged
+   表示任務狀態被移動到某個 WorkflowState。
+
+2. TaskCompleted
+   表示任務在業務語意上被判定為完成。
+
+「例如使用者把 Task 移到 Done 狀態時，系統可以先產生：」
+
+TaskStateChanged
+
+「然後因為 toState.Category = Done，系統再產生：」
+
+TaskCompleted
+
+「這樣 TaskCompleted 可以被其他流程訂閱，例如主任務完成判斷、進度統計、里程碑更新。」
+
+Domain Expert：
+
+「我支持保留 TaskCompleted。」
+
+「因為在管理語言裡，『任務完成』是非常重要的業務事實。」
+
+「即使底層是狀態變更觸發，對領域來說，完成仍然值得成為獨立事件。」
+
+「尤其主任務 / 子任務情境非常常見。」
+
+例如：
+
+主任務：建立登入功能
+子任務：
+- 建立登入 API
+- 建立登入畫面
+- 建立登入驗收測試
+
+「當所有子任務都完成時，主任務可能也被判定完成。這時不是有人手動移動主任務狀態，而是由子任務完成結果推導出主任務完成。」
+
+QA：
+
+「如果有 TaskCompleted，那 Done → Active 的情境就不能只是另一個 TaskStateChanged 而已。」
+
+「因為如果任務已完成後又回到 Active，代表完成狀態被撤銷，或者任務被重新開啟。」
+
+「這可能需要事件：」
+
+TaskReopened
+
+「否則測試上會不清楚：」
+
+這個任務是從未完成？
+還是已完成後又被打回？
+
+PM：
+
+「在管理上，我認為 Done → Active 應該可以發生。」
+
+「因為實務上確實會遇到：」
+
+任務被誤判完成
+QA 後來發現問題
+需求方驗收後又退回
+上線後發現修復不完整
+
+「但它不能只是普通狀態變更。它應該被明確記錄，最好需要原因。」
+
+「例如：」
+
+TaskReopened
+reason: bug reproduced in next version
+
+白板更新：完成與重新開啟
+
+```mermaid
+flowchart LR
+    A((TaskStateChanged))
+    B["toState.Category = Done"]
+    C((TaskCompleted))
+    D["Parent / Progress / Metrics may react"]
+
+    A --> B --> C --> D
+
+    E["Task already completed"]
+    F((TaskStateChanged))
+    G["toState.Category != Done"]
+    H((TaskReopened))
+
+    E --> F --> G --> H
+
+```
+
+Facilitator：
+
+「RD 提到的主任務 / 子任務，是一個重要擴充點。我們先不要完整設計子任務，但可以先記錄事件傳播語意。」
+
+PO：
+
+「v0.1 不一定要做子任務，但我們現在可以先在事件語意上保留擴充可能。」
+
+「所以 TaskCompleted 作為明確事件是合理的。」
+
+Facilitator：
+
+「接著討論 CompletedAt。」
+
+「RD 認為應該要有，但是否保留在 Task 上，可能主要是查詢效能考量。」
+
+PM：
+
+「管理上一定需要完成時間。」
+
+「例如：」
+
+任務何時完成？
+Sprint 內完成了多少任務？
+平均完成時間是多少？
+哪些任務逾期完成？
+
+「所以 CompletedAt 是必要資訊。」
+
+QA：
+
+「如果任務完成後又 reopened，再次完成，會有多個完成時間。」
+
+「這時 Task 上的 CompletedAt 應該代表哪一次？」
+
+Facilitator：
+
+「這裡有兩層資料：」
+
+事件歷史：
+TaskCompleted occurred at T1
+TaskReopened occurred at T2
+TaskCompleted occurred at T3
+
+目前狀態快照：
+Task.CompletedAt = T3
+
+「也就是說，事件流可以保留所有歷史，而 Task 上可以保留目前最新完成時間作為查詢最佳化。」
+
+建議收斂
+TaskCompleted event 必須有 CompletedAt。
+Task entity / read model 可以保留 CompletedAt 作為目前完成時間快照。
+如果 TaskReopened，Task.CompletedAt 可被清空或保留為 LastCompletedAt，需後續決定。
+
+白板更新：CompletedAt 與事件歷史
+
+```mermaid
+flowchart LR
+    A((TaskCompleted at T1))
+    B((TaskReopened at T2))
+    C((TaskCompleted at T3))
+
+    A --> B --> C
+
+    R["Read Model / Task Snapshot"]
+    C --> R
+
+    R --> X["CompletedAt / LastCompletedAt = T3"]
+```
+
+Facilitator：
+
+「最後討論 RD 提出的 bug 復發案例。」
+
+「例如：」
+
+Bug 修復了，Task Done。
+但下一個版本又出現，可能被另一個 RD 的 commit 覆蓋。
+
+「這時應該建立新 Task，還是把原 Task 從 Done 拉回 Active？」
+
+Domain Expert：
+
+「我會用一個問題判斷：」
+
+這是原本任務其實沒有完成？
+還是完成後出現了新的問題？
+
+「如果是原本任務被誤判完成，例如 QA 發現其實沒修好，那應該 reopen 原任務。」
+
+「如果是後來新版本又被其他變更破壞，這比較像新的 bug，應該建立新 Task，並連結到原任務。」
+
+QA：
+
+「以測試語境來說，如果 bug 修復後在下一版又復發，通常會稱為 regression。」
+
+「它可以建立新的 bug task，並標記：」
+
+RegressionOf: 原 Task
+
+「因為它代表新的測試發現、新的修復流程，也有新的責任與時間。」
+
+「但如果只是剛剛才驗收就發現不通過，那比較像 reject / reopen。」
+
+PM：
+
+「我也傾向 regression 建新任務。」
+
+「否則一個任務可能跨很多版本一直打開關閉，會讓統計混亂。」
+
+「例如原本 sprint 已完成的任務，又在下一個 sprint 被 reopen，會影響完成率與歷史紀錄。」
+
+PO：
+
+「我建議 v0.1 先支援簡單 Reopen。」
+
+「但規則文件中定義：」
+
+如果是同一輪驗收未通過，可以 reopen 原任務。
+如果是後續版本復發，建議建立新任務並連結原任務。
+
+「RegressionOf 可以列為 future。」
+
+```mermaid
+flowchart TD
+    A["Issue found after Done"]
+
+    A --> B{"Was original work incorrectly completed?"}
+
+    B -- Yes --> C((TaskReopened))
+    C --> D["Original task returns to non-Done state"]
+
+    B -- No --> E((TaskCreated))
+    E --> F["New task linked to original task"]
+    F --> G["Future: RegressionOf relation"]
+```
+
+第 3 段更新後結論
+已確認
+1. WorkflowState.Category 必要。
+2. TaskStateChanged 應記錄 from / to state snapshot。
+3. TaskCompleted 需要保留為獨立事件。
+4. TaskCompleted 可由 TaskStateChanged(to Category = Done) 衍生。
+5. CompletedAt 必要。
+6. v0.1 可支援 TaskReopened。
+7. Done → Active 可以發生，但應視為 TaskReopened，不只是普通狀態變更。
+暫定事件規則
+TaskStateChanged
+
+表示 Task 從一個 workflow state 移動到另一個 workflow state。
+
+TaskCompleted
+
+當 Task 進入 Category = Done 的 state 時產生。
+
+可能來源：
+
+1. 使用者手動將 Task 移入 Done 類 state。
+2. 未來由子任務完成規則自動判定主任務完成。
+TaskReopened
+
+當已完成 Task 從 Done 類 state 移回非 Done 類 state 時產生。
+
+建議需要 reason。
+
+CompletedAt
+TaskCompleted event 必須記錄 CompletedAt。
+Task read model 可保留目前 CompletedAt 作為查詢快照。
+
+```mermaid
+flowchart LR
+    A((TaskCreated))
+    B["Task.CurrentState = Workflow.InitialState"]
+    C((TaskStateChanged))
+    D["State.Category = Active"]
+    E((TaskStateChanged))
+    F["State.Category = Done"]
+    G((TaskCompleted))
+
+    A --> B --> C --> D --> E --> F --> G
+
+    X((TaskAssigneeChanged))
+    B -. optional .-> X
+    D -. optional .-> X
+
+    R((TaskReopened))
+    F -. "Done → non-Done" .-> R
+```
+
+Open Questions 更新
+1. WorkflowState.Category 的正式枚舉值命名。2. 是否允許多個 Done 類型 state？3. TaskReopened 是否一定需要 reason？4. Task.CompletedAt 在 reopened 時要清空，還是改為 LastCompletedAt？5. 是否需要 CompletedCount / CompletionHistory read model？6. 子任務與主任務完成傳播是否納入 v0.1？   暫定不納入，但保留設計可能。7. Regression bug 是否要在 v0.1 支援 linked task？   暫定 future。
+
+Facilitator：
+「這一段我們先停在這裡。」
+「RD，你的幾點補充已經改變了我們對完成事件的設計：TaskCompleted 會被保留下來，而且不只是 TaskStateChanged 的同義詞。」
+「你可以確認一下：目前這樣收斂是否符合你的想法？尤其是這三點：」
+1. TaskCompleted 由 Done 類狀態觸發，但保留為獨立事件。2. TaskReopened 表示 Done → non-Done，需要明確語意。3. Regression 比較建議建立新 Task，並在未來支援 linked task。
+
+Facilitator：
+
+「我們繼續第二輪事件風暴。本輪目標仍然是梳理 RonFlow v0.1 的最小任務流程。」
+
+「上一段已確認：」
+
+TaskStateChanged 是任務狀態流轉的核心事件。
+TaskCompleted 需要獨立保留。
+TaskCompleted 可由 TaskStateChanged(to Category = Done) 觸發。
+Done → non-Done 應視為 TaskReopened。
+
+「現在要處理 Review / Rejected / Reopened 的關係。」
+
+目前白板
+```mermaid
+flowchart LR
+    A((TaskCreated))
+    B["Task.CurrentState = Workflow.InitialState"]
+    C((TaskStateChanged))
+    D["State.Category = Active"]
+    E((TaskStateChanged))
+    F["State.Category = Done"]
+    G((TaskCompleted))
+
+    A --> B --> C --> D --> E --> F --> G
+
+    R((TaskReopened))
+    F -. "Done → non-Done" .-> R
+```
+問題一：Review 是否只是 WorkflowState.Category 的一種？
+Facilitator
+
+「如果 RonFlow 支援自訂 workflow，那 Review 不應該被寫死成一個固定狀態名稱。」
+
+「但它可能是一種系統可以理解的狀態分類，也就是：」
+
+WorkflowState.Category = Review
+
+「請 PO 先說明產品角度。」
+
+PO
+
+「我認為 Review 應該是 optional category。」
+
+「有些團隊不需要 Review，流程可能是：」
+
+Todo → Doing → Done
+
+「但比較正式的團隊會需要：」
+
+Backlog → Ready → In Progress → Review → Done
+
+「所以 v0.1 不應強制 Review，但如果使用者想建立 Review 狀態，系統應該能理解它是 Review 類型。」
+
+Domain Expert
+
+「我同意。Review 是常見流程，但不是所有任務都需要。」
+
+「例如文件整理、小型修正、個人任務，可能不經 Review。」
+
+「但對開發任務、QA 驗收、PO 驗收來說，Review 很重要。」
+
+QA
+
+「從 QA 角度，Review 是必要語意，但不一定是必要流程。」
+
+「也就是說，系統可以允許沒有 Review，但如果 workflow 裡有 Review，系統要知道那代表任務正在等待檢查或驗收。」
+
+PM
+
+「管理上我也會想知道哪些任務卡在 Review。這和 Active 不一樣。」
+
+「Active 是正在做，Review 是做完一部分但等待確認。」
+
+Facilitator 收斂
+Review 不作為 v0.1 必經流程。
+Review 可作為 WorkflowState.Category。
+是否經過 Review，由 workflow 設定決定。
+白板更新：Review 作為 optional category
+
+```mermaid
+flowchart LR
+    A["WorkflowState"]
+
+    A --> N["Name: 使用者自訂
+    例：QA / 驗收中 / Review"]
+    A --> C["Category: Review"]
+
+    C --> M["System Meaning:
+    等待檢查 / 驗收 / 確認"]
+
+    X["Review is optional"]
+    C -.-> X
+```
+
+問題二：Review → Active 是否需要 TaskRejected？
+Facilitator
+
+「接著討論：如果 Task 從 Review 回到 Active，這只是普通的 TaskStateChanged，還是也應該產生 TaskRejected？」
+
+「例如：」
+
+Review → Active
+
+「這可能代表驗收未通過，被退回處理。」
+
+QA
+
+「我會希望有 TaskRejected。」
+
+「原因是 Review → Active 不一定只是拖曳狀態，它在業務上代表：」
+
+這個任務被檢查過，但未通過。
+
+「這跟一般狀態變更不同。」
+
+「如果沒有 TaskRejected，之後很難知道這個任務是否曾經被退回過。」
+
+PO
+
+「我同意 TaskRejected 有產品價值，因為退回是很重要的協作訊號。」
+
+「但我會把它定義成衍生事件，而不是使用者直接操作。」
+
+「例如使用者把任務從 Review 類狀態移回 Active 類狀態，系統產生：」
+
+TaskStateChanged
+TaskRejected
+Domain Expert
+
+「這合理。」
+
+「在實務上，退回通常表示某種不符合期待，例如：」
+
+需求不符
+測試未通過
+文件不足
+實作有 bug
+驗收條件未達成
+
+「所以 TaskRejected 最好能留下原因。」
+
+PM
+
+「退回次數也會影響管理判斷。」
+
+「如果一個任務反覆 Review → Active，可能代表需求不清楚、品質問題，或驗收標準不一致。」
+
+「所以 TaskRejected 有統計價值。」
+
+Facilitator 收斂
+Review → Active 類型的狀態變更，應可衍生 TaskRejected。
+TaskRejected 表示任務在 Review / 驗收階段未被接受，需要回到處理狀態。
+TaskRejected 建議需要 reason，但 v0.1 可先 nullable 或 optional。
+白板更新：TaskRejected
+
+```mermaid
+flowchart LR
+    A((TaskStateChanged))
+    B["from.Category = Review"]
+    C["to.Category = Active / Ready"]
+    D((TaskRejected))
+    E["Reason?"]
+
+    A --> B --> C --> D --> E
+```
+問題三：TaskRejected 和 TaskReopened 的差異是什麼？
+Facilitator
+
+「現在我們要釐清 TaskRejected 和 TaskReopened。」
+
+「兩者都可能讓任務回到非完成狀態，但語意不同。」
+
+QA
+
+「我認為差異很明確。」
+
+TaskRejected：
+任務還沒有真正完成，只是在 Review 階段被退回。
+
+TaskReopened：
+任務已經被視為完成，後來又被重新打開。
+
+「所以關鍵差異是：任務是否已經進入 Done。」
+
+PO
+
+「我同意。」
+
+「也就是：」
+
+Review → Active = TaskRejected
+Done → Active = TaskReopened
+
+「兩者在產品語意上不一樣。」
+
+PM
+
+「管理上也不同。」
+
+「Rejected 代表交付品質或驗收問題。」
+
+「Reopened 代表已完成事項被重新打開，可能影響已完成統計、Sprint 結果、版本紀錄。」
+
+Domain Expert
+
+「如果任務一直在 Review 和 Active 之間來回，這是驗收流程中的退回。」
+
+「如果任務已經 Done，過一段時間又發現問題，那是重新開啟。」
+
+Facilitator 收斂
+事件	觸發情境	語意
+TaskRejected	Review 類狀態 → 非 Review / 非 Done，通常回 Active 或 Ready	驗收 / 檢查未通過
+TaskReopened	Done 類狀態 → 非 Done 類狀態	已完成任務被重新打開
+白板更新：Rejected vs Reopened
+```mermaid
+flowchart LR
+    R["Review State"]
+    A["Active / Ready State"]
+    D["Done State"]
+
+    R -->|Review failed| A
+    A1((TaskRejected))
+    R -.-> A1
+
+    D -->|Done revoked / reopened| A
+    A2((TaskReopened))
+    D -.-> A2
+```
+
+問題四：Review → Done 是否需要 TaskAccepted？
+Facilitator
+
+「如果 Review → Active 會產生 TaskRejected，那 Review → Done 是否需要 TaskAccepted？」
+
+QA
+
+「從 QA 角度，Review → Done 可以代表驗收通過。」
+
+「我會覺得 TaskAccepted 有語意價值。」
+
+PO
+
+「但是我們已經有 TaskCompleted。」
+
+「如果 Review → Done 同時產生：」
+
+TaskStateChanged
+TaskAccepted
+TaskCompleted
+
+「事件可能變多。」
+
+「對 v0.1 來說，我認為 TaskCompleted 就足以代表任務被完成。」
+
+Domain Expert
+
+「Accepted 比較強調『有人接受了成果』，Completed 比較強調任務生命週期完成。」
+
+「如果 RonFlow 未來要做 PO 驗收或 QA 驗收，TaskAccepted 可能有價值。」
+
+「但 v0.1 可以先不做。」
+
+PM
+
+「我同意 v0.1 先不做 TaskAccepted。」
+
+「完成率、交付狀態先靠 TaskCompleted 就好。」
+
+QA
+
+「可以接受，但要保留 open question。」
+
+Facilitator 收斂
+v0.1 先不保留 TaskAccepted 作為核心事件。
+Review → Done 會產生 TaskStateChanged 與 TaskCompleted。
+TaskAccepted 列為 Future / Optional，未來若導入正式驗收流程再考慮。
+白板更新：Review → Done
+```mermaid
+flowchart LR
+    A["Review State"]
+    B["Done State"]
+    C((TaskStateChanged))
+    D((TaskCompleted))
+    E((TaskAccepted? Future))
+
+    A --> C --> B --> D
+    B -.-> E
+```
+
+問題五：v0.1 是否需要完整 Review 流程？
+Facilitator
+
+「綜合剛才討論，請 PO 做產品決策。」
+
+PO
+
+「v0.1 不強制完整 Review 流程。」
+
+「但 v0.1 的 workflow category 應該允許 Review。」
+
+「如果使用者建立 Review 類狀態，系統可以支援：」
+
+Active → Review
+Review → Done
+Review → Active / Ready
+
+「其中：」
+
+Review → Done 會產生 TaskCompleted。
+Review → Active / Ready 會產生 TaskRejected。
+QA
+
+「我同意。」
+
+PM
+
+「我也同意，這樣可以支援簡單團隊，也支援稍微正式的流程。」
+
+第 4 段正式結論
+1. Review
+Review 是 optional WorkflowState.Category。
+v0.1 不強制每個任務都經過 Review。
+2. TaskRejected
+TaskRejected 需要保留。
+當 Task 從 Review 類狀態移回 Active / Ready 等非 Done 狀態時，可產生 TaskRejected。
+TaskRejected 建議支援 reason。
+3. TaskReopened
+TaskReopened 與 TaskRejected 不同。
+TaskReopened 發生在 Done → non-Done。
+TaskRejected 發生在 Review → non-Done。
+4. TaskAccepted
+v0.1 不保留 TaskAccepted 作為核心事件。
+Review → Done 先由 TaskCompleted 表達。
+TaskAccepted 列為 Future / Optional。
+5. Review 流程
+v0.1 不強制 Review。
+但若 workflow 中有 Review 類狀態，系統應能理解其語意。
+第 4 段收斂後白板
+```mermaid
+flowchart LR
+    A((TaskCreated))
+    B["Workflow.InitialState"]
+    C["Active State"]
+    R["Review State"]
+    D["Done State"]
+
+    A --> B
+    B -->|TaskStateChanged| C
+    C -->|TaskStateChanged| R
+    R -->|TaskStateChanged| D
+    D --> TC((TaskCompleted))
+
+    R -->|TaskStateChanged| C
+    C2((TaskRejected))
+    R -. "Review → Active / Ready" .-> C2
+
+    D -->|TaskStateChanged| C
+    R2((TaskReopened))
+    D -. "Done → non-Done" .-> R2
+```
+更新後 v0.1 候選事件清單
+核心事件
+TaskCreated
+TaskStateChanged
+TaskCompleted
+TaskRejected
+TaskReopened
+支援事件
+TaskAssigneeChanged
+TaskPriorityChanged
+TaskMarkedUrgent
+TaskUrgencyReasonRecorded
+Future / Optional
+TaskAccepted
+TaskBlocked
+TaskUnblocked
+TaskDependencyAdded
+TaskSplit
+ParentTaskCompletedBySubtasks
+RegressionTaskLinked
+新增 Open Questions
+1. TaskRejected 是否一定需要 reason？
+2. Review → Ready 是否也算 TaskRejected？
+3. 若 Review → Canceled，是否算 Rejected 還是 Canceled？
+4. TaskAccepted 未來是否應該獨立於 TaskCompleted？
+5. 如果 workflow 沒有 Review 類狀態，TaskRejected 是否永遠不會發生？
+
+第二輪事件風暴會議 / 第 4 段正式結論
+
+目前確認：
+
+1. v0.1 保留 TaskRejected。
+2. TaskAccepted 先放 Future / Optional。
+3. Review → Active / Ready 類狀態，視為 TaskRejected。
+4. Done → non-Done 類狀態，視為 TaskReopened。
+5. Review 是 optional WorkflowState.Category。
+6. v0.1 不強制任務一定要經過 Review。
+
+```mermaid
+flowchart LR
+    A((TaskCreated))
+    B["Workflow.InitialState"]
+    C["Active State"]
+    R["Review State"]
+    D["Done State"]
+
+    A --> B
+    B -->|TaskStateChanged| C
+    C -->|TaskStateChanged| R
+    R -->|TaskStateChanged| D
+    D --> TC((TaskCompleted))
+
+    R -->|TaskStateChanged| C
+    RJ((TaskRejected))
+    R -. "Review → Active / Ready" .-> RJ
+
+    D -->|TaskStateChanged| C
+    RO((TaskReopened))
+    D -. "Done → non-Done" .-> RO
+```
+
+目前第二輪已收斂的核心事件
+TaskCreated
+TaskStateChanged
+TaskCompleted
+TaskRejected
+TaskReopened
+TaskAssigneeChanged
+TaskPriorityChanged
+TaskMarkedUrgent
+TaskUrgencyReasonRecorded
+
+其中主流程核心是：
+
+TaskCreated
+TaskStateChanged
+TaskCompleted
+
+狀態語意衍生事件是：
+
+TaskCompleted
+TaskRejected
+TaskReopened
+
+支援事件是：
+
+TaskAssigneeChanged
+TaskPriorityChanged
+TaskMarkedUrgent
+TaskUrgencyReasonRecorded
+
+Facilitator：
+
+「我們進入第二輪事件風暴的最後一段。」
+
+「本輪原本的目標是：」
+
+梳理 RonFlow v0.1 的最小任務流程，
+並將上一輪找到的具體業務事件，
+抽象成適合專案管理平台的事件模型。
+
+「目前我們已經確認幾件事：」
+
+1. RonFlow 不應寫死任務狀態名稱。
+2. 任務狀態流轉以 TaskStateChanged 表達。
+3. WorkflowState 需要 Category，讓系統理解狀態語意。
+4. TaskCompleted、TaskRejected、TaskReopened 需要作為衍生事件保留。
+5. TaskAssigneeChanged 不是主流程必經事件。
+6. Urgent 和 Priority 是不同概念。
+
+1. v0.1 最小流程圖
+
+以下是本輪收斂後的 v0.1 最小流程。
+```mermaid
+flowchart LR
+    A((TaskCreated))
+    B["Task.CurrentState = Workflow.InitialState"]
+
+    C["Non-Done State"]
+    D["Active State"]
+    R["Review State<br/>optional"]
+    E["Done State"]
+
+    SC1((TaskStateChanged))
+    SC2((TaskStateChanged))
+    SC3((TaskStateChanged))
+
+    TC((TaskCompleted))
+    TRJ((TaskRejected))
+    TRO((TaskReopened))
+
+    A --> B
+    B --> SC1 --> C
+    C --> SC2 --> D
+
+    D --> SC3 --> E
+    E --> TC
+
+    D -->|optional| R
+    R -->|TaskStateChanged| E
+    R -->|TaskStateChanged| D
+    R -. "Review → Active / Ready" .-> TRJ
+
+    E -->|TaskStateChanged| D
+    E -. "Done → non-Done" .-> TRO
+```
+
+2. 支援事件不在主流程，但可在流程中發生
+
+Facilitator：
+
+「以下事件不是任務完成的必經流程，但在任務生命週期中可以發生。」
+
+```mermaid
+flowchart LR
+    T["Task"]
+
+    T -.-> A((TaskAssigneeChanged))
+    T -.-> P((TaskPriorityChanged))
+    T -.-> U((TaskMarkedUrgent))
+    U --> R((TaskUrgencyReasonRecorded))
+
+    A --> N1["可發生於任務生命週期任一階段"]
+    P --> N1
+    U --> N1
+```
+
+3. 核心概念收斂
+3.1 TaskCreated
+
+代表任務被建立。
+
+目前收斂語意：
+
+TaskCreated 後，Task 進入該 Workflow 的 InitialState。
+不寫死為 Backlog。
+
+```mermaid
+flowchart LR
+    W["Workflow"]
+    I["Workflow.InitialState"]
+    T((TaskCreated))
+    S["Task.CurrentState = InitialState"]
+
+    W --> I
+    T --> S
+    I --> S
+```
+
+3.2 TaskStateChanged
+
+代表任務從一個 WorkflowState 移動到另一個 WorkflowState。
+
+它取代固定狀態事件，例如：
+
+TaskStarted
+TaskSubmittedForReview
+TaskMovedToDone
+
+因為 RonFlow 是平台型工具，不應寫死任務狀態名稱。
+
+目前收斂語意：
+
+TaskStateChanged 是狀態流轉的核心事件。
+需要記錄 from / to state 的 id、name snapshot、category snapshot。
+
+建議事件資料：
+
+TaskId
+FromStateId
+FromStateNameSnapshot
+FromStateCategorySnapshot
+ToStateId
+ToStateNameSnapshot
+ToStateCategorySnapshot
+ChangedAt
+ChangedBy
+Reason?
+
+```mermaid
+classDiagram
+    class TaskStateChanged {
+        TaskId
+        FromStateId
+        FromStateNameSnapshot
+        FromStateCategorySnapshot
+        ToStateId
+        ToStateNameSnapshot
+        ToStateCategorySnapshot
+        ChangedAt
+        ChangedBy
+        Reason?
+    }
+```
+
+3.3 WorkflowState.Category
+
+WorkflowState.Name 可以由使用者自訂，但 Category 是系統理解狀態語意的必要欄位。
+
+```mermaid
+flowchart LR
+    WS["WorkflowState"]
+
+    WS --> N["Name<br/>使用者自訂<br/>例：開發中 / QA / 已結案"]
+    WS --> C["Category<br/>系統語意<br/>例：Active / Review / Done"]
+
+    C --> SYS["系統可判斷：<br/>是否進行中<br/>是否等待驗收<br/>是否完成<br/>是否取消"]
+```
+
+目前確認：
+
+需要 Category。
+Category 正式枚舉名稱尚未定案。
+
+候選 Category：
+
+NotStarted
+Ready
+Active
+Review
+Done
+Canceled
+
+或：
+
+Backlog
+Ready
+Active
+Review
+Done
+Canceled
+
+正式名稱留待後續 ADR 或建模會議決定。
+
+4. 衍生事件收斂
+4.1 TaskCompleted
+
+目前確認需要保留為獨立事件。
+
+原因：
+
+1. 「任務完成」具有明確業務意義。
+2. 未來主任務 / 子任務完成傳播需要訂閱 TaskCompleted。
+3. 報表、進度、統計、完成時間都會依賴完成語意。
+
+目前收斂規則：
+
+當 TaskStateChanged 的 ToState.Category = Done 時，
+系統產生 TaskCompleted。
+
+```mermiad
+flowchart LR
+    A((TaskStateChanged))
+    B["ToState.Category = Done"]
+    C((TaskCompleted))
+    D["CompletedAt recorded"]
+
+    A --> B --> C --> D
+```
+4.2 TaskRejected
+
+目前確認 v0.1 保留。
+
+目前收斂規則：
+
+當 Task 從 Review 類狀態回到 Active / Ready 等非 Done 狀態時，
+系統可產生 TaskRejected。
+
+語意：
+
+任務在檢查 / 驗收階段未被接受，需要回到處理流程。
+
+```mermiad
+flowchart LR
+    R["Review State"]
+    A["Active / Ready State"]
+    E((TaskStateChanged))
+    J((TaskRejected))
+
+    R --> E --> A
+    E -. "Review → Active / Ready" .-> J
+
+```
+
+4.3 TaskReopened
+
+目前確認 v0.1 保留。
+
+目前收斂規則：
+
+當 Task 從 Done 類狀態回到非 Done 類狀態時，
+系統產生 TaskReopened。
+
+語意：
+
+已完成任務被重新打開。
+
+這與 TaskRejected 不同：
+
+事件	觸發情境	語意
+TaskRejected	Review → Active / Ready	驗收或檢查未通過
+TaskReopened	Done → non-Done	已完成任務被重新打開
+
+```mermaid
+flowchart LR
+    D["Done State"]
+    A["Active / Ready State"]
+    E((TaskStateChanged))
+    R((TaskReopened))
+
+    D --> E --> A
+    E -. "Done → non-Done" .-> R
+```
+5. 支援事件收斂
+5.1 TaskAssigneeChanged
+
+目前確認：
+
+TaskAssigneeChanged 不是主流程必經事件。
+Task 可以不經指派而完成。
+
+它可涵蓋：
+
+情境	PreviousAssignee	NewAssignee
+初次指派	null	User
+重新指派	User A	User B
+取消指派	User	null
+
+建議事件資料：
+
+TaskId
+PreviousAssigneeId
+NewAssigneeId
+ChangedAt
+ChangedBy
+Reason?
+
+邊界規則候選：
+
+previousAssignee = newAssignee 時，不產生事件。
+previousAssignee = null 且 newAssignee = null 時，不產生事件。
+v0.1 暫定單一 assignee。
+
+```mermaid
+flowchart LR
+    A["TaskAssigneeChanged"]
+
+    A --> B["Initial assignment<br/>null → user"]
+    A --> C["Reassignment<br/>user A → user B"]
+    A --> D["Unassignment<br/>user → null"]
+```
+
+5.2 TaskPriorityChanged
+
+目前確認：
+
+Priority 和 Urgent 不同。
+Priority 代表相對重要性或排序。
+
+TaskPriorityChanged 是支援事件，不是主流程必經事件。
+
+5.3 TaskMarkedUrgent / TaskUrgencyReasonRecorded
+
+目前確認：
+
+v0.1 支援基本 Urgent flag。
+Urgent 與 Priority 分開。
+Urgent 需要 reason。
+完整插單流程列為 Future。
+
+```mermaid
+flowchart LR
+    A((TaskMarkedUrgent))
+    B((TaskUrgencyReasonRecorded))
+    C["Future:<br/>Interruption Workflow"]
+
+    A --> B
+    A -.-> C
+```
+
+6. Future / Optional 項目
+
+本輪明確不納入 v0.1 核心，但保留為未來方向。
+
+TaskAccepted
+TaskBlocked
+TaskUnblocked
+TaskDependencyAdded
+TaskSplit
+ParentTaskCompletedBySubtasks
+RegressionTaskLinked
+Role-specific Workflow
+Current Action Owner
+Full Interruption Workflow
+Future 流程示意：主任務 / 子任務完成傳播
+```mermaid
+flowchart LR
+    A((SubTaskCompleted))
+    B["Check parent completion rule"]
+    C{"All required subtasks completed?"}
+    D((TaskCompleted))
+    E["Parent remains not completed"]
+
+    A --> B --> C
+    C -- Yes --> D
+    C -- No --> E
+```
+Future 流程示意：Regression linked task
+```mermaid
+flowchart TD
+    A["Issue found after Task Done"]
+
+    A --> B{"Original work incorrectly completed?"}
+
+    B -- Yes --> C((TaskReopened))
+    B -- No --> D((TaskCreated))
+    D --> E["Link to original task<br/>RegressionOf"]
+```
+
+7. 第二輪會議最終事件分類
+7.1 核心事件
+
+這些事件構成 RonFlow v0.1 任務生命週期的核心。
+
+TaskCreated
+TaskStateChanged
+TaskCompleted
+TaskRejected
+TaskReopened
+7.2 支援事件
+
+這些事件不屬於完成任務的必經流程，但支援任務管理。
+
+TaskAssigneeChanged
+TaskPriorityChanged
+TaskMarkedUrgent
+TaskUrgencyReasonRecorded
+7.3 Future / Optional
+TaskAccepted
+TaskBlocked
+TaskUnblocked
+TaskDependencyAdded
+TaskSplit
+ParentTaskCompletedBySubtasks
+RegressionTaskLinked
+RoleSpecificStateChanged
+CurrentActionOwnerChanged
+TaskInterruptionRecorded
+8. 第二輪會議留下的 Open Questions
+1. WorkflowState.Category 的正式枚舉值要如何命名？
+
+2. Workflow.InitialState 是否必須屬於 NotStarted / Backlog 類 category？
+
+3. 是否允許多個 Done 類型 state？
+
+4. 是否允許多個 Review 類型 state？
+
+5. TaskCompleted 是否一定由 TaskStateChanged(to Done) 觸發？
+   還是未來可能由子任務完成規則觸發？
+
+6. CompletedAt 要保留在 Task Entity、Read Model，還是只存在事件中？
+
+7. TaskReopened 是否一定需要 reason？
+
+8. TaskRejected 是否一定需要 reason？
+
+9. Review → Canceled 是否算 Rejected，還是另外產生 TaskCanceled？
+
+10. TaskCanceled 是否需要納入 v0.1？
+
+11. TaskMarkedUrgent 是否會自動影響排序？
+
+12. Urgent reason 是否要使用固定分類，還是自由文字？
+
+13. v0.1 是否需要支援 Activity Log？
+    例如 title / description / due date 變更。
+
+14. TaskAssigneeChanged 是否需要 reason？
+
+15. 是否需要 Current Action Owner？
+9. 第二輪會議總結
+
+Facilitator：
+
+「第二輪事件風暴到這裡完成。」
+
+「這一輪我們不是繼續發散事件，而是將第一次事件風暴找到的專案管理語意，轉換成 RonFlow 作為平台型產品比較適合的事件模型。」
+
+「最重要的轉換是：」
+
+不再寫死 TaskStarted、TaskSubmittedForReview、TaskCompleted 等固定流程狀態，
+而是以 TaskStateChanged 搭配 WorkflowState.Category 表達可配置 workflow。
+
+「但我們也保留了幾個重要的業務事件：」
+
+TaskCompleted
+TaskRejected
+TaskReopened
+
+「因為它們不只是狀態變更，而是對後續流程、統計、協作與未來擴充有明確業務意義。」
+
+10. 下一輪建議
+
+下一輪，也就是第三輪事件風暴，建議進入：
+
+Command → Event Mapping
+
+也就是回答：
+
+使用者或系統執行什麼意圖，會導致這些事件發生？
+
+例如：
+
+Command	Event
+CreateTask	TaskCreated
+ChangeTaskState	TaskStateChanged
+CompleteTask	TaskStateChanged + TaskCompleted
+RejectTask	TaskStateChanged + TaskRejected
+ReopenTask	TaskStateChanged + TaskReopened
+ChangeTaskAssignee	TaskAssigneeChanged
+MarkTaskUrgent	TaskMarkedUrgent + TaskUrgencyReasonRecorded
+
+下一輪才會開始逐步靠近：
+
+Actor
+Command
+Business Rules
+Aggregate
+Use Case
+Acceptance Criteria
+Backlog Item
+
+Facilitator：
+
+「本輪會議結束。」
+
+2026/04/26 15:22。
+
+會後檢討(/assets/after event storm meeting 2.md)
