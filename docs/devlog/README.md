@@ -2928,69 +2928,6 @@ RegressionTaskLinked
 4. TaskAccepted 未來是否應該獨立於 TaskCompleted？
 5. 如果 workflow 沒有 Review 類狀態，TaskRejected 是否永遠不會發生？
 
-第二輪事件風暴會議 / 第 4 段正式結論
-
-目前確認：
-
-1. v0.1 保留 TaskRejected。
-2. TaskAccepted 先放 Future / Optional。
-3. Review → Active / Ready 類狀態，視為 TaskRejected。
-4. Done → non-Done 類狀態，視為 TaskReopened。
-5. Review 是 optional WorkflowState.Category。
-6. v0.1 不強制任務一定要經過 Review。
-
-```mermaid
-flowchart LR
-    A((TaskCreated))
-    B["Workflow.InitialState"]
-    C["Active State"]
-    R["Review State"]
-    D["Done State"]
-
-    A --> B
-    B -->|TaskStateChanged| C
-    C -->|TaskStateChanged| R
-    R -->|TaskStateChanged| D
-    D --> TC((TaskCompleted))
-
-    R -->|TaskStateChanged| C
-    RJ((TaskRejected))
-    R -. "Review → Active / Ready" .-> RJ
-
-    D -->|TaskStateChanged| C
-    RO((TaskReopened))
-    D -. "Done → non-Done" .-> RO
-```
-
-目前第二輪已收斂的核心事件
-TaskCreated
-TaskStateChanged
-TaskCompleted
-TaskRejected
-TaskReopened
-TaskAssigneeChanged
-TaskPriorityChanged
-TaskMarkedUrgent
-TaskUrgencyReasonRecorded
-
-其中主流程核心是：
-
-TaskCreated
-TaskStateChanged
-TaskCompleted
-
-狀態語意衍生事件是：
-
-TaskCompleted
-TaskRejected
-TaskReopened
-
-支援事件是：
-
-TaskAssigneeChanged
-TaskPriorityChanged
-TaskMarkedUrgent
-TaskUrgencyReasonRecorded
 
 Facilitator：
 
