@@ -8,6 +8,7 @@
 - [專案管理前置作業：建立 Backlog 與 Workflow](#devlog-project-management-setup)
 - [梳理業務規則-事件風暴01](#devlog-domain-rules)
 - [梳理業務規則-事件風暴02](#devlog-domain-rules-02)
+- [梳理業務規則-事件風暴03](#devlog-domain-rules-03)
 
 ### 專案起跑
 <a id="devlog-project-kickoff"></a>
@@ -53,7 +54,7 @@
 - `Review`：已完成初步處理，等待檢查、補文件、整理測試或確認是否符合完成條件。
 - `Done`：符合 [Definition of Done](../tech-base/definition-of-done.md)，可以視為完成的項目。
 
-配合這次想導入的 [ATDD](../tech-base/atdd.md) 與 [Outside-In](../tech-base/outside-in.md) 開發模式，功能型 Backlog Item 會盡量依照以下方式推進：
+配合這次想導入的 [ATDD](../tech-base/atdd.md) 與 [Outside-In](../tech-base/outside-in.md) 開發模式，功能型 [Backlog Item](../tech-base/backlog-item.md) 會盡量依照以下方式推進：
 
 - 定義需求與驗收條件
 - 撰寫驗收測試
@@ -93,7 +94,7 @@
 ### 梳理業務規則-事件風暴01
 <a id="devlog-domain-rules"></a>
 
-接下來，我打算透過 [Event Storming](../tech-base/event-storming.md) 來梳理專案管理工具的業務規則，在這一步，通常會有所謂的領域專家一同參與，釐清流程。
+接下來，我打算透過 [Event Storming](../tech-base/event-storming.md) 來梳理專案管理工具的業務規則，在這一步，通常會有所謂的 [Domain Expert](../tech-base/domain-expert.md) 一同參與，釐清流程。
 
 我不是專家，但 AI 可以是啊。尤其軟體開發這個領域並不是封閉的，AI 有足夠的文本可以訓練。
 
@@ -114,11 +115,11 @@
 
 - [Facilitator](../tech-base/facilitator.md) / 主持人：負責控制討論節奏，提醒大家只找事件，不急著進入解決方案。
 - [Domain Expert](../tech-base/domain-expert.md) / 領域專家：假設是一位有多年專案管理經驗的人，熟悉任務如何從需求、開發、測試到完成。
-- PM / Project Manager：關注專案進度、任務狀態、可追蹤性、交付節奏。
-- PO / Product Owner：關注任務是否能承載產品價值、需求是否被正確表達、完成是否代表可交付。
-- RD / Developer：關注任務是否能拆解、狀態是否清楚、哪些事件對系統建模有意義。
-- QA / Tester：關注驗收、退回、完成條件、例外情境。
-- UX / Designer：關注任務在畫面與使用流程中如何被理解，但本輪不深入 UI。
+- [PM / Project Manager](../tech-base/project-manager.md)：關注專案進度、任務狀態、可追蹤性、交付節奏。
+- [PO / Product Owner](../tech-base/product-owner.md)：關注任務是否能承載產品價值、需求是否被正確表達、完成是否代表可交付。
+- [RD / Developer](../tech-base/developer.md)：關注任務是否能拆解、狀態是否清楚、哪些事件對系統建模有意義。
+- [QA / Tester](../tech-base/tester.md)：關注驗收、退回、完成條件、例外情境。
+- [UX / Designer](../tech-base/designer.md)：關注任務在畫面與使用流程中如何被理解，但本輪不深入 UI。
 
 每個參與事件風暴的人，都被要求在事前先閱讀相關文件 [FirstEventStormDoc](../assets/FirstEventStormDoc.md)，對「專案管理」領域進行一定的了解。
 
@@ -1372,7 +1373,7 @@ Facilitator：
 
 「前一段收斂出的產品方向，這裡直接當作前提使用。」
 
-「接下來只整理任務從建立到完成的最小事件時間線，不討論 Command、Actor、Aggregate、資料表、API、UI。」
+「接下來只整理任務從建立到完成的最小事件時間線，不討論 [Command](../tech-base/command.md)、[Actor](../tech-base/actor.md)、[Aggregate](../tech-base/aggregate.md)、資料表、[API](../tech-base/api.md)、UI。」
 
 ```mermaid
 flowchart LR
@@ -3436,13 +3437,13 @@ MarkTaskUrgent	TaskMarkedUrgent + TaskUrgencyReasonRecorded
 
 下一輪才會開始逐步靠近：
 
-Actor
-Command
-Business Rules
-Aggregate
-Use Case
-Acceptance Criteria
-Backlog Item
+[Actor](../tech-base/actor.md)
+[Command](../tech-base/command.md)
+[Business Rule](../tech-base/business-rule.md)
+[Aggregate](../tech-base/aggregate.md)
+[Use Case](../tech-base/use-case.md)
+[Acceptance Criteria](../tech-base/acceptance-criteria.md)
+[Backlog Item](../tech-base/backlog-item.md)
 
 Facilitator：
 
@@ -3451,3 +3452,1723 @@ Facilitator：
 2026/04/26 15:22。
 
 [會後檢討](../assets/after%20event%20storm%20meeting%202.md)
+
+### 梳理業務規則-事件風暴03
+<a id="devlog-domain-rules-03"></a>
+
+Facilitator：
+
+「我們開始第三場事件風暴會議：[Behavior Mapping](../tech-base/behavior-mapping.md)。」
+
+「前兩場已經完成：」
+
+會議 1：Event Discovery
+- 找出候選事件
+- 排出任務生命週期的最小流程
+
+會議 2：Event Refinement
+- 釐清事件語意
+- 確認 TaskStateChanged、TaskCompleted、TaskRejected、TaskReopened 等事件
+
+「本場會議不再討論事件是否存在，而是要回答三個問題：」
+
+1. 是什麼 Command 導致這些 Event 發生？
+2. 哪些 Actor 會執行這些 Command？
+3. Command 成立前，需要滿足哪些 [Business Rule](../tech-base/business-rule.md) / [Invariant](../tech-base/invariant.md)？
+
+白板初始狀態
+
+```mermaid
+flowchart LR
+    A["Command<br/>使用者或系統的意圖"]
+    B["Business Rules<br/>操作成立前的規則"]
+    C["Event<br/>已經發生的業務事實"]
+
+    A --> B --> C
+
+    E["本場事件範圍:
+    TaskCreated
+    TaskStateChanged
+    TaskCompleted
+    TaskRejected
+    TaskReopened
+    TaskAssigneeChanged
+    TaskPriorityChanged
+    TaskMarkedUrgent
+    TaskUrgencyReasonRecorded"]
+
+    E -.-> C
+
+```
+
+Facilitator：
+
+「我們先從最基本的事件開始：TaskCreated。」
+
+「問題是：什麼 Command 會導致 TaskCreated 發生？」
+
+PO：
+
+「這個很直覺，Command 應該是：」
+
+CreateTask
+
+「使用者想要在某個 Project 底下建立一個 Task，成功後產生：」
+
+TaskCreated
+
+Domain Expert：
+
+「在專案管理情境中，建立任務通常代表：」
+
+一個新的工作項目被記錄下來，準備進入後續整理、分派或執行。
+
+「它不一定代表任務已經可以開始做。」
+
+QA：
+
+「那 Task 建立時是否一定要有 description、assignee、due date？」
+
+PO：
+
+「v0.1 先不要要求太多。」
+
+「我建議最小必要資料是：」
+
+ProjectId
+Title
+WorkflowId 或可推導出的 Project Workflow
+
+「其他都可以選填。」
+
+CreateTask 初步規則
+- Task 必須屬於某個 Project。
+- Task title 不可為空。
+- Task title 不可超過系統限制長度。
+- Project 必須存在。
+- Project 必須處於可新增任務的狀態。
+- Task 建立後進入 Workflow.InitialState。
+- TaskCreated 後，不代表 Task 已 Ready，也不代表 Task 已 Assigned。
+
+```mermaid
+flowchart LR
+    A["CreateTask"]
+
+    R["Rules:
+    Project must exist
+    Title must not be empty
+    Project must allow new tasks
+    Task enters Workflow.InitialState"]
+
+    E((TaskCreated))
+
+    A --> R --> E
+
+    E --> S["Task.CurrentState = Workflow.InitialState"]
+```
+
+Facilitator：
+
+「誰可以在業務上建立 Task？先不談權限細節，只談業務角色。」
+
+PO
+[Project Member](../tech-base/project-member.md)
+PM
+PO
+RD
+QA
+Domain Expert
+
+「一般專案工具裡，幾乎所有專案成員都可能建立任務。」
+
+「例如：」
+
+PM 建立需求任務
+RD 建立技術工作或 bug
+QA 建立測試發現的問題
+PO 建立產品需求
+
+Actor	是否可能 CreateTask	備註
+Project Member	是	泛用角色
+PM	是	建立管理、協調、需求任務
+PO	是	建立產品需求
+RD	是	建立開發、技術債、bug
+QA	是	建立測試問題
+System	未定	例如未來由模板或子任務自動建立，v0.1 先不處理
+
+暫定結論
+CreateTask → TaskCreated
+
+CreateTask 是 v0.1 的基本 Command。
+
+TaskCreated 代表新的工作項目被建立，並進入 Workflow.InitialState。
+
+任務建立時不要求 assignee，也不要求 description、due date、priority 或 urgency。
+
+Parking Lot
+1. 是否支援由模板自動建立 Task？
+2. 是否支援 System 自動建立子任務？
+3. 是否允許 Project 被封存後仍建立 Task？
+4. Title 長度限制要放在 Domain Rule 還是 Application Validation？
+
+Business Rules 初稿
+CreateTask:
+- Task 必須屬於某個 Project。
+- Project 必須存在。
+- Project 必須處於可新增任務的狀態。
+- Task title 不可為空。
+- Task title 不可超過系統限制長度。
+- Task 建立後進入 Workflow.InitialState。
+- TaskCreated 不代表 Task 已 Ready。
+- TaskCreated 不代表 Task 已 Assigned。
+
+Facilitator：
+
+「我們進入本場會議的第二段。這段處理最核心的 Command：」
+
+ChangeTaskState
+
+「這個 Command 的基本意圖是：」
+
+將 Task 從目前的 WorkflowState 移動到另一個 WorkflowState。
+
+「成功後一定會產生：」
+
+TaskStateChanged
+
+「但根據 from / to state 的 category，可能還會衍生：」
+
+TaskCompleted
+TaskRejected
+TaskReopened
+
+```mermaid
+flowchart LR
+    A["ChangeTaskState"]
+
+    R["Rules:
+    Task must exist
+    ToState must exist
+    ToState must belong to same Workflow
+    FromState != ToState"]
+
+    E((TaskStateChanged))
+
+    A --> R --> E
+
+    E --> C{"State Category Rule"}
+
+    C -->|ToState.Category = Done| TC((TaskCompleted))
+    C -->|FromState.Category = Review<br/>ToState.Category = Active / Ready| TR((TaskRejected))
+    C -->|FromState.Category = Done<br/>ToState.Category != Done| RO((TaskReopened))
+```
+
+Facilitator：
+
+「我先提出一個基本對照：」
+
+Command	基本 Event	可能衍生 Event
+ChangeTaskState	TaskStateChanged	TaskCompleted / TaskRejected / TaskReopened
+
+「問題是：我們是否要把 CompleteTask、RejectTask、ReopenTask 做成獨立 Command？」
+
+「還是全部都由 ChangeTaskState 統一處理？」
+
+PO：
+
+「以產品語意來看，我會希望使用者操作時可以看到不同語意。」
+
+「例如：」
+
+把任務移到 Done
+退回任務
+重新開啟任務
+
+「這些在畫面上可能是不同操作。」
+
+「但在底層 Command 上，我可以接受先統一成 ChangeTaskState，再由 state category 判斷是否產生 TaskCompleted、TaskRejected 或 TaskReopened。」
+
+「v0.1 我會傾向：」
+
+底層使用 ChangeTaskState。
+語意事件由 state category 衍生。
+
+Domain Expert：
+
+「這樣合理。」
+
+「因為在專案管理工具裡，很多時候使用者就是拖曳卡片到不同欄位。」
+
+「使用者不一定會按一個叫『完成任務』的按鈕，而是把任務拖到 Done。」
+
+「所以從行為上看，確實可以是狀態變更。」
+
+「但是領域語意上，進入 Done 就是完成；從 Review 退回就是 rejected；從 Done 拉回來就是 reopened。」
+
+
+QA：
+
+「我支持底層統一成 ChangeTaskState，但測試案例要明確拆開。」
+
+「例如：」
+
+Scenario: Change state to Done produces TaskCompleted
+Scenario: Change state from Review to Active produces TaskRejected
+Scenario: Change state from Done to Active produces TaskReopened
+
+「這樣既保留統一 Command，又能測出不同業務語意。」
+
+PM：
+
+「從管理角度我也接受。」
+
+「不過我會關心原因欄位。」
+
+「例如 Reopen 和 Reject 最好要有 reason。」
+
+「ChangeTaskState 本身可以沒有 reason，但如果產生 TaskRejected 或 TaskReopened，reason 是否要必填？」
+
+討論問題一：Reject / Reopen 是否需要 reason？
+Facilitator
+
+「這裡出現一個規則問題：」
+
+TaskRejected 是否必須有 reason？
+TaskReopened 是否必須有 reason？
+PO
+
+「v0.1 我不想讓流程太重，但從產品品質來看，reject / reopen 沒原因會很難追蹤。」
+
+「我建議：」
+
+TaskRejected reason 必填。
+TaskReopened reason 必填。
+一般 TaskStateChanged reason 選填。
+QA
+
+「我同意。退回和重新開啟都應該說明原因。」
+
+「否則只看到狀態變了，不知道為什麼。」
+
+Domain Expert
+
+「實務上也是如此。」
+
+「正常往前移動可以不用特別寫原因，但退回、重開這種反向流程通常需要說明。」
+
+Facilitator 收斂
+暫定規則：
+- 一般 ChangeTaskState：reason optional
+- 若產生 TaskRejected：reason required
+- 若產生 TaskReopened：reason required
+討論問題二：TaskCompleted 是否需要 reason？
+Facilitator
+
+「那完成任務是否需要 reason？」
+
+PO
+
+「不需要。完成通常不需要理由。」
+
+「如果需要驗收說明，那未來可以透過 comment、acceptance criteria 或 review note 處理。」
+
+QA
+
+「同意。完成不需要 reason，但需要 completedAt。」
+
+PM
+
+「同意。」
+
+Facilitator 收斂
+TaskCompleted 不需要 reason。
+TaskCompleted 必須有 completedAt。
+討論問題三：是否允許任意狀態跳轉？
+Facilitator
+
+「下一個問題：ChangeTaskState 是否允許任意 state 跳轉？」
+
+「例如：」
+
+Initial → Done
+Done → Review
+Active → Canceled
+Review → Initial
+
+「我們是否需要 WorkflowTransition 規則？」
+
+PO
+
+「v0.1 我希望可以簡單，但不能完全沒有規則。」
+
+「如果完全任意跳轉，會讓 workflow 失去意義。」
+
+「我建議每個 Workflow 可以設定允許的 transition，但 v0.1 可以先提供預設規則。」
+
+Domain Expert
+
+「專案管理工具通常會允許一定彈性。」
+
+「有些工具可以任意拖曳，有些工具有嚴格流程。」
+
+「RonFlow 如果定位成平台，未來應該支援 transition rule。」
+
+RD 風險由 Facilitator 先標記
+
+Facilitator：
+
+「這裡可能會變成建模與功能範圍問題。」
+
+「我們先不要完整設計 WorkflowTransition，但要決定 v0.1 的最小規則。」
+
+QA
+
+「至少要保證：」
+
+ToState 必須屬於同一個 Workflow。
+FromState 不可等於 ToState。
+ToState 不可不存在。
+
+「至於是否允許跳過 Review，這取決於 workflow 設定。」
+
+PM
+
+「我建議 v0.1 先允許任意 state 跳轉，只要 state 屬於同一個 workflow。」
+
+「因為小團隊不一定需要嚴格 transition。嚴格 transition 可以列 future。」
+
+PO 收斂
+
+「我同意 v0.1 先允許同一 workflow 內任意 state 跳轉。」
+
+「但要把 WorkflowTransition Rule 放到 Future。」
+
+Facilitator 收斂
+v0.1 暫定：
+- 允許 Task 在同一 Workflow 的 State 之間移動。
+- 不限制 transition graph。
+- ToState 必須屬於 Task 所使用的 Workflow。
+- FromState 不可等於 ToState。
+- WorkflowTransition 規則列 Future。
+
+```mermaid
+flowchart LR
+    A["ChangeTaskState"]
+
+    R1["Task exists"]
+    R2["ToState exists"]
+    R3["ToState belongs to Task.Workflow"]
+    R4["FromState != ToState"]
+    R5["If produces TaskRejected: reason required"]
+    R6["If produces TaskReopened: reason required"]
+
+    E((TaskStateChanged))
+
+    A --> R1 --> R2 --> R3 --> R4 --> R5 --> R6 --> E
+
+    E --> C{"Category Derivation"}
+
+    C -->|to = Done| TC((TaskCompleted))
+    C -->|from = Review<br/>to = Active / Ready| RJ((TaskRejected))
+    C -->|from = Done<br/>to != Done| RO((TaskReopened))
+
+    FT["Future:
+    WorkflowTransition rules"]
+    R3 -.-> FT
+```
+
+Command / Event Mapping 暫定表
+Command	條件	Event
+ChangeTaskState	一般狀態變更	TaskStateChanged
+ChangeTaskState	ToState.Category = Done	TaskStateChanged + TaskCompleted
+ChangeTaskState	FromState.Category = Review 且 ToState.Category = Active / Ready	TaskStateChanged + TaskRejected
+ChangeTaskState	FromState.Category = Done 且 ToState.Category != Done	TaskStateChanged + TaskReopened
+
+Actor 初稿
+Facilitator 提問
+
+「業務上誰會改變 Task state？」
+
+PO
+
+「一般 Project Member 應該可以移動 Task。」
+
+Domain Expert
+
+「Task Assignee 通常可以更新自己負責的任務狀態。」
+
+QA
+
+「Reviewer / QA 會把 Review 中的任務退回或移到 Done。」
+
+PM
+
+「PM 也可能協助調整任務狀態，尤其是管理看板時。」
+
+Actor / Command 初稿
+Actor	是否可能 ChangeTaskState	備註
+Project Member	是	泛用角色
+Task Assignee	是	更新自己負責的任務
+PM	是	協調、管理流程
+PO	是	驗收或調整狀態
+QA / Reviewer	是	Review、Reject、Done
+System	未來	子任務完成傳播、自動逾期狀態等
+暫定結論
+ChangeTaskState 是 v0.1 的核心 Command。
+
+它一定會產生 TaskStateChanged。
+
+根據 from / to WorkflowState.Category，可能衍生：
+- TaskCompleted
+- TaskRejected
+- TaskReopened
+
+v0.1 暫時不建立 CompleteTask / RejectTask / ReopenTask 作為獨立 Command。
+這些語意先由 ChangeTaskState 搭配 category rule 表達。
+
+但在 UI 或使用者語言中，可以呈現為：
+- 完成任務
+- 退回任務
+- 重新開啟任務
+Open Questions
+1. 是否未來需要獨立 Command：
+   CompleteTask / RejectTask / ReopenTask？
+
+2. Review → Canceled 是否要產生 TaskRejected？
+   目前未定。
+
+3. Done → Canceled 是否算 TaskReopened？
+   目前未定。
+
+4. TaskRejected 的 ToState 是否只允許 Active / Ready？
+   還是任何 non-Done 都可以？
+
+5. WorkflowTransition rules 是否進入 v0.2？
+
+6. ChangeTaskState 是否需要 reason 欄位？
+   暫定 optional，但 Reject / Reopen required。
+Parking Lot
+1. WorkflowTransition 設定功能。
+2. System 自動改變 TaskState。
+3. 子任務完成後自動完成主任務。
+4. Review / QA 專用流程。
+5. Status change history read model。
+
+PO：
+
+「我接受 RD 的修正。」
+
+「CompleteTask 可以不用獨立，因為使用者把任務移到 Done，本身就很直觀。」
+
+「但 RejectTask 和 ReopenTask 不一樣。」
+
+「退回任務和重新開啟任務都帶有比較強的管理語意，並且需要填原因。所以我會修正剛才的決策：」
+
+ChangeTaskState:
+- 處理一般狀態流轉
+- 進入 Done 時可產生 TaskCompleted
+
+RejectTask:
+- 處理 Review 階段退回
+- 必須輸入 reason
+- 產生 TaskStateChanged + TaskRejected
+
+ReopenTask:
+- 處理 Done 後重新開啟
+- 必須輸入 reason
+- 產生 TaskStateChanged + TaskReopened
+Domain Expert 補充：Reject / Reopen 是明確業務行為
+
+Domain Expert：
+
+「我同意。」
+
+「在實務上，退回不是單純把卡片拖回去，而是代表：」
+
+這個任務被檢查過，但未達標準。
+
+「重新開啟也不是單純移動狀態，而是代表：」
+
+這個任務曾經被視為完成，但現在完成結論被撤回。
+
+「這兩個都應該留下理由。」
+
+QA 補充：獨立 Command 更好測
+
+QA：
+
+「從測試角度，我也支持拆開。」
+
+「因為這樣測試會比較清楚：」
+
+RejectTask 必須有 reason。
+ReopenTask 必須有 reason。
+ChangeTaskState 一般狀態移動 reason 可選。
+
+「如果全部都塞進 ChangeTaskState，測試邏輯會變成：某些 category 組合下 reason 必填，某些不用。這會比較隱晦。」
+
+修正後 Command / Event Mapping
+1. 一般狀態變更
+ChangeTaskState → TaskStateChanged
+
+用途：
+
+Initial → Ready
+Ready → Active
+Active → Review
+Active → Done
+Review → Done
+
+若 toState.Category = Done，可額外產生：
+
+TaskCompleted
+2. 退回任務
+RejectTask → TaskStateChanged + TaskRejected
+
+用途：
+
+Review → Active
+Review → Ready
+
+必要輸入：
+
+reason
+targetState
+3. 重新開啟任務
+ReopenTask → TaskStateChanged + TaskReopened
+
+用途：
+
+Done → Active
+Done → Ready
+
+必要輸入：
+
+reason
+targetState
+白板修正版
+
+```mermaid
+flowchart LR
+    A["ChangeTaskState"]
+    A --> R1["General state transition rules"]
+    R1 --> E1((TaskStateChanged))
+    E1 --> C{"to.Category = Done?"}
+    C -- Yes --> TC((TaskCompleted))
+
+    B["RejectTask"]
+    B --> R2["Rules:
+    from.Category = Review
+    to.Category = Active / Ready
+    reason required"]
+    R2 --> E2((TaskStateChanged))
+    E2 --> TR((TaskRejected))
+
+    D["ReopenTask"]
+    D --> R3["Rules:
+    from.Category = Done
+    to.Category != Done
+    reason required"]
+    R3 --> E3((TaskStateChanged))
+    E3 --> RO((TaskReopened))
+
+```
+
+釐清問題 5：TaskRejected 的判斷條件是什麼？
+
+目前比較合理的判斷條件是：
+
+TaskRejected 發生於：
+任務目前在 Review 類狀態，
+且使用者明確執行 RejectTask，
+使任務回到非 Done、非 Review 的處理狀態。
+
+更具體：
+
+fromState.Category = Review
+toState.Category in [Ready, Active]
+reason 必填
+
+也就是：
+
+From Category	To Category	是否 TaskRejected
+Review	Active	是
+Review	Ready	是
+Review	Done	否，這是完成
+Review	Canceled	未定
+Review	Review	否
+Active	Ready	否，不是 rejected
+Done	Active	否，這是 reopened
+
+所以 TaskRejected 的核心不是「任何狀態倒退」，而是：
+
+任務在 Review / 驗收階段被判定不通過，需要回到處理流程。
+
+討論：Review → Canceled 算不算 Rejected？
+
+這裡先留 Open Question。
+
+可能有兩種解讀：
+
+方案 A：Review → Canceled 不是 Rejected
+
+語意是：
+
+任務在 Review 階段被取消，不是被退回。
+
+事件：
+
+TaskStateChanged
+TaskCanceled
+方案 B：Review → Canceled 同時是 Rejected + Canceled
+
+語意是：
+
+任務驗收不通過，且決定取消。
+
+事件：
+
+TaskStateChanged
+TaskRejected
+TaskCanceled
+
+v0.1 目前還沒有正式納入 TaskCanceled，所以先放 Parking Lot。
+
+關於任意跳轉
+
+Facilitator：
+
+「RD 也提出一個重要點：理論上不應該任意跳轉，例如 Active → Ready 不一定合理。」
+
+「但 v0.1 可以暫時允許，這裡可以整理成暫定策略。」
+
+v0.1 暫定策略
+v0.1 允許同一 Workflow 內的 state transition。
+但這是為了降低初版複雜度，不代表業務上所有跳轉都合理。
+Future
+未來加入 WorkflowTransition Rule。
+例如：
+- Active 不可回 Ready，除非使用 Reopen / Reject 類操作
+- Review 可以回 Active
+- Done 不可直接改回 Active，必須 ReopenTask
+
+其實我們已經開始看到一條重要規則：
+
+有些反向流程不應該只是 ChangeTaskState，而應該透過語意明確的 Command，例如 RejectTask、ReopenTask。
+
+這能在 v0.1 裡先提供最低限度的規範。
+
+修正後暫定結論
+1. ChangeTaskState 保留為一般狀態變更 Command。
+
+2. CompleteTask 不獨立。
+   任務進入 Done 類狀態時，由 ChangeTaskState 產生 TaskStateChanged + TaskCompleted。
+
+3. RejectTask 獨立。
+   因為它需要 reason，且代表 Review 不通過。
+
+4. ReopenTask 獨立。
+   因為它需要 reason，且代表已完成任務重新打開。
+
+5. RejectTask / ReopenTask 的 reason 必填。
+
+6. v0.1 暫時允許同一 Workflow 內一般狀態移動。
+   但 Done → non-Done、Review → Active / Ready 應分別透過 ReopenTask / RejectTask 表達。
+
+7. WorkflowTransition Rule 列為 Future。
+修正後 Command / Event 對照表
+Command	條件	Events
+ChangeTaskState	一般狀態移動	TaskStateChanged
+ChangeTaskState	toState.Category = Done	TaskStateChanged + TaskCompleted
+RejectTask	fromState.Category = Review, toState.Category = Ready / Active, reason required	TaskStateChanged + TaskRejected
+ReopenTask	fromState.Category = Done, toState.Category != Done, reason required	TaskStateChanged + TaskReopened
+更新後 Open Questions
+1. Review → Canceled 是否算 TaskRejected？
+2. 是否需要 TaskCanceled？
+3. v0.1 是否應禁止使用 ChangeTaskState 直接執行 Review → Active？
+   也就是要求必須用 RejectTask。
+4. v0.1 是否應禁止使用 ChangeTaskState 直接執行 Done → non-Done？
+   也就是要求必須用 ReopenTask。
+5. Future 的 WorkflowTransition Rule 要如何和 RejectTask / ReopenTask 共存？
+
+Facilitator：
+
+「我們進入會議 3 的第 3 段。」
+
+「前一段已經收斂：」
+
+ChangeTaskState → TaskStateChanged
+ChangeTaskState(to Done) → TaskStateChanged + TaskCompleted
+RejectTask → TaskStateChanged + TaskRejected
+ReopenTask → TaskStateChanged + TaskReopened
+
+「這一段處理支援性 Command，也就是不一定在主流程上，但對任務管理很重要的操作：」
+
+ChangeTaskAssignee
+ChangeTaskPriority
+MarkTaskUrgent
+UnmarkTaskUrgent
+1. ChangeTaskAssignee → TaskAssigneeChanged
+Facilitator 提問
+
+Facilitator：
+
+「我們先處理 assignee。」
+
+「上一場已經確認，TaskAssigneeChanged 可以涵蓋：」
+
+初次指派
+重新指派
+取消指派
+
+「那這一段要確認的是：Command 應該叫什麼？規則是什麼？誰會執行？」
+
+PO 決策發言
+
+PO：
+
+「我會把 Command 命名為：」
+
+ChangeTaskAssignee
+
+「因為它比較中性，可以同時包含初次指派、改派、取消指派。」
+
+「成功後產生：」
+
+TaskAssigneeChanged
+Domain Expert 補充
+
+Domain Expert：
+
+「在業務上，assignee 代表目前主要負責人。」
+
+「但 v0.1 先不要把它定義成唯一責任來源，因為我們還沒有 Current Action Owner 或 Role-specific workflow。」
+
+「所以目前可以先說：」
+
+Assignee = 任務目前主要負責人
+QA 質疑
+
+QA：
+
+「如果目前 assignee 是 Ron，又把 assignee 設成 Ron，要不要產生事件？」
+
+PO 回應
+
+PO：
+
+「不需要。沒有實際變化就不產生事件。」
+
+Facilitator 收斂規則
+ChangeTaskAssignee:
+- Task 必須存在。
+- v0.1 暫定只支援單一 assignee。
+- NewAssignee 可以是 User，也可以是 null。
+- NewAssignee = null 代表取消指派。
+- PreviousAssignee 與 NewAssignee 相同時，不產生事件。
+- PreviousAssignee = null 且 NewAssignee = null 時，不產生事件。
+- 若 NewAssignee 不為 null，該 User 應存在。
+Actor 初稿
+Actor	是否可能 ChangeTaskAssignee	備註
+PM	是	常見任務分派者
+PO	是	可調整產品任務負責人
+Task Assignee	可能	自行轉交或取消，規則未定
+Project Member	可能	小團隊可允許
+QA / Reviewer	可能較少	主要在測試任務中
+System	Future	自動分派先不做
+白板：Assignee
+
+```mermaid
+flowchart LR
+    A["ChangeTaskAssignee"]
+    R["Rules:
+    Task exists
+    Single assignee in v0.1
+    NewAssignee may be null
+    No event if unchanged
+    User must exist if not null"]
+    E((TaskAssigneeChanged))
+
+    A --> R --> E
+
+    E --> S["previousAssignee / newAssignee"]
+    S --> C1["null → user: initial assignment"]
+    S --> C2["user A → user B: reassignment"]
+    S --> C3["user → null: unassignment"]
+
+```
+
+2. ChangeTaskPriority → TaskPriorityChanged
+Facilitator 提問
+
+Facilitator：
+
+「接著討論 Priority。」
+
+「之前我們已經區分：」
+
+Priority = 相對重要性 / 排序
+Urgent = 是否需要立即處理
+
+「那 Priority 的 Command 應該是？」
+
+PO 決策發言
+
+PO：
+
+「Command 可以叫：」
+
+ChangeTaskPriority
+
+「事件是：」
+
+TaskPriorityChanged
+PM 補充
+
+PM：
+
+「Priority 對任務排序很重要，但它不一定代表緊急。」
+
+「例如技術債可能 Priority 高，但不需要今天處理。」
+
+QA 質疑
+
+QA：
+
+「Priority 有哪些值？High / Medium / Low？還是數字？」
+
+Facilitator 控制範圍
+
+Facilitator：
+
+「Priority 值的設計比較像產品設定或模型設計，我先放 Open Question。」
+
+「本段先確認事件和基本規則。」
+
+暫定規則
+ChangeTaskPriority:
+- Task 必須存在。
+- NewPriority 必須是系統允許的 priority value。
+- NewPriority 與目前 priority 相同時，不產生事件。
+- Priority 變更不等於 Urgent。
+- Priority 變更不自動改變 TaskState。
+Actor 初稿
+Actor	是否可能 ChangeTaskPriority	備註
+PM	是	常見
+PO	是	常見，根據產品價值調整
+Project Member	可能	視團隊規則
+Task Assignee	可能	可建議或自行調整，規則未定
+QA	可能	對測試缺陷調整嚴重性時可能需要
+System	Future	自動排序或風險計算先不做
+白板：Priority
+
+```mermaid
+flowchart LR
+    A["ChangeTaskPriority"]
+    R["Rules:
+    Task exists
+    NewPriority is valid
+    No event if unchanged
+    Priority != Urgent
+    Does not change TaskState"]
+    E((TaskPriorityChanged))
+
+    A --> R --> E
+```
+
+3. MarkTaskUrgent → TaskMarkedUrgent + TaskUrgencyReasonRecorded
+Facilitator 提問
+
+Facilitator：
+
+「接著討論 Urgent。」
+
+「我們之前已經確認：Urgent 和 Priority 不同，Urgent 應該有 reason。」
+
+「那 Command 應該是：」
+
+MarkTaskUrgent
+
+「成功後產生什麼事件？」
+
+PO 決策發言
+
+PO：
+
+「我認為至少要有：」
+
+TaskMarkedUrgent
+
+「並且因為 reason 必填，也要記錄：」
+
+TaskUrgencyReasonRecorded
+
+「但我有點猶豫，這兩個要不要分開。」
+
+Domain Expert 補充
+
+Domain Expert：
+
+「從業務上，標記緊急和記錄緊急原因其實是同一個動作的一部分。」
+
+「如果沒有 reason，就不應該成功標記 urgent。」
+
+QA 質疑
+
+QA：
+
+「那是不是只需要一個事件 TaskMarkedUrgent，裡面包含 reason？」
+
+PM 回應
+
+PM：
+
+「我也傾向一個事件。」
+
+「因為使用者不是先標 urgent，再補 reason；而是宣告這件事很急，並同時說明原因。」
+
+Facilitator 收斂
+
+Facilitator：
+
+「這裡修正一下。原本我們列了：」
+
+TaskMarkedUrgent
+TaskUrgencyReasonRecorded
+
+「但根據現在討論，v0.1 可以先收斂成：」
+
+MarkTaskUrgent → TaskMarkedUrgent(reason)
+
+「也就是 TaskMarkedUrgent 事件內含 reason。」
+
+暫定規則
+MarkTaskUrgent:
+- Task 必須存在。
+- Task 目前不可已是 urgent。
+- Urgency reason 必填。
+- Urgency reason 不可為空白。
+- Mark urgent 不自動改變 priority。
+- Mark urgent 不自動改變 TaskState。
+Actor 初稿
+Actor	是否可能 MarkTaskUrgent	備註
+PM	是	常見，處理插單與風險
+PO	是	產品 / 客戶急迫性
+Task Assignee	可能	發現任務變緊急
+QA	可能	嚴重 bug 或阻斷測試
+Project Member	可能	小團隊中可允許
+System	Future	自動標 urgent 先不做
+白板：Urgent
+
+```mermaid
+3. MarkTaskUrgent → TaskMarkedUrgent + TaskUrgencyReasonRecorded
+Facilitator 提問
+
+Facilitator：
+
+「接著討論 Urgent。」
+
+「我們之前已經確認：Urgent 和 Priority 不同，Urgent 應該有 reason。」
+
+「那 Command 應該是：」
+
+MarkTaskUrgent
+
+「成功後產生什麼事件？」
+
+PO 決策發言
+
+PO：
+
+「我認為至少要有：」
+
+TaskMarkedUrgent
+
+「並且因為 reason 必填，也要記錄：」
+
+TaskUrgencyReasonRecorded
+
+「但我有點猶豫，這兩個要不要分開。」
+
+Domain Expert 補充
+
+Domain Expert：
+
+「從業務上，標記緊急和記錄緊急原因其實是同一個動作的一部分。」
+
+「如果沒有 reason，就不應該成功標記 urgent。」
+
+QA 質疑
+
+QA：
+
+「那是不是只需要一個事件 TaskMarkedUrgent，裡面包含 reason？」
+
+PM 回應
+
+PM：
+
+「我也傾向一個事件。」
+
+「因為使用者不是先標 urgent，再補 reason；而是宣告這件事很急，並同時說明原因。」
+
+Facilitator 收斂
+
+Facilitator：
+
+「這裡修正一下。原本我們列了：」
+
+TaskMarkedUrgent
+TaskUrgencyReasonRecorded
+
+「但根據現在討論，v0.1 可以先收斂成：」
+
+MarkTaskUrgent → TaskMarkedUrgent(reason)
+
+「也就是 TaskMarkedUrgent 事件內含 reason。」
+
+暫定規則
+MarkTaskUrgent:
+- Task 必須存在。
+- Task 目前不可已是 urgent。
+- Urgency reason 必填。
+- Urgency reason 不可為空白。
+- Mark urgent 不自動改變 priority。
+- Mark urgent 不自動改變 TaskState。
+Actor 初稿
+Actor	是否可能 MarkTaskUrgent	備註
+PM	是	常見，處理插單與風險
+PO	是	產品 / 客戶急迫性
+Task Assignee	可能	發現任務變緊急
+QA	可能	嚴重 bug 或阻斷測試
+Project Member	可能	小團隊中可允許
+System	Future	自動標 urgent 先不做
+白板：Urgent
+flowchart LR
+    A["MarkTaskUrgent"]
+    R["Rules:
+    Task exists
+    Task is not urgent
+    Reason required
+    Reason not blank
+    Does not change Priority
+    Does not change TaskState"]
+    E((TaskMarkedUrgent))
+
+    A --> R --> E
+    E --> Reason["reason snapshot"]
+```
+
+4. UnmarkTaskUrgent → TaskUnmarkedUrgent
+Facilitator 提問
+
+Facilitator：
+
+「如果可以標記 urgent，是否也需要取消 urgent？」
+
+PO 決策發言
+
+PO：
+
+「需要。」
+
+「否則一個任務被標 urgent 後，如果緊急狀況解除，沒有方式恢復。」
+
+「Command 可以叫：」
+
+UnmarkTaskUrgent
+
+「事件：」
+
+TaskUnmarkedUrgent
+PM 補充
+
+PM：
+
+「取消 urgent 也應該可以有 reason，但我不確定是否要必填。」
+
+「例如 production issue 已排除，或客戶改期。」
+
+QA 質疑
+
+QA：
+
+「如果標 urgent 需要 reason，那取消 urgent 是否也要 reason？」
+
+PO 回應
+
+PO：
+
+「我會建議 v0.1 取消 urgent 的 reason 選填。」
+
+「因為取消 urgent 的管理壓力比較低。」
+
+Domain Expert 補充
+
+Domain Expert：
+
+「可以接受。」
+
+「但事件裡最好能保留 reason nullable。」
+
+暫定規則
+UnmarkTaskUrgent:
+- Task 必須存在。
+- Task 目前必須是 urgent。
+- Reason optional。
+- Unmark urgent 不自動改變 priority。
+- Unmark urgent 不自動改變 TaskState。
+Actor 初稿
+Actor	是否可能 UnmarkTaskUrgent	備註
+PM	是	常見
+PO	是	常見
+Task Assignee	可能	視團隊規則
+QA	可能	測試風險解除
+Project Member	可能	小團隊可允許
+System	Future	自動解除 urgent 先不做
+白板：Unmark Urgent
+
+```mermaid
+flowchart LR
+    A["UnmarkTaskUrgent"]
+    R["Rules:
+    Task exists
+    Task is urgent
+    Reason optional
+    Does not change Priority
+    Does not change TaskState"]
+    E((TaskUnmarkedUrgent))
+
+    A --> R --> E
+    E --> Reason["reason?"]
+```
+
+第 3 段暫定 Command / Event 對照表
+Command	Event
+ChangeTaskAssignee	TaskAssigneeChanged
+ChangeTaskPriority	TaskPriorityChanged
+MarkTaskUrgent	TaskMarkedUrgent
+UnmarkTaskUrgent	TaskUnmarkedUrgent
+第 3 段暫定 Business Rules
+ChangeTaskAssignee
+- Task 必須存在。
+- v0.1 暫定只支援單一 assignee。
+- NewAssignee 可以是 null。
+- NewAssignee = null 代表取消指派。
+- PreviousAssignee 與 NewAssignee 相同時，不產生事件。
+- 若 NewAssignee 不為 null，該 User 必須存在。
+ChangeTaskPriority
+- Task 必須存在。
+- NewPriority 必須是系統允許的 priority value。
+- NewPriority 與目前 priority 相同時，不產生事件。
+- Priority 變更不等於 Urgent。
+- Priority 變更不自動改變 TaskState。
+MarkTaskUrgent
+- Task 必須存在。
+- Task 目前不可已是 urgent。
+- Urgency reason 必填。
+- Urgency reason 不可為空白。
+- Mark urgent 不自動改變 priority。
+- Mark urgent 不自動改變 TaskState。
+UnmarkTaskUrgent
+- Task 必須存在。
+- Task 目前必須是 urgent。
+- Reason optional。
+- Unmark urgent 不自動改變 priority。
+- Unmark urgent 不自動改變 TaskState。
+Open Questions
+1. Priority 的值應該是固定 enum，還是可自訂？
+2. Priority 是否應影響看板排序？
+3. MarkTaskUrgent 是否需要影響排序？
+4. ChangeTaskAssignee 是否需要 reason？
+5. UnmarkTaskUrgent 的 reason 是否應必填？
+6. v0.1 是否要區分 UrgencyReason 和一般 Comment？
+7. 是否需要 TaskUnmarkedUrgent？
+   目前傾向需要。
+Parking Lot
+1. 多 assignee。
+2. Current Action Owner。
+3. 自動分派。
+4. 自動標記 urgent。
+5. 完整插單流程。
+6. Urgent 對 Sprint 承諾的影響。
+7. Priority scheme 可配置化。
+
+RD：
+
+1. TaskMarkedUrgent 不需要輸入 reason。
+   但 urgent 設定後，任務應該直接進入 In Progress / Active 狀態，
+   並且應該強制 assignee 開始作業。
+
+   如果未來有 WIP 機制，也可以透過其他機制暫停該 assignee 目前進行中的任務，
+   要求該人馬上處理 urgent task。
+
+2. 需要 TaskUnmarkedUrgent。
+   緊急任務被取消，在管理上是一件值得注意的事，
+   而且應該輸入原因。
+
+3. Urgent 應該視為最優先。
+
+4. ChangeTaskAssignee 不需要 reason。
+
+5. Priority 用數字應該比 enum 更好管理。
+Facilitator 回應
+
+Facilitator：
+
+「RD 的回饋把 Urgent 的語意推得更明確了。」
+
+「原本我們把 Urgent 當成一個單純 flag，但 RD 現在提出：」
+
+Urgent 不只是標記。
+Urgent 代表任務應該立即進入處理流程。
+Urgent 會影響目前工作排序。
+Urgent 可能會中斷 assignee 原本正在進行的工作。
+
+「這代表 Urgent 可能不是普通屬性，而是一種工作流干預。」
+
+PO 回應：Urgent 的產品範圍要小心
+
+PO：
+
+「我同意 Urgent 在業務語意上比 Priority 更強。」
+
+「但我會把它拆成兩層：」
+
+v0.1：
+Urgent 表示最高處理優先級，並在看板與排序上被明確標記。
+
+Future：
+Urgent 觸發完整 interruption flow，例如暫停 assignee 目前任務、強制接手、調整 WIP。
+
+「如果 v0.1 就強制 urgent task 進入 Active，並且強制 assignee 開始作業，會牽涉到幾個問題：」
+
+1. 如果 task 沒有 assignee 怎麼辦？
+2. 如果 assignee 已經有其他 active task，系統是否可以自動暫停？
+3. 如果目前 workflow 沒有 Active 類狀態怎麼辦？
+4. 誰有權宣告 urgent？
+5. urgent 是否一定表示可立即開始？需求不清楚時怎麼辦？
+
+「所以我建議 v0.1 不要直接強制自動進入 Active，但要把 urgent 定義為最高優先級。」
+
+Domain Expert 回應：Urgent 不一定等於 Ready
+
+Domain Expert：
+
+「RD 說 urgent 任務應該立刻處理，這符合很多實務場景。」
+
+「但我也同意 PO 的擔心。」
+
+「有些事情很急，但不代表它已經可以執行。」
+
+例如：
+
+Production issue 很急，但還沒有重現步驟。
+客戶重大問題很急，但需求還沒釐清。
+法規期限很急，但資料還沒到齊。
+
+「所以 urgent 應該表示：」
+
+這件事需要立即被關注與處理。
+
+「但不一定表示：」
+
+這件事已經可以直接進入開發或執行。
+PM 回應：Urgent 應該影響排序，但自動插單要放 Future
+
+PM：
+
+「管理上我同意 urgent 應該視為最優先。」
+
+「但我不建議 v0.1 直接自動暫停別人的任務，因為那是很強的管理動作。」
+
+「比較務實的 v0.1 做法是：」
+
+1. Urgent task 顯示在最高優先區。
+2. Urgent task 在排序上高於一般 priority。
+3. 若 urgent task 沒有 assignee，顯示為需要處理的管理風險。
+4. 不自動暫停其他 active task。
+5. WIP / interruption flow 放 future。
+QA 回應：UnmarkUrgent reason 應必填
+
+QA：
+
+「我同意 RD，TaskUnmarkedUrgent 需要 reason。」
+
+「因為 urgent 被取消代表管理語意變化，例如：」
+
+緊急狀況解除
+客戶改期
+問題已被其他方式處理
+判斷錯誤，不再緊急
+
+「這些都值得記錄。」
+
+Facilitator 收斂：Urgent 語意調整
+1. TaskMarkedUrgent 是否需要 reason？
+
+原本暫定：
+
+MarkTaskUrgent reason 必填。
+
+RD 修正：
+
+TaskMarkedUrgent 不需要 reason。
+
+經討論後，目前較合理收斂為：
+
+v0.1：MarkTaskUrgent 不強制 reason。
+但可以保留 optional reason 欄位。
+
+原因：
+
+Urgent 的核心語意是立即提升處理優先級。
+不是所有 urgent 宣告都需要長理由。
+但若團隊需要追蹤，可填 reason。
+2. TaskUnmarkedUrgent 是否需要 reason？
+
+目前收斂：
+
+TaskUnmarkedUrgent 需要 reason。
+
+因為取消 urgent 代表緊急狀態被解除，是管理上值得注意的事件。
+
+3. Urgent 是否影響 Priority？
+
+RD 認為 urgent 應視為最優先。
+
+目前收斂：
+
+Urgent 不等於 Priority。
+但在排序邏輯上，Urgent 應優先於 Priority。
+
+也就是：
+
+排序時：
+Urgent task > non-urgent task
+在 urgent task 之間，再依 priority 排序。
+
+但：
+
+MarkTaskUrgent 不會直接修改 Priority 數值。
+
+這樣可以保留概念乾淨：
+
+概念	意義
+Priority	任務的相對重要性 / 排序權重
+Urgent	是否需要立即關注 / 插單處理
+排序規則	Urgent 優先於一般 Priority
+4. Urgent 是否自動讓 Task 進入 Active？
+
+目前收斂為：
+
+v0.1 不自動改變 TaskState。
+
+原因：
+
+Urgent 不一定代表 Ready。
+Urgent task 可能還需要釐清、指派或補資料。
+自動進入 Active 會引入 Current Action Owner、WIP、Interruption Flow 等複雜度。
+
+但記入 Future：
+
+未來可設計 Interruption Workflow：
+- urgent task 自動插入 assignee 的工作佇列
+- 暫停 assignee 目前 active task
+- 產生 TaskInterrupted / TaskPaused
+- 產生 CurrentActionOwnerChanged
+- WIP limit 重新計算
+5. Priority 使用數字
+
+RD 認為數字比 enum 更好管理。
+
+目前收斂：
+
+Priority 使用數字。
+
+建議 v0.1 可以先用：
+
+Priority: integer
+數值越大，優先度越高
+
+或反過來：
+
+數值越小，優先度越高
+
+這需要後續決定。
+
+我建議採用：
+
+數值越大，優先度越高。
+
+因為直覺上：
+
+Priority 100 > Priority 10
+
+比較容易理解。
+
+修正後 Command / Event Mapping
+Command	Event	備註
+ChangeTaskAssignee	TaskAssigneeChanged	reason 不需要
+ChangeTaskPriority	TaskPriorityChanged	priority 使用數字
+MarkTaskUrgent	TaskMarkedUrgent	reason optional；不自動改 state
+UnmarkTaskUrgent	TaskUnmarkedUrgent	reason required
+修正後 Business Rules
+ChangeTaskAssignee
+- Task 必須存在。
+- v0.1 暫定只支援單一 assignee。
+- NewAssignee 可以是 null。
+- NewAssignee = null 代表取消指派。
+- PreviousAssignee 與 NewAssignee 相同時，不產生事件。
+- 若 NewAssignee 不為 null，該 User 必須存在。
+- 不需要 reason。
+ChangeTaskPriority
+- Task 必須存在。
+- Priority 使用數字。
+- NewPriority 必須在系統允許範圍內。
+- NewPriority 與目前 priority 相同時，不產生事件。
+- Priority 不等於 Urgent。
+- Priority 變更不自動改變 TaskState。
+MarkTaskUrgent
+- Task 必須存在。
+- Task 目前不可已是 urgent。
+- Reason optional。
+- Mark urgent 不自動改變 Priority。
+- Mark urgent 不自動改變 TaskState。
+- 在排序語意上，urgent task 應高於 non-urgent task。
+UnmarkTaskUrgent
+- Task 必須存在。
+- Task 目前必須是 urgent。
+- Reason required。
+- Reason 不可為空白。
+- Unmark urgent 不自動改變 Priority。
+- Unmark urgent 不自動改變 TaskState。
+白板更新
+
+```mermaid
+flowchart LR
+    A["ChangeTaskAssignee"]
+    A --> AR["Rules:
+    Task exists
+    Single assignee in v0.1
+    NewAssignee may be null
+    No event if unchanged
+    User must exist if not null
+    Reason not required"]
+    AR --> AE((TaskAssigneeChanged))
+
+    P["ChangeTaskPriority"]
+    P --> PR["Rules:
+    Task exists
+    Priority is numeric
+    NewPriority is valid
+    No event if unchanged
+    Does not change Urgent
+    Does not change TaskState"]
+    PR --> PE((TaskPriorityChanged))
+
+    U["MarkTaskUrgent"]
+    U --> UR["Rules:
+    Task exists
+    Task is not urgent
+    Reason optional
+    Does not change Priority
+    Does not change TaskState
+    Urgent ranks above non-urgent"]
+    UR --> UE((TaskMarkedUrgent))
+
+    X["UnmarkTaskUrgent"]
+    X --> XR["Rules:
+    Task exists
+    Task is urgent
+    Reason required
+    Does not change Priority
+    Does not change TaskState"]
+    XR --> XE((TaskUnmarkedUrgent))
+
+```
+Parking Lot 更新
+1. WIP limit。
+2. Interruption Workflow。
+3. 自動暫停 assignee 目前 active task。
+4. Current Action Owner。
+5. Urgent task 自動進入 Active。
+6. Urgent task 無 assignee 時的管理警示。
+7. Priority 數值範圍。
+8. Priority 數值方向：數字越大越高，或越小越高。
+
+會議 3：Behavior Mapping 總收斂
+Command、Actor、Business Rules
+
+目前會議 3 已完成三段：
+
+1. CreateTask → TaskCreated
+2. ChangeTaskState / RejectTask / ReopenTask
+3. Assignee / Priority / Urgent
+
+本場會議的目標是把前兩場事件風暴收斂出的事件，轉成：
+
+Command → Event Mapping
+Actor / Command Mapping
+Business Rules / Invariants 初稿
+Open Questions
+Parking Lot
+1. 本場確認的 Command / Event Mapping
+Command	Event	備註
+CreateTask	TaskCreated	建立任務，任務進入 Workflow.InitialState
+ChangeTaskState	TaskStateChanged	一般狀態變更
+ChangeTaskState	TaskStateChanged + TaskCompleted	當 toState.Category = Done
+RejectTask	TaskStateChanged + TaskRejected	Review 退回，reason 必填
+ReopenTask	TaskStateChanged + TaskReopened	Done 後重開，reason 必填
+ChangeTaskAssignee	TaskAssigneeChanged	reason 不需要
+ChangeTaskPriority	TaskPriorityChanged	priority 使用數字
+MarkTaskUrgent	TaskMarkedUrgent	reason optional，不自動改 state
+UnmarkTaskUrgent	TaskUnmarkedUrgent	reason required
+2. 本場確認的 Actor / Command Mapping
+
+這裡先只談「業務上可能由誰執行」，不是正式權限設計。
+
+Command	主要可能 Actor	備註
+CreateTask	Project Member, PM, PO, RD, QA	專案成員皆可能建立任務
+ChangeTaskState	Project Member, Task Assignee, PM, PO, QA / Reviewer	一般狀態移動
+RejectTask	QA / Reviewer, PO, PM	驗收或檢查未通過
+ReopenTask	QA / Reviewer, PO, PM, Task Assignee	已完成任務重新打開
+ChangeTaskAssignee	PM, PO, Project Member, Task Assignee	v0.1 不細分權限
+ChangeTaskPriority	PM, PO, Project Member, Task Assignee, QA	實際權限未定
+MarkTaskUrgent	PM, PO, Task Assignee, QA, Project Member	緊急任務標記
+UnmarkTaskUrgent	PM, PO, Task Assignee, QA, Project Member	取消緊急狀態
+3. Business Rules / Invariants 初稿
+3.1 CreateTask
+- Task 必須屬於某個 Project。
+- Project 必須存在。
+- Project 必須處於可新增任務的狀態。
+- Task title 不可為空。
+- Task title 不可超過系統限制長度。
+- Task 建立後進入 Workflow.InitialState。
+- TaskCreated 不代表 Task 已 Ready。
+- TaskCreated 不代表 Task 已 Assigned。
+3.2 ChangeTaskState
+- Task 必須存在。
+- ToState 必須存在。
+- ToState 必須屬於 Task 使用的 Workflow。
+- FromState 不可等於 ToState。
+- 一般 ChangeTaskState 的 reason optional。
+- 若 ToState.Category = Done，產生 TaskCompleted。
+- ChangeTaskState 不應用於 Review → Active / Ready；應使用 RejectTask。
+- ChangeTaskState 不應用於 Done → non-Done；應使用 ReopenTask。
+- v0.1 暫時不實作完整 WorkflowTransition Rule。
+3.3 RejectTask
+- Task 必須存在。
+- Task 目前狀態的 Category 必須是 Review。
+- TargetState.Category 應為 Ready 或 Active。
+- Reason 必填。
+- Reason 不可為空白。
+- 成功後產生 TaskStateChanged。
+- 成功後產生 TaskRejected。
+3.4 ReopenTask
+- Task 必須存在。
+- Task 目前狀態的 Category 必須是 Done。
+- TargetState.Category 不可為 Done。
+- Reason 必填。
+- Reason 不可為空白。
+- 成功後產生 TaskStateChanged。
+- 成功後產生 TaskReopened。
+3.5 ChangeTaskAssignee
+- Task 必須存在。
+- v0.1 暫定只支援單一 assignee。
+- NewAssignee 可以是 null。
+- NewAssignee = null 代表取消指派。
+- PreviousAssignee 與 NewAssignee 相同時，不產生事件。
+- PreviousAssignee = null 且 NewAssignee = null 時，不產生事件。
+- 若 NewAssignee 不為 null，該 User 必須存在。
+- 不需要 reason。
+3.6 ChangeTaskPriority
+- Task 必須存在。
+- Priority 使用數字。
+- NewPriority 必須在系統允許範圍內。
+- NewPriority 與目前 priority 相同時，不產生事件。
+- Priority 不等於 Urgent。
+- Priority 變更不自動改變 TaskState。
+- Priority 變更不自動改變 Urgent。
+3.7 MarkTaskUrgent
+- Task 必須存在。
+- Task 目前不可已是 urgent。
+- Reason optional。
+- Mark urgent 不自動改變 Priority。
+- Mark urgent 不自動改變 TaskState。
+- 在排序語意上，urgent task 應高於 non-urgent task。
+3.8 UnmarkTaskUrgent
+- Task 必須存在。
+- Task 目前必須是 urgent。
+- Reason required。
+- Reason 不可為空白。
+- Unmark urgent 不自動改變 Priority。
+- Unmark urgent 不自動改變 TaskState。
+4. 本場收斂後白板
+```mermaid
+flowchart LR
+    CT["CreateTask"]
+    CT --> CTR["Rules"]
+    CTR --> TCE((TaskCreated))
+
+    CS["ChangeTaskState"]
+    CS --> CSR["General state transition rules"]
+    CSR --> TSC((TaskStateChanged))
+    TSC --> CSD{"to.Category = Done?"}
+    CSD -- Yes --> TC((TaskCompleted))
+
+    RJ["RejectTask"]
+    RJ --> RJR["from.Category = Review<br/>to.Category = Ready / Active<br/>reason required"]
+    RJR --> RJSC((TaskStateChanged))
+    RJSC --> TRE((TaskRejected))
+
+    RO["ReopenTask"]
+    RO --> ROR["from.Category = Done<br/>to.Category != Done<br/>reason required"]
+    ROR --> ROSC((TaskStateChanged))
+    ROSC --> TRO((TaskReopened))
+
+    ASG["ChangeTaskAssignee"]
+    ASG --> ASGR["single assignee<br/>reason not required<br/>no event if unchanged"]
+    ASGR --> TAE((TaskAssigneeChanged))
+
+    PR["ChangeTaskPriority"]
+    PR --> PRR["numeric priority<br/>does not change urgent<br/>does not change state"]
+    PRR --> TPE((TaskPriorityChanged))
+
+    MU["MarkTaskUrgent"]
+    MU --> MUR["reason optional<br/>does not change priority<br/>does not change state<br/>ranks above non-urgent"]
+    MUR --> TMU((TaskMarkedUrgent))
+
+    UU["UnmarkTaskUrgent"]
+    UU --> UUR["reason required<br/>does not change priority<br/>does not change state"]
+    UUR --> TUU((TaskUnmarkedUrgent))
+```
+5. Open Questions
+1. Review → Canceled 是否算 TaskRejected？
+2. 是否需要 TaskCanceled？
+3. v0.1 是否應禁止使用 ChangeTaskState 直接執行 Review → Active？
+   目前傾向：應透過 RejectTask。
+4. v0.1 是否應禁止使用 ChangeTaskState 直接執行 Done → non-Done？
+   目前傾向：應透過 ReopenTask。
+5. Future 的 WorkflowTransition Rule 要如何和 RejectTask / ReopenTask 共存？
+6. Priority 數值範圍是多少？
+7. Priority 數字方向是否採「數字越大，優先度越高」？
+8. MarkTaskUrgent 是否需要 optional reason 欄位？
+9. Urgent task 是否需要在沒有 assignee 時顯示管理警示？
+10. Actor / Command Mapping 是否要在下一階段轉成正式權限模型？
+6. Parking Lot
+1. WorkflowTransition 設定功能
+2. System 自動改變 TaskState
+3. 子任務完成後自動完成主任務
+4. Review / QA 專用流程
+5. Status change history read model
+6. 多 assignee
+7. Current Action Owner
+8. 自動分派
+9. 自動標記 urgent
+10. 完整插單流程
+11. WIP limit
+12. 自動暫停 assignee 目前 active task
+13. Urgent task 自動進入 Active
+14. Urgent 對 Sprint 承諾的影響
+15. Priority scheme 可配置化
