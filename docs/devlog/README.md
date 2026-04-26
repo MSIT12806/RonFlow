@@ -103,17 +103,17 @@
 
 1. 先定義本次 [Event Storming](../tech-base/event-storming.md) 的範圍。
 2. 找出「已經發生的業務事實」，也就是候選的 [Domain Event](../tech-base/domain-event.md)。
-3. 再反推出「是誰觸發的」，例如 actor + command。
+3. 再反推出「是誰觸發的」，例如 [Actor](../tech-base/actor.md) + [Command](../tech-base/command.md)。
 4. 再找出「觸發前需要什麼條件」，也就是 condition。
-5. 再整理出「哪些模型負責這些規則」，也就是 entity。
+5. 再整理出「哪些模型負責這些規則」，也就是 [Entity](../tech-base/entity.md)。
 6. 最後才進一步形成流程、邊界與系統設計。
 
 #### 事件風暴會議模擬
 
 接下來，這一輪會由 AI 模擬一段 [Event Storming](../tech-base/event-storming.md) 的工作過程，參與人物如下：
 
-- Facilitator / 主持人：負責控制討論節奏，提醒大家只找事件，不急著進入解決方案。
-- Domain Expert / 領域專家：假設是一位有多年專案管理經驗的人，熟悉任務如何從需求、開發、測試到完成。
+- [Facilitator](../tech-base/facilitator.md) / 主持人：負責控制討論節奏，提醒大家只找事件，不急著進入解決方案。
+- [Domain Expert](../tech-base/domain-expert.md) / 領域專家：假設是一位有多年專案管理經驗的人，熟悉任務如何從需求、開發、測試到完成。
 - PM / Project Manager：關注專案進度、任務狀態、可追蹤性、交付節奏。
 - PO / Product Owner：關注任務是否能承載產品價值、需求是否被正確表達、完成是否代表可交付。
 - RD / Developer：關注任務是否能拆解、狀態是否清楚、哪些事件對系統建模有意義。
@@ -1152,7 +1152,7 @@ QA：尚未交付，是 not ready
 「比較務實的做法是：」
 
 - Task 有一個整體 [Workflow State](../tech-base/workflow-state.md)
-- 再用 Assignee / [Current Action Owner](../tech-base/current-action-owner.md) / Comment / [Activity Log](../tech-base/activity-log.md) 輔助說明目前誰需要處理
+- 再用 [Assignee](../tech-base/assignee.md) / [Current Action Owner](../tech-base/current-action-owner.md) / Comment / [Activity Log](../tech-base/activity-log.md) 輔助說明目前誰需要處理
 
 「也就是說，v0.1 先回答：」
 
@@ -1175,9 +1175,9 @@ PM：
 「所以我會建議：」
 
 - v0.1 不做 Role-specific State。
-- 但可以有 [Current Action Owner](../tech-base/current-action-owner.md) 或 Assignee。
+- 但可以有 [Current Action Owner](../tech-base/current-action-owner.md) 或 [Assignee](../tech-base/assignee.md)。
 
-「不過如果 v0.1 只想更小，也可以先只做 Assignee，[Current Action Owner](../tech-base/current-action-owner.md) 放到後面。」
+「不過如果 v0.1 只想更小，也可以先只做 [Assignee](../tech-base/assignee.md)，[Current Action Owner](../tech-base/current-action-owner.md) 放到後面。」
 
 QA：
 
@@ -1187,7 +1187,7 @@ QA：
 
 Done 的定義要清楚。
 
-「如果 v0.1 允許使用者自己定義 [Workflow State](../tech-base/workflow-state.md)，那至少要有 state category，否則系統不知道哪個狀態是完成。」
+「如果 v0.1 允許使用者自己定義 [Workflow State](../tech-base/workflow-state.md)，那至少要有 [State Category](../tech-base/state-category.md)，否則系統不知道哪個狀態是完成。」
 
 「例如使用者可以叫：」
 
@@ -3175,7 +3175,7 @@ Canceled
 當 TaskStateChanged 的 ToState.Category = Done 時，
 系統產生 TaskCompleted。
 
-```mermiad
+```mermaid
 flowchart LR
     A((TaskStateChanged))
     B["ToState.Category = Done"]
@@ -3197,7 +3197,7 @@ flowchart LR
 
 任務在檢查 / 驗收階段未被接受，需要回到處理流程。
 
-```mermiad
+```mermaid
 flowchart LR
     R["Review State"]
     A["Active / Ready State"]
@@ -3450,4 +3450,4 @@ Facilitator：
 
 2026/04/26 15:22。
 
-會後檢討(/assets/after event storm meeting 2.md)
+[會後檢討](../assets/after%20event%20storm%20meeting%202.md)
