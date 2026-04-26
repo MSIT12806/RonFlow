@@ -1370,18 +1370,9 @@ flowchart LR
 
 Facilitator：
 
-「上一輪我們先收斂出幾個暫定產品方向：」
+「前一段收斂出的產品方向，這裡直接當作前提使用。」
 
-1. v0.1 採用單一 Task Workflow State。
-2. 不寫死 TaskStarted、TaskCompleted 這類固定狀態事件。
-3. 狀態流轉先抽象成 TaskStateChanged。
-4. WorkflowState 可以由使用者命名，但系統需要 Category。
-5. v0.1 支援 Priority、Urgent flag、Urgency reason。
-6. Role-specific State、完整插單流程先列為 Future。
-
-「這一輪我們要把任務從建立到完成的最小主流程排出來。」
-
-「提醒一下，本輪仍然不討論 Command、Actor、Aggregate、資料表、API、UI。只整理事件時間線。」
+「接下來只整理任務從建立到完成的最小事件時間線，不討論 Command、Actor、Aggregate、資料表、API、UI。」
 
 ```mermaid
 flowchart LR
@@ -1844,17 +1835,7 @@ flowchart LR
 
 Facilitator：
 
-「我們目前仍在第二輪事件風暴，目標是梳理 RonFlow v0.1 的最小流程。」
-
-「上一段已經確認：」
-
-TaskAssigneeChanged 不是主流程必經事件。
-Task 可以不經指派而完成。
-初次指派、重新指派、取消指派，v0.1 先用 TaskAssigneeChanged 統一處理。
-
-「現在我們要處理主流程裡最核心的事件：」
-
-TaskStateChanged
+「接下來聚焦主流程裡最核心的事件：TaskStateChanged。」
 
 「這個事件會承接上一輪提到的許多具體狀態語意，例如：」
 
@@ -2569,16 +2550,7 @@ Facilitator：
 
 Facilitator：
 
-「我們繼續第二輪事件風暴。本輪目標仍然是梳理 RonFlow v0.1 的最小任務流程。」
-
-「上一段已確認：」
-
-TaskStateChanged 是任務狀態流轉的核心事件。
-TaskCompleted 需要獨立保留。
-TaskCompleted 可由 TaskStateChanged(to Category = Done) 觸發。
-Done → non-Done 應視為 TaskReopened。
-
-「現在要處理 Review / Rejected / Reopened 的關係。」
+「下一段改看 Review / Rejected / Reopened 的關係，確認它們和 TaskStateChanged、TaskCompleted 的邊界。」
 
 目前白板
 ```mermaid
@@ -3021,22 +2993,7 @@ TaskUrgencyReasonRecorded
 
 Facilitator：
 
-「我們進入第二輪事件風暴的最後一段。」
-
-「本輪原本的目標是：」
-
-梳理 RonFlow v0.1 的最小任務流程，
-並將上一輪找到的具體業務事件，
-抽象成適合專案管理平台的事件模型。
-
-「目前我們已經確認幾件事：」
-
-1. RonFlow 不應寫死任務狀態名稱。
-2. 任務狀態流轉以 TaskStateChanged 表達。
-3. WorkflowState 需要 Category，讓系統理解狀態語意。
-4. TaskCompleted、TaskRejected、TaskReopened 需要作為衍生事件保留。
-5. TaskAssigneeChanged 不是主流程必經事件。
-6. Urgent 和 Priority 是不同概念。
+「最後一段把前面收斂的結果整理成 v0.1 最小流程圖、事件分類與保留議題。」
 
 1. v0.1 最小流程圖
 
@@ -3452,22 +3409,9 @@ TaskInterruptionRecorded
 
 Facilitator：
 
-「第二輪事件風暴到這裡完成。」
+「第二輪事件風暴先收斂到這裡。」
 
-「這一輪我們不是繼續發散事件，而是將第一次事件風暴找到的專案管理語意，轉換成 RonFlow 作為平台型產品比較適合的事件模型。」
-
-「最重要的轉換是：」
-
-不再寫死 TaskStarted、TaskSubmittedForReview、TaskCompleted 等固定流程狀態，
-而是以 TaskStateChanged 搭配 WorkflowState.Category 表達可配置 workflow。
-
-「但我們也保留了幾個重要的業務事件：」
-
-TaskCompleted
-TaskRejected
-TaskReopened
-
-「因為它們不只是狀態變更，而是對後續流程、統計、協作與未來擴充有明確業務意義。」
+「這一輪的核心轉換，是把固定流程名稱抽象成 TaskStateChanged + WorkflowState.Category，同時保留 TaskCompleted、TaskRejected、TaskReopened 這些仍然有明確業務語意的事件。」
 
 10. 下一輪建議
 
