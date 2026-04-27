@@ -5133,3 +5133,2013 @@ flowchart LR
 15. Priority scheme 可配置化
 
 2025/04/27 21:35。
+
+### 梳理業務規則-事件風暴04
+
+Facilitator：
+
+「我們開始第四場會議：Modeling & Delivery。」
+
+「前三場已經完成：」
+
+會議 1：Event Discovery
+- 找出任務生命週期中的候選事件
+- 排出最小流程
+
+會議 2：Event Refinement
+- 釐清事件語意
+- 確認 TaskStateChanged、TaskCompleted、TaskRejected、TaskReopened 等事件
+
+會議 3：Behavior Mapping
+- 建立 Command / Event Mapping
+- 初步整理 Actor / Command
+- 初步整理 Business Rules / Invariants
+
+「本場會議的目標不是再討論事件是否存在，而是把前面結果轉成可以設計與開發的材料。」
+
+本場目標
+
+本場要完成五件事：
+
+1. 整理候選 Aggregate / Entity / Value Object
+2. 整理候選 Read Model / View
+3. 整理 Backlog Items
+4. 整理 ADR 清單
+5. 整理 Spike / Open Questions
+
+本場不討論
+1. 實際資料表 schema
+2. API endpoint 詳細規格
+3. 前端 UI 細節
+4. 完整權限模型
+5. 完整 CI/CD
+6. 子任務 / Regression / WIP 的完整實作
+
+這些如果出現，先放進 Parking Lot 或 Spike。
+
+目前已確認的核心事件與 Command
+Events
+TaskCreated
+TaskStateChanged
+TaskCompleted
+TaskRejected
+TaskReopened
+TaskAssigneeChanged
+TaskPriorityChanged
+TaskMarkedUrgent
+TaskUnmarkedUrgent
+Commands
+CreateTask
+ChangeTaskState
+RejectTask
+ReopenTask
+ChangeTaskAssignee
+ChangeTaskPriority
+MarkTaskUrgent
+UnmarkTaskUrgent
+
+第 1 段：候選 Domain Model
+Facilitator 提問
+
+Facilitator：
+
+「我們先根據前面產生的 Command、Event、Rule，整理候選模型。」
+
+「先不急著決定 Aggregate Root，只列出可能存在的概念。」
+
+初步候選模型
+Project
+Task
+Workflow
+WorkflowState
+TaskAssignee
+TaskPriority
+TaskUrgency
+TaskStateChange
+TaskActivity
+1. Task
+PO
+
+「Task 一定是核心模型。」
+
+「因為所有事件都圍繞 Task：」
+
+TaskCreated
+TaskStateChanged
+TaskCompleted
+TaskRejected
+TaskReopened
+TaskAssigneeChanged
+TaskPriorityChanged
+TaskMarkedUrgent
+TaskUnmarkedUrgent
+Domain Expert
+
+「Task 是專案管理中的基本工作單位。」
+
+「它至少要表達：」
+
+標題
+目前狀態
+是否完成
+負責人
+優先度
+是否緊急
+RD 初步建模方向
+
+Facilitator 代為整理：
+
+Task 很可能是 Aggregate Root。
+
+原因：
+
+1. 大部分 Command 都是對單一 Task 進行操作。
+2. Task 需要保護自身狀態轉換規則。
+3. Task 會產生多個 Domain Events。
+4. Task 有自己的生命週期。
+2. Project
+PM
+
+「Project 是 Task 的容器。」
+
+「Task 必須屬於某個 Project，這點前面已經確認。」
+
+PO
+
+「v0.1 至少需要 Project，否則 Task 沒有管理範圍。」
+
+Domain Expert
+
+「Project 可能決定使用哪個 Workflow。」
+
+例如：
+
+Project A 使用簡單流程：Todo → Doing → Done
+Project B 使用正式流程：Backlog → Ready → Active → Review → Done
+Facilitator 收斂
+Project 是候選 Aggregate Root。
+但 v0.1 可以先把 Project 作為 Task 的上層容器。
+
+需要後續決定：
+
+Task 是否屬於 Project Aggregate 內部？
+還是 Task 自己是 Aggregate Root，只持有 ProjectId？
+3. Workflow / WorkflowState
+PO
+
+「Workflow 是 RonFlow 平台化能力的核心。」
+
+「因為我們已經決定不寫死 Task 狀態。」
+
+QA
+
+「WorkflowState.Category 必要，否則 Done / Review / Active 等語意無法判斷。」
+
+Facilitator 收斂
+Workflow 是候選 Aggregate Root。
+WorkflowState 是 Workflow 底下的 Entity 或 Value Object 候選。
+
+目前語意：
+
+Workflow:
+- 定義一組任務狀態
+- 指定 InitialState
+- 狀態名稱可由使用者自訂
+
+WorkflowState:
+- Name：使用者自訂
+- Category：系統語意
+- Order：顯示順序
+- IsInitial：是否初始狀態，或由 Workflow.InitialStateId 表達
+4. TaskAssignee
+Facilitator
+
+「Assignee 是否需要獨立模型？」
+
+PO
+
+「v0.1 只支援單一 assignee，不需要複雜模型。」
+
+Domain Expert
+
+「Assignee 在業務上重要，但目前可以是 Task 上的一個欄位。」
+
+Facilitator 收斂
+v0.1 暫不建立 TaskAssignee Entity。
+Task 可持有 AssigneeId nullable。
+TaskAssigneeChanged 事件保留 previous / new snapshot。
+
+Future：
+
+多 assignee
+Current Action Owner
+Role-specific responsibility
+5. Priority
+PM
+
+「Priority 使用數字。」
+
+Facilitator 收斂
+v0.1 可先將 Priority 作為 Task 的數值欄位。
+
+候選 Value Object：
+
+TaskPriority
+
+規則：
+
+Priority 使用數字。
+數字越大，優先度越高。
+Priority 不等於 Urgent。
+6. Urgency
+PO
+
+「Urgent 和 Priority 不同。」
+
+PM
+
+「Urgent 在排序上應高於非 urgent。」
+
+Facilitator 收斂
+Urgency 可以先是 Task 上的狀態欄位。
+
+可能欄位：
+
+IsUrgent
+UrgentMarkedAt
+UrgentReason nullable
+
+不過 UnmarkTaskUrgent reason required，代表事件中要保存取消原因。
+
+Future：
+
+Interruption Workflow
+WIP limit
+自動暫停目前工作
+7. TaskActivity / TaskStateChange
+QA
+
+「狀態變更、退回、重開、urgent 變更等都需要歷史。」
+
+RD 方向整理
+TaskStateChanged 等事件本身可以作為歷史來源。
+但為了查詢方便，可能需要 Read Model / Activity Log。
+
+暫定：
+
+v0.1 Domain Model 不一定需要 TaskActivity Entity。
+但 Read Model 可以有 TaskActivityView / TaskHistory。
+
+第 1 段白板：候選模型
+
+```mermaid
+flowchart LR
+    P["Project"]
+    T["Task"]
+    W["Workflow"]
+    WS["WorkflowState"]
+
+    P --> T
+    P --> W
+    W --> WS
+    T --> W
+    T --> WS_CURRENT["Current WorkflowState"]
+
+    T --> A["AssigneeId?"]
+    T --> PR["Priority"]
+    T --> U["Urgent"]
+
+    T -. produces .-> E["Domain Events"]
+    E --> EV1["TaskCreated"]
+    E --> EV2["TaskStateChanged"]
+    E --> EV3["TaskCompleted"]
+    E --> EV4["TaskRejected"]
+    E --> EV5["TaskReopened"]
+
+```
+
+第 1 段暫定結論
+候選 Aggregate Root
+Task
+Project
+Workflow
+候選 Entity
+WorkflowState
+候選 Value Object
+TaskPriority
+TaskUrgency
+暫不建成 Entity
+TaskAssignee
+TaskActivity
+TaskStateChange
+
+這些先以欄位、事件或 Read Model 表達。
+
+關鍵建模問題
+1. Task 是否應該是 Aggregate Root？
+2. Project 是否擁有 Task，還是 Task 只持有 ProjectId？
+3. Workflow 是否是獨立 Aggregate？
+4. WorkflowState 是 Entity 還是 Value Object？
+5. Task.CurrentState 是否只存 StateId，還是包成 TaskState Value Object？
+6. TaskCompleted / TaskRejected / TaskReopened 的歷史是否只靠事件，還是要建立 Activity Read Model？
+
+第 1 段收斂白板
+
+```mermaid
+flowchart LR
+    P["Project<br/>候選 Aggregate Root"]
+    T["Task<br/>高度可能是 Aggregate Root"]
+    W["Workflow<br/>候選 Aggregate Root"]
+    WS["WorkflowState<br/>候選 Entity"]
+
+    P --> T
+    P --> W
+    W --> WS
+    T --> W
+    T --> Current["CurrentStateId"]
+
+    T --> A["AssigneeId?"]
+    T --> PR["TaskPriority<br/>候選 Value Object"]
+    T --> U["TaskUrgency<br/>候選 Value Object"]
+
+    T -. produces .-> E["Domain Events"]
+    E --> E1["TaskCreated"]
+    E --> E2["TaskStateChanged"]
+    E --> E3["TaskCompleted"]
+    E --> E4["TaskRejected"]
+    E --> E5["TaskReopened"]
+```
+
+Facilitator：
+
+「先討論 Task。」
+
+「目前大部分 Command 都是針對 Task：」
+
+CreateTask
+ChangeTaskState
+RejectTask
+ReopenTask
+ChangeTaskAssignee
+ChangeTaskPriority
+MarkTaskUrgent
+UnmarkTaskUrgent
+
+「那 Task 是否應該成為 Aggregate Root？」
+
+RD / Architect 觀點
+
+RD：
+
+「我傾向 Task 是 Aggregate Root。」
+
+「因為 Task 需要維護自己的生命週期規則，例如：」
+
+- ChangeTaskState 時，目標 state 必須有效。
+- RejectTask 必須從 Review 類狀態退回 Ready / Active。
+- ReopenTask 必須從 Done 類狀態退回 non-Done。
+- MarkTaskUrgent 不應自動改變 priority 或 state。
+- UnmarkTaskUrgent 需要 reason。
+
+「這些規則都圍繞 Task 本身。」
+
+Domain Expert 觀點
+
+Domain Expert：
+
+「從業務上來看，Task 確實是一個有自己生命週期的工作項目。」
+
+「它不是 Project 裡的一個普通資料列而已。它會被建立、移動、退回、完成、重開、指派、標 urgent。」
+
+「所以我同意 Task 應該有自己的模型責任。」
+
+PO 觀點
+
+PO：
+
+「產品上也合理。」
+
+「RonFlow 的核心功能就是讓使用者管理 Task。如果 Task 沒有獨立生命週期，後續像 urgent、review、reopen、activity timeline 都會很難擴充。」
+
+QA 觀點
+
+QA：
+
+「測試上也會比較清楚。」
+
+「我們可以針對 Task 的行為寫測試：」
+
+Task.Reject(...)
+Task.Reopen(...)
+Task.ChangeState(...)
+Task.MarkUrgent(...)
+
+「而不是把所有規則塞進 Application Service。」
+
+Facilitator 收斂
+暫定結論：
+Task 應作為 v0.1 的 Aggregate Root。
+2. Project 是否擁有 Task？
+Facilitator 提問
+
+Facilitator：
+
+「接著討論 Project 和 Task 的關係。」
+
+「Task 必須屬於 Project，但這不代表 Project 一定要把所有 Task 作為內部 Entity 管理。」
+
+「有兩個方案：」
+
+方案 A：
+Project Aggregate 擁有 Tasks。
+Project.Tasks 是 Project Aggregate 的內部集合。
+
+方案 B：
+Task 是獨立 Aggregate Root。
+Task 只持有 ProjectId。
+Project 不直接載入所有 Tasks。
+RD / Architect 觀點
+
+RD：
+
+「我傾向方案 B。」
+
+「理由是 Project 可能有很多 Task。如果 Project Aggregate 包含所有 Tasks，Project 會變得非常大。」
+
+「而且大部分 Task 操作不需要修改 Project。」
+
+例如：
+
+ChangeTaskState
+RejectTask
+ReopenTask
+ChangeTaskAssignee
+MarkTaskUrgent
+
+「這些都不應該需要載入整個 Project Aggregate。」
+
+PM 觀點
+
+PM：
+
+「從管理上，Project 需要知道 Task 的整體進度，但不一定要親自管理每個 Task 的狀態。」
+
+「Project Dashboard 可以透過 Read Model 統計。」
+
+Domain Expert 觀點
+
+Domain Expert：
+
+「Project 是任務的歸屬範圍，但 Task 的生命週期主要由 Task 自己推進。」
+
+「所以我同意 Task 可以獨立。」
+
+PO 觀點
+
+PO：
+
+「Project 還是需要控制一些高階規則。」
+
+例如：
+
+- Project 已封存時，不可新增 Task。
+- Project 使用哪個 Workflow。
+- Project 是否允許某些任務設定。
+
+「但 Task 狀態變更不應該都經過 Project。」
+
+Facilitator 收斂
+暫定結論：
+Task 作為獨立 Aggregate Root。
+Task 持有 ProjectId。
+Project 不直接擁有 Task 集合。
+白板：Project / Task Aggregate 邊界
+
+```mermaid
+flowchart LR
+    P["Project Aggregate<br/>ProjectId<br/>Status<br/>WorkflowId"]
+    T["Task Aggregate<br/>TaskId<br/>ProjectId<br/>CurrentStateId<br/>AssigneeId<br/>Priority<br/>Urgency"]
+
+    T -->|"references by ProjectId"| P
+
+    Q["Project Dashboard / Task List<br/>Read Model"]
+    P -.-> Q
+    T -.-> Q
+
+```
+
+3. Workflow 是否應該是獨立 Aggregate？
+Facilitator 提問
+
+Facilitator：
+
+「接著討論 Workflow。」
+
+「Task 使用 WorkflowState 來判斷狀態語意，例如 Done、Review、Active。」
+
+「那 Workflow 應該屬於 Project 裡面，還是獨立 Aggregate？」
+
+RD / Architect 觀點
+
+RD：
+
+「我傾向 Workflow 是獨立 Aggregate。」
+
+「理由是 Workflow 有自己的規則：」
+
+- Workflow 必須有至少一個 state。
+- Workflow 必須有 InitialState。
+- WorkflowState 必須屬於 Workflow。
+- WorkflowState.Category 必須有效。
+- WorkflowState 的 order 不應重複，或至少需要定義排序規則。
+- 正在被 Task 使用的 WorkflowState 不能任意刪除。
+
+「這些規則不是 Project 的核心規則，而是 Workflow 自己的設定規則。」
+
+PO 觀點
+
+PO：
+
+「產品上，Workflow 很可能會被多個 Project 使用。」
+
+「例如預設 Kanban workflow 可以被很多 Project 共用。」
+
+「所以如果 Workflow 放在 Project 裡，未來共用會比較麻煩。」
+
+Domain Expert 觀點
+
+Domain Expert：
+
+「專案可以選擇一套流程，但流程本身不一定只屬於單一專案。」
+
+「所以 Workflow 獨立合理。」
+
+QA 觀點
+
+QA：
+
+「測試上也可以把 Workflow 設定規則獨立測試。」
+
+Facilitator 收斂
+暫定結論：
+Workflow 作為獨立 Aggregate Root。
+Project 持有 WorkflowId。
+Task 透過 Project / WorkflowId 使用 WorkflowState。
+4. WorkflowState 是 Entity 還是 Value Object？
+Facilitator 提問
+
+Facilitator：
+
+「WorkflowState 是 Workflow 裡的一個狀態定義。它有：」
+
+StateId
+Name
+Category
+Order
+
+「它應該是 Entity 還是 Value Object？」
+
+RD / Architect 觀點
+
+RD：
+
+「我傾向 WorkflowState 是 Entity。」
+
+「因為 Task 會持有 CurrentStateId。如果 state 可以被 rename、調整 order、改 category，那它需要穩定 identity。」
+
+「例如使用者把 QA 改名成 驗收中，Task 的 currentStateId 不應該改變。」
+
+QA 觀點
+
+QA：
+
+「而且 TaskStateChanged 事件會記錄 FromStateId / ToStateId，以及 name / category snapshot。」
+
+「這也暗示 state 有 identity。」
+
+PO 觀點
+
+PO：
+
+「產品上，使用者會編輯 workflow state，所以 state 有自己的存在感。」
+
+Facilitator 收斂
+暫定結論：
+WorkflowState 是 Workflow Aggregate 內部的 Entity。
+
+5. Task 如何使用 WorkflowState？
+Facilitator 提問
+
+Facilitator：
+
+「既然 WorkflowState 屬於 Workflow Aggregate，而 Task 是獨立 Aggregate，那 Task 不能直接擁有 WorkflowState Entity。」
+
+「Task 要怎麼使用 WorkflowState？」
+
+RD / Architect 觀點
+
+RD：
+
+「Task 應該只保存：」
+
+WorkflowId
+CurrentStateId
+CurrentStateCategorySnapshot? 或 CurrentCategory?
+
+「執行 ChangeTaskState 時，Application Service 先載入 Task 和 Workflow，確認 targetState 屬於 Task.Workflow，然後把 target state 的必要資訊傳給 Task。」
+
+「Task 不應該直接查資料庫，也不應該擁有整個 Workflow。」
+
+Facilitator 補充
+
+「也就是：」
+
+Application Service:
+1. Load Task
+2. Load Workflow
+3. Find target WorkflowState
+4. Verify target state belongs to workflow
+5. Call Task.ChangeState(targetStateInfo)
+QA 觀點
+
+「這樣測試也清楚。」
+
+「Task 單元測試可以傳入一個 WorkflowStateInfo 或 Value Object，不必真的載入整個 Workflow。」
+
+Facilitator 收斂
+暫定結論：
+Task 不直接擁有 WorkflowState Entity。
+Task 透過 StateId / WorkflowId 參照 WorkflowState。
+Task 行為方法接收必要的 state info 作為參數。
+白板：Task / Workflow 互動
+
+```mermaid
+sequenceDiagram
+    participant App as Application Service
+    participant Task as Task Aggregate
+    participant Workflow as Workflow Aggregate
+
+    App->>Task: Load Task
+    App->>Workflow: Load Workflow
+    App->>Workflow: Get target state info
+    Workflow-->>App: WorkflowStateInfo
+    App->>Task: ChangeState(targetStateInfo)
+    Task-->>App: Domain Events
+```
+
+6. TaskPriority / TaskUrgency
+Facilitator 提問
+
+Facilitator：
+
+「Priority 和 Urgency 是欄位、Value Object，還是 Entity？」
+
+RD / Architect 觀點
+
+RD：
+
+「Priority 我傾向 Value Object 或簡單數值包裝。」
+
+「因為它有規則：」
+
+- Priority 是數字。
+- 數字方向要定義。
+- Priority 不等於 Urgent。
+
+「Urgency 也可以是 Value Object，尤其它不只是 bool，還可能包含：」
+
+IsUrgent
+MarkedAt
+Reason?
+
+「但 v0.1 可以先簡化，仍然在 Task 裡表達。」
+
+PO 觀點
+
+「我同意。不要先建成獨立 Entity。」
+
+Facilitator 收斂
+暫定結論：
+TaskPriority 作為 Value Object 或簡單數值封裝。
+TaskUrgency 作為 Value Object 候選。
+v0.1 不建立獨立 Priority / Urgency Entity。
+第 2 段收斂白板
+
+```mermaid
+flowchart TB
+    subgraph ProjectAggregate["Project Aggregate"]
+        P["Project<br/>ProjectId<br/>Status<br/>WorkflowId"]
+    end
+
+    subgraph WorkflowAggregate["Workflow Aggregate"]
+        W["Workflow<br/>WorkflowId<br/>InitialStateId"]
+        WS["WorkflowState<br/>StateId<br/>Name<br/>Category<br/>Order"]
+        W --> WS
+    end
+
+    subgraph TaskAggregate["Task Aggregate"]
+        T["Task<br/>TaskId<br/>ProjectId<br/>WorkflowId<br/>CurrentStateId<br/>AssigneeId?<br/>Priority<br/>Urgency"]
+    end
+
+    T -. references .-> P
+    T -. references .-> W
+    P -. uses .-> W
+```
+第 2 段暫定結論
+Aggregate Root
+Task
+Project
+Workflow
+Entity
+WorkflowState
+
+WorkflowState 是 Workflow Aggregate 內部 Entity。
+
+Value Object / 欄位候選
+TaskPriority
+TaskUrgency
+WorkflowStateInfo
+關係
+Task 持有 ProjectId。
+Task 持有 WorkflowId。
+Task 持有 CurrentStateId。
+Project 持有 WorkflowId。
+Workflow 擁有 WorkflowState。
+Task 不直接擁有 WorkflowState。
+仍待後續 ADR 決定的問題
+1. Task 是否正式作為 Aggregate Root？
+   目前傾向：是。
+
+2. Project 是否直接擁有 Task？
+   目前傾向：否，Task 獨立，持有 ProjectId。
+
+3. Workflow 是否獨立 Aggregate？
+   目前傾向：是。
+
+4. WorkflowState 是否為 Entity？
+   目前傾向：是，且屬於 Workflow Aggregate。
+
+5. TaskPriority 是否包成 Value Object？
+   待技術設計決定。
+
+6. TaskUrgency 是否包成 Value Object？
+   待技術設計決定。
+
+7. WorkflowStateInfo 是否作為跨 Aggregate 傳遞用 Value Object？
+   待技術設計決定。
+
+   Facilitator：
+
+「我們進入會議 4 的第 3 段：Read Model / View 候選。」
+
+「前一段我們已經初步收斂 Aggregate 邊界：」
+
+Task 是 Aggregate Root
+Project 是 Aggregate Root
+Workflow 是 Aggregate Root
+WorkflowState 是 Workflow 內部 Entity
+
+「但 Aggregate 主要處理寫入行為與業務規則。使用者實際操作系統時，還需要看見任務、看板、專案進度、緊急任務、歷史紀錄等資訊。」
+
+「所以這一段我們要整理：」
+
+使用者需要哪些查詢畫面或 Read Model？
+
+本段不討論
+1. UI 長什麼樣子
+2. 前端元件細節
+3. SQL 查詢最佳化
+4. API endpoint 命名
+5. 權限過濾細節
+
+本段只整理 查詢需求與 Read Model 候選。
+
+1. Kanban Board View
+PO
+
+「RonFlow v0.1 最核心的畫面應該是 Kanban Board。」
+
+「使用者要能看到某個 Project 底下，不同狀態的 Task 分布。」
+
+PM
+
+「看板至少要能回答：」
+
+哪些任務在待處理？
+哪些任務正在進行？
+哪些任務在 Review？
+哪些任務已完成？
+哪些是 urgent？
+哪些還沒指派？
+QA
+
+「如果有 rejected task，也應該能看出來，否則退回的任務會被埋掉。」
+
+Facilitator 收斂
+
+候選 Read Model：
+
+KanbanBoardView
+
+可能資料：
+
+ProjectId
+WorkflowId
+Columns:
+  - WorkflowStateId
+  - WorkflowStateName
+  - WorkflowStateCategory
+  - Order
+  - Tasks[]
+TaskCard:
+  - TaskId
+  - Title
+  - CurrentStateId
+  - Assignee
+  - Priority
+  - IsUrgent
+  - IsRejectedRecently?
+  - DueDate?
+  - UpdatedAt
+白板
+```mermaid
+flowchart LR
+    KB["KanbanBoardView"]
+    KB --> P["ProjectId"]
+    KB --> W["WorkflowId"]
+    KB --> C["Columns by WorkflowState"]
+
+    C --> S1["State: Ready"]
+    C --> S2["State: Active"]
+    C --> S3["State: Review"]
+    C --> S4["State: Done"]
+
+    S1 --> T1["TaskCard[]"]
+    S2 --> T2["TaskCard[]"]
+    S3 --> T3["TaskCard[]"]
+    S4 --> T4["TaskCard[]"]
+
+    T2 --> U["Urgent / Priority / Assignee / UpdatedAt"]
+```
+
+2. Task Detail View
+Domain Expert
+
+「使用者點進任務後，應該能看到完整任務資訊。」
+
+PO
+
+「Task Detail 是必要的，因為看板卡片只能放摘要。」
+
+QA
+
+「Task Detail 要能看到目前狀態、是否 urgent、是否完成、是否曾被 rejected / reopened。」
+
+Facilitator 收斂
+
+候選 Read Model：
+
+TaskDetailView
+
+可能資料：
+
+TaskId
+ProjectId
+Title
+Description
+CurrentState
+CurrentStateCategory
+Assignee
+Priority
+IsUrgent
+UrgentMarkedAt?
+CompletedAt?
+CreatedAt
+UpdatedAt
+LastRejectedAt?
+LastReopenedAt?
+ActivityTimeline
+
+```mermaid
+flowchart LR
+    TD["TaskDetailView"]
+
+    TD --> Basic["Basic Info<br/>Title / Description / Project"]
+    TD --> State["Current State<br/>Name / Category"]
+    TD --> People["Assignee"]
+    TD --> Flags["Priority / Urgent"]
+    TD --> Time["CreatedAt / UpdatedAt / CompletedAt"]
+    TD --> History["ActivityTimeline"]
+```
+
+3. Project Task List
+PM
+
+「除了看板，有時候需要列表，方便排序、篩選、批次查看。」
+
+PO
+
+「v0.1 可以先有看板，但 Project Task List 也很適合做基本查詢。」
+
+Facilitator 收斂
+
+候選 Read Model：
+
+ProjectTaskListView
+
+用途：
+
+顯示某個 Project 底下所有 Task。
+支援排序與篩選。
+
+可能篩選：
+
+State
+Category
+Assignee
+Priority
+Urgent
+Completed / Not Completed
+Unassigned
+Rejected
+
+可能資料：
+
+TaskId
+Title
+StateName
+StateCategory
+AssigneeName
+Priority
+IsUrgent
+CreatedAt
+UpdatedAt
+CompletedAt
+4. My Tasks View
+Domain Expert
+
+「對實際使用者而言，最常看的可能不是整個 Project，而是『我的任務』。」
+
+PM
+
+「這對 assignee 很重要。」
+
+PO
+
+「v0.1 若有登入使用者，就應該考慮 My Tasks。」
+
+Facilitator 收斂
+
+候選 Read Model：
+
+MyTasksView
+
+資料範圍：
+
+目前使用者作為 Assignee 的 Task。
+
+可能分類：
+
+Urgent
+Active
+Review
+Not Started
+Done
+
+可能資料：
+
+TaskId
+ProjectId
+ProjectName
+Title
+StateName
+StateCategory
+Priority
+IsUrgent
+UpdatedAt
+5. Urgent Tasks View
+RD 提醒背景
+
+「前面我們已經決定 urgent 在排序上高於一般 priority。」
+
+PM
+
+「那 urgent tasks 需要被集中看見，否則 urgent 只是一個藏在卡片上的標記。」
+
+PO
+
+「同意。Urgent Tasks 可以是 view，不一定是獨立功能頁，但 Read Model 上要支援。」
+
+Facilitator 收斂
+
+候選 Read Model：
+
+UrgentTasksView
+
+用途：
+
+快速列出所有需要立即關注的 urgent tasks。
+
+排序規則候選：
+
+Urgent first
+Priority desc
+UpdatedAt desc
+
+可能資料：
+
+TaskId
+ProjectId
+ProjectName
+Title
+Assignee
+Priority
+UrgentMarkedAt
+StateName
+StateCategory
+6. Unassigned Tasks View
+PM
+
+「未指派任務是管理風險。」
+
+「前面我們同意 Task 可以不經指派而完成，但管理上仍需要看出來。」
+
+PO
+
+「Unassigned Tasks 可以先作為篩選條件，不一定做獨立頁。」
+
+Facilitator 收斂
+
+候選 Read Model / Filter：
+
+UnassignedTasksView
+
+或：
+
+ProjectTaskListView filter: Assignee = null
+
+用途：
+
+找出尚未有主要負責人的 Task。
+7. Rejected / Reopened Tasks View
+QA
+
+「被退回或重開的任務需要被看見。」
+
+「如果只靠 Activity Timeline，可能不好查。」
+
+PM
+
+「Rejected 次數也可能是管理指標。」
+
+PO
+
+「v0.1 可以先不做統計，但 Read Model 可以保留欄位。」
+
+Facilitator 收斂
+
+候選 Read Model / Filter：
+
+RejectedTasksView
+ReopenedTasksView
+
+或先作為 Task List 篩選：
+
+LastRejectedAt is not null
+LastReopenedAt is not null
+
+可能資料：
+
+TaskId
+Title
+StateName
+Assignee
+LastRejectedAt
+LastRejectedReason
+RejectedCount
+LastReopenedAt
+ReopenedCount
+8. Completed Tasks View
+PM
+
+「完成任務要能查，尤其 Sprint 或 Project 統計會需要。」
+
+PO
+
+「v0.1 可以先有 CompletedAt 欄位，完整報表以後再做。」
+
+Facilitator 收斂
+
+候選 Read Model / Filter：
+
+CompletedTasksView
+
+或：
+
+ProjectTaskListView filter: StateCategory = Done
+
+可能資料：
+
+TaskId
+Title
+Assignee
+CompletedAt
+Priority
+WasUrgent
+ProjectId
+ProjectName
+9. Task Activity Timeline
+QA
+
+「狀態變更、退回、重開、指派變更、urgent 變更都應該有歷史。」
+
+RD
+
+「這可以由 domain events 轉成 read model。」
+
+Facilitator 收斂
+
+候選 Read Model：
+
+TaskActivityTimeline
+
+可能事件來源：
+
+TaskCreated
+TaskStateChanged
+TaskCompleted
+TaskRejected
+TaskReopened
+TaskAssigneeChanged
+TaskPriorityChanged
+TaskMarkedUrgent
+TaskUnmarkedUrgent
+
+可能資料：
+
+ActivityId
+TaskId
+ActivityType
+OccurredAt
+ActorId
+ActorName
+Summary
+Payload
+白板
+
+```mermaid
+flowchart LR
+    E["Domain Events"]
+    E --> A["TaskActivityTimeline"]
+
+    E --> E1["TaskCreated"]
+    E --> E2["TaskStateChanged"]
+    E --> E3["TaskCompleted"]
+    E --> E4["TaskRejected"]
+    E --> E5["TaskReopened"]
+    E --> E6["TaskAssigneeChanged"]
+    E --> E7["TaskMarkedUrgent"]
+
+    A --> V["Task Detail View"]
+```
+第 3 段暫定 Read Model 清單
+核心 Read Models
+KanbanBoardView
+TaskDetailView
+ProjectTaskListView
+TaskActivityTimeline
+重要 Filters / Secondary Views
+MyTasksView
+UrgentTasksView
+UnassignedTasksView
+RejectedTasksView
+ReopenedTasksView
+CompletedTasksView
+Read Model 與事件來源對照
+Read Model	主要事件來源
+KanbanBoardView	TaskCreated, TaskStateChanged, TaskCompleted, TaskRejected, TaskReopened, TaskAssigneeChanged, TaskPriorityChanged, TaskMarkedUrgent, TaskUnmarkedUrgent
+TaskDetailView	所有 Task 相關事件
+ProjectTaskListView	TaskCreated, TaskStateChanged, TaskAssigneeChanged, TaskPriorityChanged, urgent events
+TaskActivityTimeline	所有 Task Domain Events
+UrgentTasksView	TaskMarkedUrgent, TaskUnmarkedUrgent, TaskPriorityChanged, TaskStateChanged
+RejectedTasksView	TaskRejected, TaskStateChanged
+ReopenedTasksView	TaskReopened, TaskStateChanged
+CompletedTasksView	TaskCompleted, TaskStateChanged
+第 3 段 Open Questions
+1. KanbanBoardView 是否是 v0.1 必做？
+   目前傾向：是。
+
+2. TaskActivityTimeline 是否是 v0.1 必做？
+   目前傾向：至少要有簡化版。
+
+3. MyTasksView 是否納入 v0.1？
+   若 v0.1 有登入與 assignee，建議納入。
+
+4. UrgentTasksView 是否是獨立頁，還是 Task List 篩選？
+   目前傾向：先作為篩選。
+
+5. Rejected / Reopened / Completed 是否做獨立頁？
+   目前傾向：先作為篩選。
+
+6. Read Model 是否直接由 task table 查詢，還是由 domain events projection 產生？
+   v0.1 可先用傳統查詢，保留事件投影可能。
+第 3 段 Parking Lot
+1. Sprint Board
+2. Project Progress Report
+3. WIP Report
+4. Cycle Time / Lead Time
+5. Assignee Workload View
+6. Activity feed across project
+7. Cross-project My Tasks
+8. Saved filters
+9. Custom dashboard
+
+Facilitator：
+
+「我們進入會議 4 的第 3 段：Read Model / View 候選。」
+
+「前一段我們已經初步收斂 Aggregate 邊界：」
+
+Task 是 Aggregate Root
+Project 是 Aggregate Root
+Workflow 是 Aggregate Root
+WorkflowState 是 Workflow 內部 Entity
+
+「但 Aggregate 主要處理寫入行為與業務規則。使用者實際操作系統時，還需要看見任務、看板、專案進度、緊急任務、歷史紀錄等資訊。」
+
+「所以這一段我們要整理：」
+
+使用者需要哪些查詢畫面或 Read Model？
+
+本段不討論
+1. UI 長什麼樣子
+2. 前端元件細節
+3. SQL 查詢最佳化
+4. API endpoint 命名
+5. 權限過濾細節
+
+本段只整理 查詢需求與 Read Model 候選。
+
+1. Kanban Board View
+PO
+
+「RonFlow v0.1 最核心的畫面應該是 Kanban Board。」
+
+「使用者要能看到某個 Project 底下，不同狀態的 Task 分布。」
+
+PM
+
+「看板至少要能回答：」
+
+哪些任務在待處理？
+哪些任務正在進行？
+哪些任務在 Review？
+哪些任務已完成？
+哪些是 urgent？
+哪些還沒指派？
+QA
+
+「如果有 rejected task，也應該能看出來，否則退回的任務會被埋掉。」
+
+Facilitator 收斂
+
+候選 Read Model：
+
+KanbanBoardView
+
+可能資料：
+
+ProjectId
+WorkflowId
+Columns:
+  - WorkflowStateId
+  - WorkflowStateName
+  - WorkflowStateCategory
+  - Order
+  - Tasks[]
+TaskCard:
+  - TaskId
+  - Title
+  - CurrentStateId
+  - Assignee
+  - Priority
+  - IsUrgent
+  - IsRejectedRecently?
+  - DueDate?
+  - UpdatedAt
+白板
+flowchart LR
+    KB["KanbanBoardView"]
+    KB --> P["ProjectId"]
+    KB --> W["WorkflowId"]
+    KB --> C["Columns by WorkflowState"]
+
+    C --> S1["State: Ready"]
+    C --> S2["State: Active"]
+    C --> S3["State: Review"]
+    C --> S4["State: Done"]
+
+    S1 --> T1["TaskCard[]"]
+    S2 --> T2["TaskCard[]"]
+    S3 --> T3["TaskCard[]"]
+    S4 --> T4["TaskCard[]"]
+
+    T2 --> U["Urgent / Priority / Assignee / UpdatedAt"]
+2. Task Detail View
+Domain Expert
+
+「使用者點進任務後，應該能看到完整任務資訊。」
+
+PO
+
+「Task Detail 是必要的，因為看板卡片只能放摘要。」
+
+QA
+
+「Task Detail 要能看到目前狀態、是否 urgent、是否完成、是否曾被 rejected / reopened。」
+
+Facilitator 收斂
+
+候選 Read Model：
+
+TaskDetailView
+
+可能資料：
+
+TaskId
+ProjectId
+Title
+Description
+CurrentState
+CurrentStateCategory
+Assignee
+Priority
+IsUrgent
+UrgentMarkedAt?
+CompletedAt?
+CreatedAt
+UpdatedAt
+LastRejectedAt?
+LastReopenedAt?
+ActivityTimeline
+白板
+flowchart LR
+    TD["TaskDetailView"]
+
+    TD --> Basic["Basic Info<br/>Title / Description / Project"]
+    TD --> State["Current State<br/>Name / Category"]
+    TD --> People["Assignee"]
+    TD --> Flags["Priority / Urgent"]
+    TD --> Time["CreatedAt / UpdatedAt / CompletedAt"]
+    TD --> History["ActivityTimeline"]
+3. Project Task List
+PM
+
+「除了看板，有時候需要列表，方便排序、篩選、批次查看。」
+
+PO
+
+「v0.1 可以先有看板，但 Project Task List 也很適合做基本查詢。」
+
+Facilitator 收斂
+
+候選 Read Model：
+
+ProjectTaskListView
+
+用途：
+
+顯示某個 Project 底下所有 Task。
+支援排序與篩選。
+
+可能篩選：
+
+State
+Category
+Assignee
+Priority
+Urgent
+Completed / Not Completed
+Unassigned
+Rejected
+
+可能資料：
+
+TaskId
+Title
+StateName
+StateCategory
+AssigneeName
+Priority
+IsUrgent
+CreatedAt
+UpdatedAt
+CompletedAt
+4. My Tasks View
+Domain Expert
+
+「對實際使用者而言，最常看的可能不是整個 Project，而是『我的任務』。」
+
+PM
+
+「這對 assignee 很重要。」
+
+PO
+
+「v0.1 若有登入使用者，就應該考慮 My Tasks。」
+
+Facilitator 收斂
+
+候選 Read Model：
+
+MyTasksView
+
+資料範圍：
+
+目前使用者作為 Assignee 的 Task。
+
+可能分類：
+
+Urgent
+Active
+Review
+Not Started
+Done
+
+可能資料：
+
+TaskId
+ProjectId
+ProjectName
+Title
+StateName
+StateCategory
+Priority
+IsUrgent
+UpdatedAt
+5. Urgent Tasks View
+RD 提醒背景
+
+「前面我們已經決定 urgent 在排序上高於一般 priority。」
+
+PM
+
+「那 urgent tasks 需要被集中看見，否則 urgent 只是一個藏在卡片上的標記。」
+
+PO
+
+「同意。Urgent Tasks 可以是 view，不一定是獨立功能頁，但 Read Model 上要支援。」
+
+Facilitator 收斂
+
+候選 Read Model：
+
+UrgentTasksView
+
+用途：
+
+快速列出所有需要立即關注的 urgent tasks。
+
+排序規則候選：
+
+Urgent first
+Priority desc
+UpdatedAt desc
+
+可能資料：
+
+TaskId
+ProjectId
+ProjectName
+Title
+Assignee
+Priority
+UrgentMarkedAt
+StateName
+StateCategory
+6. Unassigned Tasks View
+PM
+
+「未指派任務是管理風險。」
+
+「前面我們同意 Task 可以不經指派而完成，但管理上仍需要看出來。」
+
+PO
+
+「Unassigned Tasks 可以先作為篩選條件，不一定做獨立頁。」
+
+Facilitator 收斂
+
+候選 Read Model / Filter：
+
+UnassignedTasksView
+
+或：
+
+ProjectTaskListView filter: Assignee = null
+
+用途：
+
+找出尚未有主要負責人的 Task。
+7. Rejected / Reopened Tasks View
+QA
+
+「被退回或重開的任務需要被看見。」
+
+「如果只靠 Activity Timeline，可能不好查。」
+
+PM
+
+「Rejected 次數也可能是管理指標。」
+
+PO
+
+「v0.1 可以先不做統計，但 Read Model 可以保留欄位。」
+
+Facilitator 收斂
+
+候選 Read Model / Filter：
+
+RejectedTasksView
+ReopenedTasksView
+
+或先作為 Task List 篩選：
+
+LastRejectedAt is not null
+LastReopenedAt is not null
+
+可能資料：
+
+TaskId
+Title
+StateName
+Assignee
+LastRejectedAt
+LastRejectedReason
+RejectedCount
+LastReopenedAt
+ReopenedCount
+8. Completed Tasks View
+PM
+
+「完成任務要能查，尤其 Sprint 或 Project 統計會需要。」
+
+PO
+
+「v0.1 可以先有 CompletedAt 欄位，完整報表以後再做。」
+
+Facilitator 收斂
+
+候選 Read Model / Filter：
+
+CompletedTasksView
+
+或：
+
+ProjectTaskListView filter: StateCategory = Done
+
+可能資料：
+
+TaskId
+Title
+Assignee
+CompletedAt
+Priority
+WasUrgent
+ProjectId
+ProjectName
+9. Task Activity Timeline
+QA
+
+「狀態變更、退回、重開、指派變更、urgent 變更都應該有歷史。」
+
+RD
+
+「這可以由 domain events 轉成 read model。」
+
+Facilitator 收斂
+
+候選 Read Model：
+
+TaskActivityTimeline
+
+可能事件來源：
+
+TaskCreated
+TaskStateChanged
+TaskCompleted
+TaskRejected
+TaskReopened
+TaskAssigneeChanged
+TaskPriorityChanged
+TaskMarkedUrgent
+TaskUnmarkedUrgent
+
+可能資料：
+
+ActivityId
+TaskId
+ActivityType
+OccurredAt
+ActorId
+ActorName
+Summary
+Payload
+白板
+flowchart LR
+    E["Domain Events"]
+    E --> A["TaskActivityTimeline"]
+
+    E --> E1["TaskCreated"]
+    E --> E2["TaskStateChanged"]
+    E --> E3["TaskCompleted"]
+    E --> E4["TaskRejected"]
+    E --> E5["TaskReopened"]
+    E --> E6["TaskAssigneeChanged"]
+    E --> E7["TaskMarkedUrgent"]
+
+    A --> V["Task Detail View"]
+第 3 段暫定 Read Model 清單
+核心 Read Models
+KanbanBoardView
+TaskDetailView
+ProjectTaskListView
+TaskActivityTimeline
+重要 Filters / Secondary Views
+MyTasksView
+UrgentTasksView
+UnassignedTasksView
+RejectedTasksView
+ReopenedTasksView
+CompletedTasksView
+Read Model 與事件來源對照
+Read Model	主要事件來源
+KanbanBoardView	TaskCreated, TaskStateChanged, TaskCompleted, TaskRejected, TaskReopened, TaskAssigneeChanged, TaskPriorityChanged, TaskMarkedUrgent, TaskUnmarkedUrgent
+TaskDetailView	所有 Task 相關事件
+ProjectTaskListView	TaskCreated, TaskStateChanged, TaskAssigneeChanged, TaskPriorityChanged, urgent events
+TaskActivityTimeline	所有 Task Domain Events
+UrgentTasksView	TaskMarkedUrgent, TaskUnmarkedUrgent, TaskPriorityChanged, TaskStateChanged
+RejectedTasksView	TaskRejected, TaskStateChanged
+ReopenedTasksView	TaskReopened, TaskStateChanged
+CompletedTasksView	TaskCompleted, TaskStateChanged
+第 3 段 Open Questions
+1. KanbanBoardView 是否是 v0.1 必做？
+   目前傾向：是。
+
+2. TaskActivityTimeline 是否是 v0.1 必做？
+   目前傾向：至少要有簡化版。
+
+3. MyTasksView 是否納入 v0.1？
+   若 v0.1 有登入與 assignee，建議納入。
+
+4. UrgentTasksView 是否是獨立頁，還是 Task List 篩選？
+   目前傾向：先作為篩選。
+
+5. Rejected / Reopened / Completed 是否做獨立頁？
+   目前傾向：先作為篩選。
+
+6. Read Model 是否直接由 task table 查詢，還是由 domain events projection 產生？
+   v0.1 可先用傳統查詢，保留事件投影可能。
+第 3 段 Parking Lot
+1. Sprint Board
+2. Project Progress Report
+3. WIP Report
+4. Cycle Time / Lead Time
+5. Assignee Workload View
+6. Activity feed across project
+7. Cross-project My Tasks
+8. Saved filters
+9. Custom dashboard
+
+註：這裡我提了一個問題「為什麼我們不先從 read model 開始討論呢」(assets/outside-in-vs-event-storming-order.md)
+
+註：以及事件投影的相關知識(assets/event-projection-vs-classic-query.md)
+
+剛剛插入討論後，我們已經額外收斂出一個重要技術策略：
+
+RonFlow v0.1 採用：
+Classic Query + Domain Events + Activity Log
+
+主要 Read Model 先用經典查詢完成。
+Domain Events 保留業務事實。
+Activity Log 支援任務歷史。
+事件投影不作為 v0.1 預設查詢方案。
+若未來經典查詢難以支撐特定統計、聚合或效能需求，再導入 Selective Projection。
+會議 4 / 第 3 段補充結論：Read Model 查詢策略
+v0.1 必做 Read Model
+KanbanBoardView
+TaskDetailView
+ProjectTaskListView
+TaskActivityTimeline
+v0.1 以 Filter 支援
+MyTasksView
+UrgentTasksView
+UnassignedTasksView
+RejectedTasksView
+ReopenedTasksView
+CompletedTasksView
+Future
+Sprint Board
+Project Progress Report
+WIP Report
+Cycle Time / Lead Time
+Assignee Workload View
+Cross-project Dashboard
+Saved Filters
+Custom Dashboard
+查詢策略
+Classic Query 為主
+Domain Events 為輔
+Activity Log 支援歷史
+Selective Projection 作為未來擴充
+白板更新
+```mermaid
+flowchart LR
+    DB["Classic Tables<br/>tasks / projects / workflows / workflow_states"]
+    DB --> KB["KanbanBoardView"]
+    DB --> TL["ProjectTaskListView"]
+    DB --> TD["TaskDetailView"]
+
+    TL --> F1["My Tasks filter"]
+    TL --> F2["Urgent filter"]
+    TL --> F3["Unassigned filter"]
+    TL --> F4["Rejected / Reopened filter"]
+    TL --> F5["Completed filter"]
+
+    E["Domain Events"]
+    E --> AL["Activity Log"]
+    AL --> TIMELINE["TaskActivityTimeline"]
+
+    E -. future .-> P["Selective Projection"]
+    P -. future .-> RPT["Reports / Metrics / Dashboards"]
+```
+
+1. v0.1 Backlog Items
+1.1 Project 基礎功能
+Backlog Item：建立 Project
+[Feature] Create Project
+目的：
+使用者可以建立一個 Project，作為 Task 的管理容器。
+初步內容：
+- Project 有名稱- Project 可指定 Workflow- Project 建立後可新增 Task
+相關模型：
+ProjectWorkflow
+相關後續議題：
+Project 是否可封存Project 封存後是否可新增 TaskProject 是否可以更換 Workflow
+
+Backlog Item：查看 Project List
+[Feature] View Project List
+目的：
+使用者可以看到自己可以管理或參與的 Project。
+Read Model：
+ProjectListView
+
+1.2 Workflow 基礎功能
+Backlog Item：建立預設 Workflow
+[Feature] Provide Default Workflow
+目的：
+系統提供一組 v0.1 預設 workflow，讓 Project 建立後可以直接開始使用。
+建議預設：
+Todo / Active / Review / Done
+或：
+Backlog / Ready / Active / Review / Done
+相關決策：
+WorkflowState.Category 的正式 enum 命名InitialState 設定Done / Review 類狀態判斷
+
+Backlog Item：讀取 Workflow States
+[Feature] View Workflow States
+目的：
+Kanban Board 需要根據 WorkflowState 顯示欄位。
+Read Model：
+WorkflowStatesView
+
+1.3 Task 核心功能
+Backlog Item：建立 Task
+[Feature] Create Task
+對應 Command / Event：
+CreateTask → TaskCreated
+初步規則：
+- Task 必須屬於 Project- Project 必須存在- Project 必須允許新增 Task- Title 不可為空- Task 建立後進入 Workflow.InitialState
+
+Backlog Item：顯示 Kanban Board
+[Feature] View Kanban Board
+目的：
+使用者可以在 Project 中以看板形式查看 Task。
+Read Model：
+KanbanBoardView
+必須顯示：
+- WorkflowState 欄位- Task card- Task title- State- Assignee- Priority- Urgent marker
+
+Backlog Item：移動 Task 狀態
+[Feature] Change Task State
+對應 Command / Event：
+ChangeTaskState → TaskStateChangedChangeTaskState(to Done) → TaskStateChanged + TaskCompleted
+初步規則：
+- Task 必須存在- ToState 必須存在- ToState 必須屬於 Task 使用的 Workflow- FromState 不可等於 ToState- 若 ToState.Category = Done，產生 TaskCompleted- Review → Active / Ready 應使用 RejectTask- Done → non-Done 應使用 ReopenTask
+
+Backlog Item：查看 Task Detail
+[Feature] View Task Detail
+Read Model：
+TaskDetailView
+內容：
+- Title- Description- Current State- Assignee- Priority- Urgent- CompletedAt- Activity Timeline
+
+1.4 Review / Done / Reopen
+Backlog Item：完成 Task
+[Feature] Complete Task
+說明：
+v0.1 不建立獨立 CompleteTask Command。任務進入 Done 類狀態時，產生 TaskCompleted。
+對應：
+ChangeTaskState(to Done) → TaskStateChanged + TaskCompleted
+需要記錄：
+CompletedAt
+
+Backlog Item：退回 Task
+[Feature] Reject Task
+對應 Command / Event：
+RejectTask → TaskStateChanged + TaskRejected
+初步規則：
+- Task 目前必須在 Review 類狀態- TargetState.Category 應為 Ready 或 Active- Reason 必填- Reason 不可為空白
+
+Backlog Item：重新開啟 Task
+[Feature] Reopen Task
+對應 Command / Event：
+ReopenTask → TaskStateChanged + TaskReopened
+初步規則：
+- Task 目前必須在 Done 類狀態- TargetState.Category 不可為 Done- Reason 必填- Reason 不可為空白
+
+1.5 Assignee / Priority / Urgent
+Backlog Item：變更 Task Assignee
+[Feature] Change Task Assignee
+對應 Command / Event：
+ChangeTaskAssignee → TaskAssigneeChanged
+初步規則：
+- v0.1 只支援單一 assignee- NewAssignee 可以是 null- NewAssignee = null 代表取消指派- NewAssignee 不為 null 時，User 必須存在- 前後 assignee 相同時，不產生事件- 不需要 reason
+
+Backlog Item：變更 Task Priority
+[Feature] Change Task Priority
+對應 Command / Event：
+ChangeTaskPriority → TaskPriorityChanged
+初步規則：
+- Priority 使用數字- NewPriority 必須在有效範圍內- Priority 不等於 Urgent- Priority 不自動改變 TaskState- Priority 不自動改變 Urgent
+
+Backlog Item：標記 Task 為 Urgent
+[Feature] Mark Task Urgent
+對應 Command / Event：
+MarkTaskUrgent → TaskMarkedUrgent
+初步規則：
+- Task 必須存在- Task 目前不可已是 urgent- Reason optional- 不自動改變 Priority- 不自動改變 TaskState- 排序上 urgent 高於 non-urgent
+
+Backlog Item：取消 Task Urgent
+[Feature] Unmark Task Urgent
+對應 Command / Event：
+UnmarkTaskUrgent → TaskUnmarkedUrgent
+初步規則：
+- Task 必須存在- Task 目前必須是 urgent- Reason 必填- Reason 不可為空白- 不自動改變 Priority- 不自動改變 TaskState
+
+1.6 Activity Log / Timeline
+Backlog Item：記錄 Task Activity
+[Feature] Record Task Activity
+目的：
+將 Task 相關 Domain Events 轉成使用者可讀的活動紀錄。
+事件來源：
+TaskCreatedTaskStateChangedTaskCompletedTaskRejectedTaskReopenedTaskAssigneeChangedTaskPriorityChangedTaskMarkedUrgentTaskUnmarkedUrgent
+
+Backlog Item：顯示 Task Activity Timeline
+[Feature] View Task Activity Timeline
+Read Model：
+TaskActivityTimeline
+內容：
+- Activity type- OccurredAt- Actor- Summary- Reason / payload
+
+2. ADR 清單
+ADR 1：使用 TaskStateChanged 表達一般狀態流轉
+[ADR] Use TaskStateChanged for general workflow state transitions
+決策摘要：
+RonFlow 不寫死 TaskStarted / TaskSubmittedForReview 等狀態事件。一般狀態流轉統一使用 TaskStateChanged。
+
+ADR 2：使用 WorkflowState.Category 表達系統語意
+[ADR] Introduce WorkflowState.Category for system-understandable state semantics
+決策摘要：
+WorkflowState.Name 可由使用者自訂。WorkflowState.Category 用於系統判斷 Done / Review / Active 等語意。
+
+ADR 3：保留 TaskCompleted 作為獨立事件
+[ADR] Keep TaskCompleted as a distinct domain event
+決策摘要：
+TaskCompleted 不只是 TaskStateChanged 的別名。它代表任務業務上已完成，未來可支援統計、報表、主任務 / 子任務完成傳播。
+
+ADR 4：RejectTask / ReopenTask 作為獨立 Command
+[ADR] Separate RejectTask and ReopenTask from general ChangeTaskState
+決策摘要：
+RejectTask 和 ReopenTask 需要 reason，且具有明確業務語意，因此不與一般 ChangeTaskState 混為一談。
+
+ADR 5：v0.1 暫不實作完整 WorkflowTransition Rule
+[ADR] Defer configurable WorkflowTransition rules
+決策摘要：
+v0.1 允許同一 Workflow 內的一般狀態變更。但 Review → Active / Ready 必須透過 RejectTask。Done → non-Done 必須透過 ReopenTask。完整 Transition Graph 留到未來版本。
+
+ADR 6：RonFlow v0.1 採用 Classic Query + Domain Events + Activity Log
+[ADR] Use Classic Query with Domain Events and Activity Log in v0.1
+決策摘要：
+日常查詢以經典查詢為主。Domain Events 記錄業務事實。Activity Log 支援任務歷史。不在 v0.1 導入完整 Event Sourcing 或全面事件投影。未來必要時導入 Selective Projection。
+
+ADR 7：Task / Project / Workflow 作為獨立 Aggregate Root
+[ADR] Model Task, Project, and Workflow as separate aggregate roots
+決策摘要：
+Task 作為獨立 Aggregate Root，持有 ProjectId / WorkflowId / CurrentStateId。Project 不直接擁有 Task 集合。Workflow 作為獨立 Aggregate Root，擁有 WorkflowState。
+
+3. Spike 清單
+Spike 1：WorkflowState.Category enum 命名
+[Spike] Define WorkflowState.Category values
+候選：
+NotStartedReadyActiveReviewDoneCanceled
+或：
+BacklogReadyActiveReviewDoneCanceled
+需要決定：
+正式名稱語意定義是否需要 Canceled是否需要同時有 Backlog 與 Ready
+
+Spike 2：Priority 數值範圍與排序方向
+[Spike] Define TaskPriority numeric scale
+待決：
+數字越大是否代表越高優先度？預設 priority 是多少？priority 範圍是否有限制？
+
+Spike 3：Activity Log 設計
+[Spike] Design Task Activity Log schema and rendering rules
+待決：
+Activity 是否由 Domain Events 直接轉換？是否保存 payload？Summary 是否即時產生或寫入時保存？不同事件如何產生使用者可讀文案？
+
+Spike 4：Workflow 被使用後是否允許修改
+[Spike] Define workflow modification rules after being used by tasks
+待決：
+WorkflowState 是否可刪除？WorkflowState.Category 是否可改？WorkflowState.Name 是否可改？WorkflowState.Order 是否可改？已存在 Task 如何處理？
+
+Spike 5：Project 封存規則
+[Spike] Define archived project behavior
+待決：
+封存 Project 是否可新增 Task？封存 Project 是否可變更既有 Task？封存 Project 是否可顯示在 Project List？
+
+4. Acceptance Criteria 初稿
+Feature：Create Task
+Scenario: 使用者建立 Task  Given 一個可新增任務的 Project 存在  And 該 Project 已指定 Workflow  When 使用者輸入非空白 Title 並建立 Task  Then 系統應建立 Task  And Task 應屬於該 Project  And Task 應進入 Workflow.InitialState  And 系統應記錄 TaskCreated
+Scenario: 使用者以空白 Title 建立 Task  Given 一個可新增任務的 Project 存在  When 使用者以空白 Title 建立 Task  Then 系統應拒絕建立  And 不應產生 TaskCreated
+
+Feature：Change Task State
+Scenario: 使用者變更 Task 狀態  Given 一個 Task 存在  And 目標 State 屬於該 Task 使用的 Workflow  When 使用者將 Task 移動到目標 State  Then 系統應更新 Task.CurrentState  And 系統應記錄 TaskStateChanged
+Scenario: 使用者將 Task 移動到 Done 類狀態  Given 一個 Task 存在  And 目標 State 的 Category 是 Done  When 使用者將 Task 移動到該 State  Then 系統應記錄 TaskStateChanged  And 系統應記錄 TaskCompleted  And 系統應記錄 CompletedAt
+
+Feature：Reject Task
+Scenario: 使用者退回 Review 中的 Task  Given 一個 Task 目前處於 Review 類狀態  And 目標 State 的 Category 是 Active  When 使用者輸入退回原因並退回 Task  Then 系統應更新 Task.CurrentState  And 系統應記錄 TaskStateChanged  And 系統應記錄 TaskRejected
+Scenario: 使用者未輸入原因就退回 Task  Given 一個 Task 目前處於 Review 類狀態  When 使用者未輸入退回原因並嘗試退回 Task  Then 系統應拒絕操作  And 不應產生 TaskRejected
+
+Feature：Reopen Task
+Scenario: 使用者重新開啟已完成 Task  Given 一個 Task 目前處於 Done 類狀態  And 目標 State 的 Category 不是 Done  When 使用者輸入重開原因並重新開啟 Task  Then 系統應更新 Task.CurrentState  And 系統應記錄 TaskStateChanged  And 系統應記錄 TaskReopened
+
+Feature：Mark Task Urgent
+Scenario: 使用者標記 Task 為 Urgent  Given 一個 Task 存在  And 該 Task 目前不是 urgent  When 使用者將 Task 標記為 urgent  Then 系統應將 Task 標記為 urgent  And 系統應記錄 TaskMarkedUrgent  And Task 排序應高於 non-urgent task
+
+Feature：Unmark Task Urgent
+Scenario: 使用者取消 Task 的 Urgent 狀態  Given 一個 Task 存在  And 該 Task 目前是 urgent  When 使用者輸入取消原因並取消 urgent  Then 系統應取消 Task 的 urgent 狀態  And 系統應記錄 TaskUnmarkedUrgent
+
+5. Future Scope / Parking Lot
+明確不納入 v0.1
+完整 WorkflowTransition Rule多 assigneeCurrent Action OwnerRole-specific Workflow子任務 / 主任務完成傳播Regression linked taskWIP limitInterruption Workflow自動暫停 assignee 目前 active task自動標記 urgent自動分派Sprint BoardCycle Time / Lead TimeAssignee Workload ReportProject Progress ReportSaved FiltersCustom Dashboard完整 Event Sourcing全面事件投影
+
+6. v0.1 建議開發順序
+Phase 1：基礎資料與預設流程
+1. 建立 Project2. 建立預設 Workflow / WorkflowState3. 建立 Task
+
+Phase 2：看板與任務狀態
+4. 顯示 Kanban Board5. ChangeTaskState6. TaskCompleted
+
+Phase 3：任務協作語意
+7. RejectTask8. ReopenTask9. ChangeTaskAssignee
+
+Phase 4：管理輔助
+10. ChangeTaskPriority11. MarkTaskUrgent12. UnmarkTaskUrgent
+
+Phase 5：歷史與查詢
+13. TaskActivityTimeline14. ProjectTaskListView filters15. MyTasks / Urgent / Completed / Rejected filters
+
+7. 會議 4 最終收斂
+Facilitator：
+「會議 4 到這裡完成。」
+「我們已經把前面三場的事件風暴成果，轉換成：」
+1. 候選 Aggregate / Entity / Value Object2. Read Model / View 候選3. 查詢策略4. Backlog Items5. ADR 清單6. Spike 清單7. Acceptance Criteria 初稿8. v0.1 開發順序
+「這代表 RonFlow 的第一輪事件風暴與 Outside-In Delivery Mapping 已經可以結案。」
+
+8. 四場會議總結
+會議 1：Event Discovery
+產出：
+候選事件最小流程初步 Open Questions
+會議 2：Event Refinement
+產出：
+事件分類TaskStateChangedTaskCompletedTaskRejectedTaskReopenedWorkflowState.Category
+會議 3：Behavior Mapping
+產出：
+Command / Event MappingActor / Command MappingBusiness Rules
+會議 4：Outside-In Delivery Mapping
+產出：
+Aggregate 候選Read ModelBacklogADRSpikeAcceptance Criteriav0.1 開發順序
+
+Facilitator：
+「本次 RonFlow v0.1 事件風暴與交付規劃會議正式結束。」
