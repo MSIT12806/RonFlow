@@ -9,6 +9,7 @@
 - [梳理業務規則-事件風暴01](#devlog-domain-rules)
 - [梳理業務規則-事件風暴02](#devlog-domain-rules-02)
 - [梳理業務規則-事件風暴03](#devlog-domain-rules-03)
+- [梳理業務規則-事件風暴04](#devlog-domain-rules-04)
 
 ### 專案起跑
 <a id="devlog-project-kickoff"></a>
@@ -5135,6 +5136,7 @@ flowchart LR
 2025/04/27 21:35。
 
 ### 梳理業務規則-事件風暴04
+<a id="devlog-domain-rules-04"></a>
 
 Facilitator：
 
@@ -5161,10 +5163,10 @@ Facilitator：
 
 本場要完成五件事：
 
-1. 整理候選 Aggregate / Entity / Value Object
-2. 整理候選 Read Model / View
-3. 整理 Backlog Items
-4. 整理 ADR 清單
+1. 整理候選 [Aggregate](../tech-base/aggregate.md) / [Entity](../tech-base/entity.md) / [Value Object](../tech-base/value-object.md)
+2. 整理候選 [Read Model](../tech-base/read-model.md) / View
+3. 整理 [Backlog Item](../tech-base/backlog-item.md) 清單
+4. 整理 [ADR](../tech-base/adr.md) 清單
 5. 整理 Spike / Open Questions
 
 本場不討論
@@ -5205,7 +5207,7 @@ Facilitator：
 
 「我們先根據前面產生的 Command、Event、Rule，整理候選模型。」
 
-「先不急著決定 Aggregate Root，只列出可能存在的概念。」
+「先不急著決定 [Aggregate Root](../tech-base/aggregate-root.md)，只列出可能存在的概念。」
 
 初步候選模型
 Project
@@ -5249,7 +5251,7 @@ RD 初步建模方向
 
 Facilitator 代為整理：
 
-Task 很可能是 Aggregate Root。
+Task 很可能是 [Aggregate Root](../tech-base/aggregate-root.md)。
 
 原因：
 
@@ -5277,7 +5279,7 @@ Domain Expert
 Project A 使用簡單流程：Todo → Doing → Done
 Project B 使用正式流程：Backlog → Ready → Active → Review → Done
 Facilitator 收斂
-Project 是候選 Aggregate Root。
+Project 是候選 [Aggregate Root](../tech-base/aggregate-root.md)。
 但 v0.1 可以先把 Project 作為 Task 的上層容器。
 
 需要後續決定：
@@ -5296,8 +5298,8 @@ QA
 「WorkflowState.Category 必要，否則 Done / Review / Active 等語意無法判斷。」
 
 Facilitator 收斂
-Workflow 是候選 Aggregate Root。
-WorkflowState 是 Workflow 底下的 Entity 或 Value Object 候選。
+Workflow 是候選 [Aggregate Root](../tech-base/aggregate-root.md)。
+WorkflowState 是 Workflow 底下的 [Entity](../tech-base/entity.md) 或 [Value Object](../tech-base/value-object.md) 候選。
 
 目前語意：
 
@@ -5383,12 +5385,12 @@ QA
 
 RD 方向整理
 TaskStateChanged 等事件本身可以作為歷史來源。
-但為了查詢方便，可能需要 Read Model / Activity Log。
+但為了查詢方便，可能需要 [Read Model](../tech-base/read-model.md) / [Activity Log](../tech-base/activity-log.md)。
 
 暫定：
 
 v0.1 Domain Model 不一定需要 TaskActivity Entity。
-但 Read Model 可以有 TaskActivityView / TaskHistory。
+但 [Read Model](../tech-base/read-model.md) 可以有 TaskActivityView / TaskHistory。
 
 第 1 段白板：候選模型
 
@@ -5419,13 +5421,13 @@ flowchart LR
 ```
 
 第 1 段暫定結論
-候選 Aggregate Root
+候選 [Aggregate Root](../tech-base/aggregate-root.md)
 Task
 Project
 Workflow
 候選 Entity
 WorkflowState
-候選 Value Object
+候選 [Value Object](../tech-base/value-object.md)
 TaskPriority
 TaskUrgency
 暫不建成 Entity
@@ -5433,15 +5435,15 @@ TaskAssignee
 TaskActivity
 TaskStateChange
 
-這些先以欄位、事件或 Read Model 表達。
+這些先以欄位、事件或 [Read Model](../tech-base/read-model.md) 表達。
 
 關鍵建模問題
-1. Task 是否應該是 Aggregate Root？
+1. Task 是否應該是 [Aggregate Root](../tech-base/aggregate-root.md)？
 2. Project 是否擁有 Task，還是 Task 只持有 ProjectId？
 3. Workflow 是否是獨立 Aggregate？
-4. WorkflowState 是 Entity 還是 Value Object？
-5. Task.CurrentState 是否只存 StateId，還是包成 TaskState Value Object？
-6. TaskCompleted / TaskRejected / TaskReopened 的歷史是否只靠事件，還是要建立 Activity Read Model？
+4. WorkflowState 是 [Entity](../tech-base/entity.md) 還是 [Value Object](../tech-base/value-object.md)？
+5. Task.CurrentState 是否只存 StateId，還是包成 TaskState [Value Object](../tech-base/value-object.md)？
+6. TaskCompleted / TaskRejected / TaskReopened 的歷史是否只靠事件，還是要建立 Activity [Read Model](../tech-base/read-model.md)？
 
 第 1 段收斂白板
 
@@ -6811,22 +6813,26 @@ CompletedTasksView	TaskCompleted, TaskStateChanged
 8. Saved filters
 9. Custom dashboard
 
-註：這裡我提了一個問題「為什麼我們不先從 read model 開始討論呢」(assets/outside-in-vs-event-storming-order.md)
+註：這裡我提了一個問題「為什麼我們不先從 [Read Model](../tech-base/read-model.md) 開始討論呢」：
+[為什麼不先從 Read Model 開始討論](../assets/outside-in-vs-event-storming-order.md)
 
-註：以及事件投影的相關知識(assets/event-projection-vs-classic-query.md)
+註：以及 [事件投影](../tech-base/event-projection.md) 的相關知識：
+[事件投影 vs Classic Query](../assets/event-projection-vs-classic-query.md)
 
 剛剛插入討論後，我們已經額外收斂出一個重要技術策略：
 
 RonFlow v0.1 採用：
-Classic Query + Domain Events + Activity Log
+[Classic Query](../tech-base/classic-query.md) + [Domain Events](../tech-base/domain-event.md) + [Activity Log](../tech-base/activity-log.md)
 
-主要 Read Model 先用經典查詢完成。
-Domain Events 保留業務事實。
-Activity Log 支援任務歷史。
-事件投影不作為 v0.1 預設查詢方案。
+主要 [Read Model](../tech-base/read-model.md) 先用經典查詢完成。
+[Domain Events](../tech-base/domain-event.md) 保留業務事實。
+[Activity Log](../tech-base/activity-log.md) 支援任務歷史。
+[Event Projection](../tech-base/event-projection.md) 不作為 v0.1 預設查詢方案。
 若未來經典查詢難以支撐特定統計、聚合或效能需求，再導入 Selective Projection。
-會議 4 / 第 3 段補充結論：Read Model 查詢策略
-v0.1 必做 Read Model
+
+會議 4 / 第 3 段補充結論：[Read Model](../tech-base/read-model.md) 查詢策略
+
+v0.1 必做 [Read Model](../tech-base/read-model.md)
 KanbanBoardView
 TaskDetailView
 ProjectTaskListView
@@ -6848,9 +6854,9 @@ Cross-project Dashboard
 Saved Filters
 Custom Dashboard
 查詢策略
-Classic Query 為主
-Domain Events 為輔
-Activity Log 支援歷史
+[Classic Query](../tech-base/classic-query.md) 為主
+[Domain Event](../tech-base/domain-event.md)s 為輔
+[Activity Log](../tech-base/activity-log.md) 支援歷史
 Selective Projection 作為未來擴充
 白板更新
 ```mermaid
@@ -6910,7 +6916,7 @@ Backlog Item：讀取 Workflow States
 [Feature] View Workflow States
 目的：
 Kanban Board 需要根據 WorkflowState 顯示欄位。
-Read Model：
+[Read Model](../tech-base/read-model.md)：
 WorkflowStatesView
 
 1.3 Task 核心功能
@@ -6925,7 +6931,7 @@ Backlog Item：顯示 Kanban Board
 [Feature] View Kanban Board
 目的：
 使用者可以在 Project 中以看板形式查看 Task。
-Read Model：
+[Read Model](../tech-base/read-model.md)：
 KanbanBoardView
 必須顯示：
 - WorkflowState 欄位- Task card- Task title- State- Assignee- Priority- Urgent marker
@@ -6939,7 +6945,7 @@ ChangeTaskState → TaskStateChangedChangeTaskState(to Done) → TaskStateChange
 
 Backlog Item：查看 Task Detail
 [Feature] View Task Detail
-Read Model：
+[Read Model](../tech-base/read-model.md)：
 TaskDetailView
 內容：
 - Title- Description- Current State- Assignee- Priority- Urgent- CompletedAt- Activity Timeline
@@ -7007,7 +7013,7 @@ TaskCreatedTaskStateChangedTaskCompletedTaskRejectedTaskReopenedTaskAssigneeChan
 
 Backlog Item：顯示 Task Activity Timeline
 [Feature] View Task Activity Timeline
-Read Model：
+[Read Model](../tech-base/read-model.md)：
 TaskActivityTimeline
 內容：
 - Activity type- OccurredAt- Actor- Summary- Reason / payload
@@ -7041,12 +7047,12 @@ v0.1 允許同一 Workflow 內的一般狀態變更。但 Review → Active / Re
 ADR 6：RonFlow v0.1 採用 Classic Query + Domain Events + Activity Log
 [ADR] Use Classic Query with Domain Events and Activity Log in v0.1
 決策摘要：
-日常查詢以經典查詢為主。Domain Events 記錄業務事實。Activity Log 支援任務歷史。不在 v0.1 導入完整 Event Sourcing 或全面事件投影。未來必要時導入 Selective Projection。
+日常查詢以 [Classic Query](../tech-base/classic-query.md) 為主。[Domain Events](../tech-base/domain-event.md) 記錄業務事實。[Activity Log](../tech-base/activity-log.md) 支援任務歷史。不在 v0.1 導入完整 [Event Sourcing](../tech-base/event-sourcing.md) 或全面 [事件投影](../tech-base/event-projection.md)。未來必要時導入 Selective Projection。
 
 ADR 7：Task / Project / Workflow 作為獨立 Aggregate Root
 [ADR] Model Task, Project, and Workflow as separate aggregate roots
 決策摘要：
-Task 作為獨立 Aggregate Root，持有 ProjectId / WorkflowId / CurrentStateId。Project 不直接擁有 Task 集合。Workflow 作為獨立 Aggregate Root，擁有 WorkflowState。
+Task 作為獨立 [Aggregate Root](../tech-base/aggregate-root.md)，持有 ProjectId / WorkflowId / CurrentStateId。Project 不直接擁有 Task 集合。Workflow 作為獨立 [Aggregate Root](../tech-base/aggregate-root.md)，擁有 WorkflowState。
 
 3. Spike 清單
 Spike 1：WorkflowState.Category enum 命名
@@ -7063,7 +7069,7 @@ Spike 2：Priority 數值範圍與排序方向
 待決：
 數字越大是否代表越高優先度？預設 priority 是多少？priority 範圍是否有限制？
 
-Spike 3：Activity Log 設計
+Spike 3：[Activity Log](../tech-base/activity-log.md) 設計
 [Spike] Design Task Activity Log schema and rendering rules
 待決：
 Activity 是否由 Domain Events 直接轉換？是否保存 payload？Summary 是否即時產生或寫入時保存？不同事件如何產生使用者可讀文案？
@@ -7078,7 +7084,7 @@ Spike 5：Project 封存規則
 待決：
 封存 Project 是否可新增 Task？封存 Project 是否可變更既有 Task？封存 Project 是否可顯示在 Project List？
 
-4. Acceptance Criteria 初稿
+4. [Acceptance Criteria](../tech-base/acceptance-criteria.md) 初稿
 Feature：Create Task
 Scenario: 使用者建立 Task  Given 一個可新增任務的 Project 存在  And 該 Project 已指定 Workflow  When 使用者輸入非空白 Title 並建立 Task  Then 系統應建立 Task  And Task 應屬於該 Project  And Task 應進入 Workflow.InitialState  And 系統應記錄 TaskCreated
 Scenario: 使用者以空白 Title 建立 Task  Given 一個可新增任務的 Project 存在  When 使用者以空白 Title 建立 Task  Then 系統應拒絕建立  And 不應產生 TaskCreated
@@ -7102,44 +7108,111 @@ Scenario: 使用者取消 Task 的 Urgent 狀態  Given 一個 Task 存在  And 
 
 5. Future Scope / Parking Lot
 明確不納入 v0.1
-完整 WorkflowTransition Rule多 assigneeCurrent Action OwnerRole-specific Workflow子任務 / 主任務完成傳播Regression linked taskWIP limitInterruption Workflow自動暫停 assignee 目前 active task自動標記 urgent自動分派Sprint BoardCycle Time / Lead TimeAssignee Workload ReportProject Progress ReportSaved FiltersCustom Dashboard完整 Event Sourcing全面事件投影
+
+- 完整 WorkflowTransition Rule
+- 多 assignee
+- Current Action Owner
+- Role-specific Workflow
+- 子任務 / 主任務完成傳播
+- Regression linked task
+- WIP limit
+- Interruption Workflow
+- 自動暫停 assignee 目前 active task
+- 自動標記 urgent
+- 自動分派
+- Sprint Board
+- Cycle Time / Lead Time
+- Assignee Workload Report
+- Project Progress Report
+- Saved Filters
+- Custom Dashboard
+- 完整 [Event Sourcing](../tech-base/event-sourcing.md)
+- 全面 [事件投影](../tech-base/event-projection.md)
 
 6. v0.1 建議開發順序
 Phase 1：基礎資料與預設流程
-1. 建立 Project2. 建立預設 Workflow / WorkflowState3. 建立 Task
+
+1. 建立 Project
+2. 建立預設 Workflow / WorkflowState
+3. 建立 Task
 
 Phase 2：看板與任務狀態
-4. 顯示 Kanban Board5. ChangeTaskState6. TaskCompleted
+
+4. 顯示 Kanban Board
+5. ChangeTaskState
+6. TaskCompleted
 
 Phase 3：任務協作語意
-7. RejectTask8. ReopenTask9. ChangeTaskAssignee
+
+7. RejectTask
+8. ReopenTask
+9. ChangeTaskAssignee
 
 Phase 4：管理輔助
-10. ChangeTaskPriority11. MarkTaskUrgent12. UnmarkTaskUrgent
+
+10. ChangeTaskPriority
+11. MarkTaskUrgent
+12. UnmarkTaskUrgent
 
 Phase 5：歷史與查詢
-13. TaskActivityTimeline14. ProjectTaskListView filters15. MyTasks / Urgent / Completed / Rejected filters
+
+13. TaskActivityTimeline
+14. ProjectTaskListView filters
+15. MyTasks / Urgent / Completed / Rejected filters
 
 7. 會議 4 最終收斂
 Facilitator：
 「會議 4 到這裡完成。」
 「我們已經把前面三場的事件風暴成果，轉換成：」
-1. 候選 Aggregate / Entity / Value Object2. Read Model / View 候選3. 查詢策略4. Backlog Items5. ADR 清單6. Spike 清單7. Acceptance Criteria 初稿8. v0.1 開發順序
+
+1. 候選 Aggregate / Entity / Value Object
+2. Read Model / View 候選
+3. 查詢策略
+4. Backlog Items
+5. ADR 清單
+6. Spike 清單
+7. Acceptance Criteria 初稿
+8. v0.1 開發順序
+
 「這代表 RonFlow 的第一輪事件風暴與 Outside-In Delivery Mapping 已經可以結案。」
 
 8. 四場會議總結
 會議 1：Event Discovery
 產出：
-候選事件最小流程初步 Open Questions
+
+- 候選事件
+- 最小流程
+- 初步 Open Questions
+
 會議 2：Event Refinement
 產出：
-事件分類TaskStateChangedTaskCompletedTaskRejectedTaskReopenedWorkflowState.Category
+
+- 事件分類
+- TaskStateChanged
+- TaskCompleted
+- TaskRejected
+- TaskReopened
+- WorkflowState.Category
+
 會議 3：Behavior Mapping
 產出：
-Command / Event MappingActor / Command MappingBusiness Rules
+
+- Command / Event Mapping
+- Actor / Command Mapping
+- Business Rules
+
 會議 4：Outside-In Delivery Mapping
 產出：
-Aggregate 候選Read ModelBacklogADRSpikeAcceptance Criteriav0.1 開發順序
+
+- Aggregate 候選
+- Read Model
+- Backlog
+- ADR
+- Spike
+- Acceptance Criteria
+- v0.1 開發順序
 
 Facilitator：
 「本次 RonFlow v0.1 事件風暴與交付規劃會議正式結束。」
+
+### 
