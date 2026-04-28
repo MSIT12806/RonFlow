@@ -5849,25 +5849,27 @@ flowchart TB
 ```
 第 2 段暫定結論
 Aggregate Root
-Task
-Project
-Workflow
+- Task
+- Project
+- Workflow
+
 Entity
-WorkflowState
+- WorkflowState
 
 WorkflowState 是 Workflow Aggregate 內部 Entity。
 
 Value Object / 欄位候選
-TaskPriority
-TaskUrgency
-WorkflowStateInfo
+- TaskPriority
+- TaskUrgency
+- WorkflowStateInfo
 關係
-Task 持有 ProjectId。
-Task 持有 WorkflowId。
-Task 持有 CurrentStateId。
-Project 持有 WorkflowId。
-Workflow 擁有 WorkflowState。
-Task 不直接擁有 WorkflowState。
+- Task 持有 ProjectId。
+- Task 持有 WorkflowId。
+- Task 持有 CurrentStateId。
+- Project 持有 WorkflowId。
+- Workflow 擁有 WorkflowState。
+- Task 不直接擁有 WorkflowState。
+
 仍待後續 ADR 決定的問題
 1. Task 是否正式作為 Aggregate Root？
    目前傾向：是。
@@ -5890,7 +5892,7 @@ Task 不直接擁有 WorkflowState。
 7. WorkflowStateInfo 是否作為跨 Aggregate 傳遞用 Value Object？
    待技術設計決定。
 
-   Facilitator：
+Facilitator：
 
 「我們進入會議 4 的第 3 段：Read Model / View 候選。」
 
@@ -5945,25 +5947,27 @@ KanbanBoardView
 
 可能資料：
 
-ProjectId
-WorkflowId
-Columns:
-  - WorkflowStateId
-  - WorkflowStateName
-  - WorkflowStateCategory
-  - Order
-  - Tasks[]
-TaskCard:
-  - TaskId
-  - Title
-  - CurrentStateId
-  - Assignee
-  - Priority
-  - IsUrgent
-  - IsRejectedRecently?
-  - DueDate?
-  - UpdatedAt
+- ProjectId
+- WorkflowId
+- Columns:
+    - WorkflowStateId
+    - WorkflowStateName
+    - WorkflowStateCategory
+    - Order
+    - Tasks[]
+- TaskCard:
+    - TaskId
+    - Title
+    - CurrentStateId
+    - Assignee
+    - Priority
+    - IsUrgent
+    - IsRejectedRecently?
+    - DueDate?
+    - UpdatedAt
+
 白板
+
 ```mermaid
 flowchart LR
     KB["KanbanBoardView"]
@@ -7215,4 +7219,10 @@ Facilitator：
 Facilitator：
 「本次 RonFlow v0.1 事件風暴與交付規劃會議正式結束。」
 
-### 
+### 規劃專案進度
+
+
+### 第一次 sprint
+#### UI/UX flow
+#### 驗收規格 Gherkin Review
+#### 決定技術棧
