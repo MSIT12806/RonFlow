@@ -7221,8 +7221,77 @@ Facilitator：
 
 ### 規劃專案進度
 
+Project / Workflow
+[Feature] Create Project
+[Feature] View Project List
+[Feature] Provide Default Workflow
+[Feature] View Workflow States
+Task 核心功能
+[Feature] Create Task
+[Feature] View Kanban Board
+[Feature] Change Task State
+[Feature] Complete Task
+[Feature] View Task Detail
+Review 核心功能
+[Feature] Reject Task
+[Feature] Reopen Task
+Task 重要功能
+[Feature] Change Task Assignee
+[Feature] Change Task Priority
+[Feature] Mark Task Urgent
+[Feature] Unmark Task Urgent
+Activity Log
+[Feature] Record Task Activity
+[Feature] View Task Activity Timeline
+文件 / 架構決策
+[ADR] Use TaskStateChanged for general workflow state transitions
+[ADR] Introduce WorkflowState.Category
+[ADR] Keep TaskCompleted as a distinct domain event
+[ADR] Separate RejectTask and ReopenTask from ChangeTaskState
+[ADR] Defer configurable WorkflowTransition rules
+[ADR] Use Classic Query + Domain Events + Activity Log in v0.1
+[ADR] Model Task, Project, and Workflow as separate aggregate roots
+Spike
+[Spike] Define WorkflowState.Category values
+[Spike] Define TaskPriority numeric scale
+[Spike] Design Task Activity Log schema and rendering rules
+[Spike] Define workflow modification rules after being used by tasks
+[Spike] Define archived project behavior
+
+### 決定技術棧
+Frontend:
+Vue 3 + TypeScript + Vite + Tailwind CSS
+原因：
+1. 大量前端互動，擁有前端專門框架會更好
+1. Outside-In / ATDD 更容易對齊「使用者可見行為」
+
+Backend:
+ASP.NET Core Web API on .NET 10 LTS
+
+Architecture:
+Modular Monolith
+Clean Architecture boundaries
+Vertical Slice feature organization
+DDD-lite Domain Model
+Domain Events
+
+Database:
+RonFlow v0.1 以 SQLite 作為開發預設資料庫，保留 PostgreSQL 作為正式部署目標。
+
+Persistence:
+EF Core
+Dapper optional for complex read queries
+
+Testing:
+xUnit
+FluentAssertions
+Reqnroll
+Playwright
+
+DevOps:
+Docker Compose
+GitHub Actions
 
 ### 第一次 sprint
 #### UI/UX flow
 #### 驗收規格 Gherkin Review
-#### 決定技術棧
