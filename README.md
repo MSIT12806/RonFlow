@@ -35,7 +35,7 @@ RonFlow 是一個以 C# 與 ASP.NET Core 為核心的小型專案管理工具。
 
 ### 前端建置
 
-當 frontend 專案初始化完成後，可使用以下流程：
+frontend 已初始化完成，可使用以下流程：
 
 ```powershell
 Set-Location frontend
@@ -55,13 +55,13 @@ npm run build
 
 ```powershell
 Set-Location frontend
-npx playwright install
+npx playwright install chromium
 npm run test:e2e
 ```
 
 ### 後端建置
 
-當 backend 專案初始化完成後，可使用以下流程：
+backend 專案尚未建立，完成初始化後可使用以下流程：
 
 ```powershell
 Set-Location backend
