@@ -7283,7 +7283,7 @@ EF Core
 Dapper optional for complex read queries
 
 Testing:
-xUnit
+NUnit
 FluentAssertions
 Reqnroll
 Playwright
