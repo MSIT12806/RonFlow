@@ -3,6 +3,7 @@
 這裡是專案文件中技術名詞說明區，由作者與AI共同維護。每個名詞各自維護在獨立文件中，方便後續擴充與交叉引用。
 
 - [Behavior Mapping](./behavior-mapping.md)
+- [Git Commit](./git-commit.md)
 - [XP](./xp.md)
 - [Scrum](./scrum.md)
 - [Domain Modeling](./domain-modeling.md)
