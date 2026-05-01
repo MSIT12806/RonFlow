@@ -7292,9 +7292,6 @@ DevOps:
 Docker Compose
 GitHub Actions
 
-### Git Commit 寫法
-
-
 ### 第一次 sprint
 #### UI/UX flow
 #### 驗收規格 Gherkin Review
