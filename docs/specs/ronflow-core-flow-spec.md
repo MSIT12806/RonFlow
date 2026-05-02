@@ -8,7 +8,7 @@
 
 1. 用人類可讀的方式描述主要 flow、畫面、驗證與規則。
 2. 作為開發者、測試者、產品討論時的共同對齊文件。
-3. 作為驗收標準、Gherkin 與 E2E 測試的上游依據。
+3. 作為驗收標準與各層測試的上游依據。
 4. 持續隨產品演進更新，而不是綁定某個版本後封存。
 
 若未來需要描述某一輪 release、milestone 或 vertical slice 的交付範圍，應另外建立對應文件；本文件則維持為 RonFlow 目前行為的單一真實來源。
@@ -46,6 +46,8 @@ Done   -> 已完成
 2. 若 UI、規則、驗證或驗收方式改變，應直接更新本文件。
 3. 若某功能尚未實作但已決定會納入目前產品行為，可先寫入並標記其狀態。
 4. 若只是某次 release 或 milestone 暫時不做，應放在獨立的 release 文件，而不是從核心規格中刪除產品意圖。
+5. 本文件描述可驗證的產品行為，但不規定必須由 E2E、integration test 或 unit test 承接。
+6. 未定議題、討論中選項與暫存決策應放在其他討論文件，不保留在本 spec 中。
 
 ---
 
@@ -537,38 +539,4 @@ Feature: Task 詳細資訊
 3. Task Detail Drawer 應顯示目前狀態。
 4. Task Detail Drawer 應顯示基本活動紀錄。
 5. Task Detail Drawer 的可見名稱應為「任務詳細資訊」。
-```
-
----
-
-## 10. Test Alignment
-
-### 10.1 Minimum E2E Scenarios
-
-```text
-1. shows the project list entry point
-2. rejects an empty project name
-3. user can create a project and create a task on kanban board
-4. rejects an empty task title
-5. opens the task detail from the kanban board
-```
-
-### 10.2 Traceability
-
-| Test focus | Covers |
-|---|---|
-| Project list entry point | Project List Page 可進入、Create Project 按鈕可見 |
-| Empty project validation | Project Name 必填規則 |
-| Create project and task | Happy path, default workflow, task creation, task visible in Todo |
-| Empty task validation | Task Title 必填規則 |
-| Open task detail | Task card 與 detail drawer 的基本互動 |
-
----
-
-## 11. Open Decisions
-
-```text
-1. Task Card 第一版是否顯示 Priority / Assignee / Urgent placeholder。
-2. Task Detail Drawer 的 CreatedAt 顯示格式是否需要固定。
-3. 後續是否需要補上 workflow state transition 規則。
 ```
