@@ -18,7 +18,7 @@ async function createProject(page: Parameters<typeof test>[0]['page']) {
   const dialog = page.getByRole('dialog', { name: '建立專案' })
 
   await dialog.getByLabel('專案名稱').fill(projectName)
-  await dialog.getByRole('button', { name: '建立' }).click()
+  await dialog.getByRole('button', { name: '建立', exact: true }).click()
 
   await expect(dialog).not.toBeVisible()
   await expect(page.getByRole('heading', { name: projectName })).toBeVisible()
@@ -33,7 +33,7 @@ async function createTask(page: Parameters<typeof test>[0]['page']) {
   const dialog = page.getByRole('dialog', { name: '建立任務' })
 
   await dialog.getByLabel('任務標題').fill(taskTitle)
-  await dialog.getByRole('button', { name: '建立' }).click()
+  await dialog.getByRole('button', { name: '建立', exact: true }).click()
 
   await expect(dialog).not.toBeVisible()
 }
@@ -60,7 +60,7 @@ test.describe('RonFlow 核心流程驗收規格', () => {
     await openCreateProjectModal(page)
 
     const dialog = page.getByRole('dialog', { name: '建立專案' })
-    await dialog.getByRole('button', { name: '建立' }).click()
+    await dialog.getByRole('button', { name: '建立', exact: true }).click()
 
     await expect(page.getByText('專案名稱為必填欄位')).toBeVisible()
     await expect(dialog).toBeVisible()
@@ -98,7 +98,7 @@ test.describe('RonFlow 核心流程驗收規格', () => {
     await openCreateTaskModal(page)
 
     const dialog = page.getByRole('dialog', { name: '建立任務' })
-    await dialog.getByRole('button', { name: '建立' }).click()
+    await dialog.getByRole('button', { name: '建立', exact: true }).click()
 
     await expect(page.getByText('任務標題為必填欄位')).toBeVisible()
     await expect(dialog).toBeVisible()
@@ -127,11 +127,13 @@ test.describe('RonFlow 核心流程驗收規格', () => {
     await openCreateTaskModal(page)
     await createTask(page)
 
-    await page.getByText(taskTitle).click()
+    await page.getByTestId('workflow-column-todo').getByText(taskTitle, { exact: true }).click()
 
-    await expect(page.getByRole('dialog', { name: '任務詳細資訊' })).toBeVisible()
-    await expect(page.getByText(taskTitle)).toBeVisible()
-    await expect(page.getByText('待處理')).toBeVisible()
-    await expect(page.getByText('已建立任務')).toBeVisible()
+    const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
+
+    await expect(detailDialog).toBeVisible()
+    await expect(detailDialog.getByRole('heading', { name: taskTitle })).toBeVisible()
+    await expect(detailDialog.getByText('待處理', { exact: true })).toBeVisible()
+    await expect(detailDialog.getByText('已建立任務', { exact: true })).toBeVisible()
   })
 })
