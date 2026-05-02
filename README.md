@@ -35,10 +35,10 @@ RonFlow 是一個以 C# 與 ASP.NET Core 為核心的小型專案管理工具。
 
 ### 前端建置
 
-frontend 已初始化完成，可使用以下流程：
+code-frontend 已初始化完成，可使用以下流程：
 
 ```powershell
-Set-Location frontend
+Set-Location code-frontend
 npm install
 npm run dev
 ```
@@ -46,7 +46,7 @@ npm run dev
 正式建置：
 
 ```powershell
-Set-Location frontend
+Set-Location code-frontend
 npm install
 npm run build
 ```
@@ -54,25 +54,25 @@ npm run build
 若已加入 Playwright 測試設定：
 
 ```powershell
-Set-Location frontend
+Set-Location code-frontend
 npx playwright install chromium
 npm run test:e2e
 ```
 
 ### 後端建置
 
-backend 專案尚未建立，完成初始化後可使用以下流程：
+code-backend 已建立 `RonFlow.Api` 與 `RonFlow.Api.Tests`，可使用以下流程：
 
 ```powershell
-Set-Location backend
-dotnet restore
-dotnet build RonFlow.sln
+Set-Location code-backend
+dotnet restore .\RonFlow.sln
+dotnet build .\RonFlow.sln
 dotnet run --project .\RonFlow.Api\RonFlow.Api.csproj
 ```
 
 執行 NUnit 測試：
 
 ```powershell
-Set-Location backend
-dotnet test RonFlow.sln
+Set-Location code-backend
+dotnet test .\RonFlow.Api.Tests\RonFlow.Api.Tests.csproj
 ```
