@@ -42,26 +42,26 @@ Todo / Active / Review / Done
 1. 內容描述的是 RonFlow 現在應有的行為，而不是某個歷史版本曾經長怎樣。
 2. 若 UI、規則、驗證或驗收方式改變，應直接更新本文件。
 3. 若某功能尚未實作但已決定會納入目前產品行為，可先寫入並標記其狀態。
-4. 若只是某次交付暫時不做，應放在 Current Delivery Focus 或其他 release 文件，而不是從核心規格中刪除產品意圖。
+4. 若只是某次 release 或 milestone 暫時不做，應放在獨立的 release 文件，而不是從核心規格中刪除產品意圖。
 
 ---
 
-## 4. Current Delivery Focus
+## 4. 核心功能範圍
 
-目前已明確聚焦並應優先保持可驗收的範圍如下：
+本文件描述 RonFlow 核心流程中應具備的成品行為如下：
 
 ```text
-1. Project List Page
-2. Create Project Modal
-3. Project Kanban Board
-4. Create Task Modal
-5. Task Detail Drawer 的最小版本
-6. Project Name 與 Task Title 的基本驗證
-7. 顯示 default workflow columns
-8. 顯示 task card 與 task detail 的最小必要資訊
+1. 使用者可以查看 Project List Page
+2. 使用者可以建立 Project
+3. Project 建立後會套用 Default Workflow
+4. 使用者可以進入 Project Kanban Board
+5. 使用者可以建立 Task
+6. 新建立的 Task 會進入 workflow initial state
+7. 使用者可以從 Kanban Board 開啟 Task Detail Drawer
+8. 系統會提供 Project Name 與 Task Title 的基本驗證
 ```
 
-目前不在這輪交付焦點中的項目如下：
+本文件目前不描述以下延伸能力：
 
 ```text
 1. 拖曳 Task 到其他欄位
@@ -138,26 +138,6 @@ flowchart TD
     E -->|Close Drawer| C
 ```
 
-### 6.3 Gherkin Draft
-
-```gherkin
-Feature: Create task on kanban board
-
-  Scenario: User creates a task in a project
-    Given the user is on the project list page
-    When the user creates a project named "RonFlow Project"
-    Then the user should be redirected to the project kanban board
-    And the board should show the default workflow columns
-
-    When the user creates a task titled "Build Kanban Board"
-    Then the task should appear under the workflow initial state
-    And the task should be visible on the kanban board
-
-    When the user opens the task detail
-    Then the task detail should show title "Build Kanban Board"
-    And the task detail should show the current state as "Todo"
-```
-
 ---
 
 ## 7. Screen Spec
@@ -185,6 +165,17 @@ Feature: Create task on kanban board
 2. Open Project
 ```
 
+**Gherkin Draft**
+
+```gherkin
+Feature: 專案列表頁
+
+  Scenario: 使用者從專案列表開始建立 Project
+    Given 使用者位於 Project List Page
+    When 使用者點擊 Create Project
+    Then 系統應開啟 Create Project Modal
+```
+
 ### 7.2 Create Project Modal
 
 **Purpose**
@@ -203,6 +194,26 @@ Feature: Create task on kanban board
 1. 使用者可以輸入 Project Name
 2. 使用者可以送出或取消
 3. 成功建立後會進入 Project Kanban Board
+```
+
+**Gherkin Draft**
+
+```gherkin
+Feature: 建立 Project
+
+  Scenario: 使用者建立新的 Project
+    Given 使用者已開啟 Create Project Modal
+    When 使用者輸入 Project Name 為 "RonFlow Project"
+    And 使用者送出表單
+    Then 系統應建立 Project
+    And 系統應套用 Default Workflow
+    And 系統應導向 Project Kanban Board
+
+  Scenario: 使用者未輸入 Project Name
+    Given 使用者已開啟 Create Project Modal
+    When 使用者直接送出表單
+    Then 系統應拒絕建立 Project
+    And 畫面應顯示 Project Name 必填錯誤
 ```
 
 ### 7.3 Project Kanban Board
@@ -228,6 +239,22 @@ Feature: Create task on kanban board
 3. 點擊 Task Card 可開啟 Task Detail Drawer
 ```
 
+**Gherkin Draft**
+
+```gherkin
+Feature: Project Kanban Board
+
+  Scenario: 使用者查看 Project Kanban Board
+    Given 使用者已進入某個 Project Kanban Board
+    Then 畫面應顯示 Project Name
+    And 畫面應顯示 Todo / Active / Review / Done workflow columns
+
+  Scenario: 使用者在看板上看到新建立的 Task
+    Given 使用者已在目前 Project 建立標題為 "Build Kanban Board" 的 Task
+    Then 該 Task 應顯示在 Todo 欄位
+    And 該 Task 應顯示為可點擊的 Task Card
+```
+
 ### 7.4 Create Task Modal
 
 **Purpose**
@@ -248,6 +275,28 @@ Feature: Create task on kanban board
 3. 成功建立後，Task 顯示在 Todo 欄位
 ```
 
+**Gherkin Draft**
+
+```gherkin
+Feature: 建立 Task
+
+  Scenario: 使用者建立新的 Task
+    Given 使用者已位於 Project Kanban Board
+    And 使用者已開啟 Create Task Modal
+    When 使用者輸入 Task Title 為 "Build Kanban Board"
+    And 使用者送出表單
+    Then 系統應建立 Task
+    And Task 應屬於目前 Project
+    And Task 應進入 workflow initial state
+    And Task 應顯示在 Todo 欄位
+
+  Scenario: 使用者未輸入 Task Title
+    Given 使用者已開啟 Create Task Modal
+    When 使用者直接送出表單
+    Then 系統應拒絕建立 Task
+    And 畫面應顯示 Task Title 必填錯誤
+```
+
 ### 7.5 Task Detail Drawer
 
 **Purpose**
@@ -261,6 +310,21 @@ Feature: Create task on kanban board
 2. Current State
 3. CreatedAt
 4. Activity Timeline: Task created
+```
+
+**Gherkin Draft**
+
+```gherkin
+Feature: Task 詳細資訊
+
+  Scenario: 使用者查看 Task 詳細資訊
+    Given 使用者已位於 Project Kanban Board
+    And 看板上存在標題為 "Build Kanban Board" 的 Task Card
+    When 使用者點擊該 Task Card
+    Then 系統應開啟 Task Detail Drawer
+    And 畫面應顯示 Task Title 為 "Build Kanban Board"
+    And 畫面應顯示 Current State 為 "Todo"
+    And 畫面應顯示 Activity Timeline 包含 "Task created"
 ```
 
 ---
