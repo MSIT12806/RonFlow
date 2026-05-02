@@ -1,159 +1,330 @@
 <script setup lang="ts">
-import Button from 'primevue/button'
-import Card from 'primevue/card'
-import Divider from 'primevue/divider'
-import Tag from 'primevue/tag'
+import { computed, ref } from 'vue'
 
-const pillars = [
-  {
-    title: 'Workflow 視角',
-    body: '把 backlog、任務狀態與責任分工放進同一條操作脈絡，降低切換成本。',
-  },
-  {
-    title: 'Outside-In 開發',
-    body: '先把畫面與互動定型，再逐步推進 API、規則與資料儲存層。',
-  },
-  {
-    title: '可驗證交付',
-    body: '使用 Playwright 建立 E2E 基線，讓主要流程從一開始就可驗證。',
-  },
+type WorkflowKey = 'todo' | 'active' | 'review' | 'done'
+
+type TaskItem = {
+  id: number
+  title: string
+  status: WorkflowKey
+  history: string[]
+}
+
+type ProjectItem = {
+  id: number
+  name: string
+  tasks: TaskItem[]
+}
+
+const workflowColumns: Array<{ key: WorkflowKey; label: string }> = [
+  { key: 'todo', label: '待處理' },
+  { key: 'active', label: '進行中' },
+  { key: 'review', label: '審查中' },
+  { key: 'done', label: '已完成' },
 ]
 
-const milestones = [
-  'Vue 3 + TypeScript + Vite 專案初始化完成',
-  'Tailwind CSS 與 PrimeVue 已接入應用程式入口',
-  'Playwright 設定與範例測試已建立',
-]
+const projects = ref<ProjectItem[]>([])
+const activeProjectId = ref<number | null>(null)
+const selectedTaskId = ref<number | null>(null)
 
-const stack = ['Vue 3', 'TypeScript', 'Vite', 'Tailwind CSS', 'PrimeVue', 'Playwright']
+const isCreateProjectOpen = ref(false)
+const isCreateTaskOpen = ref(false)
+const isTaskDetailOpen = ref(false)
+
+const projectNameInput = ref('')
+const taskTitleInput = ref('')
+const projectNameError = ref('')
+const taskTitleError = ref('')
+
+let nextProjectId = 1
+let nextTaskId = 1
+
+const activeProject = computed(() =>
+  projects.value.find((project) => project.id === activeProjectId.value) ?? null,
+)
+
+const selectedTask = computed(() =>
+  activeProject.value?.tasks.find((task) => task.id === selectedTaskId.value) ?? null,
+)
+
+function openCreateProjectModal() {
+  projectNameInput.value = ''
+  projectNameError.value = ''
+  isCreateProjectOpen.value = true
+}
+
+function closeCreateProjectModal() {
+  isCreateProjectOpen.value = false
+}
+
+function submitProject() {
+  const name = projectNameInput.value.trim()
+
+  if (!name) {
+    projectNameError.value = '專案名稱為必填欄位'
+    return
+  }
+
+  const project: ProjectItem = {
+    id: nextProjectId,
+    name,
+    tasks: [],
+  }
+
+  nextProjectId += 1
+  projects.value = [...projects.value, project]
+  activeProjectId.value = project.id
+  closeCreateProjectModal()
+}
+
+function openCreateTaskModal() {
+  if (!activeProject.value) {
+    return
+  }
+
+  taskTitleInput.value = ''
+  taskTitleError.value = ''
+  isCreateTaskOpen.value = true
+}
+
+function closeCreateTaskModal() {
+  isCreateTaskOpen.value = false
+}
+
+function submitTask() {
+  const title = taskTitleInput.value.trim()
+
+  if (!title) {
+    taskTitleError.value = '任務標題為必填欄位'
+    return
+  }
+
+  if (!activeProject.value) {
+    return
+  }
+
+  const createdTask: TaskItem = {
+    id: nextTaskId,
+    title,
+    status: 'todo',
+    history: ['已建立任務'],
+  }
+
+  nextTaskId += 1
+
+  projects.value = projects.value.map((project) =>
+    project.id === activeProject.value?.id
+      ? {
+          ...project,
+          tasks: [...project.tasks, createdTask],
+        }
+      : project,
+  )
+
+  selectedTaskId.value = createdTask.id
+  closeCreateTaskModal()
+}
+
+function openTaskDetail(taskId: number) {
+  selectedTaskId.value = taskId
+  isTaskDetailOpen.value = true
+}
+
+function closeTaskDetail() {
+  isTaskDetailOpen.value = false
+}
+
+function getTasksByStatus(status: WorkflowKey) {
+  return activeProject.value?.tasks.filter((task) => task.status === status) ?? []
+}
+
+function getWorkflowLabel(status: WorkflowKey) {
+  return workflowColumns.find((column) => column.key === status)?.label ?? status
+}
 </script>
 
 <template>
-  <main class="relative isolate min-h-screen overflow-hidden px-6 py-8 sm:px-8 lg:px-12">
-    <div class="grid-noise"></div>
-    <div class="absolute inset-x-0 top-0 -z-10 h-[28rem] bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.22),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(249,115,22,0.16),_transparent_26%)]"></div>
+  <main class="app-shell">
+    <div class="ambient ambient-left"></div>
+    <div class="ambient ambient-right"></div>
 
-    <section class="mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl flex-col">
-      <header class="motion-rise flex items-center justify-between gap-4">
-        <div class="flex items-center gap-3">
-          <span class="brand-orbit"></span>
-          <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.42em] text-slate-500">RonFlow</p>
-            <p class="text-sm text-slate-600">Project management frontend foundation</p>
-          </div>
+    <section class="workspace-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">RonFlow</p>
+          <h1 class="app-title">專案流程看板</h1>
+          <p class="app-subtitle">先完成可驗證的前端流程，再逐步接上 API 與持久化。</p>
         </div>
 
-        <Tag value="Frontend initialized" severity="contrast" rounded />
+        <button type="button" class="primary-button" @click="openCreateProjectModal">
+          建立專案
+        </button>
       </header>
 
-      <section class="grid flex-1 items-center gap-10 py-10 lg:grid-cols-[1.15fr_0.85fr] lg:py-14">
-        <div class="space-y-8">
-          <div class="motion-rise motion-delay-1 space-y-5">
-            <p class="section-kicker">Outside-In Product Flow</p>
-            <h1
-              data-testid="hero-title"
-              class="max-w-4xl text-5xl font-black leading-[0.95] tracking-[-0.05em] text-slate-950 sm:text-6xl"
-            >
-              把專案流程、任務節奏與團隊視角放進同一個畫面。
-            </h1>
-            <p class="max-w-2xl text-lg leading-8 text-slate-700 sm:text-xl">
-              這個前端基底已經完成 Vue 3、TypeScript、Vite、Tailwind CSS、PrimeVue 與 Playwright
-              的整合，可直接延伸成 dashboard、workflow board 與 task execution UI。
-            </p>
+      <section class="workspace-layout">
+        <aside class="project-panel">
+          <div class="panel-heading-row">
+            <div>
+              <p class="eyebrow">Workspace</p>
+              <h2 class="panel-title">專案列表</h2>
+            </div>
+            <span class="count-badge">{{ projects.length }}</span>
           </div>
 
-          <div class="motion-rise motion-delay-2 flex flex-wrap gap-3">
-            <Button label="啟動前端基底" icon="pi pi-play" data-testid="primary-cta" />
-            <Button label="查看技術棧" icon="pi pi-arrow-right" severity="secondary" outlined />
-          </div>
+          <p v-if="projects.length === 0" class="empty-copy">尚未建立任何專案</p>
 
-          <ul class="motion-rise motion-delay-2 flex flex-wrap gap-3" aria-label="Technology stack">
-            <li v-for="item in stack" :key="item">
-              <span class="stack-chip" data-testid="stack-chip">{{ item }}</span>
+          <ul v-else class="project-list">
+            <li v-for="project in projects" :key="project.id">
+              <button
+                type="button"
+                class="project-chip"
+                :class="{ 'project-chip-active': project.id === activeProjectId }"
+                @click="activeProjectId = project.id"
+              >
+                <span>{{ project.name }}</span>
+                <small>{{ project.tasks.length }} tasks</small>
+              </button>
             </li>
           </ul>
-        </div>
+        </aside>
 
-        <div class="motion-rise motion-delay-2 glass-panel rounded-[2rem] p-4 sm:p-6">
-          <div class="grid gap-4">
-            <Card class="border border-white/60 bg-white/75 shadow-none backdrop-blur">
-              <template #content>
-                <div class="space-y-4">
-                  <div class="flex items-start justify-between gap-4">
-                    <div>
-                      <p class="section-kicker">Delivery radar</p>
-                      <h2 class="text-2xl font-semibold text-slate-950">Foundation status</h2>
-                    </div>
-                    <Tag value="Ready" severity="success" />
-                  </div>
+        <section class="board-panel">
+          <template v-if="activeProject">
+            <header class="board-header">
+              <div>
+                <p class="eyebrow">Current board</p>
+                <h2 class="board-title">{{ activeProject.name }}</h2>
+              </div>
 
-                  <div class="grid gap-3 sm:grid-cols-3">
-                    <div class="stat-chip">
-                      <span class="stat-label">UI Core</span>
-                      <strong class="stat-value">PrimeVue</strong>
-                    </div>
-                    <div class="stat-chip">
-                      <span class="stat-label">Styling</span>
-                      <strong class="stat-value">Tailwind</strong>
-                    </div>
-                    <div class="stat-chip">
-                      <span class="stat-label">E2E</span>
-                      <strong class="stat-value">Playwright</strong>
-                    </div>
-                  </div>
+              <button type="button" class="primary-button" @click="openCreateTaskModal">
+                建立任務
+              </button>
+            </header>
+
+            <div class="board-grid">
+              <article
+                v-for="column in workflowColumns"
+                :key="column.key"
+                :data-testid="`workflow-column-${column.key}`"
+                class="board-column"
+              >
+                <header class="column-header">
+                  <h3>{{ column.label }}</h3>
+                  <span class="count-badge">{{ getTasksByStatus(column.key).length }}</span>
+                </header>
+
+                <div v-if="getTasksByStatus(column.key).length === 0" class="column-empty">
+                  目前沒有任務
                 </div>
-              </template>
-            </Card>
 
-            <Card class="border border-white/60 bg-slate-950 text-white shadow-none">
-              <template #content>
-                <div class="space-y-4">
-                  <div class="flex items-center justify-between gap-4">
-                    <div>
-                      <p class="text-xs font-semibold uppercase tracking-[0.3em] text-sky-300/80">
-                        Build slice
-                      </p>
-                      <h2 class="text-2xl font-semibold">What is ready now</h2>
-                    </div>
-                    <i class="pi pi-sparkles rounded-full bg-white/10 p-3 text-sky-300"></i>
-                  </div>
-
-                  <ol class="space-y-3 text-sm leading-7 text-slate-200">
-                    <li
-                      v-for="(item, index) in milestones"
-                      :key="item"
-                      class="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
-                    >
-                      <span class="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-sky-300/15 text-sm font-semibold text-sky-200">
-                        {{ index + 1 }}
-                      </span>
-                      <span>{{ item }}</span>
-                    </li>
-                  </ol>
+                <div v-else class="task-list">
+                  <button
+                    v-for="task in getTasksByStatus(column.key)"
+                    :key="task.id"
+                    type="button"
+                    class="task-card"
+                    @click="openTaskDetail(task.id)"
+                  >
+                    <span class="task-title">{{ task.title }}</span>
+                    <span class="task-meta">{{ getWorkflowLabel(task.status) }}</span>
+                  </button>
                 </div>
-              </template>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      <Divider class="my-0" />
-
-      <section class="grid gap-4 py-8 md:grid-cols-3">
-        <Card
-          v-for="pillar in pillars"
-          :key="pillar.title"
-          class="glass-panel rounded-[1.5rem] border border-white/60 bg-white/72 shadow-none"
-        >
-          <template #content>
-            <div class="space-y-3">
-              <p class="section-kicker">Core principle</p>
-              <h3 class="text-xl font-semibold text-slate-950">{{ pillar.title }}</h3>
-              <p class="leading-7 text-slate-700">{{ pillar.body }}</p>
+              </article>
             </div>
           </template>
-        </Card>
+
+          <div v-else class="board-empty-state">
+            <p class="eyebrow">Outside-In slice</p>
+            <h2>先建立第一個專案，再展開任務看板。</h2>
+            <p>
+              目前首頁已經具備專案建立入口，建立後會立即顯示預設 workflow 欄位與任務入口。
+            </p>
+          </div>
+        </section>
       </section>
     </section>
+
+    <div v-if="isCreateProjectOpen" class="modal-backdrop">
+      <div role="dialog" aria-modal="true" aria-labelledby="create-project-title" class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">New project</p>
+            <h2 id="create-project-title">建立專案</h2>
+          </div>
+          <button type="button" class="ghost-icon-button" aria-label="關閉視窗" @click="closeCreateProjectModal">
+            ×
+          </button>
+        </div>
+
+        <form class="modal-form" @submit.prevent="submitProject">
+          <label for="project-name">專案名稱</label>
+          <input id="project-name" v-model="projectNameInput" type="text" autocomplete="off" />
+          <p v-if="projectNameError" class="error-copy">{{ projectNameError }}</p>
+
+          <div class="modal-actions">
+            <button type="button" class="secondary-button" @click="closeCreateProjectModal">取消</button>
+            <button type="submit" class="primary-button">建立</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div v-if="isCreateTaskOpen" class="modal-backdrop">
+      <div role="dialog" aria-modal="true" aria-labelledby="create-task-title" class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">New task</p>
+            <h2 id="create-task-title">建立任務</h2>
+          </div>
+          <button type="button" class="ghost-icon-button" aria-label="關閉視窗" @click="closeCreateTaskModal">
+            ×
+          </button>
+        </div>
+
+        <form class="modal-form" @submit.prevent="submitTask">
+          <label for="task-title">任務標題</label>
+          <input id="task-title" v-model="taskTitleInput" type="text" autocomplete="off" />
+          <p v-if="taskTitleError" class="error-copy">{{ taskTitleError }}</p>
+
+          <div class="modal-actions">
+            <button type="button" class="secondary-button" @click="closeCreateTaskModal">取消</button>
+            <button type="submit" class="primary-button">建立</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div v-if="isTaskDetailOpen && selectedTask" class="modal-backdrop">
+      <div role="dialog" aria-modal="true" aria-labelledby="task-detail-title" class="modal-card modal-card-wide">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Task detail</p>
+            <h2 id="task-detail-title">任務詳細資訊</h2>
+          </div>
+          <button type="button" class="ghost-icon-button" aria-label="關閉視窗" @click="closeTaskDetail">
+            ×
+          </button>
+        </div>
+
+        <section class="detail-layout">
+          <div class="detail-card">
+            <p class="detail-label">任務標題</p>
+            <h3>{{ selectedTask.title }}</h3>
+          </div>
+
+          <div class="detail-card">
+            <p class="detail-label">狀態</p>
+            <strong>{{ getWorkflowLabel(selectedTask.status) }}</strong>
+          </div>
+
+          <div class="detail-card detail-card-full">
+            <p class="detail-label">活動紀錄</p>
+            <ul class="history-list">
+              <li v-for="entry in selectedTask.history" :key="entry">{{ entry }}</li>
+            </ul>
+          </div>
+        </section>
+      </div>
+    </div>
   </main>
 </template>
