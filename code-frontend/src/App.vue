@@ -35,7 +35,7 @@
           :is-loading-board="isLoadingBoard"
           @open-create-task="openCreateTaskModal"
           @open-task-detail="openTaskDetail"
-          @move-task-to-done="moveTaskToDone"
+          @move-task-to-state="moveTaskToState"
         />
       </section>
     </section>
@@ -104,7 +104,7 @@ const {
   openTaskDetail,
   selectProject,
   closeTaskDetail,
-  moveTaskToDone,
+  moveTaskToState,
   formatProjectMeta,
   formatTimelineTime,
 } = useRonFlowBoard()

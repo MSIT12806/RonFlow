@@ -102,10 +102,10 @@ public sealed class ChangeTaskStateApplicationServiceTests
     }
 
     [Test]
-    public void Change_ToDone_UpdatesStateAndCompletedAt()
+    public void Change_ToAnotherWorkflowState_UpdatesStateWithoutCompletedAt()
     {
         var createdAt = new DateTimeOffset(2026, 5, 3, 9, 0, 0, TimeSpan.Zero);
-        var changedAt = createdAt.AddMinutes(30);
+        var changedAt = createdAt.AddMinutes(15);
         var repository = new TestProjectRepository();
         var project = Project.Create(TestProjectData.CreateProjectName("RonFlow Project"), createdAt, DefaultWorkflow.CreateStates());
         repository.Add(project);
@@ -113,12 +113,40 @@ public sealed class ChangeTaskStateApplicationServiceTests
 
         var applicationService = new ChangeTaskStateApplicationService(repository, new FixedTimeProvider(changedAt));
 
-        var result = applicationService.Change(project.Id, task.Id, "done");
+        var result = applicationService.Change(project.Id, task.Id, "active");
+
+        Assert.That(result.TaskNotFound, Is.False);
+        Assert.That(result.Task, Is.Not.Null);
+        Assert.That(result.Task!.CurrentState.Key, Is.EqualTo("active"));
+        Assert.That(result.Task.CompletedAt, Is.Null);
+        Assert.That(result.Task.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskStateChanged"));
+        Assert.That(result.Task.ActivityTimeline.Select(item => item.Type), Does.Not.Contain("TaskCompleted"));
+    }
+
+    [Test]
+    public void Change_ToDoneFromActive_UpdatesStateAndCompletedAt()
+    {
+        var createdAt = new DateTimeOffset(2026, 5, 3, 9, 0, 0, TimeSpan.Zero);
+        var movedToActiveAt = createdAt.AddMinutes(15);
+        var completedAt = createdAt.AddMinutes(30);
+        var repository = new TestProjectRepository();
+        var project = Project.Create(TestProjectData.CreateProjectName("RonFlow Project"), createdAt, DefaultWorkflow.CreateStates());
+        repository.Add(project);
+        var task = project.CreateTask(TestProjectData.CreateTaskTitle("Build Kanban Board"), createdAt.AddMinutes(5));
+
+        var moveToActiveService = new ChangeTaskStateApplicationService(repository, new FixedTimeProvider(movedToActiveAt));
+        var moveToActiveResult = moveToActiveService.Change(project.Id, task.Id, "active");
+
+        Assert.That(moveToActiveResult.TaskNotFound, Is.False);
+
+        var completeService = new ChangeTaskStateApplicationService(repository, new FixedTimeProvider(completedAt));
+        var result = completeService.Change(project.Id, task.Id, "done");
 
         Assert.That(result.TaskNotFound, Is.False);
         Assert.That(result.Task, Is.Not.Null);
         Assert.That(result.Task!.CurrentState.Key, Is.EqualTo("done"));
-        Assert.That(result.Task.CompletedAt, Is.EqualTo(changedAt));
+        Assert.That(result.Task.CompletedAt, Is.EqualTo(completedAt));
+        Assert.That(result.Task.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskStateChanged"));
         Assert.That(result.Task.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskCompleted"));
         Assert.That(result.Task.ActivityTimeline.Select(item => item.Message), Does.Contain("已完成任務"));
     }

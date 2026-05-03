@@ -149,7 +149,7 @@ export function useRonFlowBoard() {
     selectedTask.value = null
   }
 
-  async function moveTaskToDone(taskId: string) {
+  async function moveTaskToState(taskId: string, stateKey: WorkflowKey) {
     if (!activeProjectId.value) {
       return
     }
@@ -157,7 +157,7 @@ export function useRonFlowBoard() {
     pageError.value = ''
 
     try {
-      const updatedTask = await changeTaskState(activeProjectId.value, taskId, 'done')
+      const updatedTask = await changeTaskState(activeProjectId.value, taskId, stateKey)
 
       if (selectedTask.value?.id === taskId) {
         selectedTask.value = updatedTask
@@ -305,7 +305,7 @@ export function useRonFlowBoard() {
     openTaskDetail,
     selectProject,
     closeTaskDetail,
-    moveTaskToDone,
+    moveTaskToState,
     getTasksByStatus,
     formatProjectMeta,
     formatTimelineTime,

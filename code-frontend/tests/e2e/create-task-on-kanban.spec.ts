@@ -38,11 +38,15 @@ async function createTask(page: Parameters<typeof test>[0]['page']) {
   await expect(dialog).not.toBeVisible()
 }
 
-async function moveTaskToDone(page: Parameters<typeof test>[0]['page']) {
-  const todoColumn = page.getByTestId('workflow-column-todo')
-  const taskCard = todoColumn.locator('.task-card').filter({ hasText: taskTitle })
+async function moveTaskToState(
+  page: Parameters<typeof test>[0]['page'],
+  fromStateKey: string,
+  targetLabel: string,
+) {
+  const sourceColumn = page.getByTestId(`workflow-column-${fromStateKey}`)
+  const taskCard = sourceColumn.locator('.task-card').filter({ hasText: taskTitle })
 
-  await taskCard.getByRole('button', { name: '移到已完成' }).click()
+  await taskCard.getByRole('button', { name: `移到${targetLabel}` }).click()
 }
 
 test.describe('RonFlow 核心流程驗收規格', () => {
@@ -159,7 +163,7 @@ test.describe('RonFlow 核心流程驗收規格', () => {
     await expect(page.getByTestId('workflow-column-todo')).toContainText(taskTitle)
   })
 
-  test('使用者可以將 Task 移到已完成欄位並看到完成紀錄', async ({ page }) => {
+  test('使用者可以將 Task 移到進行中欄位並記錄狀態變更', async ({ page }) => {
     await page.goto('/')
 
     await openCreateProjectModal(page)
@@ -168,11 +172,37 @@ test.describe('RonFlow 核心流程驗收規格', () => {
     await openCreateTaskModal(page)
     await createTask(page)
 
-    await moveTaskToDone(page)
+    await moveTaskToState(page, 'todo', '進行中')
+
+    const activeColumn = page.getByTestId('workflow-column-active')
+    await expect(activeColumn).toContainText(taskTitle)
+    await expect(page.getByTestId('workflow-column-todo')).not.toContainText(taskTitle)
+
+    await activeColumn.getByText(taskTitle, { exact: true }).click()
+
+    const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
+
+    await expect(detailDialog).toBeVisible()
+    await expect(detailDialog.getByText('進行中', { exact: true })).toBeVisible()
+    await expect(detailDialog.getByText('任務狀態已變更為 進行中', { exact: true })).toBeVisible()
+    await expect(detailDialog.getByText('完成時間', { exact: true })).toHaveCount(0)
+  })
+
+  test('使用者可以將 Active 的 Task 移到已完成欄位並看到完成紀錄', async ({ page }) => {
+    await page.goto('/')
+
+    await openCreateProjectModal(page)
+    await createProject(page)
+
+    await openCreateTaskModal(page)
+    await createTask(page)
+
+    await moveTaskToState(page, 'todo', '進行中')
+    await moveTaskToState(page, 'active', '已完成')
 
     const doneColumn = page.getByTestId('workflow-column-done')
     await expect(doneColumn).toContainText(taskTitle)
-    await expect(page.getByTestId('workflow-column-todo')).not.toContainText(taskTitle)
+    await expect(page.getByTestId('workflow-column-active')).not.toContainText(taskTitle)
 
     await doneColumn.getByText(taskTitle, { exact: true }).click()
 
@@ -180,6 +210,7 @@ test.describe('RonFlow 核心流程驗收規格', () => {
 
     await expect(detailDialog).toBeVisible()
     await expect(detailDialog.getByText('已完成', { exact: true })).toBeVisible()
+    await expect(detailDialog.getByText('任務狀態已變更為 已完成', { exact: true })).toBeVisible()
     await expect(detailDialog.getByText('完成時間', { exact: true })).toBeVisible()
     await expect(detailDialog.getByText('已完成任務', { exact: true })).toBeVisible()
   })

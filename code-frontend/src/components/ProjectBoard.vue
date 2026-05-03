@@ -46,12 +46,13 @@
               </button>
 
               <button
-                v-if="column.stateKey !== 'done'"
+                v-for="targetState in moveTargets(column.stateKey)"
+                :key="targetState.stateKey"
                 type="button"
                 class="secondary-button task-state-action"
-                @click="$emit('move-task-to-done', task.id)"
+                @click="$emit('move-task-to-state', task.id, targetState.stateKey)"
               >
-                移到已完成
+                移到{{ targetState.label }}
               </button>
             </article>
           </div>
@@ -70,9 +71,9 @@
 </template>
 
 <script setup lang="ts">
-import type { BoardColumnResponse } from '../api/ronflowApi'
+import type { BoardColumnResponse, WorkflowKey } from '../api/ronflowApi'
 
-defineProps<{
+const props = defineProps<{
   activeProjectName: string | null
   columns: BoardColumnResponse[]
   isLoadingBoard: boolean
@@ -81,6 +82,12 @@ defineProps<{
 defineEmits<{
   (event: 'open-create-task'): void
   (event: 'open-task-detail', taskId: string): void
-  (event: 'move-task-to-done', taskId: string): void
+  (event: 'move-task-to-state', taskId: string, stateKey: WorkflowKey): void
 }>()
+
+function moveTargets(currentStateKey: WorkflowKey) {
+  return props.columns
+    .filter((column) => column.stateKey !== currentStateKey)
+    .map((column) => ({ stateKey: column.stateKey, label: column.label }))
+}
 </script>

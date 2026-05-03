@@ -73,10 +73,60 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
     }
 
     [Test]
-    public async Task ChangeTaskState_ToDone_UpdatesBoardAndTaskDetail()
+    public async Task ChangeTaskState_ToAnotherWorkflowState_UpdatesBoardAndDoesNotSetCompletedAt()
     {
         var project = await CreateProjectAsync("RonFlow Project");
         var createdTask = await CreateTaskAsync(project.Id, "Build Kanban Board");
+
+        var changeResponse = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{createdTask.Id}/state",
+            new ChangeTaskStateRequest("active"));
+
+        Assert.That(changeResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var changedTask = await changeResponse.Content.ReadFromJsonAsync<TaskDetailResponse>();
+
+        Assert.That(changedTask, Is.Not.Null);
+        Assert.That(changedTask!.CurrentState.Key, Is.EqualTo("active"));
+        Assert.That(changedTask.CurrentState.Label, Is.EqualTo("進行中"));
+        Assert.That(changedTask.CompletedAt, Is.Null);
+        Assert.That(changedTask.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskStateChanged"));
+        Assert.That(changedTask.ActivityTimeline.Select(item => item.Type), Does.Not.Contain("TaskCompleted"));
+
+        var boardResponse = await Client.GetAsync($"/api/projects/{project.Id}/board");
+        var board = await boardResponse.Content.ReadFromJsonAsync<ProjectBoardResponse>();
+
+        Assert.That(boardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(board, Is.Not.Null);
+
+        var activeColumn = board!.Columns.Single(column => column.StateKey == "active");
+        var todoColumn = board.Columns.Single(column => column.StateKey == "todo");
+
+        Assert.That(activeColumn.Tasks.Select(card => card.Id), Does.Contain(createdTask.Id));
+        Assert.That(todoColumn.Tasks.Select(card => card.Id), Does.Not.Contain(createdTask.Id));
+
+        var detailResponse = await Client.GetAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}");
+        var detail = await detailResponse.Content.ReadFromJsonAsync<TaskDetailResponse>();
+
+        Assert.That(detailResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(detail, Is.Not.Null);
+        Assert.That(detail!.CurrentState.Key, Is.EqualTo("active"));
+        Assert.That(detail.CompletedAt, Is.Null);
+        Assert.That(detail.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskStateChanged"));
+        Assert.That(detail.ActivityTimeline.Select(item => item.Type), Does.Not.Contain("TaskCompleted"));
+    }
+
+    [Test]
+    public async Task ChangeTaskState_ToDoneFromActive_UpdatesBoardAndTaskDetail()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var createdTask = await CreateTaskAsync(project.Id, "Build Kanban Board");
+
+        var moveToActiveResponse = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{createdTask.Id}/state",
+            new ChangeTaskStateRequest("active"));
+
+        Assert.That(moveToActiveResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
 
         var changeResponse = await Client.PatchAsJsonAsync(
             $"/api/projects/{project.Id}/tasks/{createdTask.Id}/state",
@@ -90,7 +140,8 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
         Assert.That(changedTask!.CurrentState.Key, Is.EqualTo("done"));
         Assert.That(changedTask.CurrentState.Label, Is.EqualTo("已完成"));
         Assert.That(changedTask.CompletedAt, Is.Not.Null);
-        Assert.That(changedTask.ActivityTimeline.Select(item => item.Message), Does.Contain("已完成任務"));
+        Assert.That(changedTask.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskStateChanged"));
+        Assert.That(changedTask.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskCompleted"));
 
         var boardResponse = await Client.GetAsync($"/api/projects/{project.Id}/board");
         var board = await boardResponse.Content.ReadFromJsonAsync<ProjectBoardResponse>();
@@ -99,10 +150,10 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
         Assert.That(board, Is.Not.Null);
 
         var doneColumn = board!.Columns.Single(column => column.StateKey == "done");
-        var todoColumn = board.Columns.Single(column => column.StateKey == "todo");
+        var activeColumn = board.Columns.Single(column => column.StateKey == "active");
 
         Assert.That(doneColumn.Tasks.Select(card => card.Id), Does.Contain(createdTask.Id));
-        Assert.That(todoColumn.Tasks.Select(card => card.Id), Does.Not.Contain(createdTask.Id));
+        Assert.That(activeColumn.Tasks.Select(card => card.Id), Does.Not.Contain(createdTask.Id));
 
         var detailResponse = await Client.GetAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}");
         var detail = await detailResponse.Content.ReadFromJsonAsync<TaskDetailResponse>();
@@ -111,9 +162,9 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
         Assert.That(detail, Is.Not.Null);
         Assert.That(detail!.CurrentState.Key, Is.EqualTo("done"));
         Assert.That(detail.CompletedAt, Is.Not.Null);
-        Assert.That(detail.ActivityTimeline.Select(item => item.Message), Does.Contain("已完成任務"));
+        Assert.That(detail.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskStateChanged"));
+        Assert.That(detail.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskCompleted"));
     }
-
     [Test]
     public async Task ChangeTaskState_WhenTaskDoesNotExist_ReturnsNotFound()
     {

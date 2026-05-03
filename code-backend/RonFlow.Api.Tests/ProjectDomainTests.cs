@@ -39,9 +39,33 @@ public sealed class ProjectDomainTests
     }
 
     [Test]
-    public void ChangeState_ToDone_UpdatesCurrentStateAndRecordsCompletion()
+    public void ChangeState_ToAnotherWorkflowState_RecordsStateChangedWithoutCompletion()
     {
         var taskCreatedAt = new DateTimeOffset(2026, 5, 3, 9, 15, 0, TimeSpan.Zero);
+        var changedAt = taskCreatedAt.AddMinutes(15);
+        var workflowStates = DefaultWorkflow.CreateStates();
+        var task = RonFlow.Domain.Task.Create(
+            Guid.NewGuid(),
+            CreateTaskTitle("Build Kanban Board"),
+            workflowStates.Single(state => state.IsInitialState),
+            taskCreatedAt);
+
+        task.ChangeState(workflowStates.Single(state => state.Key == "active"), changedAt);
+        var taskModel = task.ToModel();
+
+        Assert.That(taskModel.CurrentState.Key, Is.EqualTo("active"));
+        Assert.That(taskModel.CurrentState.Label, Is.EqualTo("進行中"));
+        Assert.That(taskModel.CompletedAt, Is.Null);
+        Assert.That(taskModel.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskStateChanged"));
+        Assert.That(taskModel.ActivityTimeline.Select(item => item.Type), Does.Not.Contain("TaskCompleted"));
+        Assert.That(taskModel.ActivityTimeline.Select(item => item.Message), Does.Contain("任務狀態已變更為 進行中"));
+    }
+
+    [Test]
+    public void ChangeState_ToDoneFromActive_UpdatesCurrentStateAndRecordsCompletion()
+    {
+        var taskCreatedAt = new DateTimeOffset(2026, 5, 3, 9, 15, 0, TimeSpan.Zero);
+        var movedToActiveAt = taskCreatedAt.AddMinutes(15);
         var completedAt = taskCreatedAt.AddMinutes(30);
         var workflowStates = DefaultWorkflow.CreateStates();
         var task = RonFlow.Domain.Task.Create(
@@ -50,6 +74,7 @@ public sealed class ProjectDomainTests
             workflowStates.Single(state => state.IsInitialState),
             taskCreatedAt);
 
+        task.ChangeState(workflowStates.Single(state => state.Key == "active"), movedToActiveAt);
         task.ChangeState(workflowStates.Single(state => state.Key == "done"), completedAt);
         var taskModel = task.ToModel();
 
