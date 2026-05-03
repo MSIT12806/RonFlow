@@ -2,6 +2,7 @@ import { computed, onMounted, ref } from 'vue'
 import {
   ApiRequestError,
   ApiValidationError,
+  changeTaskState,
   createProject,
   createTask,
   getProjectBoard,
@@ -148,6 +149,26 @@ export function useRonFlowBoard() {
     selectedTask.value = null
   }
 
+  async function moveTaskToDone(taskId: string) {
+    if (!activeProjectId.value) {
+      return
+    }
+
+    pageError.value = ''
+
+    try {
+      const updatedTask = await changeTaskState(activeProjectId.value, taskId, 'done')
+
+      if (selectedTask.value?.id === taskId) {
+        selectedTask.value = updatedTask
+      }
+
+      await loadProjects(activeProjectId.value)
+    } catch (error) {
+      handleTaskStateChangeError(error)
+    }
+  }
+
   function getTasksByStatus(status: WorkflowKey) {
     return activeColumns.value.find((column) => column.stateKey === status)?.tasks ?? []
   }
@@ -246,6 +267,15 @@ export function useRonFlowBoard() {
     pageError.value = '建立任務失敗，請稍後再試。'
   }
 
+  function handleTaskStateChangeError(error: unknown) {
+    if (error instanceof ApiRequestError && error.status === 404) {
+      pageError.value = '找不到指定的任務，請重新整理專案看板。'
+      return
+    }
+
+    pageError.value = '變更任務狀態失敗，請稍後再試。'
+  }
+
   return {
     projects,
     activeProjectId,
@@ -275,6 +305,7 @@ export function useRonFlowBoard() {
     openTaskDetail,
     selectProject,
     closeTaskDetail,
+    moveTaskToDone,
     getTasksByStatus,
     formatProjectMeta,
     formatTimelineTime,

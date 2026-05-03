@@ -31,16 +31,29 @@
           </div>
 
           <div v-else class="task-list">
-            <button
+            <article
               v-for="task in column.tasks"
               :key="task.id"
-              type="button"
               class="task-card"
-              @click="$emit('open-task-detail', task.id)"
             >
-              <span class="task-title">{{ task.title }}</span>
-              <span class="task-meta">{{ column.label }}</span>
-            </button>
+              <button
+                type="button"
+                class="task-card-main"
+                @click="$emit('open-task-detail', task.id)"
+              >
+                <span class="task-title">{{ task.title }}</span>
+                <span class="task-meta">{{ column.label }}</span>
+              </button>
+
+              <button
+                v-if="column.stateKey !== 'done'"
+                type="button"
+                class="secondary-button task-state-action"
+                @click="$emit('move-task-to-done', task.id)"
+              >
+                移到已完成
+              </button>
+            </article>
           </div>
         </article>
       </div>
@@ -68,5 +81,6 @@ defineProps<{
 defineEmits<{
   (event: 'open-create-task'): void
   (event: 'open-task-detail', taskId: string): void
+  (event: 'move-task-to-done', taskId: string): void
 }>()
 </script>

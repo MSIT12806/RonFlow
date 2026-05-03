@@ -40,7 +40,7 @@ async function createTask(page: Parameters<typeof test>[0]['page']) {
 
 async function moveTaskToDone(page: Parameters<typeof test>[0]['page']) {
   const todoColumn = page.getByTestId('workflow-column-todo')
-  const taskCard = todoColumn.getByRole('button', { name: taskTitle, exact: true })
+  const taskCard = todoColumn.locator('.task-card').filter({ hasText: taskTitle })
 
   await taskCard.getByRole('button', { name: '移到已完成' }).click()
 }

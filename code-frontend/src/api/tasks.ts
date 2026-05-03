@@ -11,3 +11,10 @@ export async function createTask(projectId: string, title: string) {
 export async function getTaskDetail(projectId: string, taskId: string) {
   return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}`))
 }
+
+export async function changeTaskState(projectId: string, taskId: string, stateKey: string) {
+  return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}/state`), {
+    method: 'PATCH',
+    body: JSON.stringify({ stateKey }),
+  })
+}

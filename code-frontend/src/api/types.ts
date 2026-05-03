@@ -18,6 +18,7 @@ export type TaskDetailResponse = {
   title: string
   currentState: WorkflowStateResponse
   createdAt: string
+  completedAt: string | null
   activityTimeline: ActivityTimelineItemResponse[]
 }
 

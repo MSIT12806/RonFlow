@@ -27,6 +27,11 @@
           <strong>{{ formatTimelineTime(task.createdAt) }}</strong>
         </div>
 
+        <div v-if="task.completedAt" class="detail-card">
+          <p class="detail-label">完成時間</p>
+          <strong>{{ formatTimelineTime(task.completedAt) }}</strong>
+        </div>
+
         <div class="detail-card detail-card-full">
           <p class="detail-label">活動紀錄</p>
           <ul class="history-list">
