@@ -9,5 +9,3 @@
 - [ ] 程式碼已完成必要重構
 - [ ] 沒有明顯 workaround / TODO / 壞命名
 - [ ] README / docs / ADR / devlog 如有需要已更新
-
-請幫我檢查以上項目  是否都已經完成?
