@@ -7,7 +7,19 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Application\**\*.cs" />
+    <Compile Remove="Domain\**\*.cs" />
+    <Compile Remove="Infrastructure\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.7" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RonFlow.Application\RonFlow.Application.csproj" />
+    <ProjectReference Include="..\RonFlow.Domain\RonFlow.Domain.csproj" />
+    <ProjectReference Include="..\RonFlow.Infrastructure\RonFlow.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,7 +1,9 @@
 
 using System.Net.Mime;
+using RonFlow.Application;
 using RonFlow.Api.Contracts;
-using RonFlow.Api.Domain;
+using RonFlow.Domain;
+using RonFlow.Infrastructure;
 
 namespace RonFlow.Api;
 
@@ -12,7 +14,13 @@ public partial class Program
         var builder = WebApplication.CreateBuilder(args);
 
         builder.Services.AddOpenApi();
-        builder.Services.AddSingleton<RonFlowStore>();
+        builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+        builder.Services.AddSingleton<IProjectRepository, InMemoryProjectRepository>();
+        builder.Services.AddSingleton<CreateProjectApplicationService>();
+        builder.Services.AddSingleton<CreateTaskApplicationService>();
+        builder.Services.AddSingleton<GetProjectsQueryService>();
+        builder.Services.AddSingleton<GetProjectBoardQueryService>();
+        builder.Services.AddSingleton<GetTaskDetailQueryService>();
 
         var app = builder.Build();
 
@@ -21,63 +29,67 @@ public partial class Program
             app.MapOpenApi();
         }
 
-        app.MapGet("/api/projects", (RonFlowStore store) =>
+        app.MapGet("/api/projects", (GetProjectsQueryService queryService) =>
         {
-            var projects = store.GetProjects()
-                .Select(ProjectListItemResponse.FromModel)
+            var projects = queryService.Get().Items
+                .Select(ProjectListItemResponse.FromView)
                 .ToArray();
 
             return Results.Ok(new ProjectListResponse(projects));
         });
 
-        app.MapPost("/api/projects", (CreateProjectRequest request, RonFlowStore store) =>
+        app.MapPost("/api/projects", (CreateProjectRequest request, CreateProjectApplicationService applicationService) =>
         {
-            var name = request.Name?.Trim();
+            var result = applicationService.Create(request.Name);
 
-            if (string.IsNullOrWhiteSpace(name))
+            if (result.ValidationError is not null)
             {
-                return ValidationResults.ProjectNameRequired();
+                return ValidationResults.FromError(result.ValidationError);
             }
 
-            var project = store.CreateProject(name);
+            var project = result.Project!;
 
             return Results.Created(
                 $"/api/projects/{project.Id}/board",
-                ProjectResponse.FromModel(project));
+                ProjectResponse.FromOutput(project));
         })
         .Accepts<CreateProjectRequest>(MediaTypeNames.Application.Json)
         .Produces<ProjectResponse>(StatusCodes.Status201Created)
         .ProducesValidationProblem(StatusCodes.Status400BadRequest);
 
-        app.MapGet("/api/projects/{projectId:guid}/board", (Guid projectId, RonFlowStore store) =>
+        app.MapGet("/api/projects/{projectId:guid}/board", (Guid projectId, GetProjectBoardQueryService queryService) =>
         {
-            var board = store.GetBoard(projectId);
-            return board is null ? Results.NotFound() : Results.Ok(ProjectBoardResponse.FromModel(board));
+            var board = queryService.Get(projectId);
+            return board is null ? Results.NotFound() : Results.Ok(ProjectBoardResponse.FromView(board));
         });
 
-        app.MapPost("/api/projects/{projectId:guid}/tasks", (Guid projectId, CreateTaskRequest request, RonFlowStore store) =>
+        app.MapPost("/api/projects/{projectId:guid}/tasks", (Guid projectId, CreateTaskRequest request, CreateTaskApplicationService applicationService) =>
         {
-            var title = request.Title?.Trim();
+            var result = applicationService.Create(projectId, request.Title);
 
-            if (string.IsNullOrWhiteSpace(title))
+            if (result.ValidationError is not null)
             {
-                return ValidationResults.TaskTitleRequired();
+                return ValidationResults.FromError(result.ValidationError);
             }
 
-            var task = store.CreateTask(projectId, title);
-            return task is null
-                ? Results.NotFound()
-                : Results.Created($"/api/projects/{projectId}/tasks/{task.Id}", TaskDetailResponse.FromModel(task));
+            if (result.ProjectNotFound)
+            {
+                return Results.NotFound();
+            }
+
+            var task = result.Task!;
+
+            return Results.Created($"/api/projects/{projectId}/tasks/{task.Id}", TaskDetailResponse.FromOutput(task));
         })
         .Accepts<CreateTaskRequest>(MediaTypeNames.Application.Json)
         .Produces<TaskDetailResponse>(StatusCodes.Status201Created)
         .ProducesValidationProblem(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound);
 
-        app.MapGet("/api/projects/{projectId:guid}/tasks/{taskId:guid}", (Guid projectId, Guid taskId, RonFlowStore store) =>
+        app.MapGet("/api/projects/{projectId:guid}/tasks/{taskId:guid}", (Guid projectId, Guid taskId, GetTaskDetailQueryService queryService) =>
         {
-            var task = store.GetTask(projectId, taskId);
-            return task is null ? Results.NotFound() : Results.Ok(TaskDetailResponse.FromModel(task));
+            var task = queryService.Get(projectId, taskId);
+            return task is null ? Results.NotFound() : Results.Ok(TaskDetailResponse.FromView(task));
         })
         .Produces<TaskDetailResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound);
@@ -88,19 +100,11 @@ public partial class Program
 
 internal static class ValidationResults
 {
-    public static IResult ProjectNameRequired()
+    public static IResult FromError(ValidationError error)
     {
         return Results.ValidationProblem(new Dictionary<string, string[]>
         {
-            ["name"] = ["專案名稱為必填欄位"],
-        });
-    }
-
-    public static IResult TaskTitleRequired()
-    {
-        return Results.ValidationProblem(new Dictionary<string, string[]>
-        {
-            ["title"] = ["任務標題為必填欄位"],
+            [error.Field] = [error.Message],
         });
     }
 }

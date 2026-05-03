@@ -1,2 +1,5 @@
 <Solution>
+  <Project Path="RonFlow.Application/RonFlow.Application.csproj" />
+  <Project Path="RonFlow.Domain/RonFlow.Domain.csproj" />
+  <Project Path="RonFlow.Infrastructure/RonFlow.Infrastructure.csproj" />
 </Solution>

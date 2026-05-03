@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RonFlow.Api\RonFlow.Api.csproj" />
+    <ProjectReference Include="..\RonFlow.Domain\RonFlow.Domain.csproj" />
   </ItemGroup>
 
 </Project>

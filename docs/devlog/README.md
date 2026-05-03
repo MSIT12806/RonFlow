@@ -3389,7 +3389,7 @@ Facilitator：
 
 2026/04/26 15:22。
 
-[會後檢討](../assets/after%20event%20storm%20meeting%202.md)
+[會後檢討](../notes/after%20event%20storm%20meeting%202.md)
 
 ### 梳理業務規則-事件風暴03
 <a id="devlog-domain-rules-03"></a>
@@ -6818,10 +6818,10 @@ CompletedTasksView	TaskCompleted, TaskStateChanged
 9. Custom dashboard
 
 註：這裡我提了一個問題「為什麼我們不先從 [Read Model](../tech-base/read-model.md) 開始討論呢」：
-[為什麼不先從 Read Model 開始討論](../assets/outside-in-vs-event-storming-order.md)
+[為什麼不先從 Read Model 開始討論](../notes/outside-in-vs-event-storming-order.md)
 
 註：以及 [事件投影](../tech-base/event-projection.md) 的相關知識：
-[事件投影 vs Classic Query](../assets/event-projection-vs-classic-query.md)
+[事件投影 vs Classic Query](../notes/event-projection-vs-classic-query.md)
 
 剛剛插入討論後，我們已經額外收斂出一個重要技術策略：
 

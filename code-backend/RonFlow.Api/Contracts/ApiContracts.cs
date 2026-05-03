@@ -1,4 +1,4 @@
-using RonFlow.Api.Domain;
+using RonFlow.Application;
 
 namespace RonFlow.Api.Contracts;
 
@@ -10,9 +10,9 @@ public sealed record ProjectListResponse(IReadOnlyList<ProjectListItemResponse> 
 
 public sealed record ProjectListItemResponse(Guid Id, string Name, DateTimeOffset UpdatedAt)
 {
-    public static ProjectListItemResponse FromModel(ProjectSummaryModel model)
+    public static ProjectListItemResponse FromView(ProjectListItemView view)
     {
-        return new(model.Id, model.Name, model.UpdatedAt);
+        return new(view.Id, view.Name, view.UpdatedAt);
     }
 }
 
@@ -22,13 +22,22 @@ public sealed record ProjectResponse(
     DateTimeOffset UpdatedAt,
     IReadOnlyList<WorkflowStateResponse> WorkflowStates)
 {
-    public static ProjectResponse FromModel(ProjectModel model)
+    public static ProjectResponse FromOutput(CreateProjectOutput output)
     {
         return new(
-            model.Id,
-            model.Name,
-            model.UpdatedAt,
-            model.WorkflowStates.Select(WorkflowStateResponse.FromModel).ToArray());
+            output.Id,
+            output.Name,
+            output.UpdatedAt,
+            output.WorkflowStates.Select(WorkflowStateResponse.FromOutput).ToArray());
+    }
+
+    public static ProjectResponse FromView(ProjectView view)
+    {
+        return new(
+            view.Id,
+            view.Name,
+            view.UpdatedAt,
+            view.WorkflowStates.Select(WorkflowStateResponse.FromView).ToArray());
     }
 }
 
@@ -37,21 +46,11 @@ public sealed record ProjectBoardResponse(
     string ProjectName,
     IReadOnlyList<BoardColumnResponse> Columns)
 {
-    public static ProjectBoardResponse FromModel(ProjectBoardModel model)
+    public static ProjectBoardResponse FromView(ProjectBoardView view)
     {
-        var columns = model.WorkflowStates
-            .Select(state => new BoardColumnResponse(
-                state.Key,
-                state.Label,
-                state.IsInitialState,
-                "目前沒有任務",
-                model.Tasks
-                    .Where(task => task.CurrentState.Key == state.Key)
-                    .Select(BoardTaskCardResponse.FromModel)
-                    .ToArray()))
-            .ToArray();
+        var columns = view.Columns.Select(BoardColumnResponse.FromView).ToArray();
 
-        return new(model.ProjectId, model.ProjectName, columns);
+        return new(view.ProjectId, view.ProjectName, columns);
     }
 }
 
@@ -60,21 +59,37 @@ public sealed record BoardColumnResponse(
     string Label,
     bool IsInitialState,
     string EmptyStateMessage,
-    IReadOnlyList<BoardTaskCardResponse> Tasks);
+    IReadOnlyList<BoardTaskCardResponse> Tasks)
+{
+    public static BoardColumnResponse FromView(BoardColumnView view)
+    {
+        return new(
+            view.StateKey,
+            view.Label,
+            view.IsInitialState,
+            view.EmptyStateMessage,
+            view.Tasks.Select(BoardTaskCardResponse.FromView).ToArray());
+    }
+}
 
 public sealed record BoardTaskCardResponse(Guid Id, string Title)
 {
-    public static BoardTaskCardResponse FromModel(TaskModel model)
+    public static BoardTaskCardResponse FromView(BoardTaskCardView view)
     {
-        return new(model.Id, model.Title);
+        return new(view.Id, view.Title);
     }
 }
 
 public sealed record WorkflowStateResponse(string Key, string Label, bool IsInitialState)
 {
-    public static WorkflowStateResponse FromModel(WorkflowStateModel model)
+    public static WorkflowStateResponse FromOutput(CreatedWorkflowStateOutput output)
     {
-        return new(model.Key, model.Label, model.IsInitialState);
+        return new(output.Key, output.Label, output.IsInitialState);
+    }
+
+    public static WorkflowStateResponse FromView(WorkflowStateView view)
+    {
+        return new(view.Key, view.Label, view.IsInitialState);
     }
 }
 
@@ -86,22 +101,38 @@ public sealed record TaskDetailResponse(
     DateTimeOffset CreatedAt,
     IReadOnlyList<ActivityTimelineItemResponse> ActivityTimeline)
 {
-    public static TaskDetailResponse FromModel(TaskModel model)
+    public static TaskDetailResponse FromOutput(CreateTaskOutput output)
     {
         return new(
-            model.Id,
-            model.ProjectId,
-            model.Title,
-            WorkflowStateResponse.FromModel(model.CurrentState),
-            model.CreatedAt,
-            model.ActivityTimeline.Select(ActivityTimelineItemResponse.FromModel).ToArray());
+            output.Id,
+            output.ProjectId,
+            output.Title,
+            WorkflowStateResponse.FromOutput(output.CurrentState),
+            output.CreatedAt,
+            output.ActivityTimeline.Select(ActivityTimelineItemResponse.FromOutput).ToArray());
+    }
+
+    public static TaskDetailResponse FromView(TaskDetailView view)
+    {
+        return new(
+            view.Id,
+            view.ProjectId,
+            view.Title,
+            WorkflowStateResponse.FromView(view.CurrentState),
+            view.CreatedAt,
+            view.ActivityTimeline.Select(ActivityTimelineItemResponse.FromView).ToArray());
     }
 }
 
 public sealed record ActivityTimelineItemResponse(string Type, string Message, DateTimeOffset OccurredAt)
 {
-    public static ActivityTimelineItemResponse FromModel(ActivityTimelineItemModel model)
+    public static ActivityTimelineItemResponse FromOutput(CreatedActivityTimelineItemOutput output)
     {
-        return new(model.Type, model.Message, model.OccurredAt);
+        return new(output.Type, output.Message, output.OccurredAt);
+    }
+
+    public static ActivityTimelineItemResponse FromView(ActivityTimelineItemView view)
+    {
+        return new(view.Type, view.Message, view.OccurredAt);
     }
 }
