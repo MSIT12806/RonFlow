@@ -16,6 +16,7 @@ public sealed record CreateTaskOutput(
     string Title,
     CreatedWorkflowStateOutput CurrentState,
     DateTimeOffset CreatedAt,
+    DateTimeOffset? CompletedAt,
     IReadOnlyList<CreatedActivityTimelineItemOutput> ActivityTimeline);
 
 public sealed record CreatedActivityTimelineItemOutput(string Type, string Message, DateTimeOffset OccurredAt);
@@ -39,6 +40,7 @@ internal static class CoreFlowCommandOutputFactory
             task.Title,
             CreateWorkflowState(task.CurrentState),
             task.CreatedAt,
+            task.CompletedAt,
             task.ActivityTimeline.Select(CreateActivityTimelineItem).ToArray());
     }
 

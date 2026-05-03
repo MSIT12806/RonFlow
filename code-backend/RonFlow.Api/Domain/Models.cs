@@ -10,6 +10,7 @@ public sealed record TaskModel(
     string Title,
     WorkflowStateModel CurrentState,
     DateTimeOffset CreatedAt,
+    DateTimeOffset? CompletedAt,
     IReadOnlyList<ActivityTimelineItemModel> ActivityTimeline);
 
 public sealed record ProjectModel(

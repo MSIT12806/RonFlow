@@ -34,6 +34,7 @@ public sealed record TaskDetailView(
     string Title,
     WorkflowStateView CurrentState,
     DateTimeOffset CreatedAt,
+    DateTimeOffset? CompletedAt,
     IReadOnlyList<ActivityTimelineItemView> ActivityTimeline);
 
 public sealed record ActivityTimelineItemView(string Type, string Message, DateTimeOffset OccurredAt);
@@ -79,6 +80,7 @@ internal static class CoreFlowReadModelFactory
             task.Title,
             CreateWorkflowState(task.CurrentState),
             task.CreatedAt,
+            task.CompletedAt,
             task.ActivityTimeline.Select(CreateActivityTimelineItem).ToArray());
     }
 

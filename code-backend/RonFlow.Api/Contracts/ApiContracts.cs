@@ -6,6 +6,8 @@ public sealed record CreateProjectRequest(string? Name);
 
 public sealed record CreateTaskRequest(string? Title);
 
+public sealed record ChangeTaskStateRequest(string? StateKey);
+
 public sealed record ProjectListResponse(IReadOnlyList<ProjectListItemResponse> Items);
 
 public sealed record ProjectListItemResponse(Guid Id, string Name, DateTimeOffset UpdatedAt)
@@ -99,6 +101,7 @@ public sealed record TaskDetailResponse(
     string Title,
     WorkflowStateResponse CurrentState,
     DateTimeOffset CreatedAt,
+    DateTimeOffset? CompletedAt,
     IReadOnlyList<ActivityTimelineItemResponse> ActivityTimeline)
 {
     public static TaskDetailResponse FromOutput(CreateTaskOutput output)
@@ -109,6 +112,7 @@ public sealed record TaskDetailResponse(
             output.Title,
             WorkflowStateResponse.FromOutput(output.CurrentState),
             output.CreatedAt,
+            output.CompletedAt,
             output.ActivityTimeline.Select(ActivityTimelineItemResponse.FromOutput).ToArray());
     }
 
@@ -120,6 +124,7 @@ public sealed record TaskDetailResponse(
             view.Title,
             WorkflowStateResponse.FromView(view.CurrentState),
             view.CreatedAt,
+            view.CompletedAt,
             view.ActivityTimeline.Select(ActivityTimelineItemResponse.FromView).ToArray());
     }
 }

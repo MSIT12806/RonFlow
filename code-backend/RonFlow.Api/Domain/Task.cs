@@ -10,6 +10,7 @@ public sealed class Task
         string title,
         WorkflowState currentState,
         DateTimeOffset createdAt,
+        DateTimeOffset? completedAt,
         IEnumerable<ActivityTimelineItem> activityTimeline)
     {
         Id = id;
@@ -17,6 +18,7 @@ public sealed class Task
         Title = title;
         CurrentState = currentState;
         CreatedAt = createdAt;
+        CompletedAt = completedAt;
         this.activityTimeline = activityTimeline.ToArray();
     }
 
@@ -29,6 +31,7 @@ public sealed class Task
     public WorkflowState CurrentState { get; }
 
     public DateTimeOffset CreatedAt { get; }
+    public DateTimeOffset? CompletedAt { get; }
 
     public static Task Create(Guid projectId, TaskTitle title, WorkflowState initialState, DateTimeOffset createdAt)
     {
@@ -38,6 +41,7 @@ public sealed class Task
             title.Value,
             initialState,
             createdAt,
+            null,
             [ActivityTimelineItem.TaskCreated(createdAt)]);
     }
 
@@ -49,6 +53,7 @@ public sealed class Task
             Title,
             CurrentState.ToModel(),
             CreatedAt,
+            CompletedAt,
             activityTimeline.Select(item => item.ToModel()).ToArray());
     }
 }
