@@ -38,6 +38,49 @@ public sealed class ProjectDomainTests
         Assert.That(board.Tasks.Select(item => item.Title), Does.Contain("Build Kanban Board"));
     }
 
+    [Test]
+    public void ChangeState_ToDone_UpdatesCurrentStateAndRecordsCompletion()
+    {
+        var taskCreatedAt = new DateTimeOffset(2026, 5, 3, 9, 15, 0, TimeSpan.Zero);
+        var completedAt = taskCreatedAt.AddMinutes(30);
+        var workflowStates = DefaultWorkflow.CreateStates();
+        var task = RonFlow.Domain.Task.Create(
+            Guid.NewGuid(),
+            CreateTaskTitle("Build Kanban Board"),
+            workflowStates.Single(state => state.IsInitialState),
+            taskCreatedAt);
+
+        task.ChangeState(workflowStates.Single(state => state.Key == "done"), completedAt);
+        var taskModel = task.ToModel();
+
+        Assert.That(taskModel.CurrentState.Key, Is.EqualTo("done"));
+        Assert.That(taskModel.CurrentState.Label, Is.EqualTo("已完成"));
+        Assert.That(taskModel.CompletedAt, Is.EqualTo(completedAt));
+        Assert.That(taskModel.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskStateChanged"));
+        Assert.That(taskModel.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskCompleted"));
+        Assert.That(taskModel.ActivityTimeline.Select(item => item.Message), Does.Contain("已完成任務"));
+    }
+
+    [Test]
+    public void ChangeState_ToSameState_DoesNotAddNewActivity()
+    {
+        var taskCreatedAt = new DateTimeOffset(2026, 5, 3, 9, 15, 0, TimeSpan.Zero);
+        var workflowStates = DefaultWorkflow.CreateStates();
+        var initialState = workflowStates.Single(state => state.IsInitialState);
+        var task = RonFlow.Domain.Task.Create(
+            Guid.NewGuid(),
+            CreateTaskTitle("Build Kanban Board"),
+            initialState,
+            taskCreatedAt);
+
+        task.ChangeState(initialState, taskCreatedAt.AddMinutes(30));
+        var taskModel = task.ToModel();
+
+        Assert.That(taskModel.CurrentState.Key, Is.EqualTo("todo"));
+        Assert.That(taskModel.CompletedAt, Is.Null);
+        Assert.That(taskModel.ActivityTimeline.Select(item => item.Type), Is.EqualTo(new[] { "TaskCreated" }));
+    }
+
     private static ProjectName CreateProjectName(string value)
     {
         var isValid = ProjectName.TryCreate(value, out var projectName);

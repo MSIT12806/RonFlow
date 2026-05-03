@@ -87,6 +87,43 @@ public sealed class CreateTaskApplicationServiceTests
     }
 }
 
+public sealed class ChangeTaskStateApplicationServiceTests
+{
+    [Test]
+    public void Change_WhenTaskDoesNotExist_ReturnsNotFound()
+    {
+        var repository = new TestProjectRepository();
+        var applicationService = new ChangeTaskStateApplicationService(repository, new FixedTimeProvider(DateTimeOffset.UtcNow));
+
+        var result = applicationService.Change(Guid.NewGuid(), Guid.NewGuid(), "done");
+
+        Assert.That(result.Task, Is.Null);
+        Assert.That(result.TaskNotFound, Is.True);
+    }
+
+    [Test]
+    public void Change_ToDone_UpdatesStateAndCompletedAt()
+    {
+        var createdAt = new DateTimeOffset(2026, 5, 3, 9, 0, 0, TimeSpan.Zero);
+        var changedAt = createdAt.AddMinutes(30);
+        var repository = new TestProjectRepository();
+        var project = Project.Create(TestProjectData.CreateProjectName("RonFlow Project"), createdAt, DefaultWorkflow.CreateStates());
+        repository.Add(project);
+        var task = project.CreateTask(TestProjectData.CreateTaskTitle("Build Kanban Board"), createdAt.AddMinutes(5));
+
+        var applicationService = new ChangeTaskStateApplicationService(repository, new FixedTimeProvider(changedAt));
+
+        var result = applicationService.Change(project.Id, task.Id, "done");
+
+        Assert.That(result.TaskNotFound, Is.False);
+        Assert.That(result.Task, Is.Not.Null);
+        Assert.That(result.Task!.CurrentState.Key, Is.EqualTo("done"));
+        Assert.That(result.Task.CompletedAt, Is.EqualTo(changedAt));
+        Assert.That(result.Task.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskCompleted"));
+        Assert.That(result.Task.ActivityTimeline.Select(item => item.Message), Does.Contain("已完成任務"));
+    }
+}
+
 public sealed class CoreFlowQueryServiceTests
 {
     [Test]
@@ -123,6 +160,16 @@ internal static class TestProjectData
         Assert.That(projectName, Is.Not.Null);
 
         return projectName!;
+    }
+
+    public static TaskTitle CreateTaskTitle(string value)
+    {
+        var isValid = TaskTitle.TryCreate(value, out var taskTitle);
+
+        Assert.That(isValid, Is.True);
+        Assert.That(taskTitle, Is.Not.Null);
+
+        return taskTitle!;
     }
 }
 
@@ -165,6 +212,16 @@ internal sealed class TestProjectRepository : IProjectRepository
         return projects.TryGetValue(projectId, out var project)
             ? project.GetTask(taskId)?.ToModel()
             : null;
+    }
+
+    public TaskModel? ChangeTaskState(Guid projectId, Guid taskId, string stateKey, DateTimeOffset changedAt)
+    {
+        if (!projects.TryGetValue(projectId, out var project))
+        {
+            return null;
+        }
+
+        return project.ChangeTaskState(taskId, stateKey, changedAt)?.ToModel();
     }
 }
 
