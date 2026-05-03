@@ -2,7 +2,7 @@ namespace RonFlow.Domain;
 
 public sealed class Task
 {
-    private readonly IReadOnlyList<ActivityTimelineItem> activityTimeline;
+    private readonly List<ActivityTimelineItem> activityTimeline;
 
     private Task(
         Guid id,
@@ -19,7 +19,7 @@ public sealed class Task
         CurrentState = currentState;
         CreatedAt = createdAt;
         CompletedAt = completedAt;
-        this.activityTimeline = activityTimeline.ToArray();
+        this.activityTimeline = activityTimeline.ToList();
     }
 
     public Guid Id { get; }
@@ -28,10 +28,10 @@ public sealed class Task
 
     public string Title { get; }
 
-    public WorkflowState CurrentState { get; }
+    public WorkflowState CurrentState { get; private set; }
 
     public DateTimeOffset CreatedAt { get; }
-    public DateTimeOffset? CompletedAt { get; }
+    public DateTimeOffset? CompletedAt { get; private set; }
 
     public static Task Create(Guid projectId, TaskTitle title, WorkflowState initialState, DateTimeOffset createdAt)
     {
@@ -43,6 +43,25 @@ public sealed class Task
             createdAt,
             null,
             [ActivityTimelineItem.TaskCreated(createdAt)]);
+    }
+
+    public bool ChangeState(WorkflowState targetState, DateTimeOffset changedAt)
+    {
+        if (CurrentState.Key == targetState.Key)
+        {
+            return false;
+        }
+
+        CurrentState = targetState;
+        activityTimeline.Add(ActivityTimelineItem.TaskStateChanged(targetState.Label, changedAt));
+
+        if (targetState.Key == "done" && CompletedAt is null)
+        {
+            CompletedAt = changedAt;
+            activityTimeline.Add(ActivityTimelineItem.TaskCompleted(changedAt));
+        }
+
+        return true;
     }
 
     public TaskModel ToModel()

@@ -60,4 +60,26 @@ public sealed class Project
     {
         return tasks.FirstOrDefault(task => task.Id == taskId);
     }
+
+    public Task? ChangeTaskState(Guid taskId, string stateKey, DateTimeOffset changedAt)
+    {
+        var task = GetTask(taskId);
+        if (task is null)
+        {
+            return null;
+        }
+
+        var targetState = workflowStates.FirstOrDefault(state => state.Key == stateKey);
+        if (targetState is null)
+        {
+            return null;
+        }
+
+        if (task.ChangeState(targetState, changedAt))
+        {
+            UpdatedAt = changedAt;
+        }
+
+        return task;
+    }
 }

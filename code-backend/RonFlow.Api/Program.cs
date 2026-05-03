@@ -18,6 +18,7 @@ public partial class Program
         builder.Services.AddSingleton<IProjectRepository, InMemoryProjectRepository>();
         builder.Services.AddSingleton<CreateProjectApplicationService>();
         builder.Services.AddSingleton<CreateTaskApplicationService>();
+        builder.Services.AddSingleton<ChangeTaskStateApplicationService>();
         builder.Services.AddSingleton<GetProjectsQueryService>();
         builder.Services.AddSingleton<GetProjectBoardQueryService>();
         builder.Services.AddSingleton<GetTaskDetailQueryService>();
@@ -84,6 +85,22 @@ public partial class Program
         .Accepts<CreateTaskRequest>(MediaTypeNames.Application.Json)
         .Produces<TaskDetailResponse>(StatusCodes.Status201Created)
         .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound);
+
+        app.MapPatch("/api/projects/{projectId:guid}/tasks/{taskId:guid}/state", (
+            Guid projectId,
+            Guid taskId,
+            ChangeTaskStateRequest request,
+            ChangeTaskStateApplicationService applicationService) =>
+        {
+            var result = applicationService.Change(projectId, taskId, request.StateKey ?? string.Empty);
+
+            return result.TaskNotFound
+                ? Results.NotFound()
+                : Results.Ok(TaskDetailResponse.FromOutput(result.Task!));
+        })
+        .Accepts<ChangeTaskStateRequest>(MediaTypeNames.Application.Json)
+        .Produces<TaskDetailResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound);
 
         app.MapGet("/api/projects/{projectId:guid}/tasks/{taskId:guid}", (Guid projectId, Guid taskId, GetTaskDetailQueryService queryService) =>

@@ -35,6 +35,19 @@ public sealed record CreateTaskResult(CreateTaskOutput? Task, ValidationError? V
     }
 }
 
+public sealed record ChangeTaskStateResult(CreateTaskOutput? Task, bool TaskNotFound)
+{
+    public static ChangeTaskStateResult Success(CreateTaskOutput task)
+    {
+        return new(task, false);
+    }
+
+    public static ChangeTaskStateResult NotFound()
+    {
+        return new(null, true);
+    }
+}
+
 public sealed class CreateProjectApplicationService(IProjectRepository projectRepository, TimeProvider timeProvider)
 {
     public CreateProjectResult Create(string? rawName)
@@ -65,5 +78,17 @@ public sealed class CreateTaskApplicationService(IProjectRepository projectRepos
         return task is null
             ? CreateTaskResult.NotFound()
             : CreateTaskResult.Success(CoreFlowCommandOutputFactory.CreateTask(task));
+    }
+}
+
+public sealed class ChangeTaskStateApplicationService(IProjectRepository projectRepository, TimeProvider timeProvider)
+{
+    public ChangeTaskStateResult Change(Guid projectId, Guid taskId, string stateKey)
+    {
+        var task = projectRepository.ChangeTaskState(projectId, taskId, stateKey, timeProvider.GetUtcNow());
+
+        return task is null
+            ? ChangeTaskStateResult.NotFound()
+            : ChangeTaskStateResult.Success(CoreFlowCommandOutputFactory.CreateTask(task));
     }
 }

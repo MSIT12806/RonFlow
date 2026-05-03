@@ -10,5 +10,7 @@ public interface IProjectRepository
 
     TaskModel? CreateTask(Guid projectId, TaskTitle title, DateTimeOffset createdAt);
 
+    TaskModel? ChangeTaskState(Guid projectId, Guid taskId, string stateKey, DateTimeOffset changedAt);
+
     TaskModel? GetTask(Guid projectId, Guid taskId);
 }

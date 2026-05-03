@@ -61,4 +61,17 @@ public sealed class InMemoryProjectRepository : IProjectRepository
             return project.GetTask(taskId)?.ToModel();
         }
     }
+
+    public TaskModel? ChangeTaskState(Guid projectId, Guid taskId, string stateKey, DateTimeOffset changedAt)
+    {
+        lock (syncRoot)
+        {
+            if (!projects.TryGetValue(projectId, out var project))
+            {
+                return null;
+            }
+
+            return project.ChangeTaskState(taskId, stateKey, changedAt)?.ToModel();
+        }
+    }
 }
