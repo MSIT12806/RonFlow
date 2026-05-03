@@ -332,11 +332,11 @@ Feature: 建立專案
 **UI / UX Notes**
 
 ```text
-1. Project Name 應是畫面最主要的標題資訊。
-2. 看板欄位應讓使用者能快速辨識目前 workflow 的整體流向。
-3. 每個欄位的標題、計數與任務卡片應形成可快速掃描的資訊層次。
-4. 「建立任務」應作為頁面的主要新增操作，但不應壓過看板本身。
-5. Task Card 應同時支援點擊查看細節與拖曳變更狀態兩種互動。
+1. 使用者進入 Project Kanban Board 後，不需捲動就應看得到目前 Project Name 與「建立任務」按鈕。
+2. workflow columns 應依固定順序顯示為「待處理 / 進行中 / 審查中 / 已完成」，讓使用者不需要自行推測流程方向。
+3. 每個 workflow column 至少應顯示欄位名稱、該欄位的 Task 數量，以及屬於該欄位的 Task Card 清單。
+4. 「建立任務」按鈕應位於看板頁可直接操作的位置，使用者不需先打開其他選單才能建立 Task。
+5. 每張 Task Card 都應同時支援兩種操作：點擊開啟 Task Detail Drawer，以及拖曳到其他 workflow column 以變更狀態。
 ```
 
 **Empty State**
@@ -348,9 +348,9 @@ Feature: 建立專案
 **State Handling / Feedback**
 
 ```text
-1. 欄位為空時，仍應保留欄位結構，避免看板版面跳動。
-2. 若看板載入中，應提供明確的 loading 狀態，而不是短暫閃爍空欄位。
-3. 若專案不存在或看板載入失敗，應顯示 page-level 錯誤訊息。
+1. 即使某個 workflow column 目前沒有任何 Task，該欄位仍應顯示欄位標題與空狀態區域；畫面不應因空欄位而少一個 column。
+2. 當看板資料尚未載入完成時，Project Kanban Board 應顯示 loading 狀態，且在 loading 期間不應把未載入完成的欄位誤顯示為空欄位。
+3. 若 Project 不存在或看板載入失敗，Project Kanban Board 應顯示 page-level 錯誤狀態，而不是顯示一個看似正常但內容為空的看板。
 ```
 
 **Testability**
@@ -427,18 +427,19 @@ Feature: Project Kanban Board
 **UI / UX Notes**
 
 ```text
-1. 建立任務應是輕量操作，不應迫使使用者離開看板主畫面。
-2. 使用者進入 Modal 後，焦點應優先落在 Task Title 欄位。
-3. 主要操作「建立」應明確高於「取消」。
-4. 欄位驗證訊息應靠近 Task Title 顯示。
+1. 使用者應可直接在 Project Kanban Board 上開啟 Create Task Modal，建立 Task 的流程不應導向其他頁面。
+2. Create Task Modal 開啟後，鍵盤輸入焦點應直接落在 Task Title 輸入欄位。
+3. Modal 中唯一需要使用者輸入的欄位應為 Task Title；畫面不應額外要求 workflow state、assignee 或 priority 等欄位。
+4. Modal 應同時提供一個主要操作「建立」與一個次要操作「取消」；使用者可直接用「建立」送出表單，用「取消」關閉 Modal。
+5. 當 Task Title 驗證失敗時，錯誤訊息「任務標題為必填欄位」應顯示在 Task Title 欄位旁或欄位下方，讓使用者不需要查看其他區域即可知道問題位置。
 ```
 
 **State Handling / Feedback**
 
 ```text
-1. 送出期間應避免重複建立相同 Task。
-2. 成功建立後，Modal 應立即關閉，使用者回到原本的看板上下文。
-3. 若建立失敗，Modal 應維持開啟，方便使用者直接修正或重試。
+1. 使用者送出建立請求後，在請求完成前，系統應阻止再次送出同一筆表單。
+2. 建立成功後，系統應立即關閉 Create Task Modal，並在目前 Project Kanban Board 的「待處理」（Todo）欄位顯示新建立的 Task。
+3. 若建立失敗，Create Task Modal 應維持開啟，且使用者已輸入的 Task Title 不應被清空，讓使用者可以直接修正或重新送出。
 ```
 
 **Related Rules**
@@ -487,18 +488,18 @@ Feature: 建立任務
 **UI / UX Notes**
 
 ```text
-1. Drawer 的資訊層級應先顯示 Task Title，再顯示狀態與時間資訊。
-2. Task Detail Drawer 應讓使用者在不離開看板上下文的情況下查看詳細資訊。
-3. 活動紀錄應以時間序列方式呈現，讓狀態改變與完成事件容易追蹤。
-4. CompletedAt 僅在 Task 進入 Done 類狀態後顯示。
+1. Task Detail Drawer 開啟後，畫面應先顯示 Task Title，再顯示目前狀態、建立時間與活動紀錄。
+2. Task Detail Drawer 應以覆蓋看板一部分的方式呈現，讓使用者在關閉 Drawer 後可以回到原本的 Project Kanban Board 上下文。
+3. 活動紀錄中的每一筆項目都應以時間先後順序顯示，讓使用者可以直接讀出 Task 的變化過程。
+4. CompletedAt 只在 Task 已進入 Done 類狀態時顯示；未完成的 Task 不應顯示空白的 CompletedAt 欄位。
 ```
 
 **State Handling / Feedback**
 
 ```text
-1. 若 Task Detail 載入中，應提供明確 loading 狀態。
-2. 若載入失敗，應顯示可理解的錯誤訊息，而不是停留空白內容。
-3. 若 Task 在 Drawer 開啟期間被更新，Drawer 內容應反映最新狀態與活動紀錄。
+1. 當 Task Detail 尚未載入完成時，Drawer 應顯示 loading 狀態；在 loading 期間不應顯示看似完整但內容缺漏的詳細資訊。
+2. 若 Task Detail 載入失敗，Drawer 應顯示錯誤狀態，而不是停留在空白內容或過期資料。
+3. 若 Task 在 Drawer 開啟期間被更新，Drawer 中顯示的目前狀態、CompletedAt 與活動紀錄都應更新為最新資料。
 ```
 
 **Visible Names**
@@ -550,20 +551,20 @@ Feature: Task 詳細資訊
 **UI / UX Notes**
 
 ```text
-1. 狀態變更的主要互動方式應為 drag & drop，而不是一組顯式按鈕。
-2. Task Card 在可拖曳時，應讓使用者能辨識它可被拖動。
-3. 使用者拖曳期間，目標欄位應提供可見的 drop target 回饋。
-4. 放開滑鼠或指標前，不應提前提交狀態變更。
-5. 成功放置後，原欄位與目標欄位都應立即反映最新位置。
+1. 狀態變更的主要互動方式應為 drag & drop；畫面不應要求使用者透過另一組「移到某欄位」按鈕完成同一件事。
+2. 每張可拖曳的 Task Card 都應提供可辨識的拖曳提示，例如游標、drag handle 或等效視覺訊號，讓使用者知道這張卡片可以被移動。
+3. 使用者拖曳 Task Card 期間，可放置的 workflow column 應顯示可見的 drop target 回饋，讓使用者知道目前放下去會落在哪一欄。
+4. 在使用者尚未把 Task Card 放到目標欄位前，系統不應提交狀態變更，也不應提前把 Task 視為已移動成功。
+5. 拖曳放置成功後，原欄位中的卡片應消失，目標欄位中應出現該卡片，讓使用者不需重新整理頁面即可看到結果。
 ```
 
 **State Handling / Feedback**
 
 ```text
-1. 若拖曳開始但未放到有效欄位，Task 應回到原欄位。
-2. 若狀態變更失敗，Task 應回到原欄位，並顯示可理解的錯誤訊息。
-3. 若 Task Detail Drawer 已開啟，拖曳成功後 Drawer 內容應同步更新。
-4. 拖曳不應破壞既有的 Task Card 點擊開啟詳細資訊能力。
+1. 若使用者開始拖曳 Task Card，但最後沒有放到有效的 workflow column，Task Card 應回到原本欄位與原本位置。
+2. 若狀態變更請求失敗，Task Card 應回到原欄位，且畫面應顯示錯誤訊息，讓使用者知道這次拖曳未成功。
+3. 若 Task Detail Drawer 已開啟，拖曳成功後 Drawer 應同步顯示更新後的目前狀態、CompletedAt 與活動紀錄。
+4. Task Card 在未進行拖曳操作時，仍應保留原本的點擊行為，讓使用者可以開啟 Task Detail Drawer。
 ```
 
 **Testability**
