@@ -136,4 +136,19 @@ test.describe('RonFlow 核心流程驗收規格', () => {
     await expect(detailDialog.getByText('待處理', { exact: true })).toBeVisible()
     await expect(detailDialog.getByText('已建立任務', { exact: true })).toBeVisible()
   })
+
+  test('重新整理後仍可看到已建立的專案與任務', async ({ page }) => {
+    await page.goto('/')
+
+    await openCreateProjectModal(page)
+    await createProject(page)
+
+    await openCreateTaskModal(page)
+    await createTask(page)
+
+    await page.reload()
+
+    await expect(page.getByRole('heading', { name: projectName })).toBeVisible()
+    await expect(page.getByTestId('workflow-column-todo')).toContainText(taskTitle)
+  })
 })

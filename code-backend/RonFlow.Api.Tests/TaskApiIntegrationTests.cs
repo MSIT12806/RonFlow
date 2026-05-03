@@ -70,4 +70,24 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
         Assert.That(task.CurrentState.Label, Is.EqualTo("待處理"));
         Assert.That(task.ActivityTimeline.Select(item => item.Message), Does.Contain("已建立任務"));
     }
+
+    [Test]
+    public async Task CreateTask_WhenProjectDoesNotExist_ReturnsNotFound()
+    {
+        var response = await Client.PostAsJsonAsync(
+            $"/api/projects/{Guid.NewGuid()}/tasks",
+            new CreateTaskRequest("Build Kanban Board"));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+    }
+
+    [Test]
+    public async Task GetTaskDetail_WhenTaskDoesNotExist_ReturnsNotFound()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+
+        var response = await Client.GetAsync($"/api/projects/{project.Id}/tasks/{Guid.NewGuid()}");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+    }
 }

@@ -61,4 +61,12 @@ public sealed class ProjectApiIntegrationTests : ApiIntegrationTestBase
         Assert.That(board.Columns.All(column => column.Tasks.Count == 0), Is.True);
         Assert.That(board.Columns.All(column => column.EmptyStateMessage == "目前沒有任務"), Is.True);
     }
+
+    [Test]
+    public async Task GetBoard_WhenProjectDoesNotExist_ReturnsNotFound()
+    {
+        var response = await Client.GetAsync($"/api/projects/{Guid.NewGuid()}/board");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+    }
 }

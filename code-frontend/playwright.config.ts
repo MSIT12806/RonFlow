@@ -10,11 +10,18 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
-  webServer: {
-    command: 'npm run dev -- --host 127.0.0.1 --port 4173',
-    url: 'http://127.0.0.1:4173',
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: [
+    {
+      command: 'dotnet run --project ../code-backend/RonFlow.Api/RonFlow.Api.csproj --urls http://127.0.0.1:5078',
+      url: 'http://127.0.0.1:5078/api/projects',
+      reuseExistingServer: !process.env.CI,
+    },
+    {
+      command: 'npm run dev -- --host 127.0.0.1 --port 4173',
+      url: 'http://127.0.0.1:4173',
+      reuseExistingServer: !process.env.CI,
+    },
+  ],
   projects: [
     {
       name: 'chromium',
