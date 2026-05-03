@@ -63,27 +63,9 @@ Done   -> 已完成
 5. 使用者可以建立 Task
 6. 新建立的 Task 會進入 workflow initial state
 7. 使用者可以從 Kanban Board 開啟 Task Detail Drawer
-8. 系統會提供 Project Name 與 Task Title 的基本驗證
+8. 使用者可以在 Kanban Board 透過 drag & drop 變更 Task 狀態
+9. 系統會提供 Project Name 與 Task Title 的基本驗證
 ```
-
-本文件目前不描述以下延伸能力：
-
-```text
-1. 拖曳 Task 到其他欄位
-2. TaskCompleted
-3. RejectTask
-4. ReopenTask
-5. ChangeTaskAssignee
-6. ChangeTaskPriority
-7. MarkTaskUrgent / UnmarkTaskUrgent
-8. Workflow Settings
-9. Project Settings
-10. 完整 Activity Timeline
-11. 權限管理
-12. 登入 / 註冊
-```
-
----
 
 ## 5. Ubiquitous Language 對照表
 
@@ -199,11 +181,28 @@ flowchart TD
 2. 主要操作按鈕：建立專案
 ```
 
+**UI / UX Notes**
+
+```text
+1. 使用者進入 Project List Page 的首屏時，不需捲動就應看得到「建立專案」按鈕。
+2. 專案清單中的每筆 Project 至少應顯示「專案名稱」與「更新時間」，且名稱應先於更新時間出現。
+3. 每筆 Project 都應提供單一步驟進入方式，使用者點擊該筆 Project 後即可進入對應的 Project Kanban Board。
+4. Project List Page 只顯示「選擇現有 Project」與「建立新 Project」所需資訊；畫面不應預先顯示 workflow 欄位細節，也不應要求使用者先設定 workflow 才能開始。
+```
+
 **Empty State**
 
 ```text
 1. 若目前沒有任何 Project，畫面應顯示「尚未建立任何專案」。
 2. 空清單狀態下仍應顯示「建立專案」按鈕。
+```
+
+**State Handling / Feedback**
+
+```text
+1. 當專案清單為空時，畫面仍應顯示空狀態訊息「尚未建立任何專案」與可點擊的「建立專案」按鈕；畫面不應只剩空白區域。
+2. 若專案列表載入失敗，Project List Page 應顯示錯誤狀態區塊，至少包含失敗訊息，且不應以空白清單呈現失敗結果。
+3. 使用者成功建立 Project 後，系統應立即關閉 Create Project Modal，並導向新建立 Project 的 Project Kanban Board；使用者不需要重新整理頁面或重新選取該 Project。
 ```
 
 **Related Rules**
@@ -255,6 +254,23 @@ Feature: 專案列表頁
 
 ```text
 1. 若 Project Name 為空，畫面應顯示「專案名稱為必填欄位」。
+```
+
+**UI / UX Notes**
+
+```text
+1. Create Project Modal 開啟後，鍵盤輸入焦點應直接落在 Project Name 輸入欄位。
+2. Modal 中唯一需要使用者輸入的欄位應為 Project Name；畫面不應額外要求 workflow 設定或其他 Project 屬性。
+3. Modal 應同時提供一個主要操作「建立」與一個次要操作「取消」；使用者可直接用「建立」送出表單，用「取消」關閉 Modal。
+4. 當 Project Name 驗證失敗時，錯誤訊息「專案名稱為必填欄位」應顯示在 Project Name 欄位旁或欄位下方，讓使用者不需要查看其他區域即可知道問題位置。
+```
+
+**State Handling / Feedback**
+
+```text
+1. 使用者送出建立請求後，在請求完成前，系統應阻止再次送出同一筆表單。
+2. 建立成功後，系統應立即關閉 Create Project Modal，並接續進入新建立 Project 的 Project Kanban Board；畫面不應停留在成功提示狀態。
+3. 若建立失敗，Create Project Modal 應維持開啟，且使用者已輸入的 Project Name 不應被清空，讓使用者可以直接修正或重新送出。
 ```
 
 **Related Rules**
@@ -313,10 +329,28 @@ Feature: 建立專案
 3. 點擊 Task Card 可開啟 Task Detail Drawer
 ```
 
+**UI / UX Notes**
+
+```text
+1. Project Name 應是畫面最主要的標題資訊。
+2. 看板欄位應讓使用者能快速辨識目前 workflow 的整體流向。
+3. 每個欄位的標題、計數與任務卡片應形成可快速掃描的資訊層次。
+4. 「建立任務」應作為頁面的主要新增操作，但不應壓過看板本身。
+5. Task Card 應同時支援點擊查看細節與拖曳變更狀態兩種互動。
+```
+
 **Empty State**
 
 ```text
 1. 若某個 workflow column 目前沒有任何 Task，欄位內應顯示「目前沒有任務」。
+```
+
+**State Handling / Feedback**
+
+```text
+1. 欄位為空時，仍應保留欄位結構，避免看板版面跳動。
+2. 若看板載入中，應提供明確的 loading 狀態，而不是短暫閃爍空欄位。
+3. 若專案不存在或看板載入失敗，應顯示 page-level 錯誤訊息。
 ```
 
 **Testability**
@@ -390,6 +424,23 @@ Feature: Project Kanban Board
 1. 若 Task Title 為空，畫面應顯示「任務標題為必填欄位」。
 ```
 
+**UI / UX Notes**
+
+```text
+1. 建立任務應是輕量操作，不應迫使使用者離開看板主畫面。
+2. 使用者進入 Modal 後，焦點應優先落在 Task Title 欄位。
+3. 主要操作「建立」應明確高於「取消」。
+4. 欄位驗證訊息應靠近 Task Title 顯示。
+```
+
+**State Handling / Feedback**
+
+```text
+1. 送出期間應避免重複建立相同 Task。
+2. 成功建立後，Modal 應立即關閉，使用者回到原本的看板上下文。
+3. 若建立失敗，Modal 應維持開啟，方便使用者直接修正或重試。
+```
+
 **Related Rules**
 
 1. [Task 規則](#task-rules)
@@ -433,6 +484,23 @@ Feature: 建立任務
 4. 活動紀錄：已建立任務
 ```
 
+**UI / UX Notes**
+
+```text
+1. Drawer 的資訊層級應先顯示 Task Title，再顯示狀態與時間資訊。
+2. Task Detail Drawer 應讓使用者在不離開看板上下文的情況下查看詳細資訊。
+3. 活動紀錄應以時間序列方式呈現，讓狀態改變與完成事件容易追蹤。
+4. CompletedAt 僅在 Task 進入 Done 類狀態後顯示。
+```
+
+**State Handling / Feedback**
+
+```text
+1. 若 Task Detail 載入中，應提供明確 loading 狀態。
+2. 若載入失敗，應顯示可理解的錯誤訊息，而不是停留空白內容。
+3. 若 Task 在 Drawer 開啟期間被更新，Drawer 內容應反映最新狀態與活動紀錄。
+```
+
 **Visible Names**
 
 ```text
@@ -469,20 +537,42 @@ Feature: Task 詳細資訊
 **Expected Behavior**
 
 ```text
-1. 使用者可以從目前欄位將 Task 移動到另一個 workflow column
-2. 移動成功後，Task 應立即顯示在目標欄位
-3. 移動到非 Done 類狀態時，系統應記錄 TaskStateChanged
-4. 移動到非 Done 類狀態時，Task 不應有 completed time
-5. Task Detail Drawer 應顯示更新後的目前狀態
-6. 當 Task 進入 Done 類狀態時，系統應記錄 TaskStateChanged 與 TaskCompleted
-7. 當 Task 進入 Done 類狀態時，系統應記錄完成時間
+1. 使用者可以在看板上拖曳 Task Card 到另一個 workflow column
+2. 放開後，系統應以放置的目標欄位作為新的 workflow state
+3. 移動成功後，Task 應立即顯示在目標欄位
+4. 移動到非 Done 類狀態時，系統應記錄 TaskStateChanged
+5. 移動到非 Done 類狀態時，Task 不應有 completed time
+6. Task Detail Drawer 應顯示更新後的目前狀態
+7. 當 Task 進入 Done 類狀態時，系統應記錄 TaskStateChanged 與 TaskCompleted
+8. 當 Task 進入 Done 類狀態時，系統應記錄完成時間
+```
+
+**UI / UX Notes**
+
+```text
+1. 狀態變更的主要互動方式應為 drag & drop，而不是一組顯式按鈕。
+2. Task Card 在可拖曳時，應讓使用者能辨識它可被拖動。
+3. 使用者拖曳期間，目標欄位應提供可見的 drop target 回饋。
+4. 放開滑鼠或指標前，不應提前提交狀態變更。
+5. 成功放置後，原欄位與目標欄位都應立即反映最新位置。
+```
+
+**State Handling / Feedback**
+
+```text
+1. 若拖曳開始但未放到有效欄位，Task 應回到原欄位。
+2. 若狀態變更失敗，Task 應回到原欄位，並顯示可理解的錯誤訊息。
+3. 若 Task Detail Drawer 已開啟，拖曳成功後 Drawer 內容應同步更新。
+4. 拖曳不應破壞既有的 Task Card 點擊開啟詳細資訊能力。
 ```
 
 **Testability**
 
 ```text
-1. 每個 Task Card 應提供穩定可定位方式，讓測試可以對指定 Task 執行移動操作
-2. 使用者必須能從畫面完成狀態移動，而不需要直接呼叫 API
+1. 每個 Task Card 應提供穩定可定位方式，讓測試可以抓取 drag source。
+2. 每個 workflow column 應提供穩定可定位方式，讓測試可以作為 drop target。
+3. 使用者必須能從畫面完成狀態移動，而不需要直接呼叫 API。
+4. 規格不限制 drag & drop 必須採用哪一個前端函式庫，但互動結果必須可被自動測試驗證。
 ```
 
 **Related Rules**
@@ -498,7 +588,7 @@ Feature: Move task state on kanban board
   Scenario: User moves a task to another workflow state
     Given a project exists with a default workflow
     And a task titled "Build Kanban Board" exists in the "Todo" state
-    When the user moves the task to the "Active" column
+    When the user drags the task to the "Active" column
     Then the task should appear under the "Active" column
     And a TaskStateChanged event should be recorded
     And the task should not have a completed time
@@ -506,7 +596,7 @@ Feature: Move task state on kanban board
   Scenario: User moves a task to Done
     Given a project exists with a default workflow
     And a task titled "Build Kanban Board" exists in the "Active" state
-    When the user moves the task to the "Done" column
+    When the user drags the task to the "Done" column
     Then the task should appear under the "Done" column
     And a TaskStateChanged event should be recorded
     And a TaskCompleted event should be recorded
@@ -560,7 +650,7 @@ Feature: Move task state on kanban board
 6. 若某個 workflow column 沒有任何 Task，欄位內應顯示「目前沒有任務」
 7. 每個 workflow column 應提供穩定 selector，格式為 data-testid="workflow-column-{state-key}"
 8. Task Card 應提供穩定可定位方式，但不強制限定 HTML tag
-9. 使用者應可從 Project Kanban Board 將 Task 移動到另一個 workflow column
+9. 使用者應可從 Project Kanban Board 透過 drag & drop 將 Task 移動到另一個 workflow column
 10. Task 移動成功後，原欄位與目標欄位都應反映最新位置
 ```
 
@@ -604,8 +694,8 @@ Feature: Move task state on kanban board
 ### 9.4 Move Task State To Another Workflow State
 
 ```text
-1. 使用者可以從 Project Kanban Board 將指定 Task 移動到另一個 workflow state。
-2. Task 從「待處理」（Todo）移動到「進行中」（Active）後，應顯示在「進行中」欄位。
+1. 使用者可以從 Project Kanban Board 拖曳指定 Task 到另一個 workflow state。
+2. Task 從「待處理」（Todo）拖曳到「進行中」（Active）後，應顯示在「進行中」欄位。
 3. Task Detail Drawer 應顯示更新後的目前狀態為「進行中」。
 4. Task Detail Drawer 的活動紀錄應顯示 TaskStateChanged。
 5. Task Detail Drawer 不應顯示 CompletedAt。
@@ -614,7 +704,7 @@ Feature: Move task state on kanban board
 ### 9.5 Move Task State To Done
 
 ```text
-1. 使用者可以將位於「進行中」（Active）的 Task 移動到「已完成」（Done）欄位。
+1. 使用者可以將位於「進行中」（Active）的 Task 拖曳到「已完成」（Done）欄位。
 2. Task 移動後，應顯示在「已完成」（Done）欄位。
 3. Task Detail Drawer 應顯示更新後的目前狀態為「已完成」。
 4. Task Detail Drawer 應顯示 CompletedAt。
