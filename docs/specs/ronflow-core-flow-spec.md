@@ -460,6 +460,49 @@ Feature: Task 詳細資訊
     And 畫面應顯示活動紀錄包含 "已建立任務"
 ```
 
+### 7.6 Move Task State On Board
+
+**Purpose**
+
+讓使用者可以在 Project Kanban Board 上變更 Task 的 workflow state。
+
+**Expected Behavior**
+
+```text
+1. 使用者可以從目前欄位將 Task 移動到另一個 workflow column
+2. 移動成功後，Task 應立即顯示在目標欄位
+3. Task Detail Drawer 應顯示更新後的目前狀態
+4. 當 Task 進入 Done 類狀態時，系統應記錄完成時間
+5. 當 Task 進入 Done 類狀態時，活動紀錄應包含 Task 完成事件
+```
+
+**Testability**
+
+```text
+1. 每個 Task Card 應提供穩定可定位方式，讓測試可以對指定 Task 執行移動操作
+2. 使用者必須能從畫面完成狀態移動，而不需要直接呼叫 API
+```
+
+**Related Rules**
+
+1. [Task 規則](#task-rules)
+2. [Board 規則](#board-rules)
+
+**Gherkin Draft**
+
+```gherkin
+Feature: Move task state on kanban board
+
+  Scenario: User moves a task to Done
+    Given a project exists with a default workflow
+    And a task titled "Build Kanban Board" exists in the initial state
+    When the user moves the task to the "Done" column
+    Then the task should appear under the "Done" column
+    And the task detail should show the current state as "已完成"
+    And the task should have a completed time
+    And the activity timeline should show that the task was completed
+```
+
 ---
 
 ## 8. 驗證與規則
@@ -487,6 +530,9 @@ Feature: Task 詳細資訊
 4. Task 建立後顯示在 Kanban Board 的「待處理」（Todo）欄位
 5. 建立成功後，建立任務 Modal 應立即關閉
 6. Task Title 的必填錯誤訊息為「任務標題為必填欄位」
+7. Task 狀態可以從目前欄位變更到另一個 workflow state
+8. 當 Task 進入 Done 類狀態時，系統應記錄 CompletedAt
+9. 當 Task 進入 Done 類狀態時，活動紀錄應包含完成事件
 ```
 
 <a id="board-rules"></a>
@@ -502,6 +548,8 @@ Feature: Task 詳細資訊
 6. 若某個 workflow column 沒有任何 Task，欄位內應顯示「目前沒有任務」
 7. 每個 workflow column 應提供穩定 selector，格式為 data-testid="workflow-column-{state-key}"
 8. Task Card 應提供穩定可定位方式，但不強制限定 HTML tag
+9. 使用者應可從 Project Kanban Board 將 Task 移動到另一個 workflow column
+10. Task 移動成功後，原欄位與目標欄位都應反映最新位置
 ```
 
 ---
@@ -539,4 +587,14 @@ Feature: Task 詳細資訊
 3. Task Detail Drawer 應顯示目前狀態。
 4. Task Detail Drawer 應顯示基本活動紀錄。
 5. Task Detail Drawer 的可見名稱應為「任務詳細資訊」。
+```
+
+### 9.4 Move Task State To Done
+
+```text
+1. 使用者可以從 Project Kanban Board 將指定 Task 移動到「已完成」（Done）欄位。
+2. Task 移動後，應顯示在「已完成」（Done）欄位。
+3. Task Detail Drawer 應顯示更新後的目前狀態為「已完成」。
+4. Task Detail Drawer 應顯示 CompletedAt。
+5. Task Detail Drawer 的活動紀錄應顯示 Task 完成事件。
 ```
