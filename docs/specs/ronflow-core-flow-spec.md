@@ -471,9 +471,11 @@ Feature: Task 詳細資訊
 ```text
 1. 使用者可以從目前欄位將 Task 移動到另一個 workflow column
 2. 移動成功後，Task 應立即顯示在目標欄位
-3. Task Detail Drawer 應顯示更新後的目前狀態
-4. 當 Task 進入 Done 類狀態時，系統應記錄完成時間
-5. 當 Task 進入 Done 類狀態時，活動紀錄應包含 Task 完成事件
+3. 移動到非 Done 類狀態時，系統應記錄 TaskStateChanged
+4. 移動到非 Done 類狀態時，Task 不應有 completed time
+5. Task Detail Drawer 應顯示更新後的目前狀態
+6. 當 Task 進入 Done 類狀態時，系統應記錄 TaskStateChanged 與 TaskCompleted
+7. 當 Task 進入 Done 類狀態時，系統應記錄完成時間
 ```
 
 **Testability**
@@ -493,14 +495,22 @@ Feature: Task 詳細資訊
 ```gherkin
 Feature: Move task state on kanban board
 
+  Scenario: User moves a task to another workflow state
+    Given a project exists with a default workflow
+    And a task titled "Build Kanban Board" exists in the "Todo" state
+    When the user moves the task to the "Active" column
+    Then the task should appear under the "Active" column
+    And a TaskStateChanged event should be recorded
+    And the task should not have a completed time
+
   Scenario: User moves a task to Done
     Given a project exists with a default workflow
-    And a task titled "Build Kanban Board" exists in the initial state
+    And a task titled "Build Kanban Board" exists in the "Active" state
     When the user moves the task to the "Done" column
     Then the task should appear under the "Done" column
-    And the task detail should show the current state as "已完成"
+    And a TaskStateChanged event should be recorded
+    And a TaskCompleted event should be recorded
     And the task should have a completed time
-    And the activity timeline should show that the task was completed
 ```
 
 ---
@@ -531,8 +541,10 @@ Feature: Move task state on kanban board
 5. 建立成功後，建立任務 Modal 應立即關閉
 6. Task Title 的必填錯誤訊息為「任務標題為必填欄位」
 7. Task 狀態可以從目前欄位變更到另一個 workflow state
-8. 當 Task 進入 Done 類狀態時，系統應記錄 CompletedAt
-9. 當 Task 進入 Done 類狀態時，活動紀錄應包含完成事件
+8. Task 移動到非 Done 類狀態時，系統應記錄 TaskStateChanged
+9. Task 移動到非 Done 類狀態時，不應記錄 CompletedAt
+10. 當 Task 進入 Done 類狀態時，系統應記錄 CompletedAt
+11. 當 Task 進入 Done 類狀態時，活動紀錄應包含 TaskCompleted
 ```
 
 <a id="board-rules"></a>
@@ -589,12 +601,22 @@ Feature: Move task state on kanban board
 5. Task Detail Drawer 的可見名稱應為「任務詳細資訊」。
 ```
 
-### 9.4 Move Task State To Done
+### 9.4 Move Task State To Another Workflow State
 
 ```text
-1. 使用者可以從 Project Kanban Board 將指定 Task 移動到「已完成」（Done）欄位。
+1. 使用者可以從 Project Kanban Board 將指定 Task 移動到另一個 workflow state。
+2. Task 從「待處理」（Todo）移動到「進行中」（Active）後，應顯示在「進行中」欄位。
+3. Task Detail Drawer 應顯示更新後的目前狀態為「進行中」。
+4. Task Detail Drawer 的活動紀錄應顯示 TaskStateChanged。
+5. Task Detail Drawer 不應顯示 CompletedAt。
+```
+
+### 9.5 Move Task State To Done
+
+```text
+1. 使用者可以將位於「進行中」（Active）的 Task 移動到「已完成」（Done）欄位。
 2. Task 移動後，應顯示在「已完成」（Done）欄位。
 3. Task Detail Drawer 應顯示更新後的目前狀態為「已完成」。
 4. Task Detail Drawer 應顯示 CompletedAt。
-5. Task Detail Drawer 的活動紀錄應顯示 Task 完成事件。
+5. Task Detail Drawer 的活動紀錄應顯示 TaskStateChanged 與 TaskCompleted。
 ```
