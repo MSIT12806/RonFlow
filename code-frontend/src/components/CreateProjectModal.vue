@@ -14,6 +14,7 @@
       <form class="modal-form" @submit.prevent="$emit('submit')">
         <label for="project-name">專案名稱</label>
         <input
+          ref="projectNameInputRef"
           id="project-name"
           :value="projectName"
           type="text"
@@ -32,7 +33,9 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+import { nextTick, ref, watch } from 'vue'
+
+const props = defineProps<{
   isOpen: boolean
   projectName: string
   projectNameError: string
@@ -44,4 +47,18 @@ defineEmits<{
   (event: 'submit'): void
   (event: 'update:project-name', value: string): void
 }>()
+
+const projectNameInputRef = ref<HTMLInputElement | null>(null)
+
+watch(
+  () => props.isOpen,
+  async (isOpen) => {
+    if (!isOpen) {
+      return
+    }
+
+    await nextTick()
+    projectNameInputRef.value?.focus()
+  },
+)
 </script>

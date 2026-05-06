@@ -25,6 +25,7 @@
           :projects="projects"
           :active-project-id="activeProjectId"
           :is-loading-projects="isLoadingProjects"
+          :has-error="Boolean(pageError)"
           :format-project-meta="formatProjectMeta"
           @select-project="selectProject"
         />

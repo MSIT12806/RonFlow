@@ -20,6 +20,11 @@
           :key="column.stateKey"
           :data-testid="`workflow-column-${column.stateKey}`"
           class="board-column"
+          :class="{ 'board-column-drop-target': dragOverStateKey === column.stateKey }"
+          @dragenter.prevent="handleColumnDragEnter(column.stateKey)"
+          @dragover.prevent="handleColumnDragOver($event, column.stateKey)"
+          @dragleave="handleColumnDragLeave(column.stateKey)"
+          @drop.prevent="handleTaskDrop($event, column.stateKey)"
         >
           <header class="column-header">
             <h3>{{ column.label }}</h3>
@@ -35,6 +40,9 @@
               v-for="task in column.tasks"
               :key="task.id"
               class="task-card"
+              draggable="true"
+              @dragstart="handleTaskDragStart($event, task.id)"
+              @dragend="handleTaskDragEnd"
             >
               <button
                 type="button"
@@ -43,16 +51,6 @@
               >
                 <span class="task-title">{{ task.title }}</span>
                 <span class="task-meta">{{ column.label }}</span>
-              </button>
-
-              <button
-                v-for="targetState in moveTargets(column.stateKey)"
-                :key="targetState.stateKey"
-                type="button"
-                class="secondary-button task-state-action"
-                @click="$emit('move-task-to-state', task.id, targetState.stateKey)"
-              >
-                移到{{ targetState.label }}
               </button>
             </article>
           </div>
@@ -71,6 +69,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import type { BoardColumnResponse, WorkflowKey } from '../api/ronflowApi'
 
 const props = defineProps<{
@@ -79,15 +78,73 @@ const props = defineProps<{
   isLoadingBoard: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   (event: 'open-create-task'): void
   (event: 'open-task-detail', taskId: string): void
   (event: 'move-task-to-state', taskId: string, stateKey: WorkflowKey): void
 }>()
 
-function moveTargets(currentStateKey: WorkflowKey) {
-  return props.columns
-    .filter((column) => column.stateKey !== currentStateKey)
-    .map((column) => ({ stateKey: column.stateKey, label: column.label }))
+const draggingTaskId = ref<string | null>(null)
+const dragOverStateKey = ref<WorkflowKey | null>(null)
+
+function handleTaskDragStart(event: DragEvent, taskId: string) {
+  draggingTaskId.value = taskId
+
+  if (!event.dataTransfer) {
+    return
+  }
+
+  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer.setData('text/plain', taskId)
+}
+
+function handleTaskDragEnd() {
+  draggingTaskId.value = null
+  dragOverStateKey.value = null
+}
+
+function handleColumnDragEnter(stateKey: WorkflowKey) {
+  if (!draggingTaskId.value) {
+    return
+  }
+
+  dragOverStateKey.value = stateKey
+}
+
+function handleColumnDragOver(event: DragEvent, stateKey: WorkflowKey) {
+  if (!draggingTaskId.value) {
+    return
+  }
+
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move'
+  }
+
+  dragOverStateKey.value = stateKey
+}
+
+function handleColumnDragLeave(stateKey: WorkflowKey) {
+  if (dragOverStateKey.value !== stateKey) {
+    return
+  }
+
+  dragOverStateKey.value = null
+}
+
+function handleTaskDrop(event: DragEvent, targetStateKey: WorkflowKey) {
+  const taskId = draggingTaskId.value ?? event.dataTransfer?.getData('text/plain') ?? null
+  if (!taskId) {
+    return
+  }
+
+  const sourceColumn = props.columns.find((column) => column.tasks.some((task) => task.id === taskId))
+  dragOverStateKey.value = null
+  draggingTaskId.value = null
+
+  if (!sourceColumn || sourceColumn.stateKey === targetStateKey) {
+    return
+  }
+
+  emit('move-task-to-state', taskId, targetStateKey)
 }
 </script>

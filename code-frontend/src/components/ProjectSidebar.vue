@@ -10,7 +10,7 @@
 
     <p v-if="isLoadingProjects" class="empty-copy">正在載入專案列表...</p>
 
-    <p v-else-if="projects.length === 0" class="empty-copy">尚未建立任何專案</p>
+    <p v-else-if="!hasError && projects.length === 0" class="empty-copy">尚未建立任何專案</p>
 
     <ul v-else class="project-list">
       <li v-for="project in projects" :key="project.id">
@@ -35,6 +35,7 @@ defineProps<{
   projects: ProjectListItemResponse[]
   activeProjectId: string | null
   isLoadingProjects: boolean
+  hasError: boolean
   formatProjectMeta: (updatedAt: string) => string
 }>()
 
