@@ -4,14 +4,14 @@ using RonFlow.Domain;
 
 namespace RonFlow.Api.Tests;
 
-public sealed class CreateProjectApplicationServiceTests
+public sealed class CreateProjectCommandServiceTests
 {
     [Test]
     public void Create_WithBlankName_ReturnsValidationError()
     {
-        var applicationService = new CreateProjectApplicationService(new TestProjectRepository(), new FixedTimeProvider(DateTimeOffset.UtcNow));
+        var commandService = new CreateProjectCommandService(new TestProjectRepository(), new FixedTimeProvider(DateTimeOffset.UtcNow));
 
-        var result = applicationService.Create("   ");
+        var result = commandService.Create("   ");
 
         Assert.That(result.Project, Is.Null);
         Assert.That(result.ValidationError, Is.Not.Null);
@@ -24,9 +24,9 @@ public sealed class CreateProjectApplicationServiceTests
     {
         var createdAt = new DateTimeOffset(2026, 5, 3, 9, 0, 0, TimeSpan.Zero);
         var repository = new TestProjectRepository();
-        var applicationService = new CreateProjectApplicationService(repository, new FixedTimeProvider(createdAt));
+        var commandService = new CreateProjectCommandService(repository, new FixedTimeProvider(createdAt));
 
-        var result = applicationService.Create("RonFlow Project");
+        var result = commandService.Create("RonFlow Project");
 
         Assert.That(result.ValidationError, Is.Null);
         Assert.That(result.Project, Is.Not.Null);
@@ -36,15 +36,15 @@ public sealed class CreateProjectApplicationServiceTests
     }
 }
 
-public sealed class CreateTaskApplicationServiceTests
+public sealed class CreateTaskCommandServiceTests
 {
     [Test]
     public void Create_WithBlankTitle_ReturnsValidationError()
     {
         var repository = new TestProjectRepository();
-        var applicationService = new CreateTaskApplicationService(repository, new FixedTimeProvider(DateTimeOffset.UtcNow));
+        var commandService = new CreateTaskCommandService(repository, new FixedTimeProvider(DateTimeOffset.UtcNow));
 
-        var result = applicationService.Create(Guid.NewGuid(), "   ");
+        var result = commandService.Create(Guid.NewGuid(), "   ");
 
         Assert.That(result.Task, Is.Null);
         Assert.That(result.ValidationError, Is.Not.Null);
@@ -57,9 +57,9 @@ public sealed class CreateTaskApplicationServiceTests
     public void Create_WhenProjectDoesNotExist_ReturnsNotFound()
     {
         var repository = new TestProjectRepository();
-        var applicationService = new CreateTaskApplicationService(repository, new FixedTimeProvider(DateTimeOffset.UtcNow));
+        var commandService = new CreateTaskCommandService(repository, new FixedTimeProvider(DateTimeOffset.UtcNow));
 
-        var result = applicationService.Create(Guid.NewGuid(), "Build Kanban Board");
+        var result = commandService.Create(Guid.NewGuid(), "Build Kanban Board");
 
         Assert.That(result.Task, Is.Null);
         Assert.That(result.ValidationError, Is.Null);
@@ -80,9 +80,9 @@ public sealed class CreateTaskApplicationServiceTests
         var project = Project.Create(pn, createdAt, DefaultWorkflow.CreateStates());
         repository.Add(project);
 
-        var createTaskAppService = new CreateTaskApplicationService(repository, new FixedTimeProvider(createdAt.AddMinutes(5)));
+        var createTaskCommandService = new CreateTaskCommandService(repository, new FixedTimeProvider(createdAt.AddMinutes(5)));
 
-        var result = createTaskAppService.Create(project.Id, "Build Kanban Board");
+        var result = createTaskCommandService.Create(project.Id, "Build Kanban Board");
 
         Assert.That(result.ValidationError, Is.Null);
         Assert.That(result.ProjectNotFound, Is.False);
@@ -93,15 +93,15 @@ public sealed class CreateTaskApplicationServiceTests
     }
 }
 
-public sealed class ChangeTaskStateApplicationServiceTests
+public sealed class ChangeTaskStateCommandServiceTests
 {
     [Test]
     public void Change_WhenTaskDoesNotExist_ReturnsNotFound()
     {
         var repository = new TestProjectRepository();
-        var applicationService = new ChangeTaskStateApplicationService(repository, new FixedTimeProvider(DateTimeOffset.UtcNow));
+        var commandService = new ChangeTaskStateCommandService(repository, new FixedTimeProvider(DateTimeOffset.UtcNow));
 
-        var result = applicationService.Change(Guid.NewGuid(), Guid.NewGuid(), "done");
+        var result = commandService.Change(Guid.NewGuid(), Guid.NewGuid(), "done");
 
         Assert.That(result.Task, Is.Null);
         Assert.That(result.TaskNotFound, Is.True);
@@ -128,9 +128,9 @@ public sealed class ChangeTaskStateApplicationServiceTests
         }
         var task = project.CreateTask(tt, createdAt.AddMinutes(5));
 
-        var applicationService = new ChangeTaskStateApplicationService(repository, new FixedTimeProvider(changedAt));
+        var commandService = new ChangeTaskStateCommandService(repository, new FixedTimeProvider(changedAt));
 
-        var result = applicationService.Change(project.Id, task.Id, "active");
+        var result = commandService.Change(project.Id, task.Id, "active");
 
         Assert.That(result.TaskNotFound, Is.False);
         Assert.That(result.Task, Is.Not.Null);
@@ -162,12 +162,12 @@ public sealed class ChangeTaskStateApplicationServiceTests
 
         var task = project.CreateTask(tt, createdAt.AddMinutes(5));
 
-        var moveToActiveService = new ChangeTaskStateApplicationService(repository, new FixedTimeProvider(movedToActiveAt));
+        var moveToActiveService = new ChangeTaskStateCommandService(repository, new FixedTimeProvider(movedToActiveAt));
         var moveToActiveResult = moveToActiveService.Change(project.Id, task.Id, "active");
 
         Assert.That(moveToActiveResult.TaskNotFound, Is.False);
 
-        var completeService = new ChangeTaskStateApplicationService(repository, new FixedTimeProvider(completedAt));
+        var completeService = new ChangeTaskStateCommandService(repository, new FixedTimeProvider(completedAt));
         var result = completeService.Change(project.Id, task.Id, "done");
 
         Assert.That(result.TaskNotFound, Is.False);

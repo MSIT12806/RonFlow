@@ -16,9 +16,9 @@ public partial class Program
         builder.Services.AddOpenApi();
         builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
         builder.Services.AddSingleton<IProjectRepository, InMemoryProjectRepository>();
-        builder.Services.AddSingleton<CreateProjectApplicationService>();
-        builder.Services.AddSingleton<CreateTaskApplicationService>();
-        builder.Services.AddSingleton<ChangeTaskStateApplicationService>();
+        builder.Services.AddSingleton<CreateProjectCommandService>();
+        builder.Services.AddSingleton<CreateTaskCommandService>();
+        builder.Services.AddSingleton<ChangeTaskStateCommandService>();
         builder.Services.AddSingleton<GetProjectsQueryService>();
         builder.Services.AddSingleton<GetProjectBoardQueryService>();
         builder.Services.AddSingleton<GetTaskDetailQueryService>();
@@ -39,9 +39,9 @@ public partial class Program
             return Results.Ok(new ProjectListResponse(projects));
         });
 
-        app.MapPost("/api/projects", (CreateProjectRequest request, CreateProjectApplicationService applicationService) =>
+        app.MapPost("/api/projects", (CreateProjectRequest request, CreateProjectCommandService commandService) =>
         {
-            var result = applicationService.Create(request.Name);
+            var result = commandService.Create(request.Name);
 
             if (result.ValidationError is not null)
             {
@@ -64,9 +64,9 @@ public partial class Program
             return board is null ? Results.NotFound() : Results.Ok(ProjectBoardResponse.FromView(board));
         });
 
-        app.MapPost("/api/projects/{projectId:guid}/tasks", (Guid projectId, CreateTaskRequest request, CreateTaskApplicationService applicationService) =>
+        app.MapPost("/api/projects/{projectId:guid}/tasks", (Guid projectId, CreateTaskRequest request, CreateTaskCommandService commandService) =>
         {
-            var result = applicationService.Create(projectId, request.Title);
+            var result = commandService.Create(projectId, request.Title);
 
             if (result.ValidationError is not null)
             {
@@ -91,9 +91,9 @@ public partial class Program
             Guid projectId,
             Guid taskId,
             ChangeTaskStateRequest request,
-            ChangeTaskStateApplicationService applicationService) =>
+            ChangeTaskStateCommandService commandService) =>
         {
-            var result = applicationService.Change(projectId, taskId, request.StateKey ?? string.Empty);
+            var result = commandService.Change(projectId, taskId, request.StateKey ?? string.Empty);
 
             return result.TaskNotFound
                 ? Results.NotFound()
