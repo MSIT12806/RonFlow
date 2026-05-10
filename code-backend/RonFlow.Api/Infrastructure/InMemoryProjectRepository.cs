@@ -26,6 +26,25 @@ public sealed class InMemoryProjectRepository : IProjectRepository
         }
     }
 
+    public Project? Get(Guid projectId)
+    {
+        lock (syncRoot)
+        {
+            return projects.GetValueOrDefault(projectId);
+        }
+    }
+
+    public void Update(Project project)
+    {
+        lock (syncRoot)
+        {
+            if (projects.ContainsKey(project.Id))
+            {
+                projects[project.Id] = project;
+            }
+        }
+    }
+
     public ProjectBoardModel? GetBoard(Guid projectId)
     {
         lock (syncRoot)
@@ -33,45 +52,6 @@ public sealed class InMemoryProjectRepository : IProjectRepository
             return projects.TryGetValue(projectId, out var project)
                 ? project.ToBoardModel()
                 : null;
-        }
-    }
-
-    public TaskModel? CreateTask(Guid projectId, TaskTitle title, DateTimeOffset createdAt)
-    {
-        lock (syncRoot)
-        {
-            if (!projects.TryGetValue(projectId, out var project))
-            {
-                return null;
-            }
-
-            return project.CreateTask(title, createdAt).ToModel();
-        }
-    }
-
-    public TaskModel? GetTask(Guid projectId, Guid taskId)
-    {
-        lock (syncRoot)
-        {
-            if (!projects.TryGetValue(projectId, out var project))
-            {
-                return null;
-            }
-
-            return project.GetTask(taskId)?.ToModel();
-        }
-    }
-
-    public TaskModel? ChangeTaskState(Guid projectId, Guid taskId, string stateKey, DateTimeOffset changedAt)
-    {
-        lock (syncRoot)
-        {
-            if (!projects.TryGetValue(projectId, out var project))
-            {
-                return null;
-            }
-
-            return project.ChangeTaskState(taskId, stateKey, changedAt)?.ToModel();
         }
     }
 }

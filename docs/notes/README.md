@@ -12,6 +12,7 @@
 - [DDD 模式語言與命名原則](./ddd-pattern-language-naming.md)
 - [事件風暴會議節奏檢討與改善建議](./after%20event%20storm%20meeting%202.md)
 - [事件投影、經典查詢與 RonFlow v0.1 查詢策略](./event-projection-vs-classic-query.md)
+- [RonFlow Frontend 程式碼分層說明](./frontend-code-structure.md)
 - [Outside-In 與事件風暴的順序調整：從 Read Model / View 開始是否更合理？](./outside-in-vs-event-storming-order.md)
 
 暫時保留在 `docs/assets` 的文件，通常是會議前閱讀材料、圖像資產或其他偏向工作坊素材的內容。

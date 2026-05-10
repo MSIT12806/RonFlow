@@ -71,12 +71,18 @@ public sealed class CreateTaskApplicationServiceTests
     {
         var createdAt = new DateTimeOffset(2026, 5, 3, 9, 0, 0, TimeSpan.Zero);
         var repository = new TestProjectRepository();
-        var project = Project.Create(TestProjectData.CreateProjectName("RonFlow Project"), createdAt, DefaultWorkflow.CreateStates());
+        var isValid = ProjectName.TryCreate("RonFlow Project", out var pn);
+        if(!isValid)
+        {
+            Assert.Fail("Failed to create ProjectName");
+        }
+
+        var project = Project.Create(pn, createdAt, DefaultWorkflow.CreateStates());
         repository.Add(project);
 
-        var applicationService = new CreateTaskApplicationService(repository, new FixedTimeProvider(createdAt.AddMinutes(5)));
+        var createTaskAppService = new CreateTaskApplicationService(repository, new FixedTimeProvider(createdAt.AddMinutes(5)));
 
-        var result = applicationService.Create(project.Id, "Build Kanban Board");
+        var result = createTaskAppService.Create(project.Id, "Build Kanban Board");
 
         Assert.That(result.ValidationError, Is.Null);
         Assert.That(result.ProjectNotFound, Is.False);
@@ -107,9 +113,20 @@ public sealed class ChangeTaskStateApplicationServiceTests
         var createdAt = new DateTimeOffset(2026, 5, 3, 9, 0, 0, TimeSpan.Zero);
         var changedAt = createdAt.AddMinutes(15);
         var repository = new TestProjectRepository();
-        var project = Project.Create(TestProjectData.CreateProjectName("RonFlow Project"), createdAt, DefaultWorkflow.CreateStates());
+        var isValid = ProjectName.TryCreate("RonFlow Project", out var pn);
+        if(!isValid)
+        {
+            Assert.Fail("Failed to create ProjectName");
+        }
+        var project = Project.Create(pn, createdAt, DefaultWorkflow.CreateStates());
         repository.Add(project);
-        var task = project.CreateTask(TestProjectData.CreateTaskTitle("Build Kanban Board"), createdAt.AddMinutes(5));
+
+        isValid = TaskTitle.TryCreate("Build Kanban Board", out var tt);
+        if(!isValid)
+        {
+            Assert.Fail("Failed to create TaskTitle");
+        }
+        var task = project.CreateTask(tt, createdAt.AddMinutes(5));
 
         var applicationService = new ChangeTaskStateApplicationService(repository, new FixedTimeProvider(changedAt));
 
@@ -130,9 +147,20 @@ public sealed class ChangeTaskStateApplicationServiceTests
         var movedToActiveAt = createdAt.AddMinutes(15);
         var completedAt = createdAt.AddMinutes(30);
         var repository = new TestProjectRepository();
-        var project = Project.Create(TestProjectData.CreateProjectName("RonFlow Project"), createdAt, DefaultWorkflow.CreateStates());
+        var isValid = ProjectName.TryCreate("RonFlow Project", out var pn);
+        if(!isValid)
+        {
+            Assert.Fail("Failed to create ProjectName");
+        }
+        var project = Project.Create(pn, createdAt, DefaultWorkflow.CreateStates());
         repository.Add(project);
-        var task = project.CreateTask(TestProjectData.CreateTaskTitle("Build Kanban Board"), createdAt.AddMinutes(5));
+        isValid = TaskTitle.TryCreate("Build Kanban Board", out var tt);
+        if(!isValid)
+        {
+            Assert.Fail("Failed to create TaskTitle");
+        }
+
+        var task = project.CreateTask(tt, createdAt.AddMinutes(5));
 
         var moveToActiveService = new ChangeTaskStateApplicationService(repository, new FixedTimeProvider(movedToActiveAt));
         var moveToActiveResult = moveToActiveService.Change(project.Id, task.Id, "active");
@@ -168,36 +196,18 @@ public sealed class CoreFlowQueryServiceTests
     public void GetTaskDetail_WhenTaskDoesNotExist_ReturnsNull()
     {
         var repository = new TestProjectRepository();
-        var project = Project.Create(TestProjectData.CreateProjectName("RonFlow Project"), DateTimeOffset.UtcNow, DefaultWorkflow.CreateStates());
+        var isValid = ProjectName.TryCreate("RonFlow Project", out var pn);
+        if(!isValid)
+        {
+            Assert.Fail("Failed to create ProjectName");
+        }
+        var project = Project.Create(pn, DateTimeOffset.UtcNow, DefaultWorkflow.CreateStates());
         repository.Add(project);
         var queryService = new GetTaskDetailQueryService(repository);
 
         var task = queryService.Get(project.Id, Guid.NewGuid());
 
         Assert.That(task, Is.Null);
-    }
-}
-
-internal static class TestProjectData
-{
-    public static ProjectName CreateProjectName(string value)
-    {
-        var isValid = ProjectName.TryCreate(value, out var projectName);
-
-        Assert.That(isValid, Is.True);
-        Assert.That(projectName, Is.Not.Null);
-
-        return projectName!;
-    }
-
-    public static TaskTitle CreateTaskTitle(string value)
-    {
-        var isValid = TaskTitle.TryCreate(value, out var taskTitle);
-
-        Assert.That(isValid, Is.True);
-        Assert.That(taskTitle, Is.Not.Null);
-
-        return taskTitle!;
     }
 }
 
@@ -218,38 +228,24 @@ internal sealed class TestProjectRepository : IProjectRepository
         projects.Add(project.Id, project);
     }
 
+    public Project? Get(Guid projectId)
+    {
+        return projects.GetValueOrDefault(projectId);
+    }
+
+    public void Update(Project project)
+    {
+        if (projects.ContainsKey(project.Id))
+        {
+            projects[project.Id] = project;
+        }
+    }
+
     public ProjectBoardModel? GetBoard(Guid projectId)
     {
         return projects.TryGetValue(projectId, out var project)
             ? project.ToBoardModel()
             : null;
-    }
-
-    public TaskModel? CreateTask(Guid projectId, TaskTitle title, DateTimeOffset createdAt)
-    {
-        if (!projects.TryGetValue(projectId, out var project))
-        {
-            return null;
-        }
-
-        return project.CreateTask(title, createdAt).ToModel();
-    }
-
-    public TaskModel? GetTask(Guid projectId, Guid taskId)
-    {
-        return projects.TryGetValue(projectId, out var project)
-            ? project.GetTask(taskId)?.ToModel()
-            : null;
-    }
-
-    public TaskModel? ChangeTaskState(Guid projectId, Guid taskId, string stateKey, DateTimeOffset changedAt)
-    {
-        if (!projects.TryGetValue(projectId, out var project))
-        {
-            return null;
-        }
-
-        return project.ChangeTaskState(taskId, stateKey, changedAt)?.ToModel();
     }
 }
 

@@ -73,11 +73,16 @@ public sealed class CreateTaskApplicationService(IProjectRepository projectRepos
             return CreateTaskResult.Invalid("title", "任務標題為必填欄位");
         }
 
-        var task = projectRepository.CreateTask(projectId, taskTitle!, timeProvider.GetUtcNow());
+        var project = projectRepository.Get(projectId);
+        if (project is null)
+        {
+            return CreateTaskResult.NotFound();
+        }
 
-        return task is null
-            ? CreateTaskResult.NotFound()
-            : CreateTaskResult.Success(CoreFlowCommandOutputFactory.CreateTask(task));
+        var task = project.CreateTask(taskTitle!, timeProvider.GetUtcNow());
+        projectRepository.Update(project);
+
+        return CreateTaskResult.Success(CoreFlowCommandOutputFactory.CreateTask(task.ToModel()));
     }
 }
 
@@ -85,10 +90,20 @@ public sealed class ChangeTaskStateApplicationService(IProjectRepository project
 {
     public ChangeTaskStateResult Change(Guid projectId, Guid taskId, string stateKey)
     {
-        var task = projectRepository.ChangeTaskState(projectId, taskId, stateKey, timeProvider.GetUtcNow());
+        var project = projectRepository.Get(projectId);
+        if (project is null)
+        {
+            return ChangeTaskStateResult.NotFound();
+        }
 
-        return task is null
-            ? ChangeTaskStateResult.NotFound()
-            : ChangeTaskStateResult.Success(CoreFlowCommandOutputFactory.CreateTask(task));
+        var task = project.ChangeTaskState(taskId, stateKey, timeProvider.GetUtcNow());
+        if (task is null)
+        {
+            return ChangeTaskStateResult.NotFound();
+        }
+
+        projectRepository.Update(project);
+
+        return ChangeTaskStateResult.Success(CoreFlowCommandOutputFactory.CreateTask(task.ToModel()));
     }
 }

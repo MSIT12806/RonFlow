@@ -47,9 +47,7 @@ public sealed class Project
 
     public Task CreateTask(TaskTitle title, DateTimeOffset createdAt)
     {
-        var initialState = workflowStates.First(state => state.IsInitialState);
-        var task = Task.Create(Id, title, initialState, createdAt);
-
+        var task = Task.Create(Id, title, GetDefaultWorkflowState(), createdAt);
         tasks.Add(task);
         UpdatedAt = createdAt;
 
@@ -59,6 +57,20 @@ public sealed class Project
     public Task? GetTask(Guid taskId)
     {
         return tasks.FirstOrDefault(task => task.Id == taskId);
+    }
+
+    /// <summary>
+    /// 取得這個 Project Task 建立的預設 WorkflowState
+    /// </summary>
+    public WorkflowState GetDefaultWorkflowState()
+    {
+        var initialState = workflowStates.First(state => state.IsInitialState);
+        return initialState;
+    }
+
+    public WorkflowState GetWorkflowState(string stateKey)
+    {
+        return workflowStates.First(state => state.Key == stateKey);
     }
 
     public Task? ChangeTaskState(Guid taskId, string stateKey, DateTimeOffset changedAt)

@@ -4,13 +4,11 @@ public interface IProjectRepository
 {
     IReadOnlyList<ProjectSummaryModel> GetProjects();
 
+    Project? Get(Guid projectId);
+
     void Add(Project project);
 
+    void Update(Project project);
+
     ProjectBoardModel? GetBoard(Guid projectId);
-
-    TaskModel? CreateTask(Guid projectId, TaskTitle title, DateTimeOffset createdAt);
-
-    TaskModel? ChangeTaskState(Guid projectId, Guid taskId, string stateKey, DateTimeOffset changedAt);
-
-    TaskModel? GetTask(Guid projectId, Guid taskId);
 }

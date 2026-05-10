@@ -23,7 +23,8 @@ public sealed class GetTaskDetailQueryService(IProjectRepository projectReposito
 {
     public TaskDetailView? Get(Guid projectId, Guid taskId)
     {
-        var task = projectRepository.GetTask(projectId, taskId);
-        return task is null ? null : CoreFlowReadModelFactory.CreateTaskDetail(task);
+        var project = projectRepository.Get(projectId);
+        var task = project?.GetTask(taskId);
+        return task is null ? null : CoreFlowReadModelFactory.CreateTaskDetail(task.ToModel());
     }
 }
