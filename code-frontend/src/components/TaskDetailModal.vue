@@ -1,5 +1,5 @@
 <template>
-  <div v-if="isOpen && task" class="modal-backdrop">
+  <div v-if="isOpen" class="modal-backdrop">
     <div role="dialog" aria-modal="true" aria-labelledby="task-detail-title" class="modal-card modal-card-wide">
       <div class="modal-header">
         <div>
@@ -11,7 +11,15 @@
         </button>
       </div>
 
-      <section class="detail-layout">
+      <section v-if="isLoading" class="detail-state-shell">
+        <BaseLoadingState message="正在載入任務詳細資訊..." />
+      </section>
+
+      <section v-else-if="errorMessage" class="detail-state-shell">
+        <BaseErrorState :message="errorMessage" />
+      </section>
+
+      <section v-else-if="task" class="detail-layout">
         <div class="detail-card">
           <p class="detail-label">任務標題</p>
           <h3>{{ task.title }}</h3>
@@ -47,10 +55,14 @@
 </template>
 
 <script setup lang="ts">
+import BaseErrorState from './bases/BaseErrorState.vue'
+import BaseLoadingState from './bases/BaseLoadingState.vue'
 import type { TaskDetailResponse } from '../api/ronflowApi'
 
 defineProps<{
   isOpen: boolean
+  isLoading: boolean
+  errorMessage: string
   task: TaskDetailResponse | null
   formatTimelineTime: (occurredAt: string) => string
 }>()

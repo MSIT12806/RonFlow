@@ -28,6 +28,7 @@ export function useRonFlowBoard() {
   const activeBoard = ref<ProjectBoardResponse | null>(null)
   const selectedTask = ref<TaskDetailResponse | null>(null)
   const isTaskDetailOpen = ref(false)
+  const taskDetailError = ref('')
 
   const isLoadingProjects = ref(false)
   const isLoadingBoard = ref(false)
@@ -58,14 +59,15 @@ export function useRonFlowBoard() {
       return
     }
 
-    pageError.value = ''
+    selectedTask.value = null
+    taskDetailError.value = ''
+    isTaskDetailOpen.value = true
     isLoadingTaskDetail.value = true
 
     try {
       selectedTask.value = await taskQueryService.getDetail(activeProjectId.value, taskId)
-      isTaskDetailOpen.value = true
     } catch {
-      pageError.value = '無法載入任務詳細資訊，請重新整理後再試。'
+      taskDetailError.value = '無法載入任務詳細資訊，請重新整理後再試。'
     } finally {
       isLoadingTaskDetail.value = false
     }
@@ -74,6 +76,7 @@ export function useRonFlowBoard() {
   async function selectProject(projectId: string) {
     activeProjectId.value = projectId
     selectedTask.value = null
+    taskDetailError.value = ''
     isTaskDetailOpen.value = false
     await loadBoard(projectId)
   }
@@ -81,6 +84,7 @@ export function useRonFlowBoard() {
   function closeTaskDetail() {
     isTaskDetailOpen.value = false
     selectedTask.value = null
+    taskDetailError.value = ''
   }
 
   async function moveTaskToState(taskId: string, stateKey: WorkflowKey) {
@@ -144,6 +148,7 @@ export function useRonFlowBoard() {
         activeProjectId.value = null
         activeBoard.value = null
         selectedTask.value = null
+        taskDetailError.value = ''
         isTaskDetailOpen.value = false
         return
       }
@@ -193,6 +198,7 @@ export function useRonFlowBoard() {
     activeColumns,
     selectedTask,
     isTaskDetailOpen,
+    taskDetailError,
     workflowColumns,
     isLoadingProjects,
     isLoadingBoard,

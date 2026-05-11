@@ -8,7 +8,7 @@
       <span class="count-badge">{{ projects.length }}</span>
     </div>
 
-    <p v-if="isLoadingProjects" class="empty-copy">正在載入專案列表...</p>
+    <BaseLoadingState v-if="isLoadingProjects" message="正在載入專案列表..." />
 
     <p v-else-if="!hasError && projects.length === 0" class="empty-copy">尚未建立任何專案</p>
 
@@ -29,6 +29,7 @@
 </template>
 
 <script setup lang="ts">
+import BaseLoadingState from './bases/BaseLoadingState.vue'
 import type { ProjectListItemResponse } from '../api/ronflowApi'
 
 defineProps<{

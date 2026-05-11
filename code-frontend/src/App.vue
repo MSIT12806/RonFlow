@@ -1,7 +1,9 @@
 
 
 <template>
-  <main class="app-shell">
+  <BaseAsyncStatePlayground v-if="showAsyncStatePlayground" />
+
+  <main v-else class="app-shell">
     <div class="ambient ambient-left"></div>
     <div class="ambient ambient-right"></div>
 
@@ -18,7 +20,7 @@
         </button>
       </header>
 
-      <p v-if="pageError" class="error-copy">{{ pageError }}</p>
+      <BaseErrorState v-if="pageError" scope="page" :message="pageError" />
 
       <section class="workspace-layout">
         <ProjectSidebar
@@ -53,6 +55,8 @@
 
     <TaskDetailModal
       :is-open="isTaskDetailOpen"
+      :is-loading="isLoadingTaskDetail"
+      :error-message="taskDetailError"
       :task="selectedTask"
       :format-timeline-time="formatTimelineTime"
       @close="closeTaskDetail"
@@ -62,12 +66,17 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import BaseAsyncStatePlayground from './components/bases/BaseAsyncStatePlayground.vue'
+import BaseErrorState from './components/bases/BaseErrorState.vue'
 import CreateProjectModal from './components/CreateProjectModal.vue'
 import CreateTaskModal from './components/CreateTaskModal.vue'
 import ProjectBoard from './components/ProjectBoard.vue'
 import ProjectSidebar from './components/ProjectSidebar.vue'
 import TaskDetailModal from './components/TaskDetailModal.vue'
 import { useRonFlowBoard } from './composables/useRonFlowBoard'
+
+const showAsyncStatePlayground = import.meta.env.DEV
+  && new URLSearchParams(window.location.search).get('playground') === 'async-states'
 
 const createProjectModalRef = ref<InstanceType<typeof CreateProjectModal> | null>(null)
 const createTaskModalRef = ref<InstanceType<typeof CreateTaskModal> | null>(null)
@@ -81,6 +90,8 @@ const {
   isTaskDetailOpen,
   isLoadingProjects,
   isLoadingBoard,
+  isLoadingTaskDetail,
+  taskDetailError,
   pageError,
   openTaskDetail,
   selectProject,

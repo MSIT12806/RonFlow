@@ -187,7 +187,7 @@ flowchart TD
 1. 使用者進入 Project List Page 的首屏時，不需捲動就應看得到「建立專案」按鈕。
 2. 專案清單中的每筆 Project 至少應顯示「專案名稱」與「更新時間」，且名稱應先於更新時間出現。
 3. 每筆 Project 都應提供單一步驟進入方式，使用者點擊該筆 Project 後即可進入對應的 Project Kanban Board。
-4. Project List Page 只顯示「選擇現有 Project」與「建立新 Project」所需資訊；畫面不應預先顯示 workflow 欄位細節，也不應要求使用者先設定 workflow 才能開始。
+4. Project List Page 顯示「選擇現有 Project」與「建立新 Project」所需資訊。
 ```
 
 **Empty State**
@@ -201,7 +201,7 @@ flowchart TD
 
 ```text
 1. 當專案清單為空時，畫面仍應顯示空狀態訊息「尚未建立任何專案」與可點擊的「建立專案」按鈕；畫面不應只剩空白區域。
-2. 若專案列表載入失敗，Project List Page 應顯示錯誤狀態區塊，至少包含失敗訊息，且不應以空白清單呈現失敗結果。
+2. 專案列表的資料讀取 loading/error handling 依 [共用前端設計規範](../../../../CommonSpec/frontend-guidelines.md)。
 3. 使用者成功建立 Project 後，系統應立即關閉 Create Project Modal，並導向新建立 Project 的 Project Kanban Board；使用者不需要重新整理頁面或重新選取該 Project。
 ```
 
@@ -349,8 +349,7 @@ Feature: 建立專案
 
 ```text
 1. 即使某個 workflow column 目前沒有任何 Task，該欄位仍應顯示欄位標題與空狀態區域；畫面不應因空欄位而少一個 column。
-2. 當看板資料尚未載入完成時，Project Kanban Board 應顯示 loading 狀態，且在 loading 期間不應把未載入完成的欄位誤顯示為空欄位。
-3. 若 Project 不存在或看板載入失敗，Project Kanban Board 應顯示 page-level 錯誤狀態，而不是顯示一個看似正常但內容為空的看板。
+2. Project Kanban Board 的資料讀取 loading/error handling 依 [共用前端設計規範](../../../../CommonSpec/frontend-guidelines.md)。
 ```
 
 **Testability**
@@ -497,9 +496,8 @@ Feature: 建立任務
 **State Handling / Feedback**
 
 ```text
-1. 當 Task Detail 尚未載入完成時，Drawer 應顯示 loading 狀態；在 loading 期間不應顯示看似完整但內容缺漏的詳細資訊。
-2. 若 Task Detail 載入失敗，Drawer 應顯示錯誤狀態，而不是停留在空白內容或過期資料。
-3. 若 Task 在 Drawer 開啟期間被更新，Drawer 中顯示的目前狀態、CompletedAt 與活動紀錄都應更新為最新資料。
+1. Task Detail Drawer 的資料讀取 loading/error handling 依 [共用前端設計規範](../../../../CommonSpec/frontend-guidelines.md)。
+2. 若 Task 在 Drawer 開啟期間被更新，Drawer 中顯示的目前狀態、CompletedAt 與活動紀錄都應更新為最新資料。
 ```
 
 **Visible Names**

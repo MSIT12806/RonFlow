@@ -12,7 +12,7 @@
         </button>
       </header>
 
-      <p v-if="isLoadingBoard" class="empty-copy">正在載入專案看板...</p>
+      <BaseLoadingState v-if="isLoadingBoard" message="正在載入專案看板..." />
 
       <div v-else class="board-grid">
         <article
@@ -70,6 +70,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import BaseLoadingState from './bases/BaseLoadingState.vue'
 import type { BoardColumnResponse, WorkflowKey } from '../api/ronflowApi'
 
 const props = defineProps<{

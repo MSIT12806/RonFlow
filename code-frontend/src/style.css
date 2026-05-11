@@ -90,6 +90,67 @@ button {
   margin: 0 auto;
 }
 
+.playground-shell {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 32px;
+}
+
+.playground-card {
+  width: min(960px, 100%);
+  padding: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 28px;
+  background: linear-gradient(135deg, var(--surface-strong), rgba(255, 248, 238, 0.82));
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-lg);
+}
+
+.playground-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.playground-copy {
+  margin: 12px 0 0;
+  color: var(--text-soft);
+  line-height: 1.7;
+}
+
+.playground-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.playground-toggle {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #16324a;
+  padding: 10px 14px;
+}
+
+.playground-toggle-active {
+  border-color: rgba(15, 118, 110, 0.32);
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.12), rgba(255, 255, 255, 0.92));
+}
+
+.playground-preview {
+  margin-top: 24px;
+}
+
+.playground-link {
+  text-decoration: none;
+}
+
 .topbar,
 .project-panel,
 .board-panel,
@@ -197,6 +258,32 @@ button {
 .detail-label,
 .history-list {
   color: var(--text-soft);
+}
+
+.base-state-block {
+  margin-top: 24px;
+  padding: 16px 18px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 20px;
+  backdrop-filter: blur(12px);
+}
+
+.base-state-block-loading {
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.base-state-block-error {
+  background: rgba(254, 242, 242, 0.92);
+  border-color: rgba(248, 113, 113, 0.28);
+}
+
+.base-state-block-page {
+  margin-top: 0;
+}
+
+.base-state-message {
+  margin: 0;
+  line-height: 1.7;
 }
 
 .empty-copy {
@@ -483,6 +570,10 @@ button {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+  margin-top: 24px;
+}
+
+.detail-state-shell {
   margin-top: 24px;
 }
 
