@@ -11,52 +11,49 @@
         </button>
       </div>
 
-      <section v-if="isLoading" class="detail-state-shell">
-        <BaseLoadingState message="正在載入任務詳細資訊..." />
-      </section>
+      <AsyncStateBoundary
+        :is-loading="isLoading"
+        :error-message="errorMessage"
+        loading-message="正在載入任務詳細資訊..."
+      >
+        <section v-if="task" class="detail-layout">
+          <div class="detail-card">
+            <p class="detail-label">任務標題</p>
+            <h3>{{ task.title }}</h3>
+          </div>
 
-      <section v-else-if="errorMessage" class="detail-state-shell">
-        <BaseErrorState :message="errorMessage" />
-      </section>
+          <div class="detail-card">
+            <p class="detail-label">狀態</p>
+            <strong>{{ task.currentState.label }}</strong>
+          </div>
 
-      <section v-else-if="task" class="detail-layout">
-        <div class="detail-card">
-          <p class="detail-label">任務標題</p>
-          <h3>{{ task.title }}</h3>
-        </div>
+          <div class="detail-card">
+            <p class="detail-label">建立時間</p>
+            <strong>{{ formatTimelineTime(task.createdAt) }}</strong>
+          </div>
 
-        <div class="detail-card">
-          <p class="detail-label">狀態</p>
-          <strong>{{ task.currentState.label }}</strong>
-        </div>
+          <div v-if="task.completedAt" class="detail-card">
+            <p class="detail-label">完成時間</p>
+            <strong>{{ formatTimelineTime(task.completedAt) }}</strong>
+          </div>
 
-        <div class="detail-card">
-          <p class="detail-label">建立時間</p>
-          <strong>{{ formatTimelineTime(task.createdAt) }}</strong>
-        </div>
-
-        <div v-if="task.completedAt" class="detail-card">
-          <p class="detail-label">完成時間</p>
-          <strong>{{ formatTimelineTime(task.completedAt) }}</strong>
-        </div>
-
-        <div class="detail-card detail-card-full">
-          <p class="detail-label">活動紀錄</p>
-          <ul class="history-list">
-            <li v-for="entry in task.activityTimeline" :key="`${entry.type}-${entry.occurredAt}`">
-              <span>{{ entry.message }}</span>
-              <small>{{ formatTimelineTime(entry.occurredAt) }}</small>
-            </li>
-          </ul>
-        </div>
-      </section>
+          <div class="detail-card detail-card-full">
+            <p class="detail-label">活動紀錄</p>
+            <ul class="history-list">
+              <li v-for="entry in task.activityTimeline" :key="`${entry.type}-${entry.occurredAt}`">
+                <span>{{ entry.message }}</span>
+                <small>{{ formatTimelineTime(entry.occurredAt) }}</small>
+              </li>
+            </ul>
+          </div>
+        </section>
+      </AsyncStateBoundary>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import BaseErrorState from './bases/BaseErrorState.vue'
-import BaseLoadingState from './bases/BaseLoadingState.vue'
+import AsyncStateBoundary from './bases/AsyncStateBoundary.vue'
 import type { TaskDetailResponse } from '../api/ronflowApi'
 
 defineProps<{

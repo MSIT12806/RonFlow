@@ -4,46 +4,96 @@
       <header class="playground-header">
         <div>
           <p class="eyebrow">CommonSpec playground</p>
-          <h1>Async state primitives</h1>
+          <h1>API resource views</h1>
           <p class="playground-copy">
-            使用這個 dev-only playground 可以穩定人工檢查 loading / error 呈現，不需要等待真實 API 剛好失敗。
+            使用這個 dev-only playground 可以穩定人工檢查 query / command resource view 的畫面，不需要等待真實 API 剛好失敗。
           </p>
         </div>
 
         <a class="secondary-button playground-link" href="/">回到 RonFlow</a>
       </header>
 
-      <div class="playground-toolbar" role="tablist" aria-label="選擇 async state 範例">
-        <button
-          v-for="scenario in scenarios"
-          :key="scenario.id"
-          type="button"
-          class="playground-toggle"
-          :class="{ 'playground-toggle-active': scenario.id === activeScenarioId }"
-          :aria-pressed="scenario.id === activeScenarioId"
-          @click="activeScenarioId = scenario.id"
-        >
-          {{ scenario.label }}
-        </button>
-      </div>
+      <section class="playground-examples">
+        <article class="playground-example-card">
+          <div>
+            <p class="detail-label">Query view</p>
+            <h2>ApiQueryResourceView</h2>
+            <p class="playground-copy">展示 query resource 在 loading、error、success 三種狀態下的 shared 畫面。</p>
+          </div>
 
-      <section class="playground-preview">
-        <div>
-          <p class="detail-label">目前情境</p>
-          <h2>{{ activeScenario.label }}</h2>
-          <p class="playground-copy">{{ activeScenario.description }}</p>
-        </div>
+          <div class="playground-toolbar" role="tablist" aria-label="切換 query resource view 狀態">
+            <button
+              v-for="state in queryStates"
+              :key="state.id"
+              type="button"
+              class="playground-toggle"
+              :class="{ 'playground-toggle-active': state.id === activeQueryStateId }"
+              :aria-pressed="state.id === activeQueryStateId"
+              @click="activeQueryStateId = state.id"
+            >
+              {{ state.label }}
+            </button>
+          </div>
 
-        <BaseLoadingState
-          v-if="activeScenario.type === 'loading'"
-          :message="activeScenario.message"
-        />
+          <ApiQueryResourceView
+            :is-loading="activeQueryState.type === 'loading'"
+            :error-message="activeQueryState.type === 'error' ? activeQueryState.message : ''"
+            :loading-message="activeQueryState.loadingMessage"
+          >
+            <div v-if="activeQueryState.type === 'success'" class="playground-query-result">
+              <p class="detail-label">Loaded data</p>
+              <h3>測試資料已載入</h3>
+              <p class="playground-copy">這裡代表 query resource 成功後，畫面回到實際內容區塊。</p>
+            </div>
+          </ApiQueryResourceView>
+        </article>
 
-        <BaseErrorState
-          v-else
-          :message="activeScenario.message"
-          :scope="activeScenario.scope"
-        />
+        <article class="playground-example-card">
+          <div>
+            <p class="detail-label">Command view</p>
+            <h2>ApiCommandResourceView</h2>
+            <p class="playground-copy">展示 command form 在 idle、submitting、error 狀態下如何保留表單本體並顯示 shared feedback。</p>
+          </div>
+
+          <div class="playground-toolbar" role="tablist" aria-label="切換 command resource view 狀態">
+            <button
+              v-for="state in commandStates"
+              :key="state.id"
+              type="button"
+              class="playground-toggle"
+              :class="{ 'playground-toggle-active': state.id === activeCommandStateId }"
+              :aria-pressed="state.id === activeCommandStateId"
+              @click="activeCommandStateId = state.id"
+            >
+              {{ state.label }}
+            </button>
+          </div>
+
+          <ApiCommandResourceView
+            :is-submitting="activeCommandState.type === 'submitting'"
+            :error-message="activeCommandState.type === 'error' ? activeCommandState.message : ''"
+            submitting-message="正在送出測試命令，請稍候..."
+          >
+            <form class="playground-command-form" @submit.prevent>
+              <label for="playground-command-title">測試欄位</label>
+              <input
+                id="playground-command-title"
+                type="text"
+                :value="activeCommandState.fieldValue"
+                :disabled="activeCommandState.disableInteraction"
+              />
+
+              <div class="modal-actions">
+                <button type="button" class="secondary-button" :disabled="activeCommandState.disableInteraction">
+                  取消
+                </button>
+                <button type="submit" class="primary-button" :disabled="activeCommandState.disableInteraction">
+                  送出
+                </button>
+              </div>
+            </form>
+          </ApiCommandResourceView>
+        </article>
       </section>
     </section>
   </main>
@@ -51,71 +101,85 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import BaseErrorState from './BaseErrorState.vue'
-import BaseLoadingState from './BaseLoadingState.vue'
+import ApiCommandResourceView from './ApiCommandResourceView.vue'
+import ApiQueryResourceView from './ApiQueryResourceView.vue'
 
-type LoadingScenario = {
+type QueryState = {
   id: string
   label: string
-  description: string
-  type: 'loading'
+  type: 'loading' | 'error' | 'success'
   message: string
+  loadingMessage: string
 }
 
-type ErrorScenario = {
+type CommandState = {
   id: string
   label: string
-  description: string
-  type: 'error'
+  type: 'idle' | 'submitting' | 'error'
   message: string
-  scope: 'page' | 'section'
+  fieldValue: string
+  disableInteraction: boolean
 }
 
-type PlaygroundScenario = LoadingScenario | ErrorScenario
-
-const scenarios: PlaygroundScenario[] = [
+const queryStates: QueryState[] = [
   {
-    id: 'project-list-loading',
-    label: 'Project list loading',
-    description: '模擬專案列表尚未載入完成時的 section-level loading。',
+    id: 'loading',
+    label: 'Loading',
     type: 'loading',
-    message: '正在載入專案列表...',
+    message: '',
+    loadingMessage: '正在載入測試資料...',
   },
   {
-    id: 'board-loading',
-    label: 'Board loading',
-    description: '模擬看板資料尚未載入完成時的 section-level loading。',
-    type: 'loading',
-    message: '正在載入專案看板...',
-  },
-  {
-    id: 'task-detail-loading',
-    label: 'Task detail loading',
-    description: '模擬 task detail 尚未載入完成時的區塊 loading 呈現。',
-    type: 'loading',
-    message: '正在載入任務詳細資訊...',
-  },
-  {
-    id: 'page-error',
-    label: 'Page error',
-    description: '模擬 page-level 資料讀取失敗，應使用 page scope error state。',
+    id: 'error',
+    label: 'Error',
     type: 'error',
-    message: '無法載入專案列表，請確認後端 API 已啟動。',
-    scope: 'page',
+    message: '無法載入測試資料，請稍後再試。',
+    loadingMessage: '正在載入測試資料...',
   },
   {
-    id: 'task-detail-error',
-    label: 'Task detail error',
-    description: '模擬局部區塊讀取失敗，應使用 section scope error state。',
-    type: 'error',
-    message: '無法載入任務詳細資訊，請重新整理後再試。',
-    scope: 'section',
+    id: 'success',
+    label: 'Success',
+    type: 'success',
+    message: '',
+    loadingMessage: '正在載入測試資料...',
   },
 ]
 
-const activeScenarioId = ref(scenarios[0].id)
+const commandStates: CommandState[] = [
+  {
+    id: 'idle',
+    label: 'Idle',
+    type: 'idle',
+    message: '',
+    fieldValue: '尚未送出的測試內容',
+    disableInteraction: false,
+  },
+  {
+    id: 'submitting',
+    label: 'Submitting',
+    type: 'submitting',
+    message: '',
+    fieldValue: '送出中的測試內容',
+    disableInteraction: true,
+  },
+  {
+    id: 'error',
+    label: 'Error',
+    type: 'error',
+    message: '測試命令送出失敗，請稍後再試。',
+    fieldValue: '保留於錯誤狀態的測試內容',
+    disableInteraction: false,
+  },
+]
 
-const activeScenario = computed(() =>
-  scenarios.find((scenario) => scenario.id === activeScenarioId.value) ?? scenarios[0],
+const activeQueryStateId = ref(queryStates[0].id)
+const activeCommandStateId = ref(commandStates[0].id)
+
+const activeQueryState = computed(() =>
+  queryStates.find((state) => state.id === activeQueryStateId.value) ?? queryStates[0],
+)
+
+const activeCommandState = computed(() =>
+  commandStates.find((state) => state.id === activeCommandStateId.value) ?? commandStates[0],
 )
 </script>

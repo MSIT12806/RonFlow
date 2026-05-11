@@ -8,7 +8,6 @@
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
     "test:bases": "vitest run tests/bases",
-    "test:adoption": "vitest run tests/adoption",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },

@@ -12,50 +12,54 @@
         </button>
       </header>
 
-      <BaseLoadingState v-if="isLoadingBoard" message="正在載入專案看板..." />
+      <AsyncStateBoundary
+        :is-loading="isLoadingBoard"
+        error-message=""
+        loading-message="正在載入專案看板..."
+      >
+        <div class="board-grid">
+          <article
+            v-for="column in columns"
+            :key="column.stateKey"
+            :data-testid="`workflow-column-${column.stateKey}`"
+            class="board-column"
+            :class="{ 'board-column-drop-target': dragOverStateKey === column.stateKey }"
+            @dragenter.prevent="handleColumnDragEnter(column.stateKey)"
+            @dragover.prevent="handleColumnDragOver($event, column.stateKey)"
+            @dragleave="handleColumnDragLeave(column.stateKey)"
+            @drop.prevent="handleTaskDrop($event, column.stateKey)"
+          >
+            <header class="column-header">
+              <h3>{{ column.label }}</h3>
+              <span class="count-badge">{{ column.tasks.length }}</span>
+            </header>
 
-      <div v-else class="board-grid">
-        <article
-          v-for="column in columns"
-          :key="column.stateKey"
-          :data-testid="`workflow-column-${column.stateKey}`"
-          class="board-column"
-          :class="{ 'board-column-drop-target': dragOverStateKey === column.stateKey }"
-          @dragenter.prevent="handleColumnDragEnter(column.stateKey)"
-          @dragover.prevent="handleColumnDragOver($event, column.stateKey)"
-          @dragleave="handleColumnDragLeave(column.stateKey)"
-          @drop.prevent="handleTaskDrop($event, column.stateKey)"
-        >
-          <header class="column-header">
-            <h3>{{ column.label }}</h3>
-            <span class="count-badge">{{ column.tasks.length }}</span>
-          </header>
+            <div v-if="column.tasks.length === 0" class="column-empty">
+              {{ column.emptyStateMessage }}
+            </div>
 
-          <div v-if="column.tasks.length === 0" class="column-empty">
-            {{ column.emptyStateMessage }}
-          </div>
-
-          <div v-else class="task-list">
-            <article
-              v-for="task in column.tasks"
-              :key="task.id"
-              class="task-card"
-              draggable="true"
-              @dragstart="handleTaskDragStart($event, task.id)"
-              @dragend="handleTaskDragEnd"
-            >
-              <button
-                type="button"
-                class="task-card-main"
-                @click="$emit('open-task-detail', task.id)"
+            <div v-else class="task-list">
+              <article
+                v-for="task in column.tasks"
+                :key="task.id"
+                class="task-card"
+                draggable="true"
+                @dragstart="handleTaskDragStart($event, task.id)"
+                @dragend="handleTaskDragEnd"
               >
-                <span class="task-title">{{ task.title }}</span>
-                <span class="task-meta">{{ column.label }}</span>
-              </button>
-            </article>
-          </div>
-        </article>
-      </div>
+                <button
+                  type="button"
+                  class="task-card-main"
+                  @click="$emit('open-task-detail', task.id)"
+                >
+                  <span class="task-title">{{ task.title }}</span>
+                  <span class="task-meta">{{ column.label }}</span>
+                </button>
+              </article>
+            </div>
+          </article>
+        </div>
+      </AsyncStateBoundary>
     </template>
 
     <div v-else class="board-empty-state">
@@ -70,7 +74,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import BaseLoadingState from './bases/BaseLoadingState.vue'
+import AsyncStateBoundary from './bases/AsyncStateBoundary.vue'
 import type { BoardColumnResponse, WorkflowKey } from '../api/ronflowApi'
 
 const props = defineProps<{

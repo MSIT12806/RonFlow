@@ -8,28 +8,32 @@
       <span class="count-badge">{{ projects.length }}</span>
     </div>
 
-    <BaseLoadingState v-if="isLoadingProjects" message="正在載入專案列表..." />
+    <AsyncStateBoundary
+      :is-loading="isLoadingProjects"
+      error-message=""
+      loading-message="正在載入專案列表..."
+    >
+      <p v-if="!hasError && projects.length === 0" class="empty-copy">尚未建立任何專案</p>
 
-    <p v-else-if="!hasError && projects.length === 0" class="empty-copy">尚未建立任何專案</p>
-
-    <ul v-else class="project-list">
-      <li v-for="project in projects" :key="project.id">
-        <button
-          type="button"
-          class="project-chip"
-          :class="{ 'project-chip-active': project.id === activeProjectId }"
-          @click="$emit('select-project', project.id)"
-        >
-          <span>{{ project.name }}</span>
-          <small>{{ formatProjectMeta(project.updatedAt) }}</small>
-        </button>
-      </li>
-    </ul>
+      <ul v-else class="project-list">
+        <li v-for="project in projects" :key="project.id">
+          <button
+            type="button"
+            class="project-chip"
+            :class="{ 'project-chip-active': project.id === activeProjectId }"
+            @click="$emit('select-project', project.id)"
+          >
+            <span>{{ project.name }}</span>
+            <small>{{ formatProjectMeta(project.updatedAt) }}</small>
+          </button>
+        </li>
+      </ul>
+    </AsyncStateBoundary>
   </aside>
 </template>
 
 <script setup lang="ts">
-import BaseLoadingState from './bases/BaseLoadingState.vue'
+import AsyncStateBoundary from './bases/AsyncStateBoundary.vue'
 import type { ProjectListItemResponse } from '../api/ronflowApi'
 
 defineProps<{

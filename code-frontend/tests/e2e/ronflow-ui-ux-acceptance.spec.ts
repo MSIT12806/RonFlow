@@ -219,12 +219,15 @@ test.describe('RonFlow UI/UX 驗收規格', () => {
     const projectNameInput = dialog.getByLabel('專案名稱')
     const submitButton = dialog.getByRole('button', { name: '建立', exact: true })
     const cancelButton = dialog.getByRole('button', { name: '取消' })
+    const closeButton = dialog.getByRole('button', { name: '關閉視窗' })
 
     await projectNameInput.fill(projectName)
     await submitButton.click()
 
+    await expect(projectNameInput).toBeDisabled()
     await expect(submitButton).toBeDisabled()
     await expect(cancelButton).toBeDisabled()
+    await expect(closeButton).toBeDisabled()
     await expect(page.getByText('建立專案失敗，請稍後再試。')).toBeVisible()
     await expect(dialog).toBeVisible()
     await expect(projectNameInput).toHaveValue(projectName)
@@ -306,12 +309,15 @@ test.describe('RonFlow UI/UX 驗收規格', () => {
     const taskTitleInput = dialog.getByLabel('任務標題')
     const submitButton = dialog.getByRole('button', { name: '建立', exact: true })
     const cancelButton = dialog.getByRole('button', { name: '取消' })
+    const closeButton = dialog.getByRole('button', { name: '關閉視窗' })
 
     await taskTitleInput.fill(taskTitle)
     await submitButton.click()
 
+    await expect(taskTitleInput).toBeDisabled()
     await expect(submitButton).toBeDisabled()
     await expect(cancelButton).toBeDisabled()
+    await expect(closeButton).toBeDisabled()
     await expect(page.getByText('建立任務失敗，請稍後再試。')).toBeVisible()
     await expect(dialog).toBeVisible()
     await expect(taskTitleInput).toHaveValue(taskTitle)

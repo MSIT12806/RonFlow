@@ -20,27 +20,31 @@
         </button>
       </header>
 
-      <BaseErrorState v-if="pageError" scope="page" :message="pageError" />
+      <AsyncStateBoundary
+        :is-loading="false"
+        :error-message="pageError"
+        error-scope="page"
+      >
+        <section class="workspace-layout">
+          <ProjectSidebar
+            :projects="projects"
+            :active-project-id="activeProjectId"
+            :is-loading-projects="isLoadingProjects"
+            :has-error="Boolean(pageError)"
+            :format-project-meta="formatProjectMeta"
+            @select-project="selectProject"
+          />
 
-      <section class="workspace-layout">
-        <ProjectSidebar
-          :projects="projects"
-          :active-project-id="activeProjectId"
-          :is-loading-projects="isLoadingProjects"
-          :has-error="Boolean(pageError)"
-          :format-project-meta="formatProjectMeta"
-          @select-project="selectProject"
-        />
-
-        <ProjectBoard
-          :active-project-name="activeProject?.name ?? null"
-          :columns="activeColumns"
-          :is-loading-board="isLoadingBoard"
-          @open-create-task="onOpenCreateTask"
-          @open-task-detail="openTaskDetail"
-          @move-task-to-state="moveTaskToState"
-        />
-      </section>
+          <ProjectBoard
+            :active-project-name="activeProject?.name ?? null"
+            :columns="activeColumns"
+            :is-loading-board="isLoadingBoard"
+            @open-create-task="onOpenCreateTask"
+            @open-task-detail="openTaskDetail"
+            @move-task-to-state="moveTaskToState"
+          />
+        </section>
+      </AsyncStateBoundary>
     </section>
 
     <CreateProjectModal
@@ -67,7 +71,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import BaseAsyncStatePlayground from './components/bases/BaseAsyncStatePlayground.vue'
-import BaseErrorState from './components/bases/BaseErrorState.vue'
+import AsyncStateBoundary from './components/bases/AsyncStateBoundary.vue'
 import CreateProjectModal from './components/CreateProjectModal.vue'
 import CreateTaskModal from './components/CreateTaskModal.vue'
 import ProjectBoard from './components/ProjectBoard.vue'

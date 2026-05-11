@@ -7,10 +7,12 @@ import {
   type WorkflowKey,
 } from '../api/ronflowApi'
 import {
+  ProjectCommandService,
   ProjectQueryService,
   TaskQueryService,
   TaskCommandService,
 } from '../application'
+import { useApiResource } from './useApiResource'
 
 const workflowColumns: Array<{ key: WorkflowKey; label: string }> = [
   { key: 'todo', label: '待處理' },
@@ -20,21 +22,46 @@ const workflowColumns: Array<{ key: WorkflowKey; label: string }> = [
 ]
 
 const projectQueryService = new ProjectQueryService()
+const projectCommandService = new ProjectCommandService()
 const taskQueryService = new TaskQueryService()
+const taskCommandService = new TaskCommandService()
 
 export function useRonFlowBoard() {
-  const projects = ref<ProjectListItemResponse[]>([])
   const activeProjectId = ref<string | null>(null)
-  const activeBoard = ref<ProjectBoardResponse | null>(null)
-  const selectedTask = ref<TaskDetailResponse | null>(null)
   const isTaskDetailOpen = ref(false)
-  const taskDetailError = ref('')
-
-  const isLoadingProjects = ref(false)
-  const isLoadingBoard = ref(false)
-  const isLoadingTaskDetail = ref(false)
 
   const pageError = ref('')
+
+  const projectsResource = useApiResource(
+    () => projectQueryService.getProjects(),
+    { createInitialData: () => ({ items: [] as ProjectListItemResponse[] }) },
+  )
+
+  const boardResource = useApiResource(
+    (projectId: string) => projectQueryService.getBoard(projectId),
+    { clearDataOnExecute: true },
+  )
+
+  const taskDetailResource = useApiResource(
+    (projectId: string, taskId: string) => taskQueryService.getDetail(projectId, taskId),
+    {
+      clearDataOnExecute: true,
+      mapErrorMessage: () => '無法載入任務詳細資訊，請重新整理後再試。',
+    },
+  )
+
+  const changeTaskStateResource = useApiResource(
+    (projectId: string, taskId: string, stateKey: WorkflowKey) =>
+      taskCommandService.changeState(projectId, taskId, stateKey),
+  )
+
+  const projects = computed(() => projectsResource.data.value?.items ?? [])
+  const activeBoard = computed(() => boardResource.data.value)
+  const selectedTask = computed(() => taskDetailResource.data.value)
+  const taskDetailError = computed(() => taskDetailResource.errorMessage.value)
+  const isLoadingProjects = computed(() => projectsResource.isLoading.value)
+  const isLoadingBoard = computed(() => boardResource.isLoading.value)
+  const isLoadingTaskDetail = computed(() => taskDetailResource.isLoading.value)
 
   const activeProject = computed(() =>
     projects.value.find((project) => project.id === activeProjectId.value) ?? null,
@@ -59,32 +86,24 @@ export function useRonFlowBoard() {
       return
     }
 
-    selectedTask.value = null
-    taskDetailError.value = ''
+    taskDetailResource.reset()
     isTaskDetailOpen.value = true
-    isLoadingTaskDetail.value = true
 
     try {
-      selectedTask.value = await taskQueryService.getDetail(activeProjectId.value, taskId)
-    } catch {
-      taskDetailError.value = '無法載入任務詳細資訊，請重新整理後再試。'
-    } finally {
-      isLoadingTaskDetail.value = false
-    }
+      await taskDetailResource.execute(activeProjectId.value, taskId)
+    } catch {}
   }
 
   async function selectProject(projectId: string) {
     activeProjectId.value = projectId
-    selectedTask.value = null
-    taskDetailError.value = ''
+    taskDetailResource.reset()
     isTaskDetailOpen.value = false
     await loadBoard(projectId)
   }
 
   function closeTaskDetail() {
     isTaskDetailOpen.value = false
-    selectedTask.value = null
-    taskDetailError.value = ''
+    taskDetailResource.reset()
   }
 
   async function moveTaskToState(taskId: string, stateKey: WorkflowKey) {
@@ -95,11 +114,10 @@ export function useRonFlowBoard() {
     pageError.value = ''
 
     try {
-      const taskCommandService = new TaskCommandService()
-      const updatedTask = await taskCommandService.changeState(activeProjectId.value, taskId, stateKey)
+      const updatedTask = await changeTaskStateResource.execute(activeProjectId.value, taskId, stateKey)
 
       if (selectedTask.value?.id === taskId) {
-        selectedTask.value = updatedTask
+        taskDetailResource.setData(updatedTask)
       }
 
       await loadBoard(activeProjectId.value)
@@ -137,45 +155,39 @@ export function useRonFlowBoard() {
   }
 
   async function loadProjects(preferredProjectId?: string) {
-    isLoadingProjects.value = true
     pageError.value = ''
 
     try {
-      const projectList = await projectQueryService.getProjects()
-      projects.value = projectList.items
+      const projectList = await projectsResource.execute()
 
-      if (projects.value.length === 0) {
+      if (projectList.items.length === 0) {
         activeProjectId.value = null
-        activeBoard.value = null
-        selectedTask.value = null
-        taskDetailError.value = ''
+        boardResource.reset()
+        taskDetailResource.reset()
         isTaskDetailOpen.value = false
         return
       }
 
-      const nextProjectId = preferredProjectId && projects.value.some((project) => project.id === preferredProjectId)
+      const nextProjectId = preferredProjectId && projectList.items.some((project) => project.id === preferredProjectId)
         ? preferredProjectId
-        : activeProjectId.value && projects.value.some((project) => project.id === activeProjectId.value)
+        : activeProjectId.value && projectList.items.some((project) => project.id === activeProjectId.value)
           ? activeProjectId.value
-          : projects.value[0].id
+          : projectList.items[0].id
 
       activeProjectId.value = nextProjectId
       await loadBoard(nextProjectId)
     } catch {
       pageError.value = '無法載入專案列表，請確認後端 API 已啟動。'
-    } finally {
-      isLoadingProjects.value = false
     }
   }
 
   async function loadBoard(projectId: string) {
-    isLoadingBoard.value = true
     pageError.value = ''
 
     try {
-      activeBoard.value = await projectQueryService.getBoard(projectId)
+      await boardResource.execute(projectId)
     } catch (error) {
-      activeBoard.value = null
+      boardResource.reset()
 
       if (error instanceof ApiRequestError && error.status === 404) {
         pageError.value = '找不到指定的專案看板，請重新整理列表。'
@@ -184,8 +196,6 @@ export function useRonFlowBoard() {
       }
 
       pageError.value = '無法載入專案看板，請稍後再試。'
-    } finally {
-      isLoadingBoard.value = false
     }
   }
 

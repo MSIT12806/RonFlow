@@ -6,7 +6,13 @@
           <p class="eyebrow">New task</p>
           <h2 id="create-task-title">建立任務</h2>
         </div>
-        <button type="button" class="ghost-icon-button" aria-label="關閉視窗" @click="close">
+        <button
+          type="button"
+          class="ghost-icon-button"
+          aria-label="關閉視窗"
+          :disabled="isSubmitting"
+          @click="close"
+        >
           ×
         </button>
       </div>
@@ -19,8 +25,15 @@
           v-model="taskTitle"
           type="text"
           autocomplete="off"
+          :disabled="isSubmitting"
         />
         <p v-if="taskTitleError" class="error-copy">{{ taskTitleError }}</p>
+
+        <ApiCommandResourceView
+          :is-submitting="isSubmitting"
+          :error-message="commandErrorMessage"
+          submitting-message="正在建立任務，請稍候..."
+        />
 
         <div class="modal-actions">
           <button type="button" class="secondary-button" :disabled="isSubmitting" @click="close">取消</button>
@@ -32,9 +45,11 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { ApiRequestError, ApiValidationError } from '../api/ronflowApi'
 import { TaskCommandService } from '../application'
+import ApiCommandResourceView from '../components/bases/ApiCommandResourceView.vue'
+import { useApiResource } from '../composables/useApiResource'
 
 const emit = defineEmits<{
   (event: 'open'): void
@@ -45,20 +60,42 @@ const emit = defineEmits<{
 const isOpen = ref(false)
 const taskTitle = ref('')
 const taskTitleError = ref('')
-const isSubmitting = ref(false)
 const taskTitleInputRef = ref<HTMLInputElement | null>(null)
 
 const taskCommandService = new TaskCommandService()
+const createTaskResource = useApiResource(
+  (projectId: string, title: string) => taskCommandService.create(projectId, title),
+  {
+    mapErrorMessage: (error) => {
+      if (error instanceof ApiValidationError) {
+        return ''
+      }
+
+      if (error instanceof ApiRequestError && error.status === 404) {
+        return ''
+      }
+
+      return '建立任務失敗，請稍後再試。'
+    },
+  },
+)
+const isSubmitting = computed(() => createTaskResource.isLoading.value)
+const commandErrorMessage = computed(() => createTaskResource.errorMessage.value)
 
 function open(projectId: string) {
   activeProjectId.value = projectId
   taskTitle.value = ''
   taskTitleError.value = ''
+  createTaskResource.reset()
   isOpen.value = true
   emit('open')
 }
 
 function close() {
+  if (isSubmitting.value) {
+    return
+  }
+
   isOpen.value = false
   emit('close')
 }
@@ -67,10 +104,9 @@ const activeProjectId = ref<string>('')
 
 async function submit() {
   taskTitleError.value = ''
-  isSubmitting.value = true
 
   try {
-    await taskCommandService.create(activeProjectId.value, taskTitle.value)
+    await createTaskResource.execute(activeProjectId.value, taskTitle.value)
     close()
     emit('task-created')
   } catch (error) {
@@ -81,12 +117,7 @@ async function submit() {
 
     if (error instanceof ApiRequestError && error.status === 404) {
       taskTitleError.value = '目前專案不存在，請重新整理專案列表。'
-      return
     }
-
-    taskTitleError.value = '建立任務失敗，請稍後再試。'
-  } finally {
-    isSubmitting.value = false
   }
 }
 
