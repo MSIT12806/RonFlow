@@ -13,7 +13,7 @@
           <p class="app-subtitle">以真後端 API 驅動專案看板，讓使用者流程與後端規則保持一致。</p>
         </div>
 
-        <button type="button" class="primary-button" @click="openCreateProjectModal">
+        <button type="button" class="primary-button" @click="createProjectModalRef?.open()">
           建立專案
         </button>
       </header>
@@ -34,7 +34,7 @@
           :active-project-name="activeProject?.name ?? null"
           :columns="activeColumns"
           :is-loading-board="isLoadingBoard"
-          @open-create-task="openCreateTaskModal"
+          @open-create-task="onOpenCreateTask"
           @open-task-detail="openTaskDetail"
           @move-task-to-state="moveTaskToState"
         />
@@ -42,23 +42,13 @@
     </section>
 
     <CreateProjectModal
-      :is-open="isCreateProjectOpen"
-      :project-name="projectNameInput"
-      :project-name-error="projectNameError"
-      :is-submitting="isSubmittingProject"
-      @close="closeCreateProjectModal"
-      @submit="submitProject"
-      @update:project-name="projectNameInput = $event"
+      ref="createProjectModalRef"
+      @project-created="onProjectCreated"
     />
 
     <CreateTaskModal
-      :is-open="isCreateTaskOpen"
-      :task-title="taskTitleInput"
-      :task-title-error="taskTitleError"
-      :is-submitting="isSubmittingTask"
-      @close="closeCreateTaskModal"
-      @submit="submitTask"
-      @update:task-title="taskTitleInput = $event"
+      ref="createTaskModalRef"
+      @task-created="onTaskCreated"
     />
 
     <TaskDetailModal
@@ -71,6 +61,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import CreateProjectModal from './components/CreateProjectModal.vue'
 import CreateTaskModal from './components/CreateTaskModal.vue'
 import ProjectBoard from './components/ProjectBoard.vue'
@@ -78,35 +69,42 @@ import ProjectSidebar from './components/ProjectSidebar.vue'
 import TaskDetailModal from './components/TaskDetailModal.vue'
 import { useRonFlowBoard } from './composables/useRonFlowBoard'
 
+const createProjectModalRef = ref<InstanceType<typeof CreateProjectModal> | null>(null)
+const createTaskModalRef = ref<InstanceType<typeof CreateTaskModal> | null>(null)
+
 const {
   projects,
   activeProjectId,
   activeProject,
   activeColumns,
   selectedTask,
-  isCreateProjectOpen,
-  isCreateTaskOpen,
   isTaskDetailOpen,
   isLoadingProjects,
   isLoadingBoard,
-  isSubmittingProject,
-  isSubmittingTask,
-  projectNameInput,
-  taskTitleInput,
-  projectNameError,
-  taskTitleError,
   pageError,
-  openCreateProjectModal,
-  closeCreateProjectModal,
-  submitProject,
-  openCreateTaskModal,
-  closeCreateTaskModal,
-  submitTask,
   openTaskDetail,
   selectProject,
   closeTaskDetail,
   moveTaskToState,
   formatProjectMeta,
   formatTimelineTime,
+  loadProjects,
+  loadBoard,
 } = useRonFlowBoard()
+
+function onOpenCreateTask() {
+  if (activeProjectId.value) {
+    createTaskModalRef.value?.open(activeProjectId.value)
+  }
+}
+
+async function onProjectCreated(projectId: string) {
+  await loadProjects(projectId)
+}
+
+async function onTaskCreated() {
+  if (activeProjectId.value) {
+    await Promise.all([loadProjects(activeProjectId.value), loadBoard(activeProjectId.value)])
+  }
+}
 </script>

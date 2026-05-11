@@ -1,17 +1,15 @@
 import { computed, onMounted, ref } from 'vue'
 import {
   ApiRequestError,
-  ApiValidationError,
   type ProjectBoardResponse,
   type ProjectListItemResponse,
   type TaskDetailResponse,
   type WorkflowKey,
 } from '../api/ronflowApi'
 import {
-  ProjectCommandService,
   ProjectQueryService,
-  TaskCommandService,
   TaskQueryService,
+  TaskCommandService,
 } from '../application'
 
 const workflowColumns: Array<{ key: WorkflowKey; label: string }> = [
@@ -21,8 +19,6 @@ const workflowColumns: Array<{ key: WorkflowKey; label: string }> = [
   { key: 'done', label: '已完成' },
 ]
 
-const projectCommandService = new ProjectCommandService()
-const taskCommandService = new TaskCommandService()
 const projectQueryService = new ProjectQueryService()
 const taskQueryService = new TaskQueryService()
 
@@ -31,20 +27,12 @@ export function useRonFlowBoard() {
   const activeProjectId = ref<string | null>(null)
   const activeBoard = ref<ProjectBoardResponse | null>(null)
   const selectedTask = ref<TaskDetailResponse | null>(null)
-
-  const isCreateProjectOpen = ref(false)
-  const isCreateTaskOpen = ref(false)
   const isTaskDetailOpen = ref(false)
+
   const isLoadingProjects = ref(false)
   const isLoadingBoard = ref(false)
-  const isSubmittingProject = ref(false)
-  const isSubmittingTask = ref(false)
   const isLoadingTaskDetail = ref(false)
 
-  const projectNameInput = ref('')
-  const taskTitleInput = ref('')
-  const projectNameError = ref('')
-  const taskTitleError = ref('')
   const pageError = ref('')
 
   const activeProject = computed(() =>
@@ -63,66 +51,7 @@ export function useRonFlowBoard() {
     await loadProjects()
   })
 
-  function openCreateProjectModal() {
-    projectNameInput.value = ''
-    projectNameError.value = ''
-    isCreateProjectOpen.value = true
-  }
 
-  function closeCreateProjectModal() {
-    isCreateProjectOpen.value = false
-  }
-
-  async function submitProject() {
-    projectNameError.value = ''
-    pageError.value = ''
-    isSubmittingProject.value = true
-
-    try {
-      const project = await projectCommandService.create(projectNameInput.value)
-      closeCreateProjectModal()
-      await loadProjects(project.id)
-    } catch (error) {
-      handleProjectCreationError(error)
-    } finally {
-      isSubmittingProject.value = false
-    }
-  }
-
-  function openCreateTaskModal() {
-    if (!activeProject.value) {
-      return
-    }
-
-    taskTitleInput.value = ''
-    taskTitleError.value = ''
-    isCreateTaskOpen.value = true
-  }
-
-  function closeCreateTaskModal() {
-    isCreateTaskOpen.value = false
-  }
-
-  async function submitTask() {
-    taskTitleError.value = ''
-    pageError.value = ''
-
-    if (!activeProjectId.value) {
-      return
-    }
-
-    isSubmittingTask.value = true
-
-    try {
-      await taskCommandService.create(activeProjectId.value, taskTitleInput.value)
-      closeCreateTaskModal()
-      await Promise.all([loadProjects(activeProjectId.value), loadBoard(activeProjectId.value)])
-    } catch (error) {
-      handleTaskCreationError(error)
-    } finally {
-      isSubmittingTask.value = false
-    }
-  }
 
   async function openTaskDetail(taskId: string) {
     if (!activeProjectId.value) {
@@ -162,15 +91,21 @@ export function useRonFlowBoard() {
     pageError.value = ''
 
     try {
+      const taskCommandService = new TaskCommandService()
       const updatedTask = await taskCommandService.changeState(activeProjectId.value, taskId, stateKey)
 
       if (selectedTask.value?.id === taskId) {
         selectedTask.value = updatedTask
       }
 
-      await loadProjects(activeProjectId.value)
+      await loadBoard(activeProjectId.value)
     } catch (error) {
-      handleTaskStateChangeError(error)
+      if (error instanceof ApiRequestError && error.status === 404) {
+        pageError.value = '找不到指定的任務，請重新整理專案看板。'
+        return
+      }
+
+      pageError.value = '變更任務狀態失敗，請稍後再試。'
     }
   }
 
@@ -249,37 +184,7 @@ export function useRonFlowBoard() {
     }
   }
 
-  function handleProjectCreationError(error: unknown) {
-    if (error instanceof ApiValidationError) {
-      projectNameError.value = error.errors.name?.[0] ?? '專案名稱為必填欄位'
-      return
-    }
 
-    pageError.value = '建立專案失敗，請稍後再試。'
-  }
-
-  function handleTaskCreationError(error: unknown) {
-    if (error instanceof ApiValidationError) {
-      taskTitleError.value = error.errors.title?.[0] ?? '任務標題為必填欄位'
-      return
-    }
-
-    if (error instanceof ApiRequestError && error.status === 404) {
-      pageError.value = '目前專案不存在，請重新整理專案列表。'
-      return
-    }
-
-    pageError.value = '建立任務失敗，請稍後再試。'
-  }
-
-  function handleTaskStateChangeError(error: unknown) {
-    if (error instanceof ApiRequestError && error.status === 404) {
-      pageError.value = '找不到指定的任務，請重新整理專案看板。'
-      return
-    }
-
-    pageError.value = '變更任務狀態失敗，請稍後再試。'
-  }
 
   return {
     projects,
@@ -287,30 +192,18 @@ export function useRonFlowBoard() {
     activeProject,
     activeColumns,
     selectedTask,
-    workflowColumns,
-    isCreateProjectOpen,
-    isCreateTaskOpen,
     isTaskDetailOpen,
+    workflowColumns,
     isLoadingProjects,
     isLoadingBoard,
-    isSubmittingProject,
-    isSubmittingTask,
     isLoadingTaskDetail,
-    projectNameInput,
-    taskTitleInput,
-    projectNameError,
-    taskTitleError,
     pageError,
-    openCreateProjectModal,
-    closeCreateProjectModal,
-    submitProject,
-    openCreateTaskModal,
-    closeCreateTaskModal,
-    submitTask,
     openTaskDetail,
     selectProject,
     closeTaskDetail,
     moveTaskToState,
+    loadProjects,
+    loadBoard,
     getTasksByStatus,
     formatProjectMeta,
     formatTimelineTime,

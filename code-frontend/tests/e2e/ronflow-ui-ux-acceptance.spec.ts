@@ -349,8 +349,15 @@ test.describe('RonFlow UI/UX 驗收規格', () => {
     const { projectName, taskTitle } = createScenarioData(testInfo)
 
     await setupTaskBoard(page, projectName, taskTitle)
+
+    await page.evaluate(() => {
+      window.localStorage.clear()
+      window.sessionStorage.clear()
+    })
+    await page.context().clearCookies()
     await page.reload()
 
+    await page.getByRole('button', { name: projectName }).click()
     await expect(page.getByRole('heading', { name: projectName })).toBeVisible()
     await expect(page.getByTestId('workflow-column-todo')).toContainText(taskTitle)
   })
