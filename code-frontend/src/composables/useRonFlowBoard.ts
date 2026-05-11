@@ -2,17 +2,17 @@ import { computed, onMounted, ref } from 'vue'
 import {
   ApiRequestError,
   ApiValidationError,
-  changeTaskState,
-  createProject,
-  createTask,
-  getProjectBoard,
-  getProjects,
-  getTaskDetail,
   type ProjectBoardResponse,
   type ProjectListItemResponse,
   type TaskDetailResponse,
   type WorkflowKey,
 } from '../api/ronflowApi'
+import {
+  ProjectCommandService,
+  ProjectQueryService,
+  TaskCommandService,
+  TaskQueryService,
+} from '../application'
 
 const workflowColumns: Array<{ key: WorkflowKey; label: string }> = [
   { key: 'todo', label: '待處理' },
@@ -20,6 +20,11 @@ const workflowColumns: Array<{ key: WorkflowKey; label: string }> = [
   { key: 'review', label: '審查中' },
   { key: 'done', label: '已完成' },
 ]
+
+const projectCommandService = new ProjectCommandService()
+const taskCommandService = new TaskCommandService()
+const projectQueryService = new ProjectQueryService()
+const taskQueryService = new TaskQueryService()
 
 export function useRonFlowBoard() {
   const projects = ref<ProjectListItemResponse[]>([])
@@ -74,7 +79,7 @@ export function useRonFlowBoard() {
     isSubmittingProject.value = true
 
     try {
-      const project = await createProject(projectNameInput.value)
+      const project = await projectCommandService.create(projectNameInput.value)
       closeCreateProjectModal()
       await loadProjects(project.id)
     } catch (error) {
@@ -109,7 +114,7 @@ export function useRonFlowBoard() {
     isSubmittingTask.value = true
 
     try {
-      await createTask(activeProjectId.value, taskTitleInput.value)
+      await taskCommandService.create(activeProjectId.value, taskTitleInput.value)
       closeCreateTaskModal()
       await Promise.all([loadProjects(activeProjectId.value), loadBoard(activeProjectId.value)])
     } catch (error) {
@@ -128,7 +133,7 @@ export function useRonFlowBoard() {
     isLoadingTaskDetail.value = true
 
     try {
-      selectedTask.value = await getTaskDetail(activeProjectId.value, taskId)
+      selectedTask.value = await taskQueryService.getDetail(activeProjectId.value, taskId)
       isTaskDetailOpen.value = true
     } catch {
       pageError.value = '無法載入任務詳細資訊，請重新整理後再試。'
@@ -157,7 +162,7 @@ export function useRonFlowBoard() {
     pageError.value = ''
 
     try {
-      const updatedTask = await changeTaskState(activeProjectId.value, taskId, stateKey)
+      const updatedTask = await taskCommandService.changeState(activeProjectId.value, taskId, stateKey)
 
       if (selectedTask.value?.id === taskId) {
         selectedTask.value = updatedTask
@@ -197,7 +202,7 @@ export function useRonFlowBoard() {
     pageError.value = ''
 
     try {
-      const projectList = await getProjects()
+      const projectList = await projectQueryService.getProjects()
       projects.value = projectList.items
 
       if (projects.value.length === 0) {
@@ -228,7 +233,7 @@ export function useRonFlowBoard() {
     pageError.value = ''
 
     try {
-      activeBoard.value = await getProjectBoard(projectId)
+      activeBoard.value = await projectQueryService.getBoard(projectId)
     } catch (error) {
       activeBoard.value = null
 
