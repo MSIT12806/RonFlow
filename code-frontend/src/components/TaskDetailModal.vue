@@ -14,24 +14,37 @@
       >
         <section v-if="task" class="detail-layout">
           <div class="detail-card">
-            <label class="detail-label" for="task-detail-title-input">任務標題</label>
-            <input
-              id="task-detail-title-input"
-              v-model="draftTitle"
-              type="text"
-              :disabled="isSaving"
-            />
-            <p v-if="titleValidationError" class="error-copy">{{ titleValidationError }}</p>
+            <div class="detail-field">
+              <label class="detail-label" for="task-detail-title-input">任務標題</label>
+
+              <div class="detail-field-control">
+                <InputText
+                  id="task-detail-title-input"
+                  v-model="draftTitle"
+                  fluid
+                  :disabled="isSaving"
+                  :invalid="Boolean(titleValidationError)"
+                />
+                <p v-if="titleValidationError" class="error-copy">{{ titleValidationError }}</p>
+              </div>
+            </div>
           </div>
 
           <div class="detail-card detail-card-full">
-            <label class="detail-label" for="task-detail-description-input">任務描述</label>
-            <textarea
-              id="task-detail-description-input"
-              v-model="draftDescription"
-              rows="4"
-              :disabled="isSaving"
-            ></textarea>
+            <div class="detail-field detail-field-inline">
+              <label class="detail-label" for="task-detail-description-input">任務描述</label>
+
+              <div class="detail-field-control">
+                <Textarea
+                  id="task-detail-description-input"
+                  v-model="draftDescription"
+                  fluid
+                  auto-resize
+                  rows="5"
+                  :disabled="isSaving"
+                />
+              </div>
+            </div>
           </div>
 
           <div class="detail-card">
@@ -40,13 +53,24 @@
           </div>
 
           <div class="detail-card">
-            <label class="detail-label" for="task-detail-due-date-input">到期日</label>
-            <input
-              id="task-detail-due-date-input"
-              v-model="draftDueDate"
-              type="date"
-              :disabled="isSaving"
-            />
+            <div class="detail-field">
+              <label class="detail-label" for="task-detail-due-date-input">到期日</label>
+
+              <div class="detail-field-control">
+                <DatePicker
+                  input-id="task-detail-due-date-input"
+                  v-model="draftDueDateValue"
+                  fluid
+                  date-format="yy-mm-dd"
+                  icon-display="input"
+                  show-button-bar
+                  show-clear
+                  show-icon
+                  :disabled="isSaving"
+                  :manual-input="false"
+                />
+              </div>
+            </div>
           </div>
 
           <div class="detail-card">
@@ -86,7 +110,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
+import DatePicker from 'primevue/datepicker'
+import InputText from 'primevue/inputtext'
+import Textarea from 'primevue/textarea'
 import AsyncStateBoundary from './bases/AsyncStateBoundary.vue'
 import ApiCommandResourceView from './bases/ApiCommandResourceView.vue'
 import BaseModalShell from './bases/BaseModalShell.vue'
@@ -111,6 +138,44 @@ const emit = defineEmits<{
 const draftTitle = ref('')
 const draftDescription = ref('')
 const draftDueDate = ref('')
+
+const draftDueDateValue = computed<Date | null>({
+  get() {
+    return parseDateOnly(draftDueDate.value)
+  },
+  set(value) {
+    draftDueDate.value = formatDateOnly(value)
+  },
+})
+
+function parseDateOnly(value: string): Date | null {
+  if (!value) {
+    return null
+  }
+
+  const [yearText, monthText, dayText] = value.split('-')
+  const year = Number(yearText)
+  const month = Number(monthText)
+  const day = Number(dayText)
+
+  if (!year || !month || !day) {
+    return null
+  }
+
+  return new Date(year, month - 1, day)
+}
+
+function formatDateOnly(value: Date | null): string {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+    return ''
+  }
+
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
 
 function submit() {
   if (!props.task || props.isSaving) {
