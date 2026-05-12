@@ -15,9 +15,7 @@ public partial class Program
 
         builder.Services.AddOpenApi();
         builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
-        builder.Services.AddSingleton<IProjectRepository, InMemoryProjectRepository>();
-        builder.Services.AddSingleton<ITaskRepository, InMemoryTaskRepository>();
-        builder.Services.AddSingleton<ICoreFlowReadStore, InMemoryCoreFlowReadStore>();
+        ConfigurePersistence(builder);
         builder.Services.AddSingleton<CreateProjectCommandService>();
         builder.Services.AddSingleton<CreateTaskCommandService>();
         builder.Services.AddSingleton<ChangeTaskStateCommandService>();
@@ -114,6 +112,34 @@ public partial class Program
         .Produces(StatusCodes.Status404NotFound);
 
         app.Run();
+    }
+
+    private static void ConfigurePersistence(WebApplicationBuilder builder)
+    {
+        if (builder.Environment.IsEnvironment("Testing"))
+        {
+            builder.Services.AddSingleton<IProjectRepository, InMemoryProjectRepository>();
+            builder.Services.AddSingleton<ITaskRepository, InMemoryTaskRepository>();
+            builder.Services.AddSingleton<ICoreFlowReadStore, InMemoryCoreFlowReadStore>();
+            return;
+        }
+
+        var configuredDatabasePath = builder.Configuration["Persistence:Sqlite:DatabasePath"];
+        var databasePath = string.IsNullOrWhiteSpace(configuredDatabasePath)
+            ? Path.Combine(builder.Environment.ContentRootPath, "App_Data", "ronflow.db")
+            : ResolveDatabasePath(builder.Environment.ContentRootPath, configuredDatabasePath);
+
+        builder.Services.AddSingleton(new SqliteCoreFlowStore(databasePath));
+        builder.Services.AddSingleton<IProjectRepository, SqliteProjectRepository>();
+        builder.Services.AddSingleton<ITaskRepository, SqliteTaskRepository>();
+        builder.Services.AddSingleton<ICoreFlowReadStore, SqliteCoreFlowReadStore>();
+    }
+
+    private static string ResolveDatabasePath(string contentRootPath, string configuredDatabasePath)
+    {
+        return Path.IsPathRooted(configuredDatabasePath)
+            ? configuredDatabasePath
+            : Path.Combine(contentRootPath, configuredDatabasePath);
     }
 }
 

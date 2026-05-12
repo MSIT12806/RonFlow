@@ -47,6 +47,18 @@ public sealed class Task
             [ActivityTimelineItem.TaskCreated(createdAt)]);
     }
 
+    public static Task Rehydrate(
+        Guid id,
+        Guid projectId,
+        string title,
+        WorkflowState currentState,
+        DateTimeOffset createdAt,
+        DateTimeOffset? completedAt,
+        IEnumerable<ActivityTimelineItem> activityTimeline)
+    {
+        return new Task(id, projectId, title, currentState, createdAt, completedAt, activityTimeline);
+    }
+
     public bool ChangeState(WorkflowState targetState, DateTimeOffset changedAt)
     {
         if (CurrentState.Key == targetState.Key)

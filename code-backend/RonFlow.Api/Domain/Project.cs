@@ -27,6 +27,11 @@ public sealed class Project
         return new Project(Guid.NewGuid(), name.Value, createdAt, workflowStates);
     }
 
+    public static Project Rehydrate(Guid id, string name, DateTimeOffset updatedAt, IEnumerable<WorkflowState> workflowStates)
+    {
+        return new Project(id, name, updatedAt, workflowStates);
+    }
+
     public ProjectModel ToModel()
     {
         return new ProjectModel(Id, Name, UpdatedAt, workflowStates.Select(state => state.ToModel()).ToArray());
