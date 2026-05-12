@@ -9,6 +9,4 @@ public interface IProjectRepository
     void Add(Project project);
 
     void Update(Project project);
-
-    ProjectBoardModel? GetBoard(Guid projectId);
 }

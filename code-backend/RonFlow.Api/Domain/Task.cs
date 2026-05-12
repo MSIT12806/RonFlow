@@ -33,6 +33,8 @@ public sealed class Task
     public DateTimeOffset CreatedAt { get; }
     public DateTimeOffset? CompletedAt { get; private set; }
 
+    public IReadOnlyList<ActivityTimelineItem> ActivityTimeline => activityTimeline;
+
     public static Task Create(Guid projectId, TaskTitle title, WorkflowState initialState, DateTimeOffset createdAt)
     {
         return new Task(

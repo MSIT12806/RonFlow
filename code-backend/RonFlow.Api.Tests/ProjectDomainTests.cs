@@ -20,22 +20,22 @@ public sealed class ProjectDomainTests
     }
 
     [Test]
-    public void CreateTask_WithValidTitle_AddsTaskToInitialStateAndUpdatesProjectTimestamp()
+    public void Touch_WhenTaskActivityOccurs_UpdatesProjectTimestampWithoutOwningTaskState()
     {
         var projectCreatedAt = new DateTimeOffset(2026, 5, 3, 9, 0, 0, TimeSpan.Zero);
         var taskCreatedAt = new DateTimeOffset(2026, 5, 3, 9, 15, 0, TimeSpan.Zero);
         var project = Project.Create(CreateProjectName("RonFlow Project"), projectCreatedAt, DefaultWorkflow.CreateStates());
         var taskTitle = CreateTaskTitle("Build Kanban Board");
 
-        var task = project.CreateTask(taskTitle, taskCreatedAt);
-        var board = project.ToBoardModel();
+        var task = RonFlow.Domain.Task.Create(project.Id, taskTitle, project.GetDefaultWorkflowState(), taskCreatedAt);
+        project.Touch(taskCreatedAt);
         var taskModel = task.ToModel();
 
         Assert.That(project.UpdatedAt, Is.EqualTo(taskCreatedAt));
         Assert.That(task.ProjectId, Is.EqualTo(project.Id));
         Assert.That(task.CurrentState.Key, Is.EqualTo("todo"));
         Assert.That(taskModel.ActivityTimeline.Select(item => item.Message), Does.Contain("已建立任務"));
-        Assert.That(board.Tasks.Select(item => item.Title), Does.Contain("Build Kanban Board"));
+        Assert.That(project.WorkflowStates.Select(state => state.Key), Is.EqualTo(new[] { "todo", "active", "review", "done" }));
     }
 
     [Test]

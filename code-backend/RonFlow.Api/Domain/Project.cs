@@ -2,7 +2,6 @@ namespace RonFlow.Domain;
 
 public sealed class Project
 {
-    private readonly List<Task> tasks = [];
     private readonly IReadOnlyList<WorkflowState> workflowStates;
 
     private Project(Guid id, string name, DateTimeOffset updatedAt, IEnumerable<WorkflowState> workflowStates)
@@ -21,6 +20,8 @@ public sealed class Project
 
     public DateTimeOffset UpdatedAt { get; private set; }
 
+    public IReadOnlyList<WorkflowState> WorkflowStates => workflowStates;
+
     public static Project Create(ProjectName name, DateTimeOffset createdAt, IEnumerable<WorkflowState> workflowStates)
     {
         return new Project(Guid.NewGuid(), name.Value, createdAt, workflowStates);
@@ -34,29 +35,6 @@ public sealed class Project
     public ProjectSummaryModel ToSummaryModel()
     {
         return new ProjectSummaryModel(Id, Name, UpdatedAt);
-    }
-
-    public ProjectBoardModel ToBoardModel()
-    {
-        return new ProjectBoardModel(
-            Id,
-            Name,
-            workflowStates.Select(state => state.ToModel()).ToArray(),
-            tasks.Select(task => task.ToModel()).ToArray());
-    }
-
-    public Task CreateTask(TaskTitle title, DateTimeOffset createdAt)
-    {
-        var task = Task.Create(Id, title, GetDefaultWorkflowState(), createdAt);
-        tasks.Add(task);
-        UpdatedAt = createdAt;
-
-        return task;
-    }
-
-    public Task? GetTask(Guid taskId)
-    {
-        return tasks.FirstOrDefault(task => task.Id == taskId);
     }
 
     /// <summary>
@@ -73,25 +51,13 @@ public sealed class Project
         return workflowStates.First(state => state.Key == stateKey);
     }
 
-    public Task? ChangeTaskState(Guid taskId, string stateKey, DateTimeOffset changedAt)
+    public WorkflowState? FindWorkflowState(string stateKey)
     {
-        var task = GetTask(taskId);
-        if (task is null)
-        {
-            return null;
-        }
+        return workflowStates.FirstOrDefault(state => state.Key == stateKey);
+    }
 
-        var targetState = workflowStates.FirstOrDefault(state => state.Key == stateKey);
-        if (targetState is null)
-        {
-            return null;
-        }
-
-        if (task.ChangeState(targetState, changedAt))
-        {
-            UpdatedAt = changedAt;
-        }
-
-        return task;
+    public void Touch(DateTimeOffset updatedAt)
+    {
+        UpdatedAt = updatedAt;
     }
 }

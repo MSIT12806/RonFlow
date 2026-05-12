@@ -1,6 +1,7 @@
 using System.Net;
 using RonFlow.Application;
 using RonFlow.Domain;
+using DomainTask = RonFlow.Domain.Task;
 
 namespace RonFlow.Api.Tests;
 
@@ -42,7 +43,8 @@ public sealed class CreateTaskCommandServiceTests
     public void Create_WithBlankTitle_ReturnsValidationError()
     {
         var repository = new TestProjectRepository();
-        var commandService = new CreateTaskCommandService(repository, new FixedTimeProvider(DateTimeOffset.UtcNow));
+        var taskRepository = new TestTaskRepository();
+        var commandService = new CreateTaskCommandService(repository, taskRepository, new FixedTimeProvider(DateTimeOffset.UtcNow));
 
         var result = commandService.Create(Guid.NewGuid(), "   ");
 
@@ -57,7 +59,8 @@ public sealed class CreateTaskCommandServiceTests
     public void Create_WhenProjectDoesNotExist_ReturnsNotFound()
     {
         var repository = new TestProjectRepository();
-        var commandService = new CreateTaskCommandService(repository, new FixedTimeProvider(DateTimeOffset.UtcNow));
+        var taskRepository = new TestTaskRepository();
+        var commandService = new CreateTaskCommandService(repository, taskRepository, new FixedTimeProvider(DateTimeOffset.UtcNow));
 
         var result = commandService.Create(Guid.NewGuid(), "Build Kanban Board");
 
@@ -71,16 +74,11 @@ public sealed class CreateTaskCommandServiceTests
     {
         var createdAt = new DateTimeOffset(2026, 5, 3, 9, 0, 0, TimeSpan.Zero);
         var repository = new TestProjectRepository();
-        var isValid = ProjectName.TryCreate("RonFlow Project", out var pn);
-        if(!isValid)
-        {
-            Assert.Fail("Failed to create ProjectName");
-        }
-
-        var project = Project.Create(pn, createdAt, DefaultWorkflow.CreateStates());
+        var taskRepository = new TestTaskRepository();
+        var project = Project.Create(TestObjectFactory.CreateProjectName("RonFlow Project"), createdAt, DefaultWorkflow.CreateStates());
         repository.Add(project);
 
-        var createTaskCommandService = new CreateTaskCommandService(repository, new FixedTimeProvider(createdAt.AddMinutes(5)));
+        var createTaskCommandService = new CreateTaskCommandService(repository, taskRepository, new FixedTimeProvider(createdAt.AddMinutes(5)));
 
         var result = createTaskCommandService.Create(project.Id, "Build Kanban Board");
 
@@ -90,6 +88,7 @@ public sealed class CreateTaskCommandServiceTests
         Assert.That(result.Task!.Title, Is.EqualTo("Build Kanban Board"));
         Assert.That(result.Task.CurrentState.Key, Is.EqualTo("todo"));
         Assert.That(result.Task.ActivityTimeline.Select(item => item.Message), Does.Contain("已建立任務"));
+        Assert.That(taskRepository.GetByProjectId(project.Id).Select(task => task.Title), Does.Contain("Build Kanban Board"));
     }
 }
 
@@ -99,7 +98,8 @@ public sealed class ChangeTaskStateCommandServiceTests
     public void Change_WhenTaskDoesNotExist_ReturnsNotFound()
     {
         var repository = new TestProjectRepository();
-        var commandService = new ChangeTaskStateCommandService(repository, new FixedTimeProvider(DateTimeOffset.UtcNow));
+        var taskRepository = new TestTaskRepository();
+        var commandService = new ChangeTaskStateCommandService(repository, taskRepository, new FixedTimeProvider(DateTimeOffset.UtcNow));
 
         var result = commandService.Change(Guid.NewGuid(), Guid.NewGuid(), "done");
 
@@ -113,22 +113,18 @@ public sealed class ChangeTaskStateCommandServiceTests
         var createdAt = new DateTimeOffset(2026, 5, 3, 9, 0, 0, TimeSpan.Zero);
         var changedAt = createdAt.AddMinutes(15);
         var repository = new TestProjectRepository();
-        var isValid = ProjectName.TryCreate("RonFlow Project", out var pn);
-        if(!isValid)
-        {
-            Assert.Fail("Failed to create ProjectName");
-        }
-        var project = Project.Create(pn, createdAt, DefaultWorkflow.CreateStates());
+        var taskRepository = new TestTaskRepository();
+        var project = Project.Create(TestObjectFactory.CreateProjectName("RonFlow Project"), createdAt, DefaultWorkflow.CreateStates());
         repository.Add(project);
 
-        isValid = TaskTitle.TryCreate("Build Kanban Board", out var tt);
-        if(!isValid)
-        {
-            Assert.Fail("Failed to create TaskTitle");
-        }
-        var task = project.CreateTask(tt, createdAt.AddMinutes(5));
+        var task = DomainTask.Create(
+            project.Id,
+            TestObjectFactory.CreateTaskTitle("Build Kanban Board"),
+            project.GetDefaultWorkflowState(),
+            createdAt.AddMinutes(5));
+        taskRepository.Add(task);
 
-        var commandService = new ChangeTaskStateCommandService(repository, new FixedTimeProvider(changedAt));
+        var commandService = new ChangeTaskStateCommandService(repository, taskRepository, new FixedTimeProvider(changedAt));
 
         var result = commandService.Change(project.Id, task.Id, "active");
 
@@ -147,27 +143,23 @@ public sealed class ChangeTaskStateCommandServiceTests
         var movedToActiveAt = createdAt.AddMinutes(15);
         var completedAt = createdAt.AddMinutes(30);
         var repository = new TestProjectRepository();
-        var isValid = ProjectName.TryCreate("RonFlow Project", out var pn);
-        if(!isValid)
-        {
-            Assert.Fail("Failed to create ProjectName");
-        }
-        var project = Project.Create(pn, createdAt, DefaultWorkflow.CreateStates());
+        var taskRepository = new TestTaskRepository();
+        var project = Project.Create(TestObjectFactory.CreateProjectName("RonFlow Project"), createdAt, DefaultWorkflow.CreateStates());
         repository.Add(project);
-        isValid = TaskTitle.TryCreate("Build Kanban Board", out var tt);
-        if(!isValid)
-        {
-            Assert.Fail("Failed to create TaskTitle");
-        }
 
-        var task = project.CreateTask(tt, createdAt.AddMinutes(5));
+        var task = DomainTask.Create(
+            project.Id,
+            TestObjectFactory.CreateTaskTitle("Build Kanban Board"),
+            project.GetDefaultWorkflowState(),
+            createdAt.AddMinutes(5));
+        taskRepository.Add(task);
 
-        var moveToActiveService = new ChangeTaskStateCommandService(repository, new FixedTimeProvider(movedToActiveAt));
+        var moveToActiveService = new ChangeTaskStateCommandService(repository, taskRepository, new FixedTimeProvider(movedToActiveAt));
         var moveToActiveResult = moveToActiveService.Change(project.Id, task.Id, "active");
 
         Assert.That(moveToActiveResult.TaskNotFound, Is.False);
 
-        var completeService = new ChangeTaskStateCommandService(repository, new FixedTimeProvider(completedAt));
+        var completeService = new ChangeTaskStateCommandService(repository, taskRepository, new FixedTimeProvider(completedAt));
         var result = completeService.Change(project.Id, task.Id, "done");
 
         Assert.That(result.TaskNotFound, Is.False);
@@ -185,7 +177,7 @@ public sealed class CoreFlowQueryServiceTests
     [Test]
     public void GetProjectBoard_WhenProjectDoesNotExist_ReturnsNull()
     {
-        var queryService = new GetProjectBoardQueryService(new TestProjectRepository());
+        var queryService = new GetProjectBoardQueryService(new TestCoreFlowReadStore(new TestProjectRepository(), new TestTaskRepository()));
 
         var board = queryService.Get(Guid.NewGuid());
 
@@ -196,18 +188,50 @@ public sealed class CoreFlowQueryServiceTests
     public void GetTaskDetail_WhenTaskDoesNotExist_ReturnsNull()
     {
         var repository = new TestProjectRepository();
-        var isValid = ProjectName.TryCreate("RonFlow Project", out var pn);
-        if(!isValid)
-        {
-            Assert.Fail("Failed to create ProjectName");
-        }
-        var project = Project.Create(pn, DateTimeOffset.UtcNow, DefaultWorkflow.CreateStates());
+        var taskRepository = new TestTaskRepository();
+        var project = Project.Create(TestObjectFactory.CreateProjectName("RonFlow Project"), DateTimeOffset.UtcNow, DefaultWorkflow.CreateStates());
         repository.Add(project);
-        var queryService = new GetTaskDetailQueryService(repository);
+        var queryService = new GetTaskDetailQueryService(new TestCoreFlowReadStore(repository, taskRepository));
 
         var task = queryService.Get(project.Id, Guid.NewGuid());
 
         Assert.That(task, Is.Null);
+    }
+}
+
+internal sealed class TestCoreFlowReadStore(IProjectRepository projectRepository, ITaskRepository taskRepository) : ICoreFlowReadStore
+{
+    public IReadOnlyList<ProjectSummaryModel> GetProjects()
+    {
+        return projectRepository.GetProjects();
+    }
+
+    public ProjectBoardModel? GetProjectBoard(Guid projectId)
+    {
+        var project = projectRepository.Get(projectId);
+        if (project is null)
+        {
+            return null;
+        }
+
+        return new ProjectBoardModel(
+            project.Id,
+            project.Name,
+            project.WorkflowStates.Select(state => state.ToModel()).ToArray(),
+            taskRepository.GetByProjectId(projectId)
+                .Select(task => task.ToModel())
+                .ToArray());
+    }
+
+    public TaskModel? GetTaskDetail(Guid projectId, Guid taskId)
+    {
+        var task = taskRepository.Get(taskId);
+        if (task is null || task.ProjectId != projectId)
+        {
+            return null;
+        }
+
+        return task.ToModel();
     }
 }
 
@@ -240,12 +264,36 @@ internal sealed class TestProjectRepository : IProjectRepository
             projects[project.Id] = project;
         }
     }
+}
 
-    public ProjectBoardModel? GetBoard(Guid projectId)
+internal sealed class TestTaskRepository : ITaskRepository
+{
+    private readonly Dictionary<Guid, DomainTask> tasks = [];
+
+    public DomainTask? Get(Guid taskId)
     {
-        return projects.TryGetValue(projectId, out var project)
-            ? project.ToBoardModel()
-            : null;
+        return tasks.GetValueOrDefault(taskId);
+    }
+
+    public IReadOnlyList<DomainTask> GetByProjectId(Guid projectId)
+    {
+        return tasks.Values
+            .Where(task => task.ProjectId == projectId)
+            .OrderBy(task => task.CreatedAt)
+            .ToArray();
+    }
+
+    public void Add(DomainTask task)
+    {
+        tasks.Add(task.Id, task);
+    }
+
+    public void Update(DomainTask task)
+    {
+        if (tasks.ContainsKey(task.Id))
+        {
+            tasks[task.Id] = task;
+        }
     }
 }
 
@@ -254,5 +302,28 @@ internal sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
     public override DateTimeOffset GetUtcNow()
     {
         return utcNow;
+    }
+}
+
+internal static class TestObjectFactory
+{
+    public static ProjectName CreateProjectName(string value)
+    {
+        var isValid = ProjectName.TryCreate(value, out var projectName);
+
+        Assert.That(isValid, Is.True);
+        Assert.That(projectName, Is.Not.Null);
+
+        return projectName!;
+    }
+
+    public static TaskTitle CreateTaskTitle(string value)
+    {
+        var isValid = TaskTitle.TryCreate(value, out var taskTitle);
+
+        Assert.That(isValid, Is.True);
+        Assert.That(taskTitle, Is.Not.Null);
+
+        return taskTitle!;
     }
 }

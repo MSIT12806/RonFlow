@@ -44,14 +44,4 @@ public sealed class InMemoryProjectRepository : IProjectRepository
             }
         }
     }
-
-    public ProjectBoardModel? GetBoard(Guid projectId)
-    {
-        lock (syncRoot)
-        {
-            return projects.TryGetValue(projectId, out var project)
-                ? project.ToBoardModel()
-                : null;
-        }
-    }
 }

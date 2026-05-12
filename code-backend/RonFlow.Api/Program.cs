@@ -16,6 +16,8 @@ public partial class Program
         builder.Services.AddOpenApi();
         builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
         builder.Services.AddSingleton<IProjectRepository, InMemoryProjectRepository>();
+        builder.Services.AddSingleton<ITaskRepository, InMemoryTaskRepository>();
+        builder.Services.AddSingleton<ICoreFlowReadStore, InMemoryCoreFlowReadStore>();
         builder.Services.AddSingleton<CreateProjectCommandService>();
         builder.Services.AddSingleton<CreateTaskCommandService>();
         builder.Services.AddSingleton<ChangeTaskStateCommandService>();

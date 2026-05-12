@@ -1,8 +1,12 @@
 using RonFlow.Domain;
+using DomainTask = RonFlow.Domain.Task;
 
 namespace RonFlow.Application;
 
-public sealed class CreateTaskCommandService(IProjectRepository projectRepository, TimeProvider timeProvider)
+public sealed class CreateTaskCommandService(
+    IProjectRepository projectRepository,
+    ITaskRepository taskRepository,
+    TimeProvider timeProvider)
 {
     public CreateTaskResult Create(Guid projectId, string? rawTitle)
     {
@@ -17,7 +21,11 @@ public sealed class CreateTaskCommandService(IProjectRepository projectRepositor
             return CreateTaskResult.NotFound();
         }
 
-        var task = project.CreateTask(taskTitle!, timeProvider.GetUtcNow());
+        var createdAt = timeProvider.GetUtcNow();
+        var task = DomainTask.Create(project.Id, taskTitle!, project.GetDefaultWorkflowState(), createdAt);
+        taskRepository.Add(task);
+
+        project.Touch(createdAt);
         projectRepository.Update(project);
 
         return CreateTaskResult.Success(CoreFlowCommandOutputFactory.CreateTask(task.ToModel()));
