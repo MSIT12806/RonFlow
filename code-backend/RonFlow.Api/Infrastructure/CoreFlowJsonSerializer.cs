@@ -54,8 +54,17 @@ internal static class CoreFlowJsonSerializer
         writer.WriteString("id", task.Id);
         writer.WriteString("projectId", task.ProjectId);
         writer.WriteString("title", task.Title);
+        writer.WriteString("description", task.Description);
         writer.WritePropertyName("currentState");
         WriteWorkflowState(writer, task.CurrentState);
+        if (task.DueDate is null)
+        {
+            writer.WriteNull("dueDate");
+        }
+        else
+        {
+            writer.WriteString("dueDate", task.DueDate.Value.ToString("yyyy-MM-dd"));
+        }
         writer.WriteString("createdAt", task.CreatedAt);
 
         if (task.CompletedAt is null)
@@ -66,6 +75,8 @@ internal static class CoreFlowJsonSerializer
         {
             writer.WriteString("completedAt", task.CompletedAt.Value);
         }
+
+        writer.WriteNumber("sortOrder", task.SortOrder);
 
         writer.WritePropertyName("activityTimeline");
         writer.WriteStartArray();
@@ -89,14 +100,26 @@ internal static class CoreFlowJsonSerializer
         var completedAt = root.TryGetProperty("completedAt", out var completedAtElement) && completedAtElement.ValueKind != JsonValueKind.Null
             ? completedAtElement.GetDateTimeOffset()
             : (DateTimeOffset?)null;
+        var description = root.TryGetProperty("description", out var descriptionElement) && descriptionElement.ValueKind != JsonValueKind.Null
+            ? descriptionElement.GetString() ?? string.Empty
+            : string.Empty;
+        var dueDate = root.TryGetProperty("dueDate", out var dueDateElement) && dueDateElement.ValueKind != JsonValueKind.Null
+            ? DateOnly.Parse(GetRequiredString(root, "dueDate"))
+            : (DateOnly?)null;
+        var sortOrder = root.TryGetProperty("sortOrder", out var sortOrderElement)
+            ? sortOrderElement.GetInt32()
+            : 0;
 
         return DomainTask.Rehydrate(
             root.GetProperty("id").GetGuid(),
             root.GetProperty("projectId").GetGuid(),
             GetRequiredString(root, "title"),
+            description,
             ReadWorkflowState(root.GetProperty("currentState")),
+            dueDate,
             root.GetProperty("createdAt").GetDateTimeOffset(),
             completedAt,
+            sortOrder,
             root.GetProperty("activityTimeline")
                 .EnumerateArray()
                 .Select(ReadActivityTimelineItem)

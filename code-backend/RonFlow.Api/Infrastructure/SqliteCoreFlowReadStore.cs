@@ -57,7 +57,7 @@ public sealed class SqliteCoreFlowReadStore(SqliteCoreFlowStore store) : ICoreFl
             project.Id,
             project.Name,
             project.WorkflowStates.Select(state => state.ToModel()).ToArray(),
-            taskModels.OrderBy(task => task.CreatedAt).ToArray());
+            taskModels.OrderBy(task => task.SortOrder).ThenBy(task => task.CreatedAt).ToArray());
     }
 
     public TaskModel? GetTaskDetail(Guid projectId, Guid taskId)

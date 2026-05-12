@@ -35,7 +35,8 @@ public sealed class SqliteTaskRepository(SqliteCoreFlowStore store) : ITaskRepos
         }
 
         return tasks
-            .OrderBy(task => task.CreatedAt)
+            .OrderBy(task => task.SortOrder)
+            .ThenBy(task => task.CreatedAt)
             .ToArray();
     }
 

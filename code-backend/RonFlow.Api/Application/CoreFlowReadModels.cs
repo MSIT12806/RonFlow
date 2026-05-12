@@ -32,7 +32,9 @@ public sealed record TaskDetailView(
     Guid Id,
     Guid ProjectId,
     string Title,
+    string Description,
     WorkflowStateView CurrentState,
+    DateOnly? DueDate,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
     IReadOnlyList<ActivityTimelineItemView> ActivityTimeline);
@@ -78,7 +80,9 @@ internal static class CoreFlowReadModelFactory
             task.Id,
             task.ProjectId,
             task.Title,
+            task.Description,
             CreateWorkflowState(task.CurrentState),
+            task.DueDate,
             task.CreatedAt,
             task.CompletedAt,
             task.ActivityTimeline.Select(CreateActivityTimelineItem).ToArray());

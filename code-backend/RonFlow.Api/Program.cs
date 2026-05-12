@@ -19,6 +19,8 @@ public partial class Program
         builder.Services.AddSingleton<CreateProjectCommandService>();
         builder.Services.AddSingleton<CreateTaskCommandService>();
         builder.Services.AddSingleton<ChangeTaskStateCommandService>();
+        builder.Services.AddSingleton<UpdateTaskCommandService>();
+        builder.Services.AddSingleton<ReorderTaskCommandService>();
         builder.Services.AddSingleton<GetProjectsQueryService>();
         builder.Services.AddSingleton<GetProjectBoardQueryService>();
         builder.Services.AddSingleton<GetTaskDetailQueryService>();
@@ -100,6 +102,49 @@ public partial class Program
                 : Results.Ok(TaskDetailResponse.FromOutput(result.Task!));
         })
         .Accepts<ChangeTaskStateRequest>(MediaTypeNames.Application.Json)
+        .Produces<TaskDetailResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound);
+
+        app.MapPatch("/api/projects/{projectId:guid}/tasks/{taskId:guid}", (
+            Guid projectId,
+            Guid taskId,
+            UpdateTaskRequest request,
+            UpdateTaskCommandService commandService) =>
+        {
+            var result = commandService.Update(projectId, taskId, request.Title, request.Description, request.DueDate);
+
+            if (result.ValidationError is not null)
+            {
+                return ValidationResults.FromError(result.ValidationError);
+            }
+
+            return result.TaskNotFound
+                ? Results.NotFound()
+                : Results.Ok(TaskDetailResponse.FromOutput(result.Task!));
+        })
+        .Accepts<UpdateTaskRequest>(MediaTypeNames.Application.Json)
+        .Produces<TaskDetailResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound);
+
+        app.MapPatch("/api/projects/{projectId:guid}/tasks/{taskId:guid}/order", (
+            Guid projectId,
+            Guid taskId,
+            ReorderTaskRequest request,
+            ReorderTaskCommandService commandService) =>
+        {
+            if (request.TargetTaskId is null)
+            {
+                return Results.NotFound();
+            }
+
+            var result = commandService.Reorder(projectId, taskId, request.TargetTaskId.Value);
+
+            return result.TaskNotFound
+                ? Results.NotFound()
+                : Results.Ok(TaskDetailResponse.FromOutput(result.Task!));
+        })
+        .Accepts<ReorderTaskRequest>(MediaTypeNames.Application.Json)
         .Produces<TaskDetailResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound);
 

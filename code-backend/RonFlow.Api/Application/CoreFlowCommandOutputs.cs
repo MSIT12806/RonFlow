@@ -14,7 +14,9 @@ public sealed record CreateTaskOutput(
     Guid Id,
     Guid ProjectId,
     string Title,
+    string Description,
     CreatedWorkflowStateOutput CurrentState,
+    DateOnly? DueDate,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
     IReadOnlyList<CreatedActivityTimelineItemOutput> ActivityTimeline);
@@ -38,7 +40,9 @@ internal static class CoreFlowCommandOutputFactory
             task.Id,
             task.ProjectId,
             task.Title,
+            task.Description,
             CreateWorkflowState(task.CurrentState),
+            task.DueDate,
             task.CreatedAt,
             task.CompletedAt,
             task.ActivityTimeline.Select(CreateActivityTimelineItem).ToArray());

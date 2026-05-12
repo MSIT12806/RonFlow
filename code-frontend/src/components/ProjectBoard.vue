@@ -48,9 +48,14 @@
                 v-for="task in column.tasks"
                 :key="task.id"
                 class="task-card"
+                :class="{ 'task-card-drop-target': dragOverTaskId === task.id }"
                 draggable="true"
                 @dragstart="handleTaskDragStart($event, task.id)"
                 @dragend="handleTaskDragEnd"
+                @dragenter.prevent="handleTaskCardDragEnter(task.id)"
+                @dragover.prevent="handleTaskCardDragOver($event, task.id)"
+                @dragleave="handleTaskCardDragLeave(task.id)"
+                @drop.prevent="handleTaskCardDrop($event, column.stateKey, task.id)"
               >
                 <button
                   type="button"
@@ -94,10 +99,12 @@ const emit = defineEmits<{
   (event: 'open-create-task'): void
   (event: 'open-task-detail', taskId: string): void
   (event: 'move-task-to-state', taskId: string, stateKey: WorkflowKey): void
+  (event: 'reorder-task-within-column', taskId: string, targetTaskId: string): void
 }>()
 
 const draggingTaskId = ref<string | null>(null)
 const dragOverStateKey = ref<WorkflowKey | null>(null)
+const dragOverTaskId = ref<string | null>(null)
 
 function handleTaskDragStart(event: DragEvent, taskId: string) {
   draggingTaskId.value = taskId
@@ -113,6 +120,7 @@ function handleTaskDragStart(event: DragEvent, taskId: string) {
 function handleTaskDragEnd() {
   draggingTaskId.value = null
   dragOverStateKey.value = null
+  dragOverTaskId.value = null
 }
 
 function handleColumnDragEnter(stateKey: WorkflowKey) {
@@ -143,6 +151,34 @@ function handleColumnDragLeave(stateKey: WorkflowKey) {
   dragOverStateKey.value = null
 }
 
+function handleTaskCardDragEnter(taskId: string) {
+  if (!draggingTaskId.value || draggingTaskId.value === taskId) {
+    return
+  }
+
+  dragOverTaskId.value = taskId
+}
+
+function handleTaskCardDragOver(event: DragEvent, taskId: string) {
+  if (!draggingTaskId.value || draggingTaskId.value === taskId) {
+    return
+  }
+
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move'
+  }
+
+  dragOverTaskId.value = taskId
+}
+
+function handleTaskCardDragLeave(taskId: string) {
+  if (dragOverTaskId.value !== taskId) {
+    return
+  }
+
+  dragOverTaskId.value = null
+}
+
 function handleTaskDrop(event: DragEvent, targetStateKey: WorkflowKey) {
   const taskId = draggingTaskId.value ?? event.dataTransfer?.getData('text/plain') ?? null
   if (!taskId) {
@@ -151,9 +187,33 @@ function handleTaskDrop(event: DragEvent, targetStateKey: WorkflowKey) {
 
   const sourceColumn = props.columns.find((column) => column.tasks.some((task) => task.id === taskId))
   dragOverStateKey.value = null
+  dragOverTaskId.value = null
   draggingTaskId.value = null
 
   if (!sourceColumn || sourceColumn.stateKey === targetStateKey) {
+    return
+  }
+
+  emit('move-task-to-state', taskId, targetStateKey)
+}
+
+function handleTaskCardDrop(event: DragEvent, targetStateKey: WorkflowKey, targetTaskId: string) {
+  const taskId = draggingTaskId.value ?? event.dataTransfer?.getData('text/plain') ?? null
+  if (!taskId || taskId === targetTaskId) {
+    return
+  }
+
+  const sourceColumn = props.columns.find((column) => column.tasks.some((task) => task.id === taskId))
+  dragOverStateKey.value = null
+  dragOverTaskId.value = null
+  draggingTaskId.value = null
+
+  if (!sourceColumn) {
+    return
+  }
+
+  if (sourceColumn.stateKey === targetStateKey) {
+    emit('reorder-task-within-column', taskId, targetTaskId)
     return
   }
 

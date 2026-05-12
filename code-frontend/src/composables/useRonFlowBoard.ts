@@ -1,13 +1,11 @@
 import { computed, onMounted, ref } from 'vue'
 import {
   ApiRequestError,
-  type ProjectBoardResponse,
+  ApiValidationError,
   type ProjectListItemResponse,
-  type TaskDetailResponse,
   type WorkflowKey,
 } from '../api/ronflowApi'
 import {
-  ProjectCommandService,
   ProjectQueryService,
   TaskQueryService,
   TaskCommandService,
@@ -22,7 +20,6 @@ const workflowColumns: Array<{ key: WorkflowKey; label: string }> = [
 ]
 
 const projectQueryService = new ProjectQueryService()
-const projectCommandService = new ProjectCommandService()
 const taskQueryService = new TaskQueryService()
 const taskCommandService = new TaskCommandService()
 
@@ -56,13 +53,39 @@ export function useRonFlowBoard() {
       taskCommandService.changeState(projectId, taskId, stateKey),
   )
 
+  const updateTaskDetailResource = useApiResource(
+    (projectId: string, taskId: string, title: string, description: string, dueDate: string | null) =>
+      taskCommandService.update(projectId, taskId, title, description, dueDate),
+    {
+      mapErrorMessage: (error) => {
+        if (error instanceof ApiValidationError) {
+          return ''
+        }
+
+        if (error instanceof ApiRequestError && error.status === 404) {
+          return '找不到指定的任務，請重新整理專案看板。'
+        }
+
+        return '更新任務失敗，請稍後再試。'
+      },
+    },
+  )
+
+  const reorderTaskResource = useApiResource(
+    (projectId: string, taskId: string, targetTaskId: string) =>
+      taskCommandService.reorder(projectId, taskId, targetTaskId),
+  )
+
   const projects = computed(() => projectsResource.data.value?.items ?? [])
   const activeBoard = computed(() => boardResource.data.value)
   const selectedTask = computed(() => taskDetailResource.data.value)
   const taskDetailError = computed(() => taskDetailResource.errorMessage.value)
+  const taskDetailCommandError = computed(() => updateTaskDetailResource.errorMessage.value)
   const isLoadingProjects = computed(() => projectsResource.isLoading.value)
   const isLoadingBoard = computed(() => boardResource.isLoading.value)
   const isLoadingTaskDetail = computed(() => taskDetailResource.isLoading.value)
+  const isUpdatingTaskDetail = computed(() => updateTaskDetailResource.isLoading.value)
+  const taskTitleValidationError = ref('')
 
   const activeProject = computed(() =>
     projects.value.find((project) => project.id === activeProjectId.value) ?? null,
@@ -88,6 +111,8 @@ export function useRonFlowBoard() {
     }
 
     taskDetailResource.reset()
+    updateTaskDetailResource.reset()
+    taskTitleValidationError.value = ''
     isTaskDetailOpen.value = true
 
     try {
@@ -98,6 +123,8 @@ export function useRonFlowBoard() {
   async function selectProject(projectId: string) {
     activeProjectId.value = projectId
     taskDetailResource.reset()
+    updateTaskDetailResource.reset()
+    taskTitleValidationError.value = ''
     isTaskDetailOpen.value = false
     await loadBoard(projectId)
   }
@@ -105,6 +132,8 @@ export function useRonFlowBoard() {
   function closeTaskDetail() {
     isTaskDetailOpen.value = false
     taskDetailResource.reset()
+    updateTaskDetailResource.reset()
+    taskTitleValidationError.value = ''
   }
 
   async function moveTaskToState(taskId: string, stateKey: WorkflowKey) {
@@ -129,6 +158,50 @@ export function useRonFlowBoard() {
       }
 
       boardCommandError.value = '變更任務狀態失敗，請稍後再試。'
+    }
+  }
+
+  async function updateTaskDetail(taskId: string, title: string, description: string, dueDate: string | null) {
+    if (!activeProjectId.value) {
+      return
+    }
+
+    taskTitleValidationError.value = ''
+    updateTaskDetailResource.reset()
+
+    try {
+      const updatedTask = await updateTaskDetailResource.execute(activeProjectId.value, taskId, title, description, dueDate)
+      taskDetailResource.setData(updatedTask)
+      await loadBoard(activeProjectId.value)
+    } catch (error) {
+      if (error instanceof ApiValidationError) {
+        taskTitleValidationError.value = error.errors.title?.[0] ?? '任務標題為必填欄位'
+      }
+    }
+  }
+
+  async function reorderTaskWithinColumn(taskId: string, targetTaskId: string) {
+    if (!activeProjectId.value) {
+      return
+    }
+
+    boardCommandError.value = ''
+
+    try {
+      const updatedTask = await reorderTaskResource.execute(activeProjectId.value, taskId, targetTaskId)
+
+      if (selectedTask.value?.id === taskId) {
+        taskDetailResource.setData(updatedTask)
+      }
+
+      await loadBoard(activeProjectId.value)
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 404) {
+        boardCommandError.value = '找不到指定的任務，請重新整理專案看板。'
+        return
+      }
+
+      boardCommandError.value = '調整任務順序失敗，請稍後再試。'
     }
   }
 
@@ -211,16 +284,21 @@ export function useRonFlowBoard() {
     selectedTask,
     isTaskDetailOpen,
     taskDetailError,
+    taskDetailCommandError,
     workflowColumns,
     isLoadingProjects,
     isLoadingBoard,
     isLoadingTaskDetail,
+    isUpdatingTaskDetail,
     pageError,
     boardCommandError,
+    taskTitleValidationError,
     openTaskDetail,
     selectProject,
     closeTaskDetail,
     moveTaskToState,
+    updateTaskDetail,
+    reorderTaskWithinColumn,
     loadProjects,
     loadBoard,
     getTasksByStatus,

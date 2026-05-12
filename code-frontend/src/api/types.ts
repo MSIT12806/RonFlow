@@ -16,7 +16,9 @@ export type TaskDetailResponse = {
   id: string
   projectId: string
   title: string
+  description: string
   currentState: WorkflowStateResponse
+  dueDate: string | null
   createdAt: string
   completedAt: string | null
   activityTimeline: ActivityTimelineItemResponse[]

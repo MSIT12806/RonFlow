@@ -121,7 +121,8 @@ public sealed class ChangeTaskStateCommandServiceTests
             project.Id,
             TestObjectFactory.CreateTaskTitle("Build Kanban Board"),
             project.GetDefaultWorkflowState(),
-            createdAt.AddMinutes(5));
+            createdAt.AddMinutes(5),
+            0);
         taskRepository.Add(task);
 
         var commandService = new ChangeTaskStateCommandService(repository, taskRepository, new FixedTimeProvider(changedAt));
@@ -151,7 +152,8 @@ public sealed class ChangeTaskStateCommandServiceTests
             project.Id,
             TestObjectFactory.CreateTaskTitle("Build Kanban Board"),
             project.GetDefaultWorkflowState(),
-            createdAt.AddMinutes(5));
+            createdAt.AddMinutes(5),
+            0);
         taskRepository.Add(task);
 
         var moveToActiveService = new ChangeTaskStateCommandService(repository, taskRepository, new FixedTimeProvider(movedToActiveAt));

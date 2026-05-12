@@ -45,3 +45,34 @@ public sealed record ChangeTaskStateResult(CreateTaskOutput? Task, bool TaskNotF
         return new(null, true);
     }
 }
+
+public sealed record UpdateTaskResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound)
+{
+    public static UpdateTaskResult Success(CreateTaskOutput task)
+    {
+        return new(task, null, false);
+    }
+
+    public static UpdateTaskResult Invalid(string field, string message)
+    {
+        return new(null, new ValidationError(field, message), false);
+    }
+
+    public static UpdateTaskResult NotFound()
+    {
+        return new(null, null, true);
+    }
+}
+
+public sealed record ReorderTaskResult(CreateTaskOutput? Task, bool TaskNotFound)
+{
+    public static ReorderTaskResult Success(CreateTaskOutput task)
+    {
+        return new(task, false);
+    }
+
+    public static ReorderTaskResult NotFound()
+    {
+        return new(null, true);
+    }
+}

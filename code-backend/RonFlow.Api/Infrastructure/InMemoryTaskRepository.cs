@@ -22,7 +22,8 @@ public sealed class InMemoryTaskRepository : ITaskRepository
         {
             return tasks.Values
                 .Where(task => task.ProjectId == projectId)
-                .OrderBy(task => task.CreatedAt)
+                .OrderBy(task => task.SortOrder)
+                .ThenBy(task => task.CreatedAt)
                 .ToArray();
         }
     }

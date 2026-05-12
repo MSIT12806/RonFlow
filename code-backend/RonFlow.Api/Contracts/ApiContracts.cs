@@ -8,6 +8,10 @@ public sealed record CreateTaskRequest(string? Title);
 
 public sealed record ChangeTaskStateRequest(string? StateKey);
 
+public sealed record UpdateTaskRequest(string? Title, string? Description, DateOnly? DueDate);
+
+public sealed record ReorderTaskRequest(Guid? TargetTaskId);
+
 public sealed record ProjectListResponse(IReadOnlyList<ProjectListItemResponse> Items);
 
 public sealed record ProjectListItemResponse(Guid Id, string Name, DateTimeOffset UpdatedAt)
@@ -99,7 +103,9 @@ public sealed record TaskDetailResponse(
     Guid Id,
     Guid ProjectId,
     string Title,
+    string Description,
     WorkflowStateResponse CurrentState,
+    DateOnly? DueDate,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
     IReadOnlyList<ActivityTimelineItemResponse> ActivityTimeline)
@@ -110,7 +116,9 @@ public sealed record TaskDetailResponse(
             output.Id,
             output.ProjectId,
             output.Title,
+            output.Description,
             WorkflowStateResponse.FromOutput(output.CurrentState),
+            output.DueDate,
             output.CreatedAt,
             output.CompletedAt,
             output.ActivityTimeline.Select(ActivityTimelineItemResponse.FromOutput).ToArray());
@@ -122,7 +130,9 @@ public sealed record TaskDetailResponse(
             view.Id,
             view.ProjectId,
             view.Title,
+            view.Description,
             WorkflowStateResponse.FromView(view.CurrentState),
+            view.DueDate,
             view.CreatedAt,
             view.CompletedAt,
             view.ActivityTimeline.Select(ActivityTimelineItemResponse.FromView).ToArray());

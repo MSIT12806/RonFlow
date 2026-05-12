@@ -6,7 +6,7 @@ const workflowColumns = [
   { key: 'review', label: '審查中' },
   { key: 'done', label: '已完成' },
 ] as const
-const backendApiBaseUrl = 'http://127.0.0.1:5078/api'
+const backendApiBaseUrl = process.env.RONFLOW_E2E_BACKEND_API_BASE_URL ?? 'http://127.0.0.1:5079/api'
 
 type ProjectResponse = {
   id: string
@@ -14,6 +14,10 @@ type ProjectResponse = {
 
 type TaskResponse = {
   id: string
+}
+
+function createTaskTitle(testInfo: TestInfo, label: string) {
+  return `${label} ${testInfo.workerIndex}-${testInfo.retry}-${Date.now()}`
 }
 
 function createScenarioData(testInfo: TestInfo) {
@@ -118,6 +122,12 @@ function getTaskCard(page: Page, stateKey: string, taskTitle: string) {
     .locator('.task-card')
     .filter({ hasText: taskTitle })
     .first()
+}
+
+async function expectTaskOrder(page: Page, stateKey: string, expectedTaskTitles: string[]) {
+  await expect(
+    page.getByTestId(`workflow-column-${stateKey}`).locator('.task-title'),
+  ).toHaveText(expectedTaskTitles)
 }
 
 test.describe('RonFlow UI/UX 驗收規格', () => {
@@ -478,5 +488,129 @@ test.describe('RonFlow UI/UX 驗收規格', () => {
     await expect(detailDialog.getByText('任務狀態已變更為 已完成', { exact: true })).toBeVisible()
     await expect(detailDialog.getByText('完成時間', { exact: true })).toBeVisible()
     await expect(detailDialog.getByText('已完成任務', { exact: true })).toBeVisible()
+  })
+
+  test('拖曳後若沒有放到有效欄位，Task Card 會留在原欄位與原位置', async ({ page }, testInfo) => {
+    const { projectName } = createScenarioData(testInfo)
+    const firstTaskTitle = createTaskTitle(testInfo, 'Backlog Task A')
+    const secondTaskTitle = createTaskTitle(testInfo, 'Backlog Task B')
+
+    await setupProjectBoard(page, projectName)
+
+    await openCreateTaskModal(page)
+    await createTask(page, firstTaskTitle)
+
+    await openCreateTaskModal(page)
+    await createTask(page, secondTaskTitle)
+
+    await expectTaskOrder(page, 'todo', [firstTaskTitle, secondTaskTitle])
+
+    await getTaskCard(page, 'todo', secondTaskTitle).dragTo(page.getByRole('heading', { name: projectName }))
+
+    await expectTaskOrder(page, 'todo', [firstTaskTitle, secondTaskTitle])
+    await expect(page.getByTestId('workflow-column-active')).not.toContainText(secondTaskTitle)
+  })
+
+  test('狀態變更 API 失敗時，Task Card 會回到原欄位並顯示錯誤訊息', async ({ page }, testInfo) => {
+    const { projectName, taskTitle } = createScenarioData(testInfo)
+
+    await page.route('**/api/projects/*/tasks/*/state', async (route) => {
+      if (route.request().method() !== 'PATCH') {
+        await route.continue()
+        return
+      }
+
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ message: 'move failed' }),
+      })
+    })
+
+    await setupTaskBoard(page, projectName, taskTitle)
+
+    await getTaskCard(page, 'todo', taskTitle).dragTo(page.getByTestId('workflow-column-active'))
+
+    await expect(page.getByTestId('workflow-column-todo')).toContainText(taskTitle)
+    await expect(page.getByTestId('workflow-column-active')).not.toContainText(taskTitle)
+    await expect(page.getByTestId('base-error-state')).toContainText('變更任務狀態失敗，請稍後再試。')
+  })
+
+  test('使用者可以在 Drawer 修改任務標題、描述與到期日，並看到最新資料與活動紀錄', async ({ page }, testInfo) => {
+    const { projectName, taskTitle } = createScenarioData(testInfo)
+    const updatedTaskTitle = createTaskTitle(testInfo, 'Updated Task Title')
+    const updatedDescription = '支援在 Drawer 直接編輯任務內容與活動紀錄'
+    const updatedDueDate = '2026-05-20'
+
+    await setupTaskBoard(page, projectName, taskTitle)
+    await openTaskDetail(page, 'todo', taskTitle)
+
+    const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
+
+    await detailDialog.getByLabel('任務標題').fill(updatedTaskTitle)
+    await detailDialog.getByLabel('任務描述').fill(updatedDescription)
+    await detailDialog.getByLabel('到期日').fill(updatedDueDate)
+    await detailDialog.getByRole('button', { name: '儲存變更' }).click()
+
+    await expect(detailDialog.getByLabel('任務標題')).toHaveValue(updatedTaskTitle)
+    await expect(detailDialog.getByLabel('任務描述')).toHaveValue(updatedDescription)
+    await expect(detailDialog.getByLabel('到期日')).toHaveValue(updatedDueDate)
+    await expect(detailDialog.getByText('已更新任務標題', { exact: true })).toBeVisible()
+    await expect(detailDialog.getByText('已更新任務描述', { exact: true })).toBeVisible()
+    await expect(detailDialog.getByText('已設定到期日為 2026/05/20', { exact: true })).toBeVisible()
+    await expect(page.getByTestId('workflow-column-todo')).toContainText(updatedTaskTitle)
+    await expect(page.getByTestId('workflow-column-todo')).not.toContainText(taskTitle)
+  })
+
+  test('使用者可以將已完成任務重新開啟，清除目前完成時間並記錄重新開啟活動', async ({ page, request }, testInfo) => {
+    const { projectName, taskTitle } = createScenarioData(testInfo)
+
+    const project = await createProjectThroughApi(request, projectName)
+    const task = await createTaskThroughApi(request, project.id, taskTitle)
+    await moveTaskStateThroughApi(request, project.id, task.id, 'active')
+    await moveTaskStateThroughApi(request, project.id, task.id, 'done')
+
+    await page.goto('/')
+    await page.getByRole('button', { name: projectName }).click()
+    await expect(page.getByRole('heading', { name: projectName })).toBeVisible()
+
+    await dragTaskToColumn(page, 'done', 'active', taskTitle)
+
+    await expect(page.getByTestId('workflow-column-active')).toContainText(taskTitle)
+    await expect(page.getByTestId('workflow-column-done')).not.toContainText(taskTitle)
+
+    await openTaskDetail(page, 'active', taskTitle)
+
+    const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
+
+    await expect(detailDialog.getByText('進行中', { exact: true })).toBeVisible()
+    await expect(detailDialog.getByText('完成時間', { exact: true })).toHaveCount(0)
+    await expect(detailDialog.getByText('已完成任務', { exact: true })).toBeVisible()
+    await expect(detailDialog.getByText('已重新開啟任務', { exact: true })).toBeVisible()
+  })
+
+  test('使用者可以在同欄位內拖曳調整任務順序，並以新順序反映工作優先順序', async ({ page }, testInfo) => {
+    const { projectName } = createScenarioData(testInfo)
+    const firstTaskTitle = createTaskTitle(testInfo, 'Priority Task A')
+    const secondTaskTitle = createTaskTitle(testInfo, 'Priority Task B')
+
+    await setupProjectBoard(page, projectName)
+
+    await openCreateTaskModal(page)
+    await createTask(page, firstTaskTitle)
+
+    await openCreateTaskModal(page)
+    await createTask(page, secondTaskTitle)
+
+    await expectTaskOrder(page, 'todo', [firstTaskTitle, secondTaskTitle])
+
+    await getTaskCard(page, 'todo', secondTaskTitle).dragTo(getTaskCard(page, 'todo', firstTaskTitle))
+
+    await expectTaskOrder(page, 'todo', [secondTaskTitle, firstTaskTitle])
+
+    await openTaskDetail(page, 'todo', secondTaskTitle)
+
+    const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
+    await expect(detailDialog.getByText('已調整任務順序', { exact: true })).toBeVisible()
   })
 })

@@ -18,3 +18,21 @@ export async function changeTaskState(projectId: string, taskId: string, stateKe
     body: JSON.stringify({ stateKey }),
   })
 }
+
+export async function updateTask(projectId: string, taskId: string, payload: {
+  title: string
+  description: string
+  dueDate: string | null
+}) {
+  return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}`), {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function reorderTask(projectId: string, taskId: string, targetTaskId: string) {
+  return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}/order`), {
+    method: 'PATCH',
+    body: JSON.stringify({ targetTaskId }),
+  })
+}

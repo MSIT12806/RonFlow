@@ -22,7 +22,8 @@ public sealed class CreateTaskCommandService(
         }
 
         var createdAt = timeProvider.GetUtcNow();
-        var task = DomainTask.Create(project.Id, taskTitle!, project.GetDefaultWorkflowState(), createdAt);
+        var sortOrder = taskRepository.GetByProjectId(project.Id).Count;
+        var task = DomainTask.Create(project.Id, taskTitle!, project.GetDefaultWorkflowState(), createdAt, sortOrder);
         taskRepository.Add(task);
 
         project.Touch(createdAt);

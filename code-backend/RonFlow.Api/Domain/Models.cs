@@ -8,9 +8,12 @@ public sealed record TaskModel(
     Guid Id,
     Guid ProjectId,
     string Title,
+    string Description,
     WorkflowStateModel CurrentState,
+    DateOnly? DueDate,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
+    int SortOrder,
     IReadOnlyList<ActivityTimelineItemModel> ActivityTimeline);
 
 public sealed record ProjectModel(

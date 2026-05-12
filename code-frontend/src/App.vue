@@ -43,6 +43,7 @@
             @open-create-task="onOpenCreateTask"
             @open-task-detail="openTaskDetail"
             @move-task-to-state="moveTaskToState"
+            @reorder-task-within-column="reorderTaskWithinColumn"
           />
         </section>
       </AsyncStateBoundary>
@@ -61,10 +62,14 @@
     <TaskDetailModal
       :is-open="isTaskDetailOpen"
       :is-loading="isLoadingTaskDetail"
+      :is-saving="isUpdatingTaskDetail"
       :error-message="taskDetailError"
+      :save-error-message="taskDetailCommandError"
+      :title-validation-error="taskTitleValidationError"
       :task="selectedTask"
       :format-timeline-time="formatTimelineTime"
       @close="closeTaskDetail"
+      @save="onTaskDetailSave"
     />
   </main>
 </template>
@@ -96,13 +101,18 @@ const {
   isLoadingProjects,
   isLoadingBoard,
   isLoadingTaskDetail,
+  isUpdatingTaskDetail,
   taskDetailError,
+  taskDetailCommandError,
   pageError,
   boardCommandError,
+  taskTitleValidationError,
   openTaskDetail,
   selectProject,
   closeTaskDetail,
   moveTaskToState,
+  updateTaskDetail,
+  reorderTaskWithinColumn,
   formatProjectMeta,
   formatTimelineTime,
   loadProjects,
@@ -123,5 +133,9 @@ async function onTaskCreated() {
   if (activeProjectId.value) {
     await Promise.all([loadProjects(activeProjectId.value), loadBoard(activeProjectId.value)])
   }
+}
+
+async function onTaskDetailSave(payload: { taskId: string; title: string; description: string; dueDate: string | null }) {
+  await updateTaskDetail(payload.taskId, payload.title, payload.description, payload.dueDate)
 }
 </script>

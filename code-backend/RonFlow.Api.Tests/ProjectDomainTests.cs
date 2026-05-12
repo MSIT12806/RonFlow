@@ -27,7 +27,7 @@ public sealed class ProjectDomainTests
         var project = Project.Create(CreateProjectName("RonFlow Project"), projectCreatedAt, DefaultWorkflow.CreateStates());
         var taskTitle = CreateTaskTitle("Build Kanban Board");
 
-        var task = RonFlow.Domain.Task.Create(project.Id, taskTitle, project.GetDefaultWorkflowState(), taskCreatedAt);
+        var task = RonFlow.Domain.Task.Create(project.Id, taskTitle, project.GetDefaultWorkflowState(), taskCreatedAt, 0);
         project.Touch(taskCreatedAt);
         var taskModel = task.ToModel();
 
@@ -48,7 +48,8 @@ public sealed class ProjectDomainTests
             Guid.NewGuid(),
             CreateTaskTitle("Build Kanban Board"),
             workflowStates.Single(state => state.IsInitialState),
-            taskCreatedAt);
+            taskCreatedAt,
+            0);
 
         task.ChangeState(workflowStates.Single(state => state.Key == "active"), changedAt);
         var taskModel = task.ToModel();
@@ -72,7 +73,8 @@ public sealed class ProjectDomainTests
             Guid.NewGuid(),
             CreateTaskTitle("Build Kanban Board"),
             workflowStates.Single(state => state.IsInitialState),
-            taskCreatedAt);
+            taskCreatedAt,
+            0);
 
         task.ChangeState(workflowStates.Single(state => state.Key == "active"), movedToActiveAt);
         task.ChangeState(workflowStates.Single(state => state.Key == "done"), completedAt);
@@ -96,7 +98,8 @@ public sealed class ProjectDomainTests
             Guid.NewGuid(),
             CreateTaskTitle("Build Kanban Board"),
             initialState,
-            taskCreatedAt);
+            taskCreatedAt,
+            0);
 
         task.ChangeState(initialState, taskCreatedAt.AddMinutes(30));
         var taskModel = task.ToModel();

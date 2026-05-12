@@ -124,6 +124,42 @@
             @open-create-task="noop"
             @open-task-detail="noop"
             @move-task-to-state="noop"
+            @reorder-task-within-column="noop"
+          />
+        </article>
+
+        <article class="playground-example-card">
+          <div>
+            <p class="detail-label">Editable drawer</p>
+            <h2>TaskDetailModal</h2>
+            <p class="playground-copy">展示 Task 詳細資訊在可編輯模式下的 loading、validation 與 command error 呈現。</p>
+          </div>
+
+          <div class="playground-toolbar" role="tablist" aria-label="切換 task detail drawer 狀態">
+            <button
+              v-for="state in taskDetailStates"
+              :key="state.id"
+              type="button"
+              class="playground-toggle"
+              :class="{ 'playground-toggle-active': state.id === activeTaskDetailStateId }"
+              :aria-pressed="state.id === activeTaskDetailStateId"
+              @click="activeTaskDetailStateId = state.id"
+            >
+              {{ state.label }}
+            </button>
+          </div>
+
+          <TaskDetailModal
+            :is-open="true"
+            :is-loading="activeTaskDetailState.type === 'loading'"
+            :is-saving="activeTaskDetailState.type === 'saving'"
+            :error-message="activeTaskDetailState.type === 'load-error' ? activeTaskDetailState.loadErrorMessage : ''"
+            :save-error-message="activeTaskDetailState.type === 'save-error' ? activeTaskDetailState.saveErrorMessage : ''"
+            :title-validation-error="activeTaskDetailState.type === 'validation-error' ? activeTaskDetailState.titleValidationError : ''"
+            :task="playgroundTaskDetail"
+            :format-timeline-time="formatTimelineTime"
+            @close="noop"
+            @save="noop"
           />
         </article>
       </section>
@@ -133,8 +169,9 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { BoardColumnResponse } from '../../api/types'
+import type { BoardColumnResponse, TaskDetailResponse } from '../../api/types'
 import ProjectBoard from '../../components/ProjectBoard.vue'
+import TaskDetailModal from '../../components/TaskDetailModal.vue'
 import ApiCommandResourceView from '../../components/bases/ApiCommandResourceView.vue'
 import ApiQueryResourceView from '../../components/bases/ApiQueryResourceView.vue'
 
@@ -160,6 +197,15 @@ type BoardState = {
   label: string
   type: 'idle' | 'loading' | 'error'
   message: string
+}
+
+type TaskDetailState = {
+  id: string
+  label: string
+  type: 'idle' | 'loading' | 'saving' | 'save-error' | 'validation-error' | 'load-error'
+  saveErrorMessage: string
+  titleValidationError: string
+  loadErrorMessage: string
 }
 
 const queryStates: QueryState[] = [
@@ -234,6 +280,57 @@ const boardStates: BoardState[] = [
   },
 ]
 
+const taskDetailStates: TaskDetailState[] = [
+  {
+    id: 'idle',
+    label: 'Loaded',
+    type: 'idle',
+    saveErrorMessage: '',
+    titleValidationError: '',
+    loadErrorMessage: '',
+  },
+  {
+    id: 'saving',
+    label: 'Saving',
+    type: 'saving',
+    saveErrorMessage: '',
+    titleValidationError: '',
+    loadErrorMessage: '',
+  },
+  {
+    id: 'save-error',
+    label: 'Save Error',
+    type: 'save-error',
+    saveErrorMessage: '更新任務失敗，請稍後再試。',
+    titleValidationError: '',
+    loadErrorMessage: '',
+  },
+  {
+    id: 'validation-error',
+    label: 'Validation',
+    type: 'validation-error',
+    saveErrorMessage: '',
+    titleValidationError: '任務標題為必填欄位',
+    loadErrorMessage: '',
+  },
+  {
+    id: 'loading',
+    label: 'Loading',
+    type: 'loading',
+    saveErrorMessage: '',
+    titleValidationError: '',
+    loadErrorMessage: '',
+  },
+  {
+    id: 'load-error',
+    label: 'Load Error',
+    type: 'load-error',
+    saveErrorMessage: '',
+    titleValidationError: '',
+    loadErrorMessage: '無法載入任務詳細資訊，請重新整理後再試。',
+  },
+]
+
 const playgroundBoardColumns: BoardColumnResponse[] = [
   {
     stateKey: 'todo',
@@ -268,9 +365,37 @@ const playgroundBoardColumns: BoardColumnResponse[] = [
   },
 ]
 
+const playgroundTaskDetail: TaskDetailResponse = {
+  id: 'task-detail-1',
+  projectId: 'project-1',
+  title: '補上 Drawer 編輯測試',
+  description: '讓使用者可以直接在 Task Detail Drawer 編輯標題、描述與到期日。',
+  currentState: {
+    key: 'active',
+    label: '進行中',
+    isInitialState: false,
+  },
+  dueDate: '2026-05-20',
+  createdAt: '2026-05-12T08:00:00.000Z',
+  completedAt: null,
+  activityTimeline: [
+    {
+      type: 'TaskCreated',
+      message: '已建立任務',
+      occurredAt: '2026-05-12T08:00:00.000Z',
+    },
+    {
+      type: 'TaskDescriptionChanged',
+      message: '已更新任務描述',
+      occurredAt: '2026-05-12T08:20:00.000Z',
+    },
+  ],
+}
+
 const activeQueryStateId = ref(queryStates[0].id)
 const activeCommandStateId = ref(commandStates[0].id)
 const activeBoardStateId = ref(boardStates[0].id)
+const activeTaskDetailStateId = ref(taskDetailStates[0].id)
 
 const activeQueryState = computed(() =>
   queryStates.find((state) => state.id === activeQueryStateId.value) ?? queryStates[0],
@@ -284,5 +409,19 @@ const activeBoardState = computed(() =>
   boardStates.find((state) => state.id === activeBoardStateId.value) ?? boardStates[0],
 )
 
+const activeTaskDetailState = computed(() =>
+  taskDetailStates.find((state) => state.id === activeTaskDetailStateId.value) ?? taskDetailStates[0],
+)
+
 function noop() {}
+
+function formatTimelineTime(occurredAt: string) {
+  return new Intl.DateTimeFormat('zh-TW', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(occurredAt))
+}
 </script>
