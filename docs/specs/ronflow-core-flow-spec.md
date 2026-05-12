@@ -64,7 +64,10 @@ Done   -> 已完成
 6. 新建立的 Task 會進入 workflow initial state
 7. 使用者可以從 Kanban Board 開啟 Task Detail Drawer
 8. 使用者可以在 Kanban Board 透過 drag & drop 變更 Task 狀態
-9. 系統會提供 Project Name 與 Task Title 的基本驗證
+9. 使用者可以在 Task Detail Drawer 查看與編輯 Task Title、Description 與 Due Date
+10. 使用者可以在同欄位內調整 Task 順序，以順序反映目前工作的優先順序
+11. 系統會記錄 Task 的建立、內容更新、狀態推進、完成、重新開啟與排序活動
+12. 系統會提供 Project Name 與 Task Title 的基本驗證
 ```
 
 ## 5. Ubiquitous Language 對照表
@@ -96,10 +99,13 @@ Done   -> 已完成
 | 建立任務對話框 | Create Task Modal | 建立任務 | 用來建立 Task 的 Modal。 |
 | 任務 | Task | 任務 | 屬於某個 Project 的工作項目。 |
 | 任務標題欄位 | Task Title | 任務標題 | Task 的資料欄位名稱與表單 label。 |
+| 任務描述欄位 | Description | 任務描述 | Task 的描述欄位，用來補充任務內容。 |
+| 到期日欄位 | Due Date | 到期日 | Task 的預計完成日期欄位。 |
 | 任務卡片 | Task Card | 任務卡片 | 顯示在看板欄位中的任務摘要。 |
 | 任務詳細資訊抽屜 | Task Detail Drawer | 任務詳細資訊 | 點擊 Task Card 後開啟的側邊面板。 |
 | 目前狀態欄位 | Current State | 目前狀態 | Task 詳細資訊中的狀態欄位。 |
 | 建立時間欄位 | CreatedAt | 建立時間 | Task 詳細資訊中的時間欄位。 |
+| 完成時間欄位 | CompletedAt | 完成時間 | Task 完成後顯示的時間欄位。 |
 | 活動紀錄 | Activity Timeline | 活動紀錄 | 顯示任務活動紀錄的區塊。 |
 
 ---
@@ -126,6 +132,10 @@ Done   -> 已完成
 15. 系統立即關閉建立任務 Modal，Task 出現在「待處理」（Todo）欄位
 16. 使用者點擊 Task Card
 17. 系統開啟 Task Detail Drawer
+18. 使用者可以在 Drawer 編輯 Task Title、Description 與 Due Date
+19. 系統在 Task 更新後保留最新資料，並新增對應的活動紀錄
+20. 使用者可以拖曳 Task 到其他欄位，或在同欄位內調整順序
+21. Task 進入 Done 時系統記錄完成；移回非 Done 時系統記錄重新開啟
 ```
 
 ### 6.2 Flow Map
@@ -473,21 +483,43 @@ Feature: 建立任務
 
 **Purpose**
 
-讓使用者查看 Task 的基本資訊。
+讓使用者查看與編輯 Task 的基本資訊。
 
-**Minimum Display**
+**Display**
 
 ```text
 1. 任務標題
-2. 目前狀態
-3. 建立時間
-4. 活動紀錄：已建立任務
+2. 任務描述
+3. 目前狀態
+4. 到期日
+5. 建立時間
+6. 完成時間（僅 Task 位於 Done 類狀態時顯示）
+7. 活動紀錄
+```
+
+**User Actions**
+
+```text
+1. 編輯任務標題
+2. 編輯任務描述
+3. 修改到期日
+4. 關閉 Drawer
+```
+
+**Expected Behavior**
+
+```text
+1. 使用者可以在 Drawer 查看 Task 的 Title、Description、Current State、Due Date、CreatedAt、CompletedAt 與 Activity Timeline
+2. 使用者可以在 Drawer 修改 Task Title、Description 與 Due Date
+3. 修改成功後，Drawer 應顯示最新資料
+4. 修改成功後，Activity Timeline 應新增對應紀錄
+5. Activity Timeline 至少應支援 TaskCreated、TaskTitleChanged、TaskDescriptionChanged、TaskDueDateChanged、TaskStateChanged、TaskCompleted、TaskReopened、TaskReordered
 ```
 
 **UI / UX Notes**
 
 ```text
-1. Task Detail Drawer 開啟後，畫面應先顯示 Task Title，再顯示目前狀態、建立時間與活動紀錄。
+1. Task Detail Drawer 開啟後，畫面應先顯示 Task Title，再顯示 Description、目前狀態、Due Date、建立時間與活動紀錄。
 2. Task Detail Drawer 應以覆蓋看板一部分的方式呈現，讓使用者在關閉 Drawer 後可以回到原本的 Project Kanban Board 上下文。
 3. 活動紀錄中的每一筆項目都應以時間先後順序顯示，讓使用者可以直接讀出 Task 的變化過程。
 4. CompletedAt 只在 Task 已進入 Done 類狀態時顯示；未完成的 Task 不應顯示空白的 CompletedAt 欄位。
@@ -497,7 +529,7 @@ Feature: 建立任務
 
 ```text
 1. Task Detail Drawer 的資料讀取 loading/error handling 依 [共用前端設計規範](../../../../CommonSpec/frontend-guidelines.md)。
-2. 若 Task 在 Drawer 開啟期間被更新，Drawer 中顯示的目前狀態、CompletedAt 與活動紀錄都應更新為最新資料。
+2. 若 Task 更新請求失敗，Drawer 應維持開啟，畫面應顯示錯誤訊息，且不應錯誤覆蓋原資料。
 ```
 
 **Visible Names**
@@ -525,6 +557,13 @@ Feature: Task 詳細資訊
     And 畫面應顯示任務標題為 "Build Kanban Board"
     And 畫面應顯示目前狀態為 "待處理"
     And 畫面應顯示活動紀錄包含 "已建立任務"
+
+  Scenario: 使用者在 Drawer 修改任務描述
+    Given 使用者已開啟標題為 "Build Kanban Board" 的 Task Detail Drawer
+    When 使用者將任務描述修改為 "支援任務詳細資訊與活動紀錄"
+    And 使用者送出修改
+    Then Drawer 應顯示最新任務描述
+    And 活動紀錄應包含 "已更新任務描述"
 ```
 
 ### 7.6 Move Task State On Board
@@ -539,11 +578,11 @@ Feature: Task 詳細資訊
 1. 使用者可以在看板上拖曳 Task Card 到另一個 workflow column
 2. 放開後，系統應以放置的目標欄位作為新的 workflow state
 3. 移動成功後，Task 應立即顯示在目標欄位
-4. 移動到非 Done 類狀態時，系統應記錄 TaskStateChanged
-5. 移動到非 Done 類狀態時，Task 不應有 completed time
-6. Task Detail Drawer 應顯示更新後的目前狀態
-7. 當 Task 進入 Done 類狀態時，系統應記錄 TaskStateChanged 與 TaskCompleted
-8. 當 Task 進入 Done 類狀態時，系統應記錄完成時間
+4. Task 從非 Done 類狀態移動到另一個非 Done 類狀態時，系統應記錄 TaskStateChanged
+5. Task 從非 Done 類狀態移動到 Done 類狀態時，系統應記錄 TaskStateChanged 與 TaskCompleted
+6. Task 從非 Done 類狀態移動到 Done 類狀態時，系統應記錄完成時間
+7. Task 從 Done 類狀態移回非 Done 類狀態時，系統應記錄 TaskStateChanged 與 TaskReopened
+8. Task 從 Done 類狀態移回非 Done 類狀態時，Task 不應繼續顯示目前的 CompletedAt
 ```
 
 **UI / UX Notes**
@@ -561,8 +600,7 @@ Feature: Task 詳細資訊
 ```text
 1. 若使用者開始拖曳 Task Card，但最後沒有放到有效的 workflow column，Task Card 應回到原本欄位與原本位置。
 2. 若狀態變更請求失敗，Task Card 應回到原欄位，且畫面應顯示錯誤訊息，讓使用者知道這次拖曳未成功。
-3. 若 Task Detail Drawer 已開啟，拖曳成功後 Drawer 應同步顯示更新後的目前狀態、CompletedAt 與活動紀錄。
-4. Task Card 在未進行拖曳操作時，仍應保留原本的點擊行為，讓使用者可以開啟 Task Detail Drawer。
+3. Task Card 在未進行拖曳操作時，仍應保留原本的點擊行為，讓使用者可以開啟 Task Detail Drawer。
 ```
 
 **Testability**
@@ -600,6 +638,63 @@ Feature: Move task state on kanban board
     And a TaskStateChanged event should be recorded
     And a TaskCompleted event should be recorded
     And the task should have a completed time
+
+  Scenario: User reopens a task from Done
+    Given a project exists with a default workflow
+    And a task titled "Build Kanban Board" exists in the "Done" state
+    When the user drags the task to the "Active" column
+    Then the task should appear under the "Active" column
+    And a TaskStateChanged event should be recorded
+    And a TaskReopened event should be recorded
+    And the task should not show a current completed time
+```
+
+### 7.7 Reorder Task Within Column
+
+**Purpose**
+
+讓使用者在同一個 workflow column 內調整 Task 順序，以順序表達目前工作的優先順序。
+
+**Expected Behavior**
+
+```text
+1. 使用者可以在同一個 workflow column 內拖曳 Task Card 調整順序
+2. 排序成功後，欄位中的 Task Card 應立即反映新的順序
+3. 同欄位內的 Task 順序應反映使用者目前工作的優先順序
+4. 排序成功後，系統應記錄 TaskReordered
+5. Activity Timeline 應保留 TaskReordered 紀錄
+```
+
+**UI / UX Notes**
+
+```text
+1. 使用者在同欄位內拖曳 Task Card 時，欄位中應提供可辨識的落點提示，讓使用者知道卡片將插入的位置。
+2. 排序完成後，使用者不需重新整理頁面就應看得到最新順序。
+```
+
+**Testability**
+
+```text
+1. 同欄位排序必須能從畫面完成，而不需要直接呼叫 API。
+2. 測試應能辨識排序前後的 Task Card 順序變化。
+```
+
+**Related Rules**
+
+1. [Task 規則](#task-rules)
+2. [Board 規則](#board-rules)
+
+**Gherkin Draft**
+
+```gherkin
+Feature: Reorder task within a workflow column
+
+  Scenario: User reorders tasks within the same column
+    Given a project exists with a default workflow
+    And tasks titled "Task A" and "Task B" exist in the "Todo" state
+    When the user drags "Task B" above "Task A" within the "Todo" column
+    Then the "Todo" column should display "Task B" before "Task A"
+    And a TaskReordered event should be recorded
 ```
 
 ---
@@ -629,11 +724,16 @@ Feature: Move task state on kanban board
 4. Task 建立後顯示在 Kanban Board 的「待處理」（Todo）欄位
 5. 建立成功後，建立任務 Modal 應立即關閉
 6. Task Title 的必填錯誤訊息為「任務標題為必填欄位」
-7. Task 狀態可以從目前欄位變更到另一個 workflow state
-8. Task 移動到非 Done 類狀態時，系統應記錄 TaskStateChanged
-9. Task 移動到非 Done 類狀態時，不應記錄 CompletedAt
-10. 當 Task 進入 Done 類狀態時，系統應記錄 CompletedAt
-11. 當 Task 進入 Done 類狀態時，活動紀錄應包含 TaskCompleted
+7. Task 應可在 Task Detail Drawer 中編輯 Title、Description 與 Due Date
+8. Task 更新成功後，Activity Timeline 應包含對應的變更紀錄
+9. Task 狀態可以從目前欄位變更到另一個 workflow state
+10. Task 可在同一欄位內調整順序，且順序代表個人工作優先順序
+11. Task 從非 Done 類狀態移動到另一個非 Done 類狀態時，系統應記錄 TaskStateChanged
+12. Task 從 Done 類狀態移回非 Done 類狀態時，系統應另外記錄 TaskReopened
+13. Task 處於非 Done 類狀態時，不應顯示目前的 CompletedAt
+14. 當 Task 進入 Done 類狀態時，系統應記錄 CompletedAt
+15. 當 Task 進入 Done 類狀態時，活動紀錄應包含 TaskCompleted
+16. Task 調整順序後，活動紀錄應包含 TaskReordered
 ```
 
 <a id="board-rules"></a>
@@ -650,7 +750,8 @@ Feature: Move task state on kanban board
 7. 每個 workflow column 應提供穩定 selector，格式為 data-testid="workflow-column-{state-key}"
 8. Task Card 應提供穩定可定位方式，但不強制限定 HTML tag
 9. 使用者應可從 Project Kanban Board 透過 drag & drop 將 Task 移動到另一個 workflow column
-10. Task 移動成功後，原欄位與目標欄位都應反映最新位置
+10. 使用者應可在同一個 workflow column 內透過 drag & drop 調整 Task 順序
+11. Task 移動或排序成功後，欄位中的卡片順序都應反映最新位置
 ```
 
 ---
@@ -685,27 +786,55 @@ Feature: Move task state on kanban board
 ```text
 1. 使用者可以點擊 Task Card 開啟 Task Detail Drawer。
 2. Task Detail Drawer 應顯示任務標題。
-3. Task Detail Drawer 應顯示目前狀態。
-4. Task Detail Drawer 應顯示基本活動紀錄。
-5. Task Detail Drawer 的可見名稱應為「任務詳細資訊」。
+3. Task Detail Drawer 應顯示任務描述。
+4. Task Detail Drawer 應顯示目前狀態。
+5. Task Detail Drawer 應顯示建立時間與基本活動紀錄。
+6. Task 若已設定 Due Date，Task Detail Drawer 應顯示到期日。
+7. Task Detail Drawer 的可見名稱應為「任務詳細資訊」。
 ```
 
-### 9.4 Move Task State To Another Workflow State
+### 9.4 Edit Task Detail In Drawer
+
+```text
+1. 使用者可以在 Task Detail Drawer 修改 Task Title、Description 與 Due Date。
+2. 修改成功後，Drawer 應顯示最新資料。
+3. 修改成功後，Activity Timeline 應新增對應紀錄。
+4. 修改失敗時，畫面應顯示錯誤訊息，且不應錯誤覆蓋原資料。
+```
+
+### 9.5 Move Task State To Another Workflow State
 
 ```text
 1. 使用者可以從 Project Kanban Board 拖曳指定 Task 到另一個 workflow state。
 2. Task 從「待處理」（Todo）拖曳到「進行中」（Active）後，應顯示在「進行中」欄位。
-3. Task Detail Drawer 應顯示更新後的目前狀態為「進行中」。
-4. Task Detail Drawer 的活動紀錄應顯示 TaskStateChanged。
-5. Task Detail Drawer 不應顯示 CompletedAt。
+3. Task 的活動紀錄應顯示 TaskStateChanged。
+4. Task 不應顯示目前的 CompletedAt。
 ```
 
-### 9.5 Move Task State To Done
+### 9.6 Move Task State To Done
 
 ```text
 1. 使用者可以將位於「進行中」（Active）的 Task 拖曳到「已完成」（Done）欄位。
 2. Task 移動後，應顯示在「已完成」（Done）欄位。
-3. Task Detail Drawer 應顯示更新後的目前狀態為「已完成」。
-4. Task Detail Drawer 應顯示 CompletedAt。
-5. Task Detail Drawer 的活動紀錄應顯示 TaskStateChanged 與 TaskCompleted。
+3. Task 應顯示 CompletedAt。
+4. Task 的活動紀錄應顯示 TaskStateChanged 與 TaskCompleted。
+```
+
+### 9.7 Reopen Task From Done
+
+```text
+1. 使用者可以將位於「已完成」（Done）的 Task 拖曳回非 Done workflow state。
+2. Task 重新開啟後，應顯示在目標欄位。
+3. Task 重新開啟後，不應繼續顯示目前的 CompletedAt。
+4. Task 的活動紀錄應顯示 TaskStateChanged 與 TaskReopened。
+5. Activity Timeline 應保留先前的 TaskCompleted 與 TaskReopened 紀錄。
+```
+
+### 9.8 Reorder Task Within Column
+
+```text
+1. 使用者可以在同一個 workflow column 內拖曳 Task 調整順序。
+2. 排序成功後，欄位中的 Task 應以新的順序顯示。
+3. 同欄位內的 Task 順序應反映目前工作的優先順序。
+4. Task 的活動紀錄應顯示 TaskReordered。
 ```
