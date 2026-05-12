@@ -52,12 +52,11 @@ RonFlow v0.1 應包含以下功能：
 10. Reorder Task
 11. Task Detail Drawer
 12. Activity Timeline
-13. Priority
-14. Due Date
-15. 基本 loading state
-16. 基本 error handling
-17. 基本 empty state
-18. 基本自動測試覆蓋
+13. Due Date
+14. 基本 loading state
+15. 基本 error handling
+16. 基本 empty state
+17. 基本自動測試覆蓋
 ```
 
 ### 3.2 Excluded
@@ -79,6 +78,7 @@ RonFlow v0.1 暫不包含以下功能：
 12. Burndown Chart
 13. Attachment
 14. 完整報表
+15. Task Priority
 ```
 
 ---
@@ -118,7 +118,7 @@ RonFlow v0.1 聚焦於四條主線：
 4. 狀態變更 API 失敗時，畫面應顯示錯誤訊息。
 5. Done → 非 Done 時，系統應視為 Reopen。
 6. 非 Done → Done 時，系統應視為 Complete。
-7. 同欄位內應支援 Task 排序。
+7. 同欄位內應支援 Task 排序，並以順序反映個人工作的優先順序。
 8. 跨欄位移動時，應支援指定落點順序。
 ```
 
@@ -142,11 +142,10 @@ TaskReordered
 1. Task Title
 2. Description
 3. Current State
-4. Priority
-5. Due Date
-6. CreatedAt
-7. CompletedAt
-8. Activity Timeline
+4. Due Date
+5. CreatedAt
+6. CompletedAt
+7. Activity Timeline
 ```
 
 ### 6.2 Task Detail Drawer 應支援操作
@@ -154,9 +153,8 @@ TaskReordered
 ```text
 1. 編輯 Task Title
 2. 編輯 Description
-3. 修改 Priority
-4. 修改 Due Date
-5. 關閉 Drawer
+3. 修改 Due Date
+4. 關閉 Drawer
 ```
 
 ### 6.3 暫不支援
@@ -194,7 +192,6 @@ Activity Timeline 是 Task 的生命紀錄。
 TaskCreated
 TaskTitleChanged
 TaskDescriptionChanged
-TaskPriorityChanged
 TaskDueDateChanged
 TaskStateChanged
 TaskCompleted
@@ -208,7 +205,6 @@ TaskReordered
 已建立任務
 已更新任務標題
 已更新任務描述
-已將優先度改為「高」
 已設定到期日為 2026/05/20
 已將狀態從「待處理」移至「進行中」
 已完成任務
@@ -228,7 +224,7 @@ v0.1 應優先處理個人每天使用時會遇到的體驗問題。
 1. 快速建立任務
 2. Enter 送出建立任務
 3. 建立任務後可以繼續建立下一個
-4. Task Card 顯示 Priority
+4. 同欄位 Task 順序應清楚反映目前工作的優先順序
 5. Task Card 顯示 Due Date
 6. 過期任務有明顯提示
 7. Done 欄位可以收合
@@ -250,22 +246,20 @@ v0.1 應優先處理個人每天使用時會遇到的體驗問題。
 ```text
 1. 補齊 Move Task State On Board 的缺漏測試。
 2. 實作 Task Description。
-3. 實作 Task Priority。
+3. 實作同欄位 Task 排序，讓順序反映個人工作的優先順序。
 4. 實作 Task Due Date。
 5. 實作 TaskCompleted 行為。
 6. 實作 TaskReopened 行為。
 7. 擴充 Activity Timeline。
-8. Drawer 開啟期間，Task 更新時應即時同步。
 ```
 
 ### 9.3 Sprint 2 可選
 
 ```text
-1. 同欄位 Task 排序。
-2. 跨欄位移動時指定落點順序。
-3. Done 欄位收合。
-4. 快速建立多筆任務。
-5. 過期任務提示。
+1. 跨欄位移動時指定落點順序。
+2. Done 欄位收合。
+3. 快速建立多筆任務。
+4. 過期任務提示。
 ```
 
 ### 9.4 Sprint 2 不建議納入
@@ -290,7 +284,7 @@ v0.1 應優先處理個人每天使用時會遇到的體驗問題。
 ```text
 1. 拖曳後若沒有放到有效欄位，Task Card 應回到原欄位與原位置。
 2. 狀態變更 API 失敗時，Task Card 應回到原欄位並顯示錯誤訊息。
-3. Drawer 已開啟時若外部拖曳成功，Drawer 應同步最新狀態、CompletedAt 與 Activity Timeline。
+3. 同欄位拖曳排序後，Task 順序應正確更新。
 ```
 
 ### 10.2 Task Detail 測試
@@ -299,11 +293,10 @@ v0.1 應優先處理個人每天使用時會遇到的體驗問題。
 1. 使用者可以在 Drawer 查看 Task Description。
 2. 使用者可以在 Drawer 修改 Task Title。
 3. 使用者可以在 Drawer 修改 Task Description。
-4. 使用者可以在 Drawer 修改 Priority。
-5. 使用者可以在 Drawer 修改 Due Date。
-6. 修改成功後，Drawer 應顯示最新資料。
-7. 修改成功後，Activity Timeline 應新增對應紀錄。
-8. 修改失敗時，畫面應顯示錯誤訊息，且不應錯誤覆蓋原資料。
+4. 使用者可以在 Drawer 修改 Due Date。
+5. 修改成功後，Drawer 應顯示最新資料。
+6. 修改成功後，Activity Timeline 應新增對應紀錄。
+7. 修改失敗時，畫面應顯示錯誤訊息，且不應錯誤覆蓋原資料。
 ```
 
 ### 10.3 Complete / Reopen 測試
@@ -322,11 +315,10 @@ v0.1 應優先處理個人每天使用時會遇到的體驗問題。
 1. 建立 Task 後，Activity Timeline 應顯示已建立任務。
 2. 修改 Title 後，Activity Timeline 應顯示已更新任務標題。
 3. 修改 Description 後，Activity Timeline 應顯示已更新任務描述。
-4. 修改 Priority 後，Activity Timeline 應顯示已變更優先度。
-5. 修改 Due Date 後，Activity Timeline 應顯示已設定或更新到期日。
-6. 移動狀態後，Activity Timeline 應顯示狀態變更。
-7. 完成任務後，Activity Timeline 應顯示已完成任務。
-8. 重新開啟任務後，Activity Timeline 應顯示已重新開啟任務。
+4. 修改 Due Date 後，Activity Timeline 應顯示已設定或更新到期日。
+5. 移動狀態後，Activity Timeline 應顯示狀態變更。
+6. 完成任務後，Activity Timeline 應顯示已完成任務。
+7. 重新開啟任務後，Activity Timeline 應顯示已重新開啟任務。
 ```
 
 ---
@@ -338,23 +330,20 @@ v0.1 應優先處理個人每天使用時會遇到的體驗問題。
 ```text
 1. Move Task State On Board 缺漏測試
 2. Task Description
-3. Task Priority
+3. 同欄位 Task 排序
 4. Task Due Date
 5. TaskCompleted
 6. TaskReopened
 7. Activity Timeline 擴充
-8. Drawer 即時同步
 ```
 
 ### P1：v0.1 體驗明顯加分
 
 ```text
-1. 同欄位 Task 排序
-2. 跨欄位移動時指定落點順序
-3. Task Card 顯示 Priority
-4. Task Card 顯示 Due Date
-5. 過期任務提示
-6. 快速建立多筆任務
+1. 跨欄位移動時指定落點順序
+2. Task Card 顯示 Due Date
+3. 過期任務提示
+4. 快速建立多筆任務
 ```
 
 ### P2：可延後到 v0.2
