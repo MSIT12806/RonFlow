@@ -1,5 +1,5 @@
 import { nextTick } from 'vue'
-import { useApiResource } from '../../src/composables/useApiResource'
+import { useApiResource } from '../useApiResource'
 
 describe('useApiResource', () => {
   it('tracks loading and stores returned data', async () => {

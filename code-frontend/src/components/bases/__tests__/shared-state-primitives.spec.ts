@@ -1,8 +1,8 @@
 import { mount } from '@vue/test-utils'
-import ApiCommandResourceView from '../../src/components/bases/ApiCommandResourceView.vue'
-import AsyncStateBoundary from '../../src/components/bases/AsyncStateBoundary.vue'
-import BaseErrorState from '../../src/components/bases/BaseErrorState.vue'
-import BaseLoadingState from '../../src/components/bases/BaseLoadingState.vue'
+import ApiCommandResourceView from '../ApiCommandResourceView.vue'
+import AsyncStateBoundary from '../AsyncStateBoundary.vue'
+import BaseErrorState from '../BaseErrorState.vue'
+import BaseLoadingState from '../BaseLoadingState.vue'
 
 describe('shared state primitives', () => {
   it('renders loading state with a status role and message', () => {
@@ -97,7 +97,7 @@ describe('shared state primitives', () => {
       },
     })
 
-    expect(wrapper.get('[data-testid="command-field"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="command-field"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="api-command-error"]').attributes('role')).toBe('alert')
     expect(wrapper.text()).toContain('命令錯誤測試訊息')
   })

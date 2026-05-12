@@ -355,7 +355,7 @@ test.describe('RonFlow UI/UX 驗收規格', () => {
 
     await expect(detailDialog).toBeVisible()
     await expect(detailDialog.getByRole('heading', { name: '任務詳細資訊' })).toBeVisible()
-    await expect(detailDialog.getByRole('heading', { name: taskTitle })).toBeVisible()
+    await expect(detailDialog.getByLabel('任務標題')).toHaveValue(taskTitle)
     await expect(detailDialog.getByText('待處理', { exact: true })).toBeVisible()
     await expect(detailDialog.getByText('已建立任務', { exact: true })).toBeVisible()
     await expect(detailDialog.getByText('完成時間', { exact: true })).toHaveCount(0)

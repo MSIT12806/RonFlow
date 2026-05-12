@@ -1,16 +1,12 @@
 <template>
-  <div v-if="isOpen" class="modal-backdrop">
-    <div role="dialog" aria-modal="true" aria-labelledby="task-detail-title" class="modal-card modal-card-wide">
-      <div class="modal-header">
-        <div>
-          <p class="eyebrow">Task detail</p>
-          <h2 id="task-detail-title">任務詳細資訊</h2>
-        </div>
-        <button type="button" class="ghost-icon-button" aria-label="關閉視窗" @click="$emit('close')">
-          ×
-        </button>
-      </div>
-
+  <BaseModalShell
+    :is-open="isOpen"
+    title="任務詳細資訊"
+    title-id="task-detail-title"
+    eyebrow="Task detail"
+    size="wide"
+    @close="$emit('close')"
+  >
       <AsyncStateBoundary
         :is-loading="isLoading"
         :error-message="errorMessage"
@@ -86,14 +82,14 @@
           </div>
         </section>
       </AsyncStateBoundary>
-    </div>
-  </div>
+  </BaseModalShell>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import AsyncStateBoundary from './bases/AsyncStateBoundary.vue'
 import ApiCommandResourceView from './bases/ApiCommandResourceView.vue'
+import BaseModalShell from './bases/BaseModalShell.vue'
 import type { TaskDetailResponse } from '../api/ronflowApi'
 
 const props = defineProps<{

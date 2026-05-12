@@ -1,22 +1,12 @@
 <template>
-  <div v-if="isOpen" class="modal-backdrop">
-    <div role="dialog" aria-modal="true" aria-labelledby="create-project-title" class="modal-card">
-      <div class="modal-header">
-        <div>
-          <p class="eyebrow">New project</p>
-          <h2 id="create-project-title">建立專案</h2>
-        </div>
-        <button
-          type="button"
-          class="ghost-icon-button"
-          aria-label="關閉視窗"
-          :disabled="isSubmitting"
-          @click="close"
-        >
-          ×
-        </button>
-      </div>
-
+  <BaseModalShell
+    :is-open="isOpen"
+    title="建立專案"
+    title-id="create-project-title"
+    eyebrow="New project"
+    :close-disabled="isSubmitting"
+    @close="close"
+  >
       <form class="modal-form" @submit.prevent="submit">
         <label for="project-name">專案名稱</label>
         <input
@@ -40,14 +30,14 @@
           <button type="submit" class="primary-button" :disabled="isSubmitting">建立</button>
         </div>
       </form>
-    </div>
-  </div>
+  </BaseModalShell>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { ApiValidationError } from '../api/ronflowApi'
 import { ProjectCommandService } from '../application'
+import BaseModalShell from '../components/bases/BaseModalShell.vue'
 import ApiCommandResourceView from '../components/bases/ApiCommandResourceView.vue'
 import { useApiResource } from '../composables/useApiResource'
 
