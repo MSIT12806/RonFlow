@@ -1,7 +1,7 @@
 
 
 <template>
-  <BaseAsyncStatePlayground v-if="showAsyncStatePlayground" />
+  <AsyncStatePlayground v-if="showAsyncStatePlayground" />
 
   <main v-else class="app-shell">
     <div class="ambient ambient-left"></div>
@@ -39,6 +39,7 @@
             :active-project-name="activeProject?.name ?? null"
             :columns="activeColumns"
             :is-loading-board="isLoadingBoard"
+            :command-error-message="boardCommandError"
             @open-create-task="onOpenCreateTask"
             @open-task-detail="openTaskDetail"
             @move-task-to-state="moveTaskToState"
@@ -70,7 +71,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import BaseAsyncStatePlayground from './components/bases/BaseAsyncStatePlayground.vue'
+import AsyncStatePlayground from './devtools/playground/AsyncStatePlayground.vue'
 import AsyncStateBoundary from './components/bases/AsyncStateBoundary.vue'
 import CreateProjectModal from './components/CreateProjectModal.vue'
 import CreateTaskModal from './components/CreateTaskModal.vue'
@@ -97,6 +98,7 @@ const {
   isLoadingTaskDetail,
   taskDetailError,
   pageError,
+  boardCommandError,
   openTaskDetail,
   selectProject,
   closeTaskDetail,

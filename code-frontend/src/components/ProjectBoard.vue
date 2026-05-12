@@ -17,6 +17,11 @@
         error-message=""
         loading-message="正在載入專案看板..."
       >
+        <BaseErrorState
+          v-if="commandErrorMessage"
+          :message="commandErrorMessage"
+        />
+
         <div class="board-grid">
           <article
             v-for="column in columns"
@@ -75,12 +80,14 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import AsyncStateBoundary from './bases/AsyncStateBoundary.vue'
+import BaseErrorState from './bases/BaseErrorState.vue'
 import type { BoardColumnResponse, WorkflowKey } from '../api/ronflowApi'
 
 const props = defineProps<{
   activeProjectName: string | null
   columns: BoardColumnResponse[]
   isLoadingBoard: boolean
+  commandErrorMessage: string
 }>()
 
 const emit = defineEmits<{

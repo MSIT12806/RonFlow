@@ -31,6 +31,7 @@ export function useRonFlowBoard() {
   const isTaskDetailOpen = ref(false)
 
   const pageError = ref('')
+  const boardCommandError = ref('')
 
   const projectsResource = useApiResource(
     () => projectQueryService.getProjects(),
@@ -111,7 +112,7 @@ export function useRonFlowBoard() {
       return
     }
 
-    pageError.value = ''
+    boardCommandError.value = ''
 
     try {
       const updatedTask = await changeTaskStateResource.execute(activeProjectId.value, taskId, stateKey)
@@ -123,11 +124,11 @@ export function useRonFlowBoard() {
       await loadBoard(activeProjectId.value)
     } catch (error) {
       if (error instanceof ApiRequestError && error.status === 404) {
-        pageError.value = '找不到指定的任務，請重新整理專案看板。'
+        boardCommandError.value = '找不到指定的任務，請重新整理專案看板。'
         return
       }
 
-      pageError.value = '變更任務狀態失敗，請稍後再試。'
+      boardCommandError.value = '變更任務狀態失敗，請稍後再試。'
     }
   }
 
@@ -183,6 +184,7 @@ export function useRonFlowBoard() {
 
   async function loadBoard(projectId: string) {
     pageError.value = ''
+    boardCommandError.value = ''
 
     try {
       await boardResource.execute(projectId)
@@ -214,6 +216,7 @@ export function useRonFlowBoard() {
     isLoadingBoard,
     isLoadingTaskDetail,
     pageError,
+    boardCommandError,
     openTaskDetail,
     selectProject,
     closeTaskDetail,

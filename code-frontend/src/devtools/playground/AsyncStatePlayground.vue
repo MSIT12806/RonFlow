@@ -94,6 +94,38 @@
             </form>
           </ApiCommandResourceView>
         </article>
+
+        <article class="playground-example-card">
+          <div>
+            <p class="detail-label">Board command error</p>
+            <h2>ProjectBoard</h2>
+            <p class="playground-copy">展示 board mutation 失敗時保留看板內容，並只在區塊內顯示錯誤訊息，不切成整頁錯誤。</p>
+          </div>
+
+          <div class="playground-toolbar" role="tablist" aria-label="切換 project board 狀態">
+            <button
+              v-for="state in boardStates"
+              :key="state.id"
+              type="button"
+              class="playground-toggle"
+              :class="{ 'playground-toggle-active': state.id === activeBoardStateId }"
+              :aria-pressed="state.id === activeBoardStateId"
+              @click="activeBoardStateId = state.id"
+            >
+              {{ state.label }}
+            </button>
+          </div>
+
+          <ProjectBoard
+            active-project-name="Playground Project"
+            :columns="playgroundBoardColumns"
+            :is-loading-board="activeBoardState.type === 'loading'"
+            :command-error-message="activeBoardState.type === 'error' ? activeBoardState.message : ''"
+            @open-create-task="noop"
+            @open-task-detail="noop"
+            @move-task-to-state="noop"
+          />
+        </article>
       </section>
     </section>
   </main>
@@ -101,8 +133,10 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import ApiCommandResourceView from './ApiCommandResourceView.vue'
-import ApiQueryResourceView from './ApiQueryResourceView.vue'
+import type { BoardColumnResponse } from '../../api/types'
+import ProjectBoard from '../../components/ProjectBoard.vue'
+import ApiCommandResourceView from '../../components/bases/ApiCommandResourceView.vue'
+import ApiQueryResourceView from '../../components/bases/ApiQueryResourceView.vue'
 
 type QueryState = {
   id: string
@@ -119,6 +153,13 @@ type CommandState = {
   message: string
   fieldValue: string
   disableInteraction: boolean
+}
+
+type BoardState = {
+  id: string
+  label: string
+  type: 'idle' | 'loading' | 'error'
+  message: string
 }
 
 const queryStates: QueryState[] = [
@@ -172,8 +213,64 @@ const commandStates: CommandState[] = [
   },
 ]
 
+const boardStates: BoardState[] = [
+  {
+    id: 'idle',
+    label: 'Idle',
+    type: 'idle',
+    message: '',
+  },
+  {
+    id: 'error',
+    label: 'Command Error',
+    type: 'error',
+    message: '變更任務狀態失敗，請稍後再試。',
+  },
+  {
+    id: 'loading',
+    label: 'Loading',
+    type: 'loading',
+    message: '',
+  },
+]
+
+const playgroundBoardColumns: BoardColumnResponse[] = [
+  {
+    stateKey: 'todo',
+    label: '待處理',
+    isInitialState: true,
+    emptyStateMessage: '目前沒有任務',
+    tasks: [
+      { id: 'task-1', title: '整理 Sprint 2 測試清單' },
+      { id: 'task-2', title: '確認拖曳失敗的回饋文案' },
+    ],
+  },
+  {
+    stateKey: 'active',
+    label: '進行中',
+    isInitialState: false,
+    emptyStateMessage: '目前沒有任務',
+    tasks: [{ id: 'task-3', title: '補上 board command error alert' }],
+  },
+  {
+    stateKey: 'review',
+    label: '審查中',
+    isInitialState: false,
+    emptyStateMessage: '目前沒有任務',
+    tasks: [],
+  },
+  {
+    stateKey: 'done',
+    label: '已完成',
+    isInitialState: false,
+    emptyStateMessage: '目前沒有任務',
+    tasks: [{ id: 'task-4', title: '完成 v0.1 scope 對齊' }],
+  },
+]
+
 const activeQueryStateId = ref(queryStates[0].id)
 const activeCommandStateId = ref(commandStates[0].id)
+const activeBoardStateId = ref(boardStates[0].id)
 
 const activeQueryState = computed(() =>
   queryStates.find((state) => state.id === activeQueryStateId.value) ?? queryStates[0],
@@ -182,4 +279,10 @@ const activeQueryState = computed(() =>
 const activeCommandState = computed(() =>
   commandStates.find((state) => state.id === activeCommandStateId.value) ?? commandStates[0],
 )
+
+const activeBoardState = computed(() =>
+  boardStates.find((state) => state.id === activeBoardStateId.value) ?? boardStates[0],
+)
+
+function noop() {}
 </script>
