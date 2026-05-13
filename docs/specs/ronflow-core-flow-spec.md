@@ -66,8 +66,15 @@ Done   -> 已完成
 8. 使用者可以在 Kanban Board 透過 drag & drop 變更 Task 狀態
 9. 使用者可以在 Task Detail Drawer 查看與編輯 Task Title、Description 與 Due Date
 10. 使用者可以在同欄位內調整 Task 順序，以順序反映目前工作的優先順序
-11. 系統會記錄 Task 的建立、內容更新、狀態推進、完成、重新開啟與排序活動
-12. 系統會提供 Project Name 與 Task Title 的基本驗證
+11. Task 應同時具有 Workflow State 與 Lifecycle State 兩條狀態軸線
+12. 使用者可以封存 Task，讓它離開主要工作視野但保留紀錄
+13. 使用者可以還原已封存的 Task
+14. 使用者可以將 Task 移到垃圾桶，讓它離開主要工作視野但保留反悔機會
+15. 使用者可以還原垃圾桶中的 Task
+16. 系統會提供 Archived Tasks View 與 Trash View
+17. Archived / Trashed Task 可開啟 read-only Task Detail Drawer 並查看活動紀錄
+18. 系統會記錄 Task 的建立、內容更新、狀態推進、完成、重新開啟、排序、封存、移到垃圾桶與還原活動
+19. 系統會提供 Project Name 與 Task Title 的基本驗證
 ```
 
 ## 5. Ubiquitous Language 對照表
@@ -107,6 +114,23 @@ Done   -> 已完成
 | 建立時間欄位 | CreatedAt | 建立時間 | Task 詳細資訊中的時間欄位。 |
 | 完成時間欄位 | CompletedAt | 完成時間 | Task 完成後顯示的時間欄位。 |
 | 活動紀錄 | Activity Timeline | 活動紀錄 | 顯示任務活動紀錄的區塊。 |
+| 任務生命週期狀態 | Lifecycle State | 任務生命週期 | 用來描述 Task 是否仍位於主要工作視野。 |
+| 正常任務 | ActiveRecord | 正常任務 | 可出現在主要 Board / List 的 Task。 |
+| 已封存任務 | Archived | 已封存 | 不出現在主要 Board，但可在封存區查看與還原。 |
+| 垃圾桶任務 | Trashed | 垃圾桶 | 不出現在主要 Board，但可在垃圾桶查看與還原。 |
+| 封存任務清單 | Archived Tasks View | 已封存任務 | 顯示已封存 Task 的清單畫面。 |
+| 垃圾桶清單 | Trash View | 垃圾桶 | 顯示已移到垃圾桶 Task 的清單畫面。 |
+
+### 5.3 Task State Axes
+
+```text
+1. Task 應同時具有 Workflow State 與 Lifecycle State。
+2. Workflow State 代表 Task 在工作流程中的欄位狀態，例如 Todo / Active / Review / Done。
+3. Lifecycle State 代表 Task 是否仍位於主要工作視野，例如 ActiveRecord / Archived / Trashed。
+4. Archive / Trash 不屬於 workflow state，而屬於 lifecycle state。
+5. Archived / Trashed Task 應保留原本的 workflow state，供還原時回到原欄位使用。
+6. 本文件目前不包含 Permanent Delete 的產品行為。
+```
 
 ---
 
@@ -136,6 +160,9 @@ Done   -> 已完成
 19. 系統在 Task 更新後保留最新資料，並新增對應的活動紀錄
 20. 使用者可以拖曳 Task 到其他欄位，或在同欄位內調整順序
 21. Task 進入 Done 時系統記錄完成；移回非 Done 時系統記錄重新開啟
+22. 使用者可以從 Task Detail Drawer 的更多操作封存 Task 或移到垃圾桶
+23. 已封存 / 已移到垃圾桶的 Task 不出現在 Project Kanban Board
+24. 使用者可以在 Archived Tasks View 或 Trash View 開啟 read-only Task Detail Drawer，並將 Task 還原到主要工作視野
 ```
 
 ### 6.2 Flow Map
@@ -147,6 +174,8 @@ flowchart TD
     C[Project Kanban Board]
     D[Create Task Modal]
     E[Task Detail Drawer]
+  F[Archived Tasks View]
+  G[Trash View]
 
     A -->|Click Create Project| B
     B -->|Project Created and Modal Closed| C
@@ -155,6 +184,10 @@ flowchart TD
     D -->|Task Created and Modal Closed| C
     C -->|Click Task Card| E
     E -->|Close Drawer| C
+  E -->|Archive Task| F
+  E -->|Move Task To Trash| G
+  F -->|Restore Task| C
+  G -->|Restore Task| C
 ```
 
 ---
@@ -337,6 +370,8 @@ Feature: 建立專案
 1. 顯示「待處理 / 進行中 / 審查中 / 已完成」四個欄位
 2. 新建 Task 出現在「待處理」（Todo）欄位
 3. 點擊 Task Card 可開啟 Task Detail Drawer
+4. 只有 Lifecycle State 為 ActiveRecord 的 Task 會出現在 Project Kanban Board
+5. 已封存或已移到垃圾桶的 Task 不應繼續出現在 Board
 ```
 
 **UI / UX Notes**
@@ -347,6 +382,7 @@ Feature: 建立專案
 3. 每個 workflow column 至少應顯示欄位名稱、該欄位的 Task 數量，以及屬於該欄位的 Task Card 清單。
 4. 「建立任務」按鈕應位於看板頁可直接操作的位置，使用者不需先打開其他選單才能建立 Task。
 5. 每張 Task Card 都應同時支援兩種操作：點擊開啟 Task Detail Drawer，以及拖曳到其他 workflow column 以變更狀態。
+6. Task Card 不應直接提供 Archive 或 Move To Trash 操作，避免與主要工作流互動混淆。
 ```
 
 **Empty State**
@@ -375,6 +411,7 @@ Feature: 建立專案
 
 1. [Board 規則](#board-rules)
 2. [Task 規則](#task-rules)
+3. [Lifecycle 規則](#lifecycle-rules)
 
 **Gherkin Draft**
 
@@ -495,6 +532,7 @@ Feature: 建立任務
 5. 建立時間
 6. 完成時間（僅 Task 位於 Done 類狀態時顯示）
 7. 活動紀錄
+8. 任務生命週期提示（僅已封存 / 已移到垃圾桶任務時顯示）
 ```
 
 **User Actions**
@@ -504,6 +542,9 @@ Feature: 建立任務
 2. 編輯任務描述
 3. 修改到期日
 4. 關閉 Drawer
+5. 從更多操作封存任務
+6. 從更多操作移到垃圾桶
+7. 在 read-only mode 還原任務
 ```
 
 **Expected Behavior**
@@ -513,7 +554,10 @@ Feature: 建立任務
 2. 使用者可以在 Drawer 修改 Task Title、Description 與 Due Date
 3. 修改成功後，Drawer 應顯示最新資料
 4. 修改成功後，Activity Timeline 應新增對應紀錄
-5. Activity Timeline 至少應支援 TaskCreated、TaskTitleChanged、TaskDescriptionChanged、TaskDueDateChanged、TaskStateChanged、TaskCompleted、TaskReopened、TaskReordered
+5. Activity Timeline 至少應支援 TaskCreated、TaskTitleChanged、TaskDescriptionChanged、TaskDueDateChanged、TaskStateChanged、TaskCompleted、TaskReopened、TaskReordered、TaskArchived、TaskRestoredFromArchive、TaskMovedToTrash、TaskRestoredFromTrash
+6. 當 Task 位於 ActiveRecord 時，Drawer 應允許編輯內容
+7. 當 Task 位於 Archived 或 Trashed 時，Drawer 應以 read-only mode 顯示，且不允許編輯內容、移動狀態或排序
+8. 當 Task 位於 Archived 或 Trashed 時，Drawer 應提供還原操作
 ```
 
 **UI / UX Notes**
@@ -523,6 +567,9 @@ Feature: 建立任務
 2. Task Detail Drawer 應以覆蓋看板一部分的方式呈現，讓使用者在關閉 Drawer 後可以回到原本的 Project Kanban Board 上下文。
 3. 活動紀錄中的每一筆項目都應以時間先後順序顯示，讓使用者可以直接讀出 Task 的變化過程。
 4. CompletedAt 只在 Task 已進入 Done 類狀態時顯示；未完成的 Task 不應顯示空白的 CompletedAt 欄位。
+5. Archive 與 Move To Trash 操作應放在 Task Detail Drawer 的更多操作中，而不是放在 Task Card 或 hover 快捷操作。
+6. 已封存任務的 Drawer 應顯示「此任務已封存」之類的狀態提示。
+7. 位於垃圾桶的 Drawer 應顯示「此任務位於垃圾桶」之類的狀態提示。
 ```
 
 **State Handling / Feedback**
@@ -530,6 +577,9 @@ Feature: 建立任務
 ```text
 1. Task Detail Drawer 的資料讀取 loading/error handling 依 [共用前端設計規範](../../../../CommonSpec/frontend-guidelines.md)。
 2. 若 Task 更新請求失敗，Drawer 應維持開啟，畫面應顯示錯誤訊息，且不應錯誤覆蓋原資料。
+3. 封存成功後，系統應將 Task 移出主要工作視野，並可顯示 toast：「已封存任務」與「復原」。
+4. 移到垃圾桶成功後，系統應將 Task 移出主要工作視野，並可顯示 toast：「已移到垃圾桶」與「復原」。
+5. 使用者點擊 toast 的「復原」後，系統應還原對應 Task。
 ```
 
 **Visible Names**
@@ -543,6 +593,7 @@ Feature: 建立任務
 
 1. [Task 規則](#task-rules)
 2. [Board 規則](#board-rules)
+3. [Lifecycle 規則](#lifecycle-rules)
 
 **Gherkin Draft**
 
@@ -697,6 +748,184 @@ Feature: Reorder task within a workflow column
     And a TaskReordered event should be recorded
 ```
 
+### 7.8 Archived Tasks View
+
+**Purpose**
+
+讓使用者查看已封存的 Task，並在需要時還原。
+
+**Display**
+
+```text
+1. 頁面標題
+2. 已封存 Task 清單
+3. 任務標題
+4. 所屬 Project 名稱
+5. 原 workflow state
+6. ArchivedAt
+7. 還原操作
+```
+
+**User Actions**
+
+```text
+1. 開啟已封存 Task 的 read-only Task Detail Drawer
+2. 還原已封存 Task
+```
+
+**Visible Names**
+
+```text
+1. 頁面標題：已封存任務
+2. 主要操作：還原
+```
+
+**Expected Behavior**
+
+```text
+1. Archived Tasks View 只顯示 Lifecycle State 為 Archived 的 Task
+2. 使用者可以從清單開啟已封存 Task 的 read-only Task Detail Drawer
+3. 已封存 Task 可以被還原
+4. 還原後，Task 回到原本 workflow state
+5. 還原後，Task 應顯示在原 workflow column 的最後
+6. 還原後，Task 不應繼續顯示在 Archived Tasks View
+```
+
+**Empty State**
+
+```text
+1. 若目前沒有任何已封存 Task，畫面應顯示「目前沒有已封存任務」。
+```
+
+**State Handling / Feedback**
+
+```text
+1. Archived Tasks View 的資料讀取 loading/error handling 依 [共用前端設計規範](../../../../CommonSpec/frontend-guidelines.md)。
+2. 還原成功後，系統可顯示 toast：「已還原任務到對應欄位」或提供「前往查看」。
+```
+
+**Testability**
+
+```text
+1. Archived Tasks View 應提供穩定可定位方式，讓測試可以辨識已封存 Task 清單。
+2. 每筆已封存 Task 應可透過任務標題或其他可存取名稱定位。
+3. 還原操作應提供穩定可定位方式。
+```
+
+**Related Rules**
+
+1. [Task 規則](#task-rules)
+2. [Lifecycle 規則](#lifecycle-rules)
+
+**Gherkin Draft**
+
+```gherkin
+Feature: Archived tasks view
+
+  Scenario: 使用者查看已封存任務
+    Given 目前存在已封存的 Task
+    When 使用者進入 Archived Tasks View
+    Then 畫面應顯示標題為「已封存任務」
+    And 畫面應列出已封存 Task 的標題、所屬 Project、原 workflow state 與 ArchivedAt
+
+  Scenario: 使用者還原已封存 Task
+    Given 使用者已位於 Archived Tasks View
+    And 畫面上存在標題為 "Build Kanban Board" 的已封存 Task
+    When 使用者執行「還原」
+    Then 該 Task 應回到原本 workflow state
+    And 該 Task 應顯示在原 workflow column 的最後
+    And 該 Task 不應繼續出現在 Archived Tasks View
+```
+
+### 7.9 Trash View
+
+**Purpose**
+
+讓使用者查看已移到垃圾桶的 Task，並在需要時還原。
+
+**Display**
+
+```text
+1. 頁面標題
+2. 垃圾桶 Task 清單
+3. 任務標題
+4. 所屬 Project 名稱
+5. 原 workflow state
+6. TrashedAt
+7. 還原操作
+```
+
+**User Actions**
+
+```text
+1. 開啟垃圾桶 Task 的 read-only Task Detail Drawer
+2. 還原垃圾桶 Task
+```
+
+**Visible Names**
+
+```text
+1. 頁面標題：垃圾桶
+2. 主要操作：還原
+```
+
+**Expected Behavior**
+
+```text
+1. Trash View 只顯示 Lifecycle State 為 Trashed 的 Task
+2. 使用者可以從清單開啟垃圾桶 Task 的 read-only Task Detail Drawer
+3. 垃圾桶中的 Task 可以被還原
+4. 還原後，Task 回到原本 workflow state
+5. 還原後，Task 應顯示在原 workflow column 的最後
+6. 還原後，Task 不應繼續顯示在 Trash View
+```
+
+**Empty State**
+
+```text
+1. 若目前沒有任何垃圾桶 Task，畫面應顯示「垃圾桶目前沒有任務」。
+```
+
+**State Handling / Feedback**
+
+```text
+1. Trash View 的資料讀取 loading/error handling 依 [共用前端設計規範](../../../../CommonSpec/frontend-guidelines.md)。
+2. 還原成功後，系統可顯示 toast：「已還原任務到對應欄位」或提供「前往查看」。
+```
+
+**Testability**
+
+```text
+1. Trash View 應提供穩定可定位方式，讓測試可以辨識垃圾桶 Task 清單。
+2. 每筆垃圾桶 Task 應可透過任務標題或其他可存取名稱定位。
+3. 還原操作應提供穩定可定位方式。
+```
+
+**Related Rules**
+
+1. [Task 規則](#task-rules)
+2. [Lifecycle 規則](#lifecycle-rules)
+
+**Gherkin Draft**
+
+```gherkin
+Feature: Trash view
+
+  Scenario: 使用者查看垃圾桶任務
+    Given 目前存在已移到垃圾桶的 Task
+    When 使用者進入 Trash View
+    Then 畫面應顯示標題為「垃圾桶」
+    And 畫面應列出垃圾桶 Task 的標題、所屬 Project、原 workflow state 與 TrashedAt
+
+  Scenario: 使用者還原垃圾桶 Task
+    Given 使用者已位於 Trash View
+    And 畫面上存在標題為 "Build Kanban Board" 的垃圾桶 Task
+    When 使用者執行「還原」
+    Then 該 Task 應回到原本 workflow state
+    And 該 Task 應顯示在原 workflow column 的最後
+    And 該 Task 不應繼續出現在 Trash View
+```
+
 ---
 
 ## 8. 驗證與規則
@@ -736,9 +965,34 @@ Feature: Reorder task within a workflow column
 16. Task 調整順序後，活動紀錄應包含 TaskReordered
 ```
 
+<a id="lifecycle-rules"></a>
+
+### 8.3 Lifecycle 規則
+
+```text
+1. Task 應同時具有 Workflow State 與 Lifecycle State。
+2. Archive / Trash 不屬於 workflow state，而屬於 lifecycle state。
+3. ActiveRecord Task 可以出現在主要 Board / List。
+4. Archived Task 不出現在 Project Kanban Board。
+5. Trashed Task 不出現在 Project Kanban Board。
+6. Archived Task 出現在 Archived Tasks View。
+7. Trashed Task 出現在 Trash View。
+8. Archive / Trash 不改變 Task 原本的 workflow state。
+9. Archived / Trashed Task 可以還原。
+10. 還原後，Task 回到原本 workflow state。
+11. 還原後，Task 放在該 workflow column 的最後。
+12. Archived / Trashed Task 的 Activity Timeline 應保留。
+13. Archived / Trashed Task 可以開啟 read-only Task Detail Drawer。
+14. Archived / Trashed Task 不允許編輯內容、移動狀態或排序。
+15. Archive / Move To Trash 操作放在 Task Detail Drawer 的更多操作中。
+16. Task Card 不直接提供 Archive / Move To Trash 操作。
+17. Move To Trash 是可逆操作，不需要二次確認。
+18. 系統目前不包含 Permanent Delete 的產品行為。
+```
+
 <a id="board-rules"></a>
 
-### 8.3 Board 規則
+### 8.4 Board 規則
 
 ```text
 1. Project Kanban Board 應顯示 Project Name
@@ -752,6 +1006,8 @@ Feature: Reorder task within a workflow column
 9. 使用者應可從 Project Kanban Board 透過 drag & drop 將 Task 移動到另一個 workflow column
 10. 使用者應可在同一個 workflow column 內透過 drag & drop 調整 Task 順序
 11. Task 移動或排序成功後，欄位中的卡片順序都應反映最新位置
+12. 只有 Lifecycle State 為 ActiveRecord 的 Task 應顯示在 Board
+13. Archived / Trashed Task 不應顯示在任何 workflow column
 ```
 
 ---
@@ -837,4 +1093,59 @@ Feature: Reorder task within a workflow column
 2. 排序成功後，欄位中的 Task 應以新的順序顯示。
 3. 同欄位內的 Task 順序應反映目前工作的優先順序。
 4. Task 的活動紀錄應顯示 TaskReordered。
+```
+
+### 9.9 Archive Task
+
+```text
+1. 使用者可以從 Task Detail Drawer 的更多操作中封存 Task。
+2. Task Card 不應直接顯示封存操作。
+3. 封存後，Task 不應出現在 Project Kanban Board。
+4. 封存後，Task 應出現在 Archived Tasks View。
+5. 封存後，Activity Timeline 應包含 TaskArchived。
+6. 封存後，系統可顯示 toast：「已封存任務」與「復原」。
+```
+
+### 9.10 Restore Archived Task
+
+```text
+1. 使用者可以從 Archived Tasks View 還原 Task。
+2. 還原後，Task 應回到原本 workflow state。
+3. 還原後，Task 應顯示在該 workflow column 的最後。
+4. 還原後，Task 不應繼續出現在 Archived Tasks View。
+5. 還原後，Activity Timeline 應包含 TaskRestoredFromArchive。
+```
+
+### 9.11 Move Task To Trash
+
+```text
+1. 使用者可以從 Task Detail Drawer 的更多操作中將 Task 移到垃圾桶。
+2. Task Card 不應直接顯示移到垃圾桶操作。
+3. 第一層操作文案應為「移到垃圾桶」，不應只顯示「刪除」。
+4. 移到垃圾桶前不需要二次確認。
+5. 移到垃圾桶後，Task 不應出現在 Project Kanban Board。
+6. 移到垃圾桶後，Task 應出現在 Trash View。
+7. 移到垃圾桶後，Activity Timeline 應包含 TaskMovedToTrash。
+8. 移到垃圾桶後，系統可顯示 toast：「已移到垃圾桶」與「復原」。
+```
+
+### 9.12 Restore Trashed Task
+
+```text
+1. 使用者可以從 Trash View 還原 Task。
+2. 還原後，Task 應回到原本 workflow state。
+3. 還原後，Task 應顯示在該 workflow column 的最後。
+4. 還原後，Task 不應繼續出現在 Trash View。
+5. 還原後，Activity Timeline 應包含 TaskRestoredFromTrash。
+```
+
+### 9.13 Archived / Trashed Read-Only Drawer
+
+```text
+1. 使用者可以從 Archived Tasks View 或 Trash View 開啟 Task Detail Drawer。
+2. 當 Task 處於 Archived 或 Trashed 時，Drawer 應以 read-only mode 顯示。
+3. Drawer 應顯示任務標題、目前狀態、相關時間欄位與 Activity Timeline。
+4. Drawer 應顯示對應的生命週期提示，例如「此任務已封存」或「此任務位於垃圾桶」。
+5. Drawer 不應允許編輯內容、移動狀態或排序。
+6. Drawer 應提供還原操作。
 ```
