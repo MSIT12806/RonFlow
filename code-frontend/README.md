@@ -37,6 +37,12 @@ dotnet run --project .\RonFlow.Api\RonFlow.Api.csproj --urls http://127.0.0.1:50
 npm run build
 ```
 
+執行共置於 `src/components` 的 Vitest 元件測試：
+
+```powershell
+npm run test:components
+```
+
 執行 E2E 測試：
 
 ```powershell
