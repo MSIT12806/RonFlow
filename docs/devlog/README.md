@@ -30,6 +30,10 @@
 
 2026/04/25 02:53。
 
+### git commit: [doc] 專案管理前置作業：建立 backlog 與 workflow
+提交時間：2026/04/25 09:07。
+提交說明：無額外描述。
+
 ### 專案管理前置作業：建立 [Backlog](../tech-base/backlog.md) 與 [Workflow](../tech-base/workflow.md)
 <a id="devlog-project-management-setup"></a>
 
@@ -91,6 +95,22 @@
 至此，我們就完成了專案管理的前置作業。
 
 2026/04/25 09:09。
+
+### git commit: [doc] 專案管理前置作業：建立 backlog 與 workflow
+提交時間：2026/04/25 09:09。
+提交說明：無額外描述。
+
+### git commit: [doc] 調整 devlog 結構
+提交時間：2026/04/25 10:21。
+提交說明：無額外描述。
+
+### git commit: [doc] 調整 devlog 結構
+提交時間：2026/04/25 10:27。
+提交說明：無額外描述。
+
+### git commit: [doc] 梳理業務規則 & 事件風暴
+提交時間：2026/04/25 12:24。
+提交說明：無額外描述。
 
 ### 梳理業務規則-事件風暴01
 <a id="devlog-domain-rules"></a>
@@ -700,6 +720,14 @@ flowchart LR
 ```
 
 2026/04/25 13:30。
+
+### git commit: [doc] 梳理業務規則 & 事件風暴 - 2
+提交時間：2026/04/26 09:57。
+提交說明：無額外描述。
+
+### git commit: [doc] 梳理業務規則 & 事件風暴 - 2
+提交時間：2026/04/26 10:12。
+提交說明：無額外描述。
 
 ### 梳理業務規則-事件風暴02
 <a id="devlog-domain-rules-02"></a>
@@ -3391,6 +3419,26 @@ Facilitator：
 
 [會後檢討](../notes/after%20event%20storm%20meeting%202.md)
 
+### git commit: [doc] 梳理業務規則 & 事件風暴 - 2
+提交時間：2026/04/26 17:27。
+提交說明：無額外描述。
+
+### git commit: [doc] 梳理業務規則 & 事件風暴 - 2
+提交時間：2026/04/26 17:45。
+提交說明：無額外描述。
+
+### git commit: [doc] 梳理業務規則 & 事件風暴 - 2
+提交時間：2026/04/26 17:51。
+提交說明：無額外描述。
+
+### git commit: [doc] 梳理業務規則 & 事件風暴 - 3
+提交時間：2026/04/26 22:44。
+提交說明：無額外描述。
+
+### git commit: [doc] 梳理業務規則 & 事件風暴 - 3
+提交時間：2026/04/26 22:46。
+提交說明：無額外描述。
+
 ### 梳理業務規則-事件風暴03
 <a id="devlog-domain-rules-03"></a>
 
@@ -5133,7 +5181,11 @@ flowchart LR
 14. Urgent 對 Sprint 承諾的影響
 15. Priority scheme 可配置化
 
-2025/04/27 21:35。
+2026/04/27 21:35。
+
+### git commit: [doc] 梳理業務規則 & 事件風暴 - 4
+提交時間：2026/04/27 23:15。
+提交說明：無額外描述。
 
 ### 梳理業務規則-事件風暴04
 <a id="devlog-domain-rules-04"></a>
@@ -7219,6 +7271,12 @@ Facilitator：
 Facilitator：
 「本次 RonFlow v0.1 事件風暴與交付規劃會議正式結束。」
 
+2026/04/28 08:07。
+
+### git commit: [doc] 梳理業務規則 & 事件風暴 - 4
+提交時間：2026/04/28 08:58。
+提交說明：無額外描述。
+
 ### 規劃專案進度
 
 Project / Workflow
@@ -7258,6 +7316,8 @@ Spike
 [Spike] Define workflow modification rules after being used by tasks
 [Spike] Define archived project behavior
 
+2026/05/01 00:28。
+
 ### 決定技術棧
 Frontend:
 Vue 3 + TypeScript + Vite + Tailwind CSS
@@ -7292,7 +7352,47 @@ DevOps:
 Docker Compose
 GitHub Actions
 
-2026/05/01。
+2026/05/01 00:51。
+
+### git commit: feat(frontend): 建置前端基本環境
+提交時間：2026/05/01 00:56。
+提交說明：無額外描述。
+
+### git commit: doc: git 規範
+提交時間：2026/05/01 00:57。
+提交說明：無額外描述。
+
+### git commit: doc: 站台架構與 ui flow
+提交時間：2026/05/01 14:43。
+提交說明：無額外描述。
+
+### git commit: doc: 站台架構與 ui flow
+提交時間：2026/05/01 16:49。
+提交說明：無額外描述。
+
+### git commit: doc: spec
+提交時間：2026/05/02 10:13。
+提交說明：無額外描述。
+
+### git commit: doc: spec-調整規格文件
+提交時間：2026/05/02 10:23。
+提交說明：無額外描述。
+
+### git commit: doc: spec-調整規格文件
+提交時間：2026/05/02 10:50。
+提交說明：無額外描述。
+
+### git commit: doc: spec-調整規格文件
+提交時間：2026/05/02 11:05。
+提交說明：無額外描述。
+
+### git commit: test: 依照規格文件生成 驗收測試案例
+提交時間：2026/05/02 11:06。
+提交說明：無額外描述。
+
+### git commit: 調整專案架構
+提交時間：2026/05/02 11:19。
+提交說明：無額外描述。
 
 ### 第一次 sprint
 
@@ -7306,6 +7406,123 @@ GitHub Actions
 
 #### UI/UX flow
 #### 驗收規格 Gherkin Review
+
+2026/05/02 11:36。
+
+### git commit: test: 調整前端測試，讓 文字偵測聚焦於被開啟的 modal
+提交時間：2026/05/03 06:30。
+提交說明：無額外描述。
+
+### git commit: feat(frontend): 生成前端
+提交時間：2026/05/03 06:31。
+提交說明：無額外描述。
+
+### git commit: refactor(backend) + doc(docs/notes)
+提交時間：2026/05/03 14:31。
+提交說明：無額外描述。
+
+### git commit: refactor(frontend) + doc
+提交時間：2026/05/03 17:41。
+提交說明：無額外描述。
+
+### git commit: doc(dod & implementation sequence)
+提交時間：2026/05/03 18:14。
+提交說明：無額外描述。
+
+### git commit: doc(spec) - 建置 Move Task State On Board 功能
+提交時間：2026/05/03 18:22。
+提交說明：無額外描述。
+
+### git commit: test(playwrite) - 建置 Move Task State On Board 功能
+提交時間：2026/05/03 18:27。
+提交說明：無額外描述。
+
+### git commit: test(API) - 建置 Move Task State On Board 功能
+提交時間：2026/05/03 18:31。
+提交說明：無額外描述。
+
+### git commit: feat(backend) - 建置 Move Task State On Board 功能
+提交時間：2026/05/03 18:34。
+提交說明：無額外描述。
+
+### git commit: test(domain) - 建置 Move Task State On Board 功能
+提交時間：2026/05/03 18:37。
+提交說明：無額外描述。
+
+### git commit: feat(backend) - 建置 Move Task State On Board 功能
+提交時間：2026/05/03 18:41。
+提交說明：無額外描述。
+
+### git commit: feat(frontend) - 建置 Move Task State On Board 功能
+提交時間：2026/05/03 18:47。
+提交說明：無額外描述。
+
+### git commit: config(launchSetting)
+提交時間：2026/05/03 19:01。
+提交說明：無額外描述。
+
+### git commit: doc(spec) - 調整 Move Task State On Board 功能
+提交時間：2026/05/03 19:04。
+提交說明：無額外描述。
+
+### git commit: feat(src) - 調整 Move Task State On Board 功能
+提交時間：2026/05/03 21:26。
+提交說明：無額外描述。
+
+### git commit: doc(spec) - 加入 UI/UX 的規格指引
+提交時間：2026/05/03 21:53。
+提交說明：無額外描述。
+
+### git commit: doc(spec) - 更清楚描述 UI/UX 的規格指引
+提交時間：2026/05/03 21:53。
+提交說明：無額外描述。
+
+### git commit: chore: initialize common spec repo
+提交時間：2026/05/03 21:57。
+提交說明：無額外描述。
+
+### git commit: Add 'docs/specs/CommonSpec/' from commit '6cfd4760cb11f4be42d0d3bc24211b251903844d'
+提交時間：2026/05/03 21:57。
+提交說明：
+git-subtree-dir: docs/specs/CommonSpec
+git-subtree-mainline: af1e5f339353dc8cdd047695f950cd352d4f583c
+git-subtree-split: 6cfd4760cb11f4be42d0d3bc24211b251903844d
+
+### git commit: Add 'docs/specs/CommonSpec/' from commit '6cfd4760cb11f4be42d0d3bc24211b251903844d'
+提交時間：2026/05/03 22:21。
+提交說明：無額外描述。
+
+### git commit: test(frontend) - 更清楚描述 UI/UX 的規格指引
+提交時間：2026/05/03 22:39。
+提交說明：無額外描述。
+
+### git commit: refactor(tests) 整合 Playwright 測試腳本、feat(frontend) 前端 production code 直到驗收測試通過
+提交時間：2026/05/06 21:10。
+提交說明：無額外描述。
+
+### git commit: refactor: 調整後端程式碼
+提交時間：2026/05/10 15:36。
+提交說明：無額外描述。
+
+### git commit: refactor: 調整後端程式碼
+提交時間：2026/05/10 15:40。
+提交說明：無額外描述。
+
+### git commit: refactor: 調整前端程式碼
+提交時間：2026/05/11 14:07。
+提交說明：無額外描述。
+
+### git commit: refactor: 前端元件依賴寫法調整、前端測試案例調整
+提交時間：2026/05/11 18:18。
+提交說明：無額外描述。
+
+### git commit: refactor: 前端抽出共用元件、為元件撰寫單元測試(vitest)
+提交時間：2026/05/11 19:18。
+提交說明：無額外描述。
+
+### git commit: refactor: 前端共用元件開發
+提交時間：2026/05/11 20:31。
+提交說明：無額外描述。
 
 ### 第一次 sprint review
 
@@ -7322,4 +7539,6 @@ GitHub Actions
 也因此，工程師應該進行程式的設計，這也是 Domain Modeling 的意義，讓程式碼與業務領域的專業術語對齊，方便人們去核對領域邏輯和程式碼的一致性。
 
 當然，這些過程也是可以累積的，畢竟做久了會有一些方法論，像是 Repository，就可以模板化。
+
+2026/05/12。
 
