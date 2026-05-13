@@ -64,6 +64,7 @@ public sealed record BoardColumnResponse(
     string StateKey,
     string Label,
     bool IsInitialState,
+    bool IsCompletedState,
     string EmptyStateMessage,
     IReadOnlyList<BoardTaskCardResponse> Tasks)
 {
@@ -73,6 +74,7 @@ public sealed record BoardColumnResponse(
             view.StateKey,
             view.Label,
             view.IsInitialState,
+            view.IsCompletedState,
             view.EmptyStateMessage,
             view.Tasks.Select(BoardTaskCardResponse.FromView).ToArray());
     }
@@ -86,16 +88,16 @@ public sealed record BoardTaskCardResponse(Guid Id, string Title)
     }
 }
 
-public sealed record WorkflowStateResponse(string Key, string Label, bool IsInitialState)
+public sealed record WorkflowStateResponse(string Key, string Label, bool IsInitialState, bool IsCompletedState)
 {
     public static WorkflowStateResponse FromOutput(CreatedWorkflowStateOutput output)
     {
-        return new(output.Key, output.Label, output.IsInitialState);
+        return new(output.Key, output.Label, output.IsInitialState, output.IsCompletedState);
     }
 
     public static WorkflowStateResponse FromView(WorkflowStateView view)
     {
-        return new(view.Key, view.Label, view.IsInitialState);
+        return new(view.Key, view.Label, view.IsInitialState, view.IsCompletedState);
     }
 }
 

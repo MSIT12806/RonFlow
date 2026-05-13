@@ -97,12 +97,18 @@ public partial class Program
         {
             var result = commandService.Change(projectId, taskId, request.StateKey ?? string.Empty);
 
+            if (result.ValidationError is not null)
+            {
+                return ValidationResults.FromError(result.ValidationError);
+            }
+
             return result.TaskNotFound
                 ? Results.NotFound()
                 : Results.Ok(TaskDetailResponse.FromOutput(result.Task!));
         })
         .Accepts<ChangeTaskStateRequest>(MediaTypeNames.Application.Json)
         .Produces<TaskDetailResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound);
 
         app.MapPatch("/api/projects/{projectId:guid}/tasks/{taskId:guid}", (
@@ -135,10 +141,15 @@ public partial class Program
         {
             if (request.TargetTaskId is null)
             {
-                return Results.NotFound();
+                return ValidationResults.FromError(new ValidationError("targetTaskId", "目標任務為必填欄位"));
             }
 
             var result = commandService.Reorder(projectId, taskId, request.TargetTaskId.Value);
+
+            if (result.ValidationError is not null)
+            {
+                return ValidationResults.FromError(result.ValidationError);
+            }
 
             return result.TaskNotFound
                 ? Results.NotFound()
@@ -146,6 +157,7 @@ public partial class Program
         })
         .Accepts<ReorderTaskRequest>(MediaTypeNames.Application.Json)
         .Produces<TaskDetailResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound);
 
         app.MapGet("/api/projects/{projectId:guid}/tasks/{taskId:guid}", (Guid projectId, Guid taskId, GetTaskDetailQueryService queryService) =>

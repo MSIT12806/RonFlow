@@ -46,6 +46,7 @@ public sealed class ProjectApiIntegrationTests : ApiIntegrationTestBase
         Assert.That(project.WorkflowStates.Select(state => state.Key), Is.EqualTo(new[] { "todo", "active", "review", "done" }));
         Assert.That(project.WorkflowStates.Select(state => state.Label), Is.EqualTo(new[] { "待處理", "進行中", "審查中", "已完成" }));
         Assert.That(project.WorkflowStates.Single(state => state.IsInitialState).Key, Is.EqualTo("todo"));
+        Assert.That(project.WorkflowStates.Single(state => state.IsCompletedState).Key, Is.EqualTo("done"));
 
         var boardResponse = await Client.GetAsync($"/api/projects/{project.Id}/board");
 
@@ -58,6 +59,7 @@ public sealed class ProjectApiIntegrationTests : ApiIntegrationTestBase
         Assert.That(board.ProjectName, Is.EqualTo("RonFlow Project"));
         Assert.That(board.Columns.Select(column => column.StateKey), Is.EqualTo(new[] { "todo", "active", "review", "done" }));
         Assert.That(board.Columns.Select(column => column.Label), Is.EqualTo(new[] { "待處理", "進行中", "審查中", "已完成" }));
+        Assert.That(board.Columns.Single(column => column.IsCompletedState).StateKey, Is.EqualTo("done"));
         Assert.That(board.Columns.All(column => column.Tasks.Count == 0), Is.True);
         Assert.That(board.Columns.All(column => column.EmptyStateMessage == "目前沒有任務"), Is.True);
     }

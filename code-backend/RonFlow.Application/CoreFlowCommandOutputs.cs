@@ -8,7 +8,7 @@ public sealed record CreateProjectOutput(
     DateTimeOffset UpdatedAt,
     IReadOnlyList<CreatedWorkflowStateOutput> WorkflowStates);
 
-public sealed record CreatedWorkflowStateOutput(string Key, string Label, bool IsInitialState);
+public sealed record CreatedWorkflowStateOutput(string Key, string Label, bool IsInitialState, bool IsCompletedState);
 
 public sealed record CreateTaskOutput(
     Guid Id,
@@ -50,7 +50,7 @@ internal static class CoreFlowCommandOutputFactory
 
     private static CreatedWorkflowStateOutput CreateWorkflowState(WorkflowStateModel workflowState)
     {
-        return new CreatedWorkflowStateOutput(workflowState.Key, workflowState.Label, workflowState.IsInitialState);
+        return new CreatedWorkflowStateOutput(workflowState.Key, workflowState.Label, workflowState.IsInitialState, workflowState.IsCompletedState);
     }
 
     private static CreatedActivityTimelineItemOutput CreateActivityTimelineItem(ActivityTimelineItemModel activityTimelineItem)

@@ -178,6 +178,40 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
     }
 
     [Test]
+    public async Task ChangeTaskState_WhenStateKeyDoesNotExist_ReturnsValidationError()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var createdTask = await CreateTaskAsync(project.Id, "Build Kanban Board");
+
+        var response = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{createdTask.Id}/state",
+            new ChangeTaskStateRequest("missing-state"));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+
+        var errors = await ReadValidationErrorsAsync(response);
+
+        Assert.That(errors, Does.ContainKey("stateKey"));
+    }
+
+    [Test]
+    public async Task ReorderTask_WhenTargetTaskIdIsMissing_ReturnsValidationError()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var createdTask = await CreateTaskAsync(project.Id, "Build Kanban Board");
+
+        var response = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{createdTask.Id}/order",
+            new ReorderTaskRequest(null));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+
+        var errors = await ReadValidationErrorsAsync(response);
+
+        Assert.That(errors, Does.ContainKey("targetTaskId"));
+    }
+
+    [Test]
     public async Task CreateTask_WhenProjectDoesNotExist_ReturnsNotFound()
     {
         var response = await Client.PostAsJsonAsync(

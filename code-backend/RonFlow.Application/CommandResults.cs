@@ -33,16 +33,21 @@ public sealed record CreateTaskResult(CreateTaskOutput? Task, ValidationError? V
     }
 }
 
-public sealed record ChangeTaskStateResult(CreateTaskOutput? Task, bool TaskNotFound)
+public sealed record ChangeTaskStateResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound)
 {
     public static ChangeTaskStateResult Success(CreateTaskOutput task)
     {
-        return new(task, false);
+        return new(task, null, false);
+    }
+
+    public static ChangeTaskStateResult Invalid(string field, string message)
+    {
+        return new(null, new ValidationError(field, message), false);
     }
 
     public static ChangeTaskStateResult NotFound()
     {
-        return new(null, true);
+        return new(null, null, true);
     }
 }
 
@@ -64,15 +69,20 @@ public sealed record UpdateTaskResult(CreateTaskOutput? Task, ValidationError? V
     }
 }
 
-public sealed record ReorderTaskResult(CreateTaskOutput? Task, bool TaskNotFound)
+public sealed record ReorderTaskResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound)
 {
     public static ReorderTaskResult Success(CreateTaskOutput task)
     {
-        return new(task, false);
+        return new(task, null, false);
+    }
+
+    public static ReorderTaskResult Invalid(string field, string message)
+    {
+        return new(null, new ValidationError(field, message), false);
     }
 
     public static ReorderTaskResult NotFound()
     {
-        return new(null, true);
+        return new(null, null, true);
     }
 }

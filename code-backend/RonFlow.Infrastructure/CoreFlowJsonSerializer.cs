@@ -134,10 +134,15 @@ internal static class CoreFlowJsonSerializer
 
     private static WorkflowState ReadWorkflowState(JsonElement element)
     {
+        var key = GetRequiredString(element, "key");
+
         return new WorkflowState(
-            GetRequiredString(element, "key"),
+            key,
             GetRequiredString(element, "label"),
-            element.GetProperty("isInitialState").GetBoolean());
+            element.GetProperty("isInitialState").GetBoolean(),
+            element.TryGetProperty("isCompletedState", out var isCompletedState)
+                ? isCompletedState.GetBoolean()
+                : key == "done");
     }
 
     private static ActivityTimelineItem ReadActivityTimelineItem(JsonElement element)
@@ -154,6 +159,7 @@ internal static class CoreFlowJsonSerializer
         writer.WriteString("key", workflowState.Key);
         writer.WriteString("label", workflowState.Label);
         writer.WriteBoolean("isInitialState", workflowState.IsInitialState);
+        writer.WriteBoolean("isCompletedState", workflowState.IsCompletedState);
         writer.WriteEndObject();
     }
 

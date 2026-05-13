@@ -10,7 +10,7 @@ public sealed class Project
         Name = name;
         UpdatedAt = updatedAt;
         this.workflowStates = workflowStates
-            .Select(state => new WorkflowState(state.Key, state.Label, state.IsInitialState))
+            .Select(state => new WorkflowState(state.Key, state.Label, state.IsInitialState, state.IsCompletedState))
             .ToArray();
     }
 

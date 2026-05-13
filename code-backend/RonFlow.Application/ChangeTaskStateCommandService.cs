@@ -24,7 +24,7 @@ public sealed class ChangeTaskStateCommandService(
         var targetState = project.FindWorkflowState(stateKey);
         if (targetState is null)
         {
-            return ChangeTaskStateResult.NotFound();
+            return ChangeTaskStateResult.Invalid("stateKey", "指定的狀態不存在於此專案 workflow");
         }
 
         var changedAt = timeProvider.GetUtcNow();

@@ -2,6 +2,7 @@ import { computed, onMounted, ref } from 'vue'
 import {
   ApiRequestError,
   ApiValidationError,
+  type BoardColumnResponse,
   type ProjectListItemResponse,
   type WorkflowKey,
 } from '../api/ronflowApi'
@@ -11,13 +12,6 @@ import {
   TaskCommandService,
 } from '../application'
 import { useApiResource } from './useApiResource'
-
-const workflowColumns: Array<{ key: WorkflowKey; label: string }> = [
-  { key: 'todo', label: '待處理' },
-  { key: 'active', label: '進行中' },
-  { key: 'review', label: '審查中' },
-  { key: 'done', label: '已完成' },
-]
 
 const projectQueryService = new ProjectQueryService()
 const taskQueryService = new TaskQueryService()
@@ -91,13 +85,7 @@ export function useRonFlowBoard() {
     projects.value.find((project) => project.id === activeProjectId.value) ?? null,
   )
 
-  const activeColumns = computed(() => activeBoard.value?.columns ?? workflowColumns.map((column) => ({
-    stateKey: column.key,
-    label: column.label,
-    isInitialState: column.key === 'todo',
-    emptyStateMessage: '目前沒有任務',
-    tasks: [],
-  })))
+  const activeColumns = computed<BoardColumnResponse[]>(() => activeBoard.value?.columns ?? [])
 
   onMounted(async () => {
     await loadProjects()
@@ -205,10 +193,6 @@ export function useRonFlowBoard() {
     }
   }
 
-  function getTasksByStatus(status: WorkflowKey) {
-    return activeColumns.value.find((column) => column.stateKey === status)?.tasks ?? []
-  }
-
   function formatProjectMeta(updatedAt: string) {
     return `更新於 ${new Intl.DateTimeFormat('zh-TW', {
       month: '2-digit',
@@ -285,7 +269,6 @@ export function useRonFlowBoard() {
     isTaskDetailOpen,
     taskDetailError,
     taskDetailCommandError,
-    workflowColumns,
     isLoadingProjects,
     isLoadingBoard,
     isLoadingTaskDetail,
@@ -301,7 +284,6 @@ export function useRonFlowBoard() {
     reorderTaskWithinColumn,
     loadProjects,
     loadBoard,
-    getTasksByStatus,
     formatProjectMeta,
     formatTimelineTime,
   }

@@ -21,12 +21,13 @@ public sealed record BoardColumnView(
     string StateKey,
     string Label,
     bool IsInitialState,
+    bool IsCompletedState,
     string EmptyStateMessage,
     IReadOnlyList<BoardTaskCardView> Tasks);
 
 public sealed record BoardTaskCardView(Guid Id, string Title);
 
-public sealed record WorkflowStateView(string Key, string Label, bool IsInitialState);
+public sealed record WorkflowStateView(string Key, string Label, bool IsInitialState, bool IsCompletedState);
 
 public sealed record TaskDetailView(
     Guid Id,
@@ -64,6 +65,7 @@ internal static class CoreFlowReadModelFactory
                 state.Key,
                 state.Label,
                 state.IsInitialState,
+                state.IsCompletedState,
                 "目前沒有任務",
                 board.Tasks
                     .Where(task => task.CurrentState.Key == state.Key)
@@ -100,7 +102,7 @@ internal static class CoreFlowReadModelFactory
 
     private static WorkflowStateView CreateWorkflowState(WorkflowStateModel workflowState)
     {
-        return new WorkflowStateView(workflowState.Key, workflowState.Label, workflowState.IsInitialState);
+        return new WorkflowStateView(workflowState.Key, workflowState.Label, workflowState.IsInitialState, workflowState.IsCompletedState);
     }
 
     private static ActivityTimelineItemView CreateActivityTimelineItem(ActivityTimelineItemModel activityTimelineItem)

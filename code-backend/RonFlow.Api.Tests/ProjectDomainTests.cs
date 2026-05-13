@@ -17,6 +17,7 @@ public sealed class ProjectDomainTests
         Assert.That(projectModel.UpdatedAt, Is.EqualTo(createdAt));
         Assert.That(projectModel.WorkflowStates.Select(state => state.Key), Is.EqualTo(new[] { "todo", "active", "review", "done" }));
         Assert.That(projectModel.WorkflowStates.Single(state => state.IsInitialState).Key, Is.EqualTo("todo"));
+        Assert.That(projectModel.WorkflowStates.Single(state => state.IsCompletedState).Key, Is.EqualTo("done"));
     }
 
     [Test]
@@ -86,6 +87,31 @@ public sealed class ProjectDomainTests
         Assert.That(taskModel.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskStateChanged"));
         Assert.That(taskModel.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskCompleted"));
         Assert.That(taskModel.ActivityTimeline.Select(item => item.Message), Does.Contain("已完成任務"));
+    }
+
+    [Test]
+    public void ChangeState_ToCustomCompletedState_UsesStateMetadataInsteadOfHardCodedKey()
+    {
+        var taskCreatedAt = new DateTimeOffset(2026, 5, 3, 9, 15, 0, TimeSpan.Zero);
+        var completedAt = taskCreatedAt.AddMinutes(30);
+        var workflowStates = new[]
+        {
+            new WorkflowState("backlog", "待處理", true, false),
+            new WorkflowState("shipping", "已交付", false, true),
+        };
+        var task = RonFlow.Domain.Task.Create(
+            Guid.NewGuid(),
+            CreateTaskTitle("Build Kanban Board"),
+            workflowStates.Single(state => state.IsInitialState),
+            taskCreatedAt,
+            0);
+
+        task.ChangeState(workflowStates.Single(state => state.IsCompletedState), completedAt);
+        var taskModel = task.ToModel();
+
+        Assert.That(taskModel.CurrentState.Key, Is.EqualTo("shipping"));
+        Assert.That(taskModel.CompletedAt, Is.EqualTo(completedAt));
+        Assert.That(taskModel.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskCompleted"));
     }
 
     [Test]

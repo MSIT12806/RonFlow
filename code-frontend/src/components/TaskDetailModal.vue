@@ -78,7 +78,7 @@
             <strong>{{ formatTimelineTime(task.createdAt) }}</strong>
           </div>
 
-          <div v-if="task.completedAt" class="detail-card">
+          <div v-if="task.currentState.isCompletedState && task.completedAt" class="detail-card">
             <p class="detail-label">完成時間</p>
             <strong>{{ formatTimelineTime(task.completedAt) }}</strong>
           </div>

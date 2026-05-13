@@ -104,7 +104,35 @@ public sealed class ChangeTaskStateCommandServiceTests
         var result = commandService.Change(Guid.NewGuid(), Guid.NewGuid(), "done");
 
         Assert.That(result.Task, Is.Null);
+        Assert.That(result.ValidationError, Is.Null);
         Assert.That(result.TaskNotFound, Is.True);
+    }
+
+    [Test]
+    public void Change_WhenStateKeyDoesNotExist_ReturnsValidationError()
+    {
+        var createdAt = new DateTimeOffset(2026, 5, 3, 9, 0, 0, TimeSpan.Zero);
+        var repository = new TestProjectRepository();
+        var taskRepository = new TestTaskRepository();
+        var project = Project.Create(TestObjectFactory.CreateProjectName("RonFlow Project"), createdAt, DefaultWorkflow.CreateStates());
+        repository.Add(project);
+
+        var task = DomainTask.Create(
+            project.Id,
+            TestObjectFactory.CreateTaskTitle("Build Kanban Board"),
+            project.GetDefaultWorkflowState(),
+            createdAt.AddMinutes(5),
+            0);
+        taskRepository.Add(task);
+
+        var commandService = new ChangeTaskStateCommandService(repository, taskRepository, new FixedTimeProvider(createdAt.AddMinutes(15)));
+
+        var result = commandService.Change(project.Id, task.Id, "missing-state");
+
+        Assert.That(result.Task, Is.Null);
+        Assert.That(result.TaskNotFound, Is.False);
+        Assert.That(result.ValidationError, Is.Not.Null);
+        Assert.That(result.ValidationError!.Field, Is.EqualTo("stateKey"));
     }
 
     [Test]

@@ -84,8 +84,8 @@ public sealed class Task
             return false;
         }
 
-        var wasDone = CurrentState.Key == "done";
-        var isDone = targetState.Key == "done";
+        var wasDone = CurrentState.IsCompletedState;
+        var isDone = targetState.IsCompletedState;
 
         CurrentState = targetState;
         activityTimeline.Add(ActivityTimelineItem.TaskStateChanged(targetState.Label, changedAt));

@@ -1,6 +1,6 @@
 namespace RonFlow.Domain;
 
-public sealed record WorkflowStateModel(string Key, string Label, bool IsInitialState);
+public sealed record WorkflowStateModel(string Key, string Label, bool IsInitialState, bool IsCompletedState);
 
 public sealed record ActivityTimelineItemModel(string Type, string Message, DateTimeOffset OccurredAt);
 

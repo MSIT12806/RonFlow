@@ -1,9 +1,10 @@
-export type WorkflowKey = 'todo' | 'active' | 'review' | 'done'
+export type WorkflowKey = string
 
 export type WorkflowStateResponse = {
   key: WorkflowKey
   label: string
   isInitialState: boolean
+  isCompletedState: boolean
 }
 
 export type ActivityTimelineItemResponse = {
@@ -33,6 +34,7 @@ export type BoardColumnResponse = {
   stateKey: WorkflowKey
   label: string
   isInitialState: boolean
+  isCompletedState: boolean
   emptyStateMessage: string
   tasks: BoardTaskCardResponse[]
 }
