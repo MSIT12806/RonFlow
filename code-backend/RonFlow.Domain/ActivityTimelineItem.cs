@@ -46,6 +46,26 @@ public sealed record ActivityTimelineItem(string Type, string Message, DateTimeO
         return new("TaskReordered", "已調整任務順序", occurredAt);
     }
 
+    public static ActivityTimelineItem TaskArchived(DateTimeOffset occurredAt)
+    {
+        return new("TaskArchived", "已封存任務", occurredAt);
+    }
+
+    public static ActivityTimelineItem TaskRestoredFromArchive(DateTimeOffset occurredAt)
+    {
+        return new("TaskRestoredFromArchive", "已還原封存任務", occurredAt);
+    }
+
+    public static ActivityTimelineItem TaskMovedToTrash(DateTimeOffset occurredAt)
+    {
+        return new("TaskMovedToTrash", "已移到垃圾桶", occurredAt);
+    }
+
+    public static ActivityTimelineItem TaskRestoredFromTrash(DateTimeOffset occurredAt)
+    {
+        return new("TaskRestoredFromTrash", "已從垃圾桶還原", occurredAt);
+    }
+
     public ActivityTimelineItemModel ToModel()
     {
         return new(Type, Message, OccurredAt);

@@ -86,3 +86,21 @@ public sealed record ReorderTaskResult(CreateTaskOutput? Task, ValidationError? 
         return new(null, null, true);
     }
 }
+
+public sealed record TaskLifecycleCommandResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound)
+{
+    public static TaskLifecycleCommandResult Success(CreateTaskOutput task)
+    {
+        return new(task, null, false);
+    }
+
+    public static TaskLifecycleCommandResult Invalid(string field, string message)
+    {
+        return new(null, new ValidationError(field, message), false);
+    }
+
+    public static TaskLifecycleCommandResult NotFound()
+    {
+        return new(null, null, true);
+    }
+}

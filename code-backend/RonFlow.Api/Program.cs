@@ -21,9 +21,15 @@ public partial class Program
         builder.Services.AddSingleton<ChangeTaskStateCommandService>();
         builder.Services.AddSingleton<UpdateTaskCommandService>();
         builder.Services.AddSingleton<ReorderTaskCommandService>();
+        builder.Services.AddSingleton<ArchiveTaskCommandService>();
+        builder.Services.AddSingleton<RestoreArchivedTaskCommandService>();
+        builder.Services.AddSingleton<MoveTaskToTrashCommandService>();
+        builder.Services.AddSingleton<RestoreTrashedTaskCommandService>();
         builder.Services.AddSingleton<GetProjectsQueryService>();
         builder.Services.AddSingleton<GetProjectBoardQueryService>();
         builder.Services.AddSingleton<GetTaskDetailQueryService>();
+        builder.Services.AddSingleton<GetArchivedTasksQueryService>();
+        builder.Services.AddSingleton<GetTrashedTasksQueryService>();
 
         var app = builder.Build();
 
@@ -89,6 +95,22 @@ public partial class Program
         .ProducesValidationProblem(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound);
 
+        app.MapGet("/api/projects/{projectId:guid}/tasks/archived", (Guid projectId, GetArchivedTasksQueryService queryService) =>
+        {
+            var tasks = queryService.Get(projectId);
+            return tasks is null ? Results.NotFound() : Results.Ok(LifecycleTaskListResponse.FromView(tasks));
+        })
+        .Produces<LifecycleTaskListResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound);
+
+        app.MapGet("/api/projects/{projectId:guid}/tasks/trashed", (Guid projectId, GetTrashedTasksQueryService queryService) =>
+        {
+            var tasks = queryService.Get(projectId);
+            return tasks is null ? Results.NotFound() : Results.Ok(LifecycleTaskListResponse.FromView(tasks));
+        })
+        .Produces<LifecycleTaskListResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound);
+
         app.MapPatch("/api/projects/{projectId:guid}/tasks/{taskId:guid}/state", (
             Guid projectId,
             Guid taskId,
@@ -107,6 +129,86 @@ public partial class Program
                 : Results.Ok(TaskDetailResponse.FromOutput(result.Task!));
         })
         .Accepts<ChangeTaskStateRequest>(MediaTypeNames.Application.Json)
+        .Produces<TaskDetailResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound);
+
+        app.MapPatch("/api/projects/{projectId:guid}/tasks/{taskId:guid}/archive", (
+            Guid projectId,
+            Guid taskId,
+            ArchiveTaskCommandService commandService) =>
+        {
+            var result = commandService.Archive(projectId, taskId);
+
+            if (result.ValidationError is not null)
+            {
+                return ValidationResults.FromError(result.ValidationError);
+            }
+
+            return result.TaskNotFound
+                ? Results.NotFound()
+                : Results.Ok(TaskDetailResponse.FromOutput(result.Task!));
+        })
+        .Produces<TaskDetailResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound);
+
+        app.MapPatch("/api/projects/{projectId:guid}/tasks/{taskId:guid}/restore-from-archive", (
+            Guid projectId,
+            Guid taskId,
+            RestoreArchivedTaskCommandService commandService) =>
+        {
+            var result = commandService.Restore(projectId, taskId);
+
+            if (result.ValidationError is not null)
+            {
+                return ValidationResults.FromError(result.ValidationError);
+            }
+
+            return result.TaskNotFound
+                ? Results.NotFound()
+                : Results.Ok(TaskDetailResponse.FromOutput(result.Task!));
+        })
+        .Produces<TaskDetailResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound);
+
+        app.MapPatch("/api/projects/{projectId:guid}/tasks/{taskId:guid}/trash", (
+            Guid projectId,
+            Guid taskId,
+            MoveTaskToTrashCommandService commandService) =>
+        {
+            var result = commandService.Move(projectId, taskId);
+
+            if (result.ValidationError is not null)
+            {
+                return ValidationResults.FromError(result.ValidationError);
+            }
+
+            return result.TaskNotFound
+                ? Results.NotFound()
+                : Results.Ok(TaskDetailResponse.FromOutput(result.Task!));
+        })
+        .Produces<TaskDetailResponse>(StatusCodes.Status200OK)
+        .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound);
+
+        app.MapPatch("/api/projects/{projectId:guid}/tasks/{taskId:guid}/restore-from-trash", (
+            Guid projectId,
+            Guid taskId,
+            RestoreTrashedTaskCommandService commandService) =>
+        {
+            var result = commandService.Restore(projectId, taskId);
+
+            if (result.ValidationError is not null)
+            {
+                return ValidationResults.FromError(result.ValidationError);
+            }
+
+            return result.TaskNotFound
+                ? Results.NotFound()
+                : Results.Ok(TaskDetailResponse.FromOutput(result.Task!));
+        })
         .Produces<TaskDetailResponse>(StatusCodes.Status200OK)
         .ProducesValidationProblem(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound);

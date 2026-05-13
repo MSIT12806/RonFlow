@@ -1,5 +1,12 @@
 namespace RonFlow.Domain;
 
+public enum TaskLifecycleState
+{
+    ActiveRecord,
+    Archived,
+    Trashed,
+}
+
 public sealed record WorkflowStateModel(string Key, string Label, bool IsInitialState, bool IsCompletedState);
 
 public sealed record ActivityTimelineItemModel(string Type, string Message, DateTimeOffset OccurredAt);
@@ -10,9 +17,12 @@ public sealed record TaskModel(
     string Title,
     string Description,
     WorkflowStateModel CurrentState,
+    TaskLifecycleState LifecycleState,
     DateOnly? DueDate,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
+    DateTimeOffset? ArchivedAt,
+    DateTimeOffset? TrashedAt,
     int SortOrder,
     IReadOnlyList<ActivityTimelineItemModel> ActivityTimeline);
 

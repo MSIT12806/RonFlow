@@ -153,3 +153,31 @@ public sealed record ActivityTimelineItemResponse(string Type, string Message, D
         return new(view.Type, view.Message, view.OccurredAt);
     }
 }
+
+public sealed record LifecycleTaskListResponse(IReadOnlyList<LifecycleTaskListItemResponse> Items)
+{
+    public static LifecycleTaskListResponse FromView(LifecycleTaskListView view)
+    {
+        return new(view.Items.Select(LifecycleTaskListItemResponse.FromView).ToArray());
+    }
+}
+
+public sealed record LifecycleTaskListItemResponse(
+    Guid Id,
+    Guid ProjectId,
+    string ProjectName,
+    string Title,
+    WorkflowStateResponse OriginalState,
+    DateTimeOffset ChangedAt)
+{
+    public static LifecycleTaskListItemResponse FromView(LifecycleTaskListItemView view)
+    {
+        return new(
+            view.Id,
+            view.ProjectId,
+            view.ProjectName,
+            view.Title,
+            WorkflowStateResponse.FromView(view.OriginalState),
+            view.ChangedAt);
+    }
+}

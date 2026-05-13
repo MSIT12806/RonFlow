@@ -40,6 +40,16 @@ public sealed record TaskDetailView(
     DateTimeOffset? CompletedAt,
     IReadOnlyList<ActivityTimelineItemView> ActivityTimeline);
 
+public sealed record LifecycleTaskListView(IReadOnlyList<LifecycleTaskListItemView> Items);
+
+public sealed record LifecycleTaskListItemView(
+    Guid Id,
+    Guid ProjectId,
+    string ProjectName,
+    string Title,
+    WorkflowStateView OriginalState,
+    DateTimeOffset ChangedAt);
+
 public sealed record ActivityTimelineItemView(string Type, string Message, DateTimeOffset OccurredAt);
 
 internal static class CoreFlowReadModelFactory
@@ -68,6 +78,7 @@ internal static class CoreFlowReadModelFactory
                 state.IsCompletedState,
                 "目前沒有任務",
                 board.Tasks
+                    .Where(task => task.LifecycleState == TaskLifecycleState.ActiveRecord)
                     .Where(task => task.CurrentState.Key == state.Key)
                     .Select(CreateBoardTaskCard)
                     .ToArray()))
@@ -90,6 +101,22 @@ internal static class CoreFlowReadModelFactory
             task.ActivityTimeline.Select(CreateActivityTimelineItem).ToArray());
     }
 
+    public static LifecycleTaskListView CreateLifecycleTaskList(Project project, IReadOnlyList<TaskModel> tasks, TaskLifecycleState lifecycleState)
+    {
+        return new LifecycleTaskListView(
+            tasks
+                .Where(task => task.LifecycleState == lifecycleState)
+                .OrderByDescending(task => GetLifecycleChangedAt(task, lifecycleState))
+                .Select(task => new LifecycleTaskListItemView(
+                    task.Id,
+                    task.ProjectId,
+                    project.Name,
+                    task.Title,
+                    CreateWorkflowState(task.CurrentState),
+                    GetLifecycleChangedAt(task, lifecycleState)))
+                .ToArray());
+    }
+
     private static ProjectListItemView CreateProjectListItem(ProjectSummaryModel project)
     {
         return new ProjectListItemView(project.Id, project.Name, project.UpdatedAt);
@@ -108,5 +135,15 @@ internal static class CoreFlowReadModelFactory
     private static ActivityTimelineItemView CreateActivityTimelineItem(ActivityTimelineItemModel activityTimelineItem)
     {
         return new ActivityTimelineItemView(activityTimelineItem.Type, activityTimelineItem.Message, activityTimelineItem.OccurredAt);
+    }
+
+    private static DateTimeOffset GetLifecycleChangedAt(TaskModel task, TaskLifecycleState lifecycleState)
+    {
+        return lifecycleState switch
+        {
+            TaskLifecycleState.Archived => task.ArchivedAt ?? task.CreatedAt,
+            TaskLifecycleState.Trashed => task.TrashedAt ?? task.CreatedAt,
+            _ => task.CreatedAt,
+        };
     }
 }

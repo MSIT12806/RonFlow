@@ -10,9 +10,12 @@ public sealed class Task
         string title,
         string description,
         WorkflowState currentState,
+        TaskLifecycleState lifecycleState,
         DateOnly? dueDate,
         DateTimeOffset createdAt,
         DateTimeOffset? completedAt,
+        DateTimeOffset? archivedAt,
+        DateTimeOffset? trashedAt,
         int sortOrder,
         IEnumerable<ActivityTimelineItem> activityTimeline)
     {
@@ -21,9 +24,12 @@ public sealed class Task
         Title = title;
         Description = description;
         CurrentState = currentState;
+        LifecycleState = lifecycleState;
         DueDate = dueDate;
         CreatedAt = createdAt;
         CompletedAt = completedAt;
+        ArchivedAt = archivedAt;
+        TrashedAt = trashedAt;
         SortOrder = sortOrder;
         this.activityTimeline = activityTimeline.ToList();
     }
@@ -38,10 +44,16 @@ public sealed class Task
 
     public WorkflowState CurrentState { get; private set; }
 
+    public TaskLifecycleState LifecycleState { get; private set; }
+
     public DateOnly? DueDate { get; private set; }
 
     public DateTimeOffset CreatedAt { get; }
     public DateTimeOffset? CompletedAt { get; private set; }
+
+    public DateTimeOffset? ArchivedAt { get; private set; }
+
+    public DateTimeOffset? TrashedAt { get; private set; }
 
     public int SortOrder { get; private set; }
 
@@ -55,9 +67,12 @@ public sealed class Task
             title.Value,
             string.Empty,
             initialState,
+                TaskLifecycleState.ActiveRecord,
             null,
             createdAt,
             null,
+                null,
+                null,
             sortOrder,
             [ActivityTimelineItem.TaskCreated(createdAt)]);
     }
@@ -68,13 +83,72 @@ public sealed class Task
         string title,
         string description,
         WorkflowState currentState,
+        TaskLifecycleState lifecycleState,
         DateOnly? dueDate,
         DateTimeOffset createdAt,
         DateTimeOffset? completedAt,
+        DateTimeOffset? archivedAt,
+        DateTimeOffset? trashedAt,
         int sortOrder,
         IEnumerable<ActivityTimelineItem> activityTimeline)
     {
-        return new Task(id, projectId, title, description, currentState, dueDate, createdAt, completedAt, sortOrder, activityTimeline);
+        return new Task(id, projectId, title, description, currentState, lifecycleState, dueDate, createdAt, completedAt, archivedAt, trashedAt, sortOrder, activityTimeline);
+    }
+
+    public bool Archive(DateTimeOffset changedAt)
+    {
+        if (LifecycleState == TaskLifecycleState.Archived)
+        {
+            return false;
+        }
+
+        LifecycleState = TaskLifecycleState.Archived;
+        ArchivedAt = changedAt;
+        TrashedAt = null;
+        activityTimeline.Add(ActivityTimelineItem.TaskArchived(changedAt));
+        return true;
+    }
+
+    public bool MoveToTrash(DateTimeOffset changedAt)
+    {
+        if (LifecycleState == TaskLifecycleState.Trashed)
+        {
+            return false;
+        }
+
+        LifecycleState = TaskLifecycleState.Trashed;
+        TrashedAt = changedAt;
+        ArchivedAt = null;
+        activityTimeline.Add(ActivityTimelineItem.TaskMovedToTrash(changedAt));
+        return true;
+    }
+
+    public bool RestoreFromArchive(int sortOrder, DateTimeOffset changedAt)
+    {
+        if (LifecycleState != TaskLifecycleState.Archived)
+        {
+            return false;
+        }
+
+        LifecycleState = TaskLifecycleState.ActiveRecord;
+        ArchivedAt = null;
+        SortOrder = sortOrder;
+        activityTimeline.Add(ActivityTimelineItem.TaskRestoredFromArchive(changedAt));
+        return true;
+    }
+
+    public bool RestoreFromTrash(int sortOrder, DateTimeOffset changedAt)
+    {
+        if (LifecycleState != TaskLifecycleState.Trashed)
+        {
+            return false;
+        }
+
+        LifecycleState = TaskLifecycleState.ActiveRecord;
+        TrashedAt = null;
+        SortOrder = sortOrder;
+        activityTimeline.Add(ActivityTimelineItem.TaskRestoredFromTrash(changedAt));
+        return true;
     }
 
     public bool ChangeState(WorkflowState targetState, DateTimeOffset changedAt)
@@ -154,9 +228,12 @@ public sealed class Task
             Title,
             Description,
             CurrentState.ToModel(),
+            LifecycleState,
             DueDate,
             CreatedAt,
             CompletedAt,
+            ArchivedAt,
+            TrashedAt,
             SortOrder,
             activityTimeline.Select(item => item.ToModel()).ToArray());
     }

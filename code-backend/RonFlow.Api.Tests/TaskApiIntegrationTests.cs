@@ -6,6 +6,16 @@ namespace RonFlow.Api.Tests;
 
 public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
 {
+    public sealed record LifecycleTaskListResponse(IReadOnlyList<LifecycleTaskListItemResponse> Items);
+
+    public sealed record LifecycleTaskListItemResponse(
+        Guid Id,
+        Guid ProjectId,
+        string ProjectName,
+        string Title,
+        WorkflowStateResponse OriginalState,
+        DateTimeOffset ChangedAt);
+
     [Test]
     public async Task CreateTask_WithBlankTitle_ReturnsValidationError()
     {
@@ -229,5 +239,177 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
         var response = await Client.GetAsync($"/api/projects/{project.Id}/tasks/{Guid.NewGuid()}");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+    }
+
+    [Test]
+    public async Task ArchiveTask_RemovesTaskFromBoardAndAddsItToArchivedList()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var createdTask = await CreateTaskAsync(project.Id, "Build Kanban Board");
+
+        var archiveResponse = await Client.PatchAsync(
+            $"/api/projects/{project.Id}/tasks/{createdTask.Id}/archive",
+            content: null);
+
+        Assert.That(archiveResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var archivedTask = await archiveResponse.Content.ReadFromJsonAsync<TaskDetailResponse>();
+
+        Assert.That(archivedTask, Is.Not.Null);
+        Assert.That(archivedTask!.CurrentState.Key, Is.EqualTo("todo"));
+        Assert.That(archivedTask.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskArchived"));
+
+        var boardResponse = await Client.GetAsync($"/api/projects/{project.Id}/board");
+        var board = await boardResponse.Content.ReadFromJsonAsync<ProjectBoardResponse>();
+
+        Assert.That(boardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(board, Is.Not.Null);
+        Assert.That(board!.Columns.SelectMany(column => column.Tasks).Select(task => task.Id), Does.Not.Contain(createdTask.Id));
+
+        var archivedListResponse = await Client.GetAsync($"/api/projects/{project.Id}/tasks/archived");
+        var archivedList = await archivedListResponse.Content.ReadFromJsonAsync<LifecycleTaskListResponse>();
+
+        Assert.That(archivedListResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(archivedList, Is.Not.Null);
+        Assert.That(archivedList!.Items.Select(item => item.Id), Does.Contain(createdTask.Id));
+
+        var archivedItem = archivedList.Items.Single(item => item.Id == createdTask.Id);
+        Assert.That(archivedItem.ProjectId, Is.EqualTo(project.Id));
+        Assert.That(archivedItem.ProjectName, Is.EqualTo(project.Name));
+        Assert.That(archivedItem.Title, Is.EqualTo("Build Kanban Board"));
+        Assert.That(archivedItem.OriginalState.Key, Is.EqualTo("todo"));
+    }
+
+    [Test]
+    public async Task RestoreArchivedTask_ReturnsTaskToBoardAndRemovesItFromArchivedList()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var firstTask = await CreateTaskAsync(project.Id, "Task A");
+        var archivedTask = await CreateTaskAsync(project.Id, "Task B");
+
+        var archiveResponse = await Client.PatchAsync(
+            $"/api/projects/{project.Id}/tasks/{archivedTask.Id}/archive",
+            content: null);
+
+        Assert.That(archiveResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var restoreResponse = await Client.PatchAsync(
+            $"/api/projects/{project.Id}/tasks/{archivedTask.Id}/restore-from-archive",
+            content: null);
+
+        Assert.That(restoreResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var restoredTask = await restoreResponse.Content.ReadFromJsonAsync<TaskDetailResponse>();
+
+        Assert.That(restoredTask, Is.Not.Null);
+        Assert.That(restoredTask!.CurrentState.Key, Is.EqualTo("todo"));
+        Assert.That(restoredTask.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskRestoredFromArchive"));
+
+        var boardResponse = await Client.GetAsync($"/api/projects/{project.Id}/board");
+        var board = await boardResponse.Content.ReadFromJsonAsync<ProjectBoardResponse>();
+
+        Assert.That(boardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(board, Is.Not.Null);
+
+        var todoTaskIds = board!.Columns
+            .Single(column => column.StateKey == "todo")
+            .Tasks
+            .Select(task => task.Id)
+            .ToArray();
+
+        Assert.That(todoTaskIds, Is.EqualTo(new[] { firstTask.Id, archivedTask.Id }));
+
+        var archivedListResponse = await Client.GetAsync($"/api/projects/{project.Id}/tasks/archived");
+        var archivedList = await archivedListResponse.Content.ReadFromJsonAsync<LifecycleTaskListResponse>();
+
+        Assert.That(archivedListResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(archivedList, Is.Not.Null);
+        Assert.That(archivedList!.Items.Select(item => item.Id), Does.Not.Contain(archivedTask.Id));
+    }
+
+    [Test]
+    public async Task MoveTaskToTrash_RemovesTaskFromBoardAndAddsItToTrashList()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var createdTask = await CreateTaskAsync(project.Id, "Build Kanban Board");
+
+        var trashResponse = await Client.PatchAsync(
+            $"/api/projects/{project.Id}/tasks/{createdTask.Id}/trash",
+            content: null);
+
+        Assert.That(trashResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var trashedTask = await trashResponse.Content.ReadFromJsonAsync<TaskDetailResponse>();
+
+        Assert.That(trashedTask, Is.Not.Null);
+        Assert.That(trashedTask!.CurrentState.Key, Is.EqualTo("todo"));
+        Assert.That(trashedTask.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskMovedToTrash"));
+
+        var boardResponse = await Client.GetAsync($"/api/projects/{project.Id}/board");
+        var board = await boardResponse.Content.ReadFromJsonAsync<ProjectBoardResponse>();
+
+        Assert.That(boardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(board, Is.Not.Null);
+        Assert.That(board!.Columns.SelectMany(column => column.Tasks).Select(task => task.Id), Does.Not.Contain(createdTask.Id));
+
+        var trashListResponse = await Client.GetAsync($"/api/projects/{project.Id}/tasks/trashed");
+        var trashList = await trashListResponse.Content.ReadFromJsonAsync<LifecycleTaskListResponse>();
+
+        Assert.That(trashListResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(trashList, Is.Not.Null);
+        Assert.That(trashList!.Items.Select(item => item.Id), Does.Contain(createdTask.Id));
+
+        var trashedItem = trashList.Items.Single(item => item.Id == createdTask.Id);
+        Assert.That(trashedItem.ProjectId, Is.EqualTo(project.Id));
+        Assert.That(trashedItem.ProjectName, Is.EqualTo(project.Name));
+        Assert.That(trashedItem.Title, Is.EqualTo("Build Kanban Board"));
+        Assert.That(trashedItem.OriginalState.Key, Is.EqualTo("todo"));
+    }
+
+    [Test]
+    public async Task RestoreTrashedTask_ReturnsTaskToBoardAndRemovesItFromTrashList()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var firstTask = await CreateTaskAsync(project.Id, "Task A");
+        var trashedTask = await CreateTaskAsync(project.Id, "Task B");
+
+        var trashResponse = await Client.PatchAsync(
+            $"/api/projects/{project.Id}/tasks/{trashedTask.Id}/trash",
+            content: null);
+
+        Assert.That(trashResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var restoreResponse = await Client.PatchAsync(
+            $"/api/projects/{project.Id}/tasks/{trashedTask.Id}/restore-from-trash",
+            content: null);
+
+        Assert.That(restoreResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var restoredTask = await restoreResponse.Content.ReadFromJsonAsync<TaskDetailResponse>();
+
+        Assert.That(restoredTask, Is.Not.Null);
+        Assert.That(restoredTask!.CurrentState.Key, Is.EqualTo("todo"));
+        Assert.That(restoredTask.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskRestoredFromTrash"));
+
+        var boardResponse = await Client.GetAsync($"/api/projects/{project.Id}/board");
+        var board = await boardResponse.Content.ReadFromJsonAsync<ProjectBoardResponse>();
+
+        Assert.That(boardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(board, Is.Not.Null);
+
+        var todoTaskIds = board!.Columns
+            .Single(column => column.StateKey == "todo")
+            .Tasks
+            .Select(task => task.Id)
+            .ToArray();
+
+        Assert.That(todoTaskIds, Is.EqualTo(new[] { firstTask.Id, trashedTask.Id }));
+
+        var trashListResponse = await Client.GetAsync($"/api/projects/{project.Id}/tasks/trashed");
+        var trashList = await trashListResponse.Content.ReadFromJsonAsync<LifecycleTaskListResponse>();
+
+        Assert.That(trashListResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(trashList, Is.Not.Null);
+        Assert.That(trashList!.Items.Select(item => item.Id), Does.Not.Contain(trashedTask.Id));
     }
 }

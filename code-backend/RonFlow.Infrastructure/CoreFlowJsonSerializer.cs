@@ -57,6 +57,7 @@ internal static class CoreFlowJsonSerializer
         writer.WriteString("description", task.Description);
         writer.WritePropertyName("currentState");
         WriteWorkflowState(writer, task.CurrentState);
+        writer.WriteString("lifecycleState", task.LifecycleState.ToString());
         if (task.DueDate is null)
         {
             writer.WriteNull("dueDate");
@@ -74,6 +75,24 @@ internal static class CoreFlowJsonSerializer
         else
         {
             writer.WriteString("completedAt", task.CompletedAt.Value);
+        }
+
+        if (task.ArchivedAt is null)
+        {
+            writer.WriteNull("archivedAt");
+        }
+        else
+        {
+            writer.WriteString("archivedAt", task.ArchivedAt.Value);
+        }
+
+        if (task.TrashedAt is null)
+        {
+            writer.WriteNull("trashedAt");
+        }
+        else
+        {
+            writer.WriteString("trashedAt", task.TrashedAt.Value);
         }
 
         writer.WriteNumber("sortOrder", task.SortOrder);
@@ -100,12 +119,22 @@ internal static class CoreFlowJsonSerializer
         var completedAt = root.TryGetProperty("completedAt", out var completedAtElement) && completedAtElement.ValueKind != JsonValueKind.Null
             ? completedAtElement.GetDateTimeOffset()
             : (DateTimeOffset?)null;
+        var archivedAt = root.TryGetProperty("archivedAt", out var archivedAtElement) && archivedAtElement.ValueKind != JsonValueKind.Null
+            ? archivedAtElement.GetDateTimeOffset()
+            : (DateTimeOffset?)null;
+        var trashedAt = root.TryGetProperty("trashedAt", out var trashedAtElement) && trashedAtElement.ValueKind != JsonValueKind.Null
+            ? trashedAtElement.GetDateTimeOffset()
+            : (DateTimeOffset?)null;
         var description = root.TryGetProperty("description", out var descriptionElement) && descriptionElement.ValueKind != JsonValueKind.Null
             ? descriptionElement.GetString() ?? string.Empty
             : string.Empty;
         var dueDate = root.TryGetProperty("dueDate", out var dueDateElement) && dueDateElement.ValueKind != JsonValueKind.Null
             ? DateOnly.Parse(GetRequiredString(root, "dueDate"))
             : (DateOnly?)null;
+        var lifecycleState = root.TryGetProperty("lifecycleState", out var lifecycleStateElement)
+            && Enum.TryParse<TaskLifecycleState>(lifecycleStateElement.GetString(), out var parsedLifecycleState)
+                ? parsedLifecycleState
+                : TaskLifecycleState.ActiveRecord;
         var sortOrder = root.TryGetProperty("sortOrder", out var sortOrderElement)
             ? sortOrderElement.GetInt32()
             : 0;
@@ -116,9 +145,12 @@ internal static class CoreFlowJsonSerializer
             GetRequiredString(root, "title"),
             description,
             ReadWorkflowState(root.GetProperty("currentState")),
+            lifecycleState,
             dueDate,
             root.GetProperty("createdAt").GetDateTimeOffset(),
             completedAt,
+            archivedAt,
+            trashedAt,
             sortOrder,
             root.GetProperty("activityTimeline")
                 .EnumerateArray()
