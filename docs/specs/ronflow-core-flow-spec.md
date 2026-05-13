@@ -161,11 +161,16 @@ Done   -> 已完成
 20. 使用者可以拖曳 Task 到其他欄位，或在同欄位內調整順序
 21. Task 進入 Done 時系統記錄完成；移回非 Done 時系統記錄重新開啟
 22. 使用者可以從 Task Detail Drawer 的更多操作封存 Task 或移到垃圾桶
-23. 已封存 / 已移到垃圾桶的 Task 不出現在 Project Kanban Board
-24. 使用者可以在 Archived Tasks View 或 Trash View 開啟 read-only Task Detail Drawer，並將 Task 還原到主要工作視野
+23. 封存或移到垃圾桶成功後，系統應關閉 Drawer，並回到 Project Kanban Board
+24. 已封存 / 已移到垃圾桶的 Task 不出現在 Project Kanban Board
+25. 使用者可以從 Project Kanban Board 進入 Archived Tasks View 或 Trash View
+26. 使用者可以在 Archived Tasks View 或 Trash View 開啟 read-only Task Detail Drawer
+27. 使用者可以從 Archived Tasks View 或 Trash View 還原 Task；還原後系統回到 Project Kanban Board
 ```
 
 ### 6.2 Flow Map
+
+Flow Map 應同時呈現使用者操作與對應的 domain event；若某個 domain event 完成後不會切換頁面，則以目前 page 的自我指涉表示。
 
 ```mermaid
 flowchart TD
@@ -174,20 +179,33 @@ flowchart TD
     C[Project Kanban Board]
     D[Create Task Modal]
     E[Task Detail Drawer]
-  F[Archived Tasks View]
-  G[Trash View]
+    F[Archived Tasks View]
+    G[Trash View]
 
     A -->|Click Create Project| B
     B -->|Project Created and Modal Closed| C
     A -->|Open Project| C
     C -->|Click Create Task| D
-    D -->|Task Created and Modal Closed| C
+    D -->|Create Task / TaskCreated| C
     C -->|Click Task Card| E
     E -->|Close Drawer| C
-  E -->|Archive Task| F
-  E -->|Move Task To Trash| G
-  F -->|Restore Task| C
-  G -->|Restore Task| C
+    E -->|Update Title / TaskTitleChanged| E
+    E -->|Update Description / TaskDescriptionChanged| E
+    E -->|Update Due Date / TaskDueDateChanged| E
+    C -->|Move State / TaskStateChanged| C
+    C -->|Move To Done / TaskCompleted| C
+    C -->|Reopen From Done / TaskReopened| C
+    C -->|Reorder Task / TaskReordered| C
+    E -->|Archive Task / TaskArchived| C
+    E -->|Move Task To Trash / TaskMovedToTrash| C
+    C -->|Open Archived Tasks View| F
+    C -->|Open Trash View| G
+    F -->|Open Read-Only Drawer| E
+    G -->|Open Read-Only Drawer| E
+    E -->|Close Drawer To Archived Tasks View| F
+    E -->|Close Drawer To Trash View| G
+    F -->|Restore Task / TaskRestoredFromArchive| C
+    G -->|Restore Task / TaskRestoredFromTrash| C
 ```
 
 ---
@@ -354,6 +372,19 @@ Feature: 建立專案
 2. 建立任務按鈕
 3. 欄位狀態
 4. 任務卡片
+5. 已封存任務入口
+6. 垃圾桶入口
+```
+
+**User Actions**
+
+```text
+1. 建立任務
+2. 開啟 Task Detail Drawer
+3. 拖曳 Task 變更狀態
+4. 拖曳 Task 調整順序
+5. 進入 Archived Tasks View
+6. 進入 Trash View
 ```
 
 **Visible Names**
@@ -372,6 +403,8 @@ Feature: 建立專案
 3. 點擊 Task Card 可開啟 Task Detail Drawer
 4. 只有 Lifecycle State 為 ActiveRecord 的 Task 會出現在 Project Kanban Board
 5. 已封存或已移到垃圾桶的 Task 不應繼續出現在 Board
+6. 使用者可以從 Project Kanban Board 進入 Archived Tasks View
+7. 使用者可以從 Project Kanban Board 進入 Trash View
 ```
 
 **UI / UX Notes**
