@@ -1,6 +1,7 @@
 <template>
   <BaseModalShell
     :is-open="isOpen"
+    :close-disabled="isSaving"
     title="任務詳細資訊"
     title-id="task-detail-title"
     eyebrow="Task detail"
@@ -13,6 +14,34 @@
         loading-message="正在載入任務詳細資訊..."
       >
         <section v-if="task" class="detail-layout">
+          <div class="detail-card detail-card-full detail-toolbar">
+            <div v-if="isReadOnly" class="detail-lifecycle-banner">
+              <strong v-if="mode === 'archived'">此任務已封存</strong>
+              <strong v-else>此任務位於垃圾桶</strong>
+            </div>
+
+            <div v-else class="detail-toolbar-actions">
+              <button
+                type="button"
+                class="secondary-button"
+                aria-haspopup="menu"
+                :aria-expanded="isActionsOpen"
+                @click="toggleActionsMenu"
+              >
+                更多操作
+              </button>
+
+              <div v-if="isActionsOpen" class="detail-actions-menu" role="menu">
+                <button type="button" class="detail-actions-menu-item" role="menuitem" @click="emitArchive">
+                  封存
+                </button>
+                <button type="button" class="detail-actions-menu-item" role="menuitem" @click="emitMoveToTrash">
+                  移到垃圾桶
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div class="detail-card">
             <div class="detail-field">
               <label class="detail-label" for="task-detail-title-input">任務標題</label>
@@ -22,7 +51,7 @@
                   id="task-detail-title-input"
                   v-model="draftTitle"
                   fluid
-                  :disabled="isSaving"
+                  :disabled="isSaving || isReadOnly"
                   :invalid="Boolean(titleValidationError)"
                 />
                 <p v-if="titleValidationError" class="error-copy">{{ titleValidationError }}</p>
@@ -41,7 +70,7 @@
                   fluid
                   auto-resize
                   rows="5"
-                  :disabled="isSaving"
+                  :disabled="isSaving || isReadOnly"
                 />
               </div>
             </div>
@@ -66,7 +95,7 @@
                   show-button-bar
                   show-clear
                   show-icon
-                  :disabled="isSaving"
+                  :disabled="isSaving || isReadOnly"
                   :manual-input="false"
                 />
               </div>
@@ -87,11 +116,12 @@
             <ApiCommandResourceView
               :is-submitting="isSaving"
               :error-message="saveErrorMessage"
-              submitting-message="正在儲存任務變更，請稍候..."
+              submitting-message="正在提交任務操作，請稍候..."
             />
 
             <div class="modal-actions">
-              <button type="button" class="primary-button" :disabled="isSaving" @click="submit">儲存變更</button>
+              <button v-if="!isReadOnly" type="button" class="primary-button" :disabled="isSaving" @click="submit">儲存變更</button>
+              <button v-else type="button" class="primary-button" :disabled="isSaving" @click="emitRestore">還原</button>
             </div>
           </div>
 
@@ -118,6 +148,7 @@ import AsyncStateBoundary from './bases/AsyncStateBoundary.vue'
 import ApiCommandResourceView from './bases/ApiCommandResourceView.vue'
 import BaseModalShell from './bases/BaseModalShell.vue'
 import type { TaskDetailResponse } from '../api/ronflowApi'
+import type { TaskDetailMode } from '../composables/useRonFlowBoard'
 
 const props = defineProps<{
   isOpen: boolean
@@ -126,6 +157,7 @@ const props = defineProps<{
   errorMessage: string
   saveErrorMessage: string
   titleValidationError: string
+  mode: TaskDetailMode
   task: TaskDetailResponse | null
   formatTimelineTime: (occurredAt: string) => string
 }>()
@@ -133,11 +165,17 @@ const props = defineProps<{
 const emit = defineEmits<{
   (event: 'close'): void
   (event: 'save', payload: { taskId: string; title: string; description: string; dueDate: string | null }): void
+  (event: 'archive', taskId: string): void
+  (event: 'move-to-trash', taskId: string): void
+  (event: 'restore', taskId: string, mode: Exclude<TaskDetailMode, 'active'>): void
 }>()
 
 const draftTitle = ref('')
 const draftDescription = ref('')
 const draftDueDate = ref('')
+const isActionsOpen = ref(false)
+
+const isReadOnly = computed(() => props.mode !== 'active')
 
 const draftDueDateValue = computed<Date | null>({
   get() {
@@ -178,7 +216,7 @@ function formatDateOnly(value: Date | null): string {
 }
 
 function submit() {
-  if (!props.task || props.isSaving) {
+  if (!props.task || props.isSaving || isReadOnly.value) {
     return
   }
 
@@ -190,9 +228,45 @@ function submit() {
   })
 }
 
+function toggleActionsMenu() {
+  if (props.isSaving || isReadOnly.value) {
+    return
+  }
+
+  isActionsOpen.value = !isActionsOpen.value
+}
+
+function emitArchive() {
+  if (!props.task || props.isSaving) {
+    return
+  }
+
+  isActionsOpen.value = false
+  emit('archive', props.task.id)
+}
+
+function emitMoveToTrash() {
+  if (!props.task || props.isSaving) {
+    return
+  }
+
+  isActionsOpen.value = false
+  emit('move-to-trash', props.task.id)
+}
+
+function emitRestore() {
+  if (!props.task || props.isSaving || props.mode === 'active') {
+    return
+  }
+
+  emit('restore', props.task.id, props.mode)
+}
+
 watch(
-  () => [props.isOpen, props.task?.id, props.task?.title, props.task?.description, props.task?.dueDate] as const,
+  () => [props.isOpen, props.task?.id, props.task?.title, props.task?.description, props.task?.dueDate, props.mode] as const,
   ([isOpen]) => {
+    isActionsOpen.value = false
+
     if (!isOpen || !props.task) {
       return
     }

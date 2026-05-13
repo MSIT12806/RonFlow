@@ -1,5 +1,5 @@
 import { apiPath, request } from './request'
-import type { TaskDetailResponse } from './types'
+import type { LifecycleTaskListResponse, TaskDetailResponse } from './types'
 
 export async function createTask(projectId: string, title: string) {
   return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks`), {
@@ -10,6 +10,14 @@ export async function createTask(projectId: string, title: string) {
 
 export async function getTaskDetail(projectId: string, taskId: string) {
   return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}`))
+}
+
+export async function getArchivedTasks(projectId: string) {
+  return request<LifecycleTaskListResponse>(apiPath(`/projects/${projectId}/tasks/archived`))
+}
+
+export async function getTrashedTasks(projectId: string) {
+  return request<LifecycleTaskListResponse>(apiPath(`/projects/${projectId}/tasks/trashed`))
 }
 
 export async function changeTaskState(projectId: string, taskId: string, stateKey: string) {
@@ -34,5 +42,29 @@ export async function reorderTask(projectId: string, taskId: string, targetTaskI
   return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}/order`), {
     method: 'PATCH',
     body: JSON.stringify({ targetTaskId }),
+  })
+}
+
+export async function archiveTask(projectId: string, taskId: string) {
+  return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}/archive`), {
+    method: 'PATCH',
+  })
+}
+
+export async function restoreArchivedTask(projectId: string, taskId: string) {
+  return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}/restore-from-archive`), {
+    method: 'PATCH',
+  })
+}
+
+export async function moveTaskToTrash(projectId: string, taskId: string) {
+  return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}/trash`), {
+    method: 'PATCH',
+  })
+}
+
+export async function restoreTrashedTask(projectId: string, taskId: string) {
+  return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}/restore-from-trash`), {
+    method: 'PATCH',
   })
 }

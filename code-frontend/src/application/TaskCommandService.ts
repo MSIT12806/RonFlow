@@ -1,7 +1,11 @@
 import {
+  archiveTask,
   changeTaskState,
   createTask,
+  moveTaskToTrash,
   reorderTask,
+  restoreArchivedTask,
+  restoreTrashedTask,
   updateTask,
   type TaskDetailResponse,
   type WorkflowKey,
@@ -28,5 +32,21 @@ export class TaskCommandService {
 
   async reorder(projectId: string, taskId: string, targetTaskId: string): Promise<TaskDetailResponse> {
     return reorderTask(projectId, taskId, targetTaskId)
+  }
+
+  async archive(projectId: string, taskId: string): Promise<TaskDetailResponse> {
+    return archiveTask(projectId, taskId)
+  }
+
+  async restoreArchived(projectId: string, taskId: string): Promise<TaskDetailResponse> {
+    return restoreArchivedTask(projectId, taskId)
+  }
+
+  async moveToTrash(projectId: string, taskId: string): Promise<TaskDetailResponse> {
+    return moveTaskToTrash(projectId, taskId)
+  }
+
+  async restoreTrashed(projectId: string, taskId: string): Promise<TaskDetailResponse> {
+    return restoreTrashedTask(projectId, taskId)
   }
 }

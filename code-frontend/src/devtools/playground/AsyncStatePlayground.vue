@@ -156,10 +156,14 @@
             :error-message="activeTaskDetailState.type === 'load-error' ? activeTaskDetailState.loadErrorMessage : ''"
             :save-error-message="activeTaskDetailState.type === 'save-error' ? activeTaskDetailState.saveErrorMessage : ''"
             :title-validation-error="activeTaskDetailState.type === 'validation-error' ? activeTaskDetailState.titleValidationError : ''"
+            mode="active"
             :task="playgroundTaskDetail"
             :format-timeline-time="formatTimelineTime"
             @close="noop"
             @save="noop"
+            @archive="noop"
+            @move-to-trash="noop"
+            @restore="noop"
           />
         </article>
       </section>

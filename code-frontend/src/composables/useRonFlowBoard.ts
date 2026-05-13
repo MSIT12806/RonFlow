@@ -3,6 +3,7 @@ import {
   ApiRequestError,
   ApiValidationError,
   type BoardColumnResponse,
+  type LifecycleTaskListItemResponse,
   type ProjectListItemResponse,
   type WorkflowKey,
 } from '../api/ronflowApi'
@@ -17,12 +18,16 @@ const projectQueryService = new ProjectQueryService()
 const taskQueryService = new TaskQueryService()
 const taskCommandService = new TaskCommandService()
 
+export type TaskDetailMode = 'active' | 'archived' | 'trashed'
+
 export function useRonFlowBoard() {
   const activeProjectId = ref<string | null>(null)
   const isTaskDetailOpen = ref(false)
+  const taskDetailMode = ref<TaskDetailMode>('active')
 
   const pageError = ref('')
   const boardCommandError = ref('')
+  const taskLifecycleCommandError = ref('')
 
   const projectsResource = useApiResource(
     () => projectQueryService.getProjects(),
@@ -39,6 +44,24 @@ export function useRonFlowBoard() {
     {
       clearDataOnExecute: true,
       mapErrorMessage: () => '無法載入任務詳細資訊，請重新整理後再試。',
+    },
+  )
+
+  const archivedTasksResource = useApiResource(
+    (projectId: string) => taskQueryService.getArchived(projectId),
+    {
+      clearDataOnExecute: true,
+      createInitialData: () => ({ items: [] as LifecycleTaskListItemResponse[] }),
+      mapErrorMessage: () => '無法載入已封存任務，請稍後再試。',
+    },
+  )
+
+  const trashedTasksResource = useApiResource(
+    (projectId: string) => taskQueryService.getTrashed(projectId),
+    {
+      clearDataOnExecute: true,
+      createInitialData: () => ({ items: [] as LifecycleTaskListItemResponse[] }),
+      mapErrorMessage: () => '無法載入垃圾桶任務，請稍後再試。',
     },
   )
 
@@ -70,15 +93,43 @@ export function useRonFlowBoard() {
       taskCommandService.reorder(projectId, taskId, targetTaskId),
   )
 
+  const archiveTaskResource = useApiResource(
+    (projectId: string, taskId: string) => taskCommandService.archive(projectId, taskId),
+  )
+
+  const restoreArchivedTaskResource = useApiResource(
+    (projectId: string, taskId: string) => taskCommandService.restoreArchived(projectId, taskId),
+  )
+
+  const moveTaskToTrashResource = useApiResource(
+    (projectId: string, taskId: string) => taskCommandService.moveToTrash(projectId, taskId),
+  )
+
+  const restoreTrashedTaskResource = useApiResource(
+    (projectId: string, taskId: string) => taskCommandService.restoreTrashed(projectId, taskId),
+  )
+
   const projects = computed(() => projectsResource.data.value?.items ?? [])
   const activeBoard = computed(() => boardResource.data.value)
   const selectedTask = computed(() => taskDetailResource.data.value)
   const taskDetailError = computed(() => taskDetailResource.errorMessage.value)
-  const taskDetailCommandError = computed(() => updateTaskDetailResource.errorMessage.value)
+  const taskDetailCommandError = computed(() => updateTaskDetailResource.errorMessage.value || taskLifecycleCommandError.value)
   const isLoadingProjects = computed(() => projectsResource.isLoading.value)
   const isLoadingBoard = computed(() => boardResource.isLoading.value)
   const isLoadingTaskDetail = computed(() => taskDetailResource.isLoading.value)
-  const isUpdatingTaskDetail = computed(() => updateTaskDetailResource.isLoading.value)
+  const isUpdatingTaskDetail = computed(() =>
+    updateTaskDetailResource.isLoading.value
+    || archiveTaskResource.isLoading.value
+    || restoreArchivedTaskResource.isLoading.value
+    || moveTaskToTrashResource.isLoading.value
+    || restoreTrashedTaskResource.isLoading.value,
+  )
+  const archivedTasks = computed(() => archivedTasksResource.data.value?.items ?? [])
+  const trashedTasks = computed(() => trashedTasksResource.data.value?.items ?? [])
+  const archivedTasksError = computed(() => archivedTasksResource.errorMessage.value)
+  const trashedTasksError = computed(() => trashedTasksResource.errorMessage.value)
+  const isLoadingArchivedTasks = computed(() => archivedTasksResource.isLoading.value)
+  const isLoadingTrashedTasks = computed(() => trashedTasksResource.isLoading.value)
   const taskTitleValidationError = ref('')
 
   const activeProject = computed(() =>
@@ -93,14 +144,16 @@ export function useRonFlowBoard() {
 
 
 
-  async function openTaskDetail(taskId: string) {
+  async function openTaskDetail(taskId: string, mode: TaskDetailMode = 'active') {
     if (!activeProjectId.value) {
       return
     }
 
     taskDetailResource.reset()
     updateTaskDetailResource.reset()
+    taskLifecycleCommandError.value = ''
     taskTitleValidationError.value = ''
+    taskDetailMode.value = mode
     isTaskDetailOpen.value = true
 
     try {
@@ -112,7 +165,11 @@ export function useRonFlowBoard() {
     activeProjectId.value = projectId
     taskDetailResource.reset()
     updateTaskDetailResource.reset()
+    archivedTasksResource.reset()
+    trashedTasksResource.reset()
+    taskLifecycleCommandError.value = ''
     taskTitleValidationError.value = ''
+    taskDetailMode.value = 'active'
     isTaskDetailOpen.value = false
     await loadBoard(projectId)
   }
@@ -121,7 +178,9 @@ export function useRonFlowBoard() {
     isTaskDetailOpen.value = false
     taskDetailResource.reset()
     updateTaskDetailResource.reset()
+    taskLifecycleCommandError.value = ''
     taskTitleValidationError.value = ''
+    taskDetailMode.value = 'active'
   }
 
   async function moveTaskToState(taskId: string, stateKey: WorkflowKey) {
@@ -156,6 +215,7 @@ export function useRonFlowBoard() {
 
     taskTitleValidationError.value = ''
     updateTaskDetailResource.reset()
+    taskLifecycleCommandError.value = ''
 
     try {
       const updatedTask = await updateTaskDetailResource.execute(activeProjectId.value, taskId, title, description, dueDate)
@@ -193,6 +253,120 @@ export function useRonFlowBoard() {
     }
   }
 
+  async function loadArchivedTasks(projectId = activeProjectId.value) {
+    if (!projectId) {
+      archivedTasksResource.reset()
+      return
+    }
+
+    try {
+      await archivedTasksResource.execute(projectId)
+    } catch {}
+  }
+
+  async function loadTrashedTasks(projectId = activeProjectId.value) {
+    if (!projectId) {
+      trashedTasksResource.reset()
+      return
+    }
+
+    try {
+      await trashedTasksResource.execute(projectId)
+    } catch {}
+  }
+
+  async function archiveTask(taskId: string) {
+    if (!activeProjectId.value) {
+      return false
+    }
+
+    taskLifecycleCommandError.value = ''
+
+    try {
+      await archiveTaskResource.execute(activeProjectId.value, taskId)
+      closeTaskDetail()
+      await Promise.all([loadBoard(activeProjectId.value), loadArchivedTasks(activeProjectId.value)])
+      return true
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 404) {
+        taskLifecycleCommandError.value = '找不到指定的任務，請重新整理專案看板。'
+        return false
+      }
+
+      taskLifecycleCommandError.value = '封存任務失敗，請稍後再試。'
+      return false
+    }
+  }
+
+  async function moveTaskIntoTrash(taskId: string) {
+    if (!activeProjectId.value) {
+      return false
+    }
+
+    taskLifecycleCommandError.value = ''
+
+    try {
+      await moveTaskToTrashResource.execute(activeProjectId.value, taskId)
+      closeTaskDetail()
+      await Promise.all([loadBoard(activeProjectId.value), loadTrashedTasks(activeProjectId.value)])
+      return true
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 404) {
+        taskLifecycleCommandError.value = '找不到指定的任務，請重新整理專案看板。'
+        return false
+      }
+
+      taskLifecycleCommandError.value = '移到垃圾桶失敗，請稍後再試。'
+      return false
+    }
+  }
+
+  async function restoreArchivedTask(taskId: string) {
+    if (!activeProjectId.value) {
+      return false
+    }
+
+    taskLifecycleCommandError.value = ''
+
+    try {
+      await restoreArchivedTaskResource.execute(activeProjectId.value, taskId)
+      closeTaskDetail()
+      await Promise.all([loadBoard(activeProjectId.value), loadArchivedTasks(activeProjectId.value)])
+      return true
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 404) {
+        taskLifecycleCommandError.value = '找不到指定的任務，請重新整理任務列表。'
+        return false
+      }
+
+      taskLifecycleCommandError.value = '還原封存任務失敗，請稍後再試。'
+      return false
+    }
+  }
+
+  async function restoreTrashedTask(taskId: string) {
+    if (!activeProjectId.value) {
+      return false
+    }
+
+    taskLifecycleCommandError.value = ''
+
+    try {
+      await restoreTrashedTaskResource.execute(activeProjectId.value, taskId)
+      closeTaskDetail()
+      await Promise.all([loadBoard(activeProjectId.value), loadTrashedTasks(activeProjectId.value)])
+      return true
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 404) {
+        taskLifecycleCommandError.value = '找不到指定的任務，請重新整理任務列表。'
+        return false
+      }
+
+      taskLifecycleCommandError.value = '從垃圾桶還原任務失敗，請稍後再試。'
+      return false
+    }
+  }
+
   function formatProjectMeta(updatedAt: string) {
     return `更新於 ${new Intl.DateTimeFormat('zh-TW', {
       month: '2-digit',
@@ -222,6 +396,8 @@ export function useRonFlowBoard() {
         activeProjectId.value = null
         boardResource.reset()
         taskDetailResource.reset()
+        archivedTasksResource.reset()
+        trashedTasksResource.reset()
         isTaskDetailOpen.value = false
         return
       }
@@ -266,6 +442,9 @@ export function useRonFlowBoard() {
     activeProject,
     activeColumns,
     selectedTask,
+    taskDetailMode,
+    archivedTasks,
+    trashedTasks,
     isTaskDetailOpen,
     taskDetailError,
     taskDetailCommandError,
@@ -273,6 +452,10 @@ export function useRonFlowBoard() {
     isLoadingBoard,
     isLoadingTaskDetail,
     isUpdatingTaskDetail,
+    isLoadingArchivedTasks,
+    isLoadingTrashedTasks,
+    archivedTasksError,
+    trashedTasksError,
     pageError,
     boardCommandError,
     taskTitleValidationError,
@@ -282,6 +465,12 @@ export function useRonFlowBoard() {
     moveTaskToState,
     updateTaskDetail,
     reorderTaskWithinColumn,
+    loadArchivedTasks,
+    loadTrashedTasks,
+    archiveTask,
+    moveTaskIntoTrash,
+    restoreArchivedTask,
+    restoreTrashedTask,
     loadProjects,
     loadBoard,
     formatProjectMeta,

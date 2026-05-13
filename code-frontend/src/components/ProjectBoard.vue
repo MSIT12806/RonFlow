@@ -7,9 +7,19 @@
           <h2 class="board-title">{{ activeProjectName }}</h2>
         </div>
 
-        <button type="button" class="primary-button" @click="$emit('open-create-task')">
-          建立任務
-        </button>
+        <div class="board-header-actions">
+          <button type="button" class="secondary-button" @click="$emit('open-archived-tasks')">
+            已封存任務
+          </button>
+
+          <button type="button" class="secondary-button" @click="$emit('open-trash-view')">
+            垃圾桶
+          </button>
+
+          <button type="button" class="primary-button" @click="$emit('open-create-task')">
+            建立任務
+          </button>
+        </div>
       </header>
 
       <AsyncStateBoundary
@@ -97,6 +107,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (event: 'open-create-task'): void
+  (event: 'open-archived-tasks'): void
+  (event: 'open-trash-view'): void
   (event: 'open-task-detail', taskId: string): void
   (event: 'move-task-to-state', taskId: string, stateKey: WorkflowKey): void
   (event: 'reorder-task-within-column', taskId: string, targetTaskId: string): void

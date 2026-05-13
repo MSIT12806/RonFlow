@@ -25,6 +25,21 @@ export type TaskDetailResponse = {
   activityTimeline: ActivityTimelineItemResponse[]
 }
 
+export type TaskLifecycleState = 'activeRecord' | 'archived' | 'trashed'
+
+export type LifecycleTaskListItemResponse = {
+  id: string
+  projectId: string
+  projectName: string
+  title: string
+  originalState: WorkflowStateResponse
+  changedAt: string
+}
+
+export type LifecycleTaskListResponse = {
+  items: LifecycleTaskListItemResponse[]
+}
+
 export type BoardTaskCardResponse = {
   id: string
   title: string

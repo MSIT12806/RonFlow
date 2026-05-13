@@ -430,6 +430,15 @@ button {
   margin-bottom: 24px;
 }
 
+.board-header-actions,
+.detail-toolbar-actions,
+.lifecycle-task-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
 .board-title {
   font-size: clamp(1.8rem, 2vw, 2.6rem);
 }
@@ -551,6 +560,65 @@ button {
   max-width: 46ch;
   margin: 16px 0 0;
   line-height: 1.75;
+}
+
+.lifecycle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lifecycle-task-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(240, 249, 255, 0.76));
+  box-shadow: var(--shadow-md);
+}
+
+.lifecycle-task-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lifecycle-task-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #112031;
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+.lifecycle-task-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+}
+
+.lifecycle-task-details div {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.lifecycle-task-details dt {
+  margin: 0 0 6px;
+  color: var(--text-soft);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.lifecycle-task-details dd {
+  margin: 0;
+  color: #112031;
+  font-weight: 700;
 }
 
 .ghost-icon-button {
@@ -687,6 +755,42 @@ button {
   grid-column: 1 / -1;
 }
 
+.detail-toolbar {
+  position: relative;
+}
+
+.detail-lifecycle-banner {
+  color: var(--brand-strong);
+  font-weight: 800;
+}
+
+.detail-actions-menu {
+  position: absolute;
+  top: calc(100% - 8px);
+  right: 18px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 180px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  border-radius: 18px;
+  background: rgba(255, 252, 248, 0.98);
+  box-shadow: var(--shadow-md);
+}
+
+.detail-actions-menu-item {
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #16324a;
+  font-weight: 700;
+  text-align: left;
+}
+
 .detail-label {
   margin: 0 0 8px;
   letter-spacing: 0.08em;
@@ -728,10 +832,21 @@ button {
     align-items: stretch;
   }
 
+  .board-header-actions,
+  .detail-toolbar-actions,
+  .lifecycle-task-actions,
+  .lifecycle-task-details {
+    grid-template-columns: 1fr;
+  }
+
   .board-grid,
   .playground-examples,
   .detail-layout {
     grid-template-columns: 1fr;
+  }
+
+  .lifecycle-task-details {
+    display: grid;
   }
 
   .detail-field-inline {
