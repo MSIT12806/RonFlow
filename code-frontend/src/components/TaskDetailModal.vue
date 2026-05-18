@@ -8,6 +8,10 @@
     size="wide"
     @close="$emit('close')"
   >
+      <section v-if="displayTitle" class="detail-preview-header">
+        <h3>{{ displayTitle }}</h3>
+      </section>
+
       <AsyncStateBoundary
         :is-loading="isLoading"
         :error-message="errorMessage"
@@ -96,7 +100,7 @@
                   show-clear
                   show-icon
                   :disabled="isSaving || isReadOnly"
-                  :manual-input="false"
+                  :manual-input="true"
                 />
               </div>
             </div>
@@ -158,6 +162,7 @@ const props = defineProps<{
   saveErrorMessage: string
   titleValidationError: string
   mode: TaskDetailMode
+  displayTitle: string
   task: TaskDetailResponse | null
   formatTimelineTime: (occurredAt: string) => string
 }>()

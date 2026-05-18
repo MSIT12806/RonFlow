@@ -24,6 +24,7 @@ export function useRonFlowBoard() {
   const activeProjectId = ref<string | null>(null)
   const isTaskDetailOpen = ref(false)
   const taskDetailMode = ref<TaskDetailMode>('active')
+  const pendingTaskTitle = ref('')
 
   const pageError = ref('')
   const boardCommandError = ref('')
@@ -112,6 +113,7 @@ export function useRonFlowBoard() {
   const projects = computed(() => projectsResource.data.value?.items ?? [])
   const activeBoard = computed(() => boardResource.data.value)
   const selectedTask = computed(() => taskDetailResource.data.value)
+  const taskDetailDisplayTitle = computed(() => taskDetailResource.data.value?.title ?? pendingTaskTitle.value)
   const taskDetailError = computed(() => taskDetailResource.errorMessage.value)
   const taskDetailCommandError = computed(() => updateTaskDetailResource.errorMessage.value || taskLifecycleCommandError.value)
   const isLoadingProjects = computed(() => projectsResource.isLoading.value)
@@ -144,7 +146,7 @@ export function useRonFlowBoard() {
 
 
 
-  async function openTaskDetail(taskId: string, mode: TaskDetailMode = 'active') {
+  async function openTaskDetail(taskId: string, mode: TaskDetailMode = 'active', taskTitle = '') {
     if (!activeProjectId.value) {
       return
     }
@@ -154,6 +156,7 @@ export function useRonFlowBoard() {
     taskLifecycleCommandError.value = ''
     taskTitleValidationError.value = ''
     taskDetailMode.value = mode
+    pendingTaskTitle.value = taskTitle
     isTaskDetailOpen.value = true
 
     try {
@@ -170,6 +173,7 @@ export function useRonFlowBoard() {
     taskLifecycleCommandError.value = ''
     taskTitleValidationError.value = ''
     taskDetailMode.value = 'active'
+    pendingTaskTitle.value = ''
     isTaskDetailOpen.value = false
     await loadBoard(projectId)
   }
@@ -181,6 +185,7 @@ export function useRonFlowBoard() {
     taskLifecycleCommandError.value = ''
     taskTitleValidationError.value = ''
     taskDetailMode.value = 'active'
+    pendingTaskTitle.value = ''
   }
 
   async function moveTaskToState(taskId: string, stateKey: WorkflowKey) {
@@ -442,6 +447,7 @@ export function useRonFlowBoard() {
     activeProject,
     activeColumns,
     selectedTask,
+    taskDetailDisplayTitle,
     taskDetailMode,
     archivedTasks,
     trashedTasks,

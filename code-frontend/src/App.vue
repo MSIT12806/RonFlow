@@ -44,7 +44,7 @@
             @open-create-task="onOpenCreateTask"
             @open-archived-tasks="openArchivedTasksView"
             @open-trash-view="openTrashView"
-            @open-task-detail="openTaskDetail"
+            @open-task-detail="onOpenTaskDetail"
             @move-task-to-state="moveTaskToState"
             @reorder-task-within-column="reorderTaskWithinColumn"
           />
@@ -61,7 +61,7 @@
             time-label="封存時間"
             :format-timeline-time="formatTimelineTime"
             @back-to-board="openBoardView"
-            @open-task-detail="onOpenLifecycleTaskDetail($event, 'archived')"
+            @open-task-detail="(taskId, taskTitle) => onOpenLifecycleTaskDetail(taskId, 'archived', taskTitle)"
             @restore-task="onRestoreTask($event, 'archived')"
           />
 
@@ -77,7 +77,7 @@
             time-label="移到垃圾桶時間"
             :format-timeline-time="formatTimelineTime"
             @back-to-board="openBoardView"
-            @open-task-detail="onOpenLifecycleTaskDetail($event, 'trashed')"
+            @open-task-detail="(taskId, taskTitle) => onOpenLifecycleTaskDetail(taskId, 'trashed', taskTitle)"
             @restore-task="onRestoreTask($event, 'trashed')"
           />
         </section>
@@ -102,6 +102,7 @@
       :save-error-message="taskDetailCommandError"
       :title-validation-error="taskTitleValidationError"
       :mode="taskDetailMode"
+      :display-title="taskDetailDisplayTitle"
       :task="selectedTask"
       :format-timeline-time="formatTimelineTime"
       @close="closeTaskDetail"
@@ -140,6 +141,7 @@ const {
   activeProject,
   activeColumns,
   selectedTask,
+  taskDetailDisplayTitle,
   taskDetailMode,
   archivedTasks,
   trashedTasks,
@@ -208,8 +210,12 @@ async function onSelectProject(projectId: string) {
   await selectProject(projectId)
 }
 
-async function onOpenLifecycleTaskDetail(taskId: string, mode: Exclude<TaskDetailMode, 'active'>) {
-  await openTaskDetail(taskId, mode)
+async function onOpenTaskDetail(taskId: string, taskTitle: string) {
+  await openTaskDetail(taskId, 'active', taskTitle)
+}
+
+async function onOpenLifecycleTaskDetail(taskId: string, mode: Exclude<TaskDetailMode, 'active'>, taskTitle: string) {
+  await openTaskDetail(taskId, mode, taskTitle)
 }
 
 async function onProjectCreated(projectId: string) {

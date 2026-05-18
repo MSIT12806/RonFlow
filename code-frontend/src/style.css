@@ -307,6 +307,16 @@ button {
   color: var(--text-soft);
 }
 
+.detail-preview-header {
+  margin-bottom: 18px;
+}
+
+.detail-preview-header h3 {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
 .base-state-block {
   margin-top: 24px;
   padding: 16px 18px;

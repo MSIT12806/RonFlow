@@ -22,19 +22,24 @@
         <p>{{ description }}</p>
       </div>
 
-      <div v-else class="lifecycle-list">
-        <article v-for="task in items" :key="task.id" class="lifecycle-task-card">
+      <div v-else data-testid="lifecycle-task-list" class="lifecycle-list">
+        <article
+          v-for="task in items"
+          :key="task.id"
+          class="lifecycle-task-card"
+          data-testid="lifecycle-task-item"
+        >
           <div class="lifecycle-task-copy">
-            <button type="button" class="lifecycle-task-link" @click="$emit('open-task-detail', task.id)">
+            <button type="button" class="lifecycle-task-link" @click="$emit('open-task-detail', task.id, task.title)">
               {{ task.title }}
             </button>
-            <p class="task-meta">{{ task.projectName }}</p>
+            <p data-testid="lifecycle-task-project-name" class="task-meta">{{ task.projectName }}</p>
           </div>
 
           <dl class="lifecycle-task-details">
             <div>
               <dt>原欄位狀態</dt>
-              <dd>{{ task.originalState.label }}</dd>
+              <dd data-testid="lifecycle-task-original-state">{{ task.originalState.label }}</dd>
             </div>
             <div>
               <dt>{{ timeLabel }}</dt>
@@ -43,7 +48,7 @@
           </dl>
 
           <div class="modal-actions lifecycle-task-actions">
-            <button type="button" class="secondary-button" @click="$emit('open-task-detail', task.id)">
+            <button type="button" class="secondary-button" @click="$emit('open-task-detail', task.id, task.title)">
               查看詳細資訊
             </button>
             <button type="button" class="primary-button" @click="$emit('restore-task', task.id)">
@@ -74,7 +79,7 @@ defineProps<{
 
 defineEmits<{
   (event: 'back-to-board'): void
-  (event: 'open-task-detail', taskId: string): void
+  (event: 'open-task-detail', taskId: string, taskTitle: string): void
   (event: 'restore-task', taskId: string): void
 }>()
 </script>

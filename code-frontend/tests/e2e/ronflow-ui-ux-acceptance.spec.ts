@@ -79,6 +79,10 @@ async function openTrashView(page: Page) {
   await expect(page.getByRole('heading', { name: '垃圾桶' })).toBeVisible()
 }
 
+function getLifecycleTaskItem(page: Page, taskTitle: string) {
+  return page.getByTestId('lifecycle-task-item').filter({ hasText: taskTitle }).first()
+}
+
 async function archiveTaskFromDrawer(page: Page) {
   await openTaskActions(page)
   await page.getByRole('menuitem', { name: '封存' }).click()
@@ -94,9 +98,23 @@ async function dragTaskToColumn(page: Page, fromStateKey: string, toStateKey: st
   const sourceColumn = page.getByTestId(`workflow-column-${fromStateKey}`)
   const targetColumn = page.getByTestId(`workflow-column-${toStateKey}`)
 
-  await taskCard.dragTo(targetColumn)
-  await expect(targetColumn).toContainText(taskTitle)
-  await expect(sourceColumn).not.toContainText(taskTitle)
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const responsePromise = page.waitForResponse((response) => {
+      return response.request().method() === 'PATCH'
+        && /\/api\/projects\/[^/]+\/tasks\/[^/]+\/state$/.test(response.url())
+        && response.ok()
+    }, { timeout: 3000 }).catch(() => null)
+
+    await taskCard.dragTo(targetColumn)
+
+    const response = await responsePromise
+    if (response) {
+      break
+    }
+  }
+
+  await expect(targetColumn).toContainText(taskTitle, { timeout: 10000 })
+  await expect(sourceColumn).not.toContainText(taskTitle, { timeout: 10000 })
 }
 
 async function createProjectThroughApi(request: APIRequestContext, projectName: string) {
@@ -145,7 +163,7 @@ async function setupTaskBoard(page: Page, projectName: string, taskTitle: string
 function getTaskCard(page: Page, stateKey: string, taskTitle: string) {
   return page
     .getByTestId(`workflow-column-${stateKey}`)
-    .locator('.task-card')
+    .locator('.task-card-main')
     .filter({ hasText: taskTitle })
     .first()
 }
@@ -233,6 +251,10 @@ test.describe('RonFlow UI/UX 驗收規格', () => {
 
   test('建立專案失敗時保持對話框開啟並保留輸入內容', async ({ page }, testInfo) => {
     const { projectName } = createScenarioData(testInfo)
+    let releaseProjectCreationFailure: (() => void) | null = null
+    const projectCreationFailureReleased = new Promise<void>((resolve) => {
+      releaseProjectCreationFailure = resolve
+    })
 
     await page.route('**/api/projects', async (route) => {
       if (route.request().method() !== 'POST') {
@@ -240,7 +262,7 @@ test.describe('RonFlow UI/UX 驗收規格', () => {
         return
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 300))
+      await projectCreationFailureReleased
       await route.fulfill({
         status: 500,
         contentType: 'application/json',
@@ -264,6 +286,9 @@ test.describe('RonFlow UI/UX 驗收規格', () => {
     await expect(submitButton).toBeDisabled()
     await expect(cancelButton).toBeDisabled()
     await expect(closeButton).toBeDisabled()
+
+    releaseProjectCreationFailure?.()
+
     await expect(page.getByText('建立專案失敗，請稍後再試。')).toBeVisible()
     await expect(dialog).toBeVisible()
     await expect(projectNameInput).toHaveValue(projectName)
@@ -664,9 +689,11 @@ test.describe('RonFlow UI/UX 驗收規格', () => {
 
     await openArchivedTasksView(page)
 
-    await expect(page.getByText(taskTitle, { exact: true })).toBeVisible()
-    await expect(page.getByText(projectName, { exact: true })).toBeVisible()
-    await expect(page.getByText('待處理', { exact: true })).toBeVisible()
+    const archivedTaskItem = getLifecycleTaskItem(page, taskTitle)
+
+    await expect(archivedTaskItem.getByText(taskTitle, { exact: true })).toBeVisible()
+    await expect(archivedTaskItem.getByTestId('lifecycle-task-project-name')).toHaveText(projectName)
+    await expect(archivedTaskItem.getByTestId('lifecycle-task-original-state')).toHaveText('待處理')
   })
 
   test('使用者可以從已封存任務頁開啟 read-only Drawer 並還原任務回原欄位最後', async ({ page }, testInfo) => {
@@ -730,9 +757,11 @@ test.describe('RonFlow UI/UX 驗收規格', () => {
 
     await openTrashView(page)
 
-    await expect(page.getByText(taskTitle, { exact: true })).toBeVisible()
-    await expect(page.getByText(projectName, { exact: true })).toBeVisible()
-    await expect(page.getByText('待處理', { exact: true })).toBeVisible()
+    const trashedTaskItem = getLifecycleTaskItem(page, taskTitle)
+
+    await expect(trashedTaskItem.getByText(taskTitle, { exact: true })).toBeVisible()
+    await expect(trashedTaskItem.getByTestId('lifecycle-task-project-name')).toHaveText(projectName)
+    await expect(trashedTaskItem.getByTestId('lifecycle-task-original-state')).toHaveText('待處理')
   })
 
   test('使用者可以從垃圾桶頁開啟 read-only Drawer 並還原任務回原欄位最後', async ({ page }, testInfo) => {

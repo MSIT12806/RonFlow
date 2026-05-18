@@ -59,9 +59,6 @@
                 :key="task.id"
                 class="task-card"
                 :class="{ 'task-card-drop-target': dragOverTaskId === task.id }"
-                draggable="true"
-                @dragstart="handleTaskDragStart($event, task.id)"
-                @dragend="handleTaskDragEnd"
                 @dragenter.prevent="handleTaskCardDragEnter(task.id)"
                 @dragover.prevent="handleTaskCardDragOver($event, task.id)"
                 @dragleave="handleTaskCardDragLeave(task.id)"
@@ -70,7 +67,10 @@
                 <button
                   type="button"
                   class="task-card-main"
-                  @click="$emit('open-task-detail', task.id)"
+                  draggable="true"
+                  @dragstart="handleTaskDragStart($event, task.id)"
+                  @dragend="handleTaskDragEnd"
+                  @click="$emit('open-task-detail', task.id, task.title)"
                 >
                   <span class="task-title">{{ task.title }}</span>
                   <span class="task-meta">{{ column.label }}</span>
@@ -109,7 +109,7 @@ const emit = defineEmits<{
   (event: 'open-create-task'): void
   (event: 'open-archived-tasks'): void
   (event: 'open-trash-view'): void
-  (event: 'open-task-detail', taskId: string): void
+  (event: 'open-task-detail', taskId: string, taskTitle: string): void
   (event: 'move-task-to-state', taskId: string, stateKey: WorkflowKey): void
   (event: 'reorder-task-within-column', taskId: string, targetTaskId: string): void
 }>()
