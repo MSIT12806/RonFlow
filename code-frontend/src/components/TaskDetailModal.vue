@@ -116,6 +116,55 @@
             <strong>{{ formatTimelineTime(task.completedAt) }}</strong>
           </div>
 
+          <div class="detail-card detail-card-full" data-testid="task-reminders-section">
+            <div class="detail-section-header">
+              <p class="detail-label">提醒</p>
+              <p v-if="reminderDeliveryStatusMessage" class="detail-supporting-copy" data-testid="reminder-delivery-status">
+                {{ reminderDeliveryStatusMessage }}
+              </p>
+            </div>
+
+            <div class="detail-reminder-grid">
+              <div class="detail-field">
+                <label class="detail-label" for="task-reminder-datetime-input">提醒時間</label>
+
+                <div class="detail-field-control">
+                  <DatePicker
+                    input-id="task-reminder-datetime-input"
+                    v-model="draftReminderDateTimeValue"
+                    fluid
+                    date-format="yy-mm-dd"
+                    hour-format="24"
+                    icon-display="input"
+                    show-icon
+                    show-time
+                    :disabled="isSaving || isReadOnly"
+                    :manual-input="true"
+                  />
+                </div>
+              </div>
+
+              <div class="detail-field detail-field-inline">
+                <label class="detail-label" for="task-reminder-description-input">提醒說明</label>
+
+                <div class="detail-field-control">
+                  <Textarea
+                    id="task-reminder-description-input"
+                    v-model="draftReminderDescription"
+                    fluid
+                    auto-resize
+                    rows="3"
+                    :disabled="isSaving || isReadOnly"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div class="detail-reminder-actions">
+              <button type="button" class="secondary-button" :disabled="isSaving || isReadOnly">新增提醒</button>
+            </div>
+          </div>
+
           <div class="detail-card detail-card-full">
             <ApiCommandResourceView
               :is-submitting="isSaving"
@@ -178,9 +227,20 @@ const emit = defineEmits<{
 const draftTitle = ref('')
 const draftDescription = ref('')
 const draftDueDate = ref('')
+const draftReminderDateTime = ref('')
+const draftReminderDescription = ref('')
 const isActionsOpen = ref(false)
 
 const isReadOnly = computed(() => props.mode !== 'active')
+const reminderDeliveryStatusMessage = computed(() => {
+  if (typeof window === 'undefined' || typeof window.Notification === 'undefined') {
+    return '提醒可能無法送達，請確認目前裝置支援通知與推播功能。'
+  }
+
+  return window.Notification.permission === 'granted'
+    ? ''
+    : '提醒可能無法送達，請確認通知權限與推播訂閱狀態。'
+})
 
 const draftDueDateValue = computed<Date | null>({
   get() {
@@ -188,6 +248,15 @@ const draftDueDateValue = computed<Date | null>({
   },
   set(value) {
     draftDueDate.value = formatDateOnly(value)
+  },
+})
+
+const draftReminderDateTimeValue = computed<Date | null>({
+  get() {
+    return parseDateTimeLocal(draftReminderDateTime.value)
+  },
+  set(value) {
+    draftReminderDateTime.value = formatDateTimeLocal(value)
   },
 })
 
@@ -218,6 +287,41 @@ function formatDateOnly(value: Date | null): string {
   const day = String(value.getDate()).padStart(2, '0')
 
   return `${year}-${month}-${day}`
+}
+
+function parseDateTimeLocal(value: string): Date | null {
+  if (!value) {
+    return null
+  }
+
+  const [datePart, timePart = ''] = value.split('T')
+  const [yearText, monthText, dayText] = datePart.split('-')
+  const [hourText, minuteText] = timePart.split(':')
+  const year = Number(yearText)
+  const month = Number(monthText)
+  const day = Number(dayText)
+  const hour = Number(hourText)
+  const minute = Number(minuteText)
+
+  if (!year || !month || !day || Number.isNaN(hour) || Number.isNaN(minute)) {
+    return null
+  }
+
+  return new Date(year, month - 1, day, hour, minute)
+}
+
+function formatDateTimeLocal(value: Date | null): string {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+    return ''
+  }
+
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+  const hour = String(value.getHours()).padStart(2, '0')
+  const minute = String(value.getMinutes()).padStart(2, '0')
+
+  return `${year}-${month}-${day}T${hour}:${minute}`
 }
 
 function submit() {
@@ -279,6 +383,8 @@ watch(
     draftTitle.value = props.task.title
     draftDescription.value = props.task.description
     draftDueDate.value = props.task.dueDate ?? ''
+    draftReminderDateTime.value = ''
+    draftReminderDescription.value = ''
   },
   { immediate: true },
 )
