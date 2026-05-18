@@ -15,19 +15,7 @@ import {
   setupTaskBoard,
 } from './support/ronflowTestHelpers'
 
-test.describe('RonFlow UI/UX 驗收規格 - Task Workflow', () => {
-  test('任務卡片與 workflow 欄位提供穩定定位方式供狀態移動驗收', async ({ page }, testInfo) => {
-    const { projectName, taskTitle } = createScenarioData(testInfo)
-
-    await setupTaskBoard(page, projectName, taskTitle)
-
-    const taskCard = getTaskCard(page, 'todo', taskTitle)
-    const activeColumn = page.getByTestId('workflow-column-active')
-
-    await expect(taskCard).toBeVisible()
-    await expect(activeColumn).toBeVisible()
-  })
-
+test.describe('RonFlow UI/UX 驗收規格 - Task Workflow Behavior', () => {
   test('使用者可以拖曳任務到進行中欄位，並在詳細資訊看到最新狀態', async ({ page }, testInfo) => {
     const { projectName, taskTitle } = createScenarioData(testInfo)
 

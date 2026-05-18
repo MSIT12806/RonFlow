@@ -15,16 +15,7 @@ import {
   setupTaskBoard,
 } from './support/ronflowTestHelpers'
 
-test.describe('RonFlow UI/UX 驗收規格 - Task Lifecycle', () => {
-  test('專案看板提供進入已封存任務與垃圾桶的入口', async ({ page }, testInfo) => {
-    const { projectName } = createScenarioData(testInfo)
-
-    await setupProjectBoard(page, projectName)
-
-    await expect(page.getByRole('button', { name: '已封存任務' })).toBeVisible()
-    await expect(page.getByRole('button', { name: '垃圾桶' })).toBeVisible()
-  })
-
+test.describe('RonFlow UI/UX 驗收規格 - Task Lifecycle Behavior', () => {
   test('使用者可以封存任務，任務會離開看板並出現在已封存任務頁', async ({ page }, testInfo) => {
     const { projectName, taskTitle } = createScenarioData(testInfo)
 
@@ -46,7 +37,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Lifecycle', () => {
     await expect(archivedTaskItem.getByTestId('lifecycle-task-original-state')).toHaveText('待處理')
   })
 
-  test('使用者可以從已封存任務頁開啟 read-only Drawer 並還原任務回原欄位最後', async ({ page }, testInfo) => {
+  test('使用者可以從已封存任務頁還原任務回原欄位最後', async ({ page }, testInfo) => {
     const { projectName } = createScenarioData(testInfo)
     const firstTaskTitle = createTaskTitle(testInfo, 'Backlog Task A')
     const archivedTaskTitle = createTaskTitle(testInfo, 'Archived Task')
@@ -66,14 +57,6 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Lifecycle', () => {
     await page.getByText(archivedTaskTitle, { exact: true }).click()
 
     const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
-
-    await expect(detailDialog.getByText('此任務已封存', { exact: true })).toBeVisible()
-    await expect(detailDialog.getByLabel('任務標題')).toBeDisabled()
-    await expect(detailDialog.getByLabel('任務描述')).toBeDisabled()
-    await expect(detailDialog.getByLabel('到期日')).toBeDisabled()
-    await expect(detailDialog.getByRole('button', { name: '儲存變更' })).toHaveCount(0)
-    await expect(detailDialog.getByText('已封存任務', { exact: true })).toBeVisible()
-
     await detailDialog.getByRole('button', { name: '還原' }).click()
 
     await expect(page.getByRole('heading', { name: projectName })).toBeVisible()
@@ -81,15 +64,6 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Lifecycle', () => {
 
     await openTaskDetail(page, 'todo', archivedTaskTitle)
     await expect(page.getByRole('dialog', { name: '任務詳細資訊' }).getByText('已還原封存任務', { exact: true })).toBeVisible()
-  })
-
-  test('已封存任務頁在沒有任務時顯示空狀態', async ({ page }, testInfo) => {
-    const { projectName } = createScenarioData(testInfo)
-
-    await setupProjectBoard(page, projectName)
-    await openArchivedTasksView(page)
-
-    await expect(page.getByText('目前沒有已封存任務')).toBeVisible()
   })
 
   test('使用者可以將任務移到垃圾桶，任務會離開看板並出現在垃圾桶頁', async ({ page }, testInfo) => {
@@ -114,7 +88,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Lifecycle', () => {
     await expect(trashedTaskItem.getByTestId('lifecycle-task-original-state')).toHaveText('待處理')
   })
 
-  test('使用者可以從垃圾桶頁開啟 read-only Drawer 並還原任務回原欄位最後', async ({ page }, testInfo) => {
+  test('使用者可以從垃圾桶頁還原任務回原欄位最後', async ({ page }, testInfo) => {
     const { projectName } = createScenarioData(testInfo)
     const firstTaskTitle = createTaskTitle(testInfo, 'Backlog Task A')
     const trashedTaskTitle = createTaskTitle(testInfo, 'Trashed Task')
@@ -134,14 +108,6 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Lifecycle', () => {
     await page.getByText(trashedTaskTitle, { exact: true }).click()
 
     const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
-
-    await expect(detailDialog.getByText('此任務位於垃圾桶', { exact: true })).toBeVisible()
-    await expect(detailDialog.getByLabel('任務標題')).toBeDisabled()
-    await expect(detailDialog.getByLabel('任務描述')).toBeDisabled()
-    await expect(detailDialog.getByLabel('到期日')).toBeDisabled()
-    await expect(detailDialog.getByRole('button', { name: '儲存變更' })).toHaveCount(0)
-    await expect(detailDialog.getByText('已移到垃圾桶', { exact: true })).toBeVisible()
-
     await detailDialog.getByRole('button', { name: '還原' }).click()
 
     await expect(page.getByRole('heading', { name: projectName })).toBeVisible()
@@ -149,14 +115,5 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Lifecycle', () => {
 
     await openTaskDetail(page, 'todo', trashedTaskTitle)
     await expect(page.getByRole('dialog', { name: '任務詳細資訊' }).getByText('已從垃圾桶還原', { exact: true })).toBeVisible()
-  })
-
-  test('垃圾桶頁在沒有任務時顯示空狀態', async ({ page }, testInfo) => {
-    const { projectName } = createScenarioData(testInfo)
-
-    await setupProjectBoard(page, projectName)
-    await openTrashView(page)
-
-    await expect(page.getByText('垃圾桶目前沒有任務')).toBeVisible()
   })
 })
