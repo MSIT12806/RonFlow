@@ -26,6 +26,7 @@ RonFlow 目前的核心流程是：
 5. 使用者建立 Task。
 6. Task 出現在 workflow initial state 欄位。
 7. 使用者可以開啟 Task Detail Drawer 查看基本資訊。
+8. 使用者可以在 Task Detail Drawer 設定與刪除提醒。
 
 目前預設 workflow columns 的工程 key 與使用者可見名稱如下：
 
@@ -75,6 +76,8 @@ Done   -> 已完成
 17. Archived / Trashed Task 可開啟 read-only Task Detail Drawer 並查看活動紀錄
 18. 系統會記錄 Task 的建立、內容更新、狀態推進、完成、重新開啟、排序、封存、移到垃圾桶與還原活動
 19. 系統會提供 Project Name 與 Task Title 的基本驗證
+20. 使用者可以在 Task Detail Drawer 為 Task 設定多個提醒
+21. 系統會透過 Web Push + Service Worker 傳送提醒通知
 ```
 
 ## 5. Ubiquitous Language 對照表
@@ -110,6 +113,10 @@ Done   -> 已完成
 | 到期日欄位 | Due Date | 到期日 | Task 的預計完成日期欄位。 |
 | 任務卡片 | Task Card | 任務卡片 | 顯示在看板欄位中的任務摘要。 |
 | 任務詳細資訊抽屜 | Task Detail Drawer | 任務詳細資訊 | 點擊 Task Card 後開啟的側邊面板。 |
+| 任務提醒 | Task Reminder | 提醒 | 屬於某個 Task 的提醒設定，可有多筆。 |
+| 提醒時間 | Reminder DateTime | 提醒時間 | 提醒應觸發通知的日期時間。 |
+| 提醒說明 | Reminder Description | 提醒說明 | 提醒的補充內容，可為空。 |
+| 提醒通知 | Reminder Notification | 提醒通知 | 到達提醒時間時由系統送出的通知。 |
 | 目前狀態欄位 | Current State | 目前狀態 | Task 詳細資訊中的狀態欄位。 |
 | 建立時間欄位 | CreatedAt | 建立時間 | Task 詳細資訊中的時間欄位。 |
 | 完成時間欄位 | CompletedAt | 完成時間 | Task 完成後顯示的時間欄位。 |
@@ -158,14 +165,17 @@ Done   -> 已完成
 17. 系統開啟 Task Detail Drawer
 18. 使用者可以在 Drawer 編輯 Task Title、Description 與 Due Date
 19. 系統在 Task 更新後保留最新資料，並新增對應的活動紀錄
-20. 使用者可以拖曳 Task 到其他欄位，或在同欄位內調整順序
-21. Task 進入 Done 時系統記錄完成；移回非 Done 時系統記錄重新開啟
-22. 使用者可以從 Task Detail Drawer 的更多操作封存 Task 或移到垃圾桶
-23. 封存或移到垃圾桶成功後，系統應關閉 Drawer，並回到 Project Kanban Board
-24. 已封存 / 已移到垃圾桶的 Task 不出現在 Project Kanban Board
-25. 使用者可以從 Project Kanban Board 進入 Archived Tasks View 或 Trash View
-26. 使用者可以在 Archived Tasks View 或 Trash View 開啟 read-only Task Detail Drawer
-27. 使用者可以從 Archived Tasks View 或 Trash View 還原 Task；還原後系統回到 Project Kanban Board
+20. 使用者可以在 Drawer 新增多個提醒，並為每個提醒設定提醒時間與提醒說明
+21. 使用者可以在 Drawer 刪除既有提醒
+22. 到達提醒時間時，系統會透過 Web Push + Service Worker 傳送提醒通知，即使 RonFlow 沒有開在前景中
+23. 使用者可以拖曳 Task 到其他欄位，或在同欄位內調整順序
+24. Task 進入 Done 時系統記錄完成；移回非 Done 時系統記錄重新開啟
+25. 使用者可以從 Task Detail Drawer 的更多操作封存 Task 或移到垃圾桶
+26. 封存或移到垃圾桶成功後，系統應關閉 Drawer，並回到 Project Kanban Board
+27. 已封存 / 已移到垃圾桶的 Task 不出現在 Project Kanban Board
+28. 使用者可以從 Project Kanban Board 進入 Archived Tasks View 或 Trash View
+29. 使用者可以在 Archived Tasks View 或 Trash View 開啟 read-only Task Detail Drawer
+30. 使用者可以從 Archived Tasks View 或 Trash View 還原 Task；還原後系統回到 Project Kanban Board
 ```
 
 ### 6.2 Flow Map
@@ -562,10 +572,11 @@ Feature: 建立任務
 2. 任務描述
 3. 目前狀態
 4. 到期日
-5. 建立時間
-6. 完成時間（僅 Task 位於 Done 類狀態時顯示）
-7. 活動紀錄
-8. 任務生命週期提示（僅已封存 / 已移到垃圾桶任務時顯示）
+5. 提醒清單
+6. 建立時間
+7. 完成時間（僅 Task 位於 Done 類狀態時顯示）
+8. 活動紀錄
+9. 任務生命週期提示（僅已封存 / 已移到垃圾桶任務時顯示）
 ```
 
 **User Actions**
@@ -574,10 +585,12 @@ Feature: 建立任務
 1. 編輯任務標題
 2. 編輯任務描述
 3. 修改到期日
-4. 關閉 Drawer
-5. 從更多操作封存任務
-6. 從更多操作移到垃圾桶
-7. 在 read-only mode 還原任務
+4. 新增提醒
+5. 刪除提醒
+6. 關閉 Drawer
+7. 從更多操作封存任務
+8. 從更多操作移到垃圾桶
+9. 在 read-only mode 還原任務
 ```
 
 **Expected Behavior**
@@ -585,12 +598,15 @@ Feature: 建立任務
 ```text
 1. 使用者可以在 Drawer 查看 Task 的 Title、Description、Current State、Due Date、CreatedAt、CompletedAt 與 Activity Timeline
 2. 使用者可以在 Drawer 修改 Task Title、Description 與 Due Date
-3. 修改成功後，Drawer 應顯示最新資料
-4. 修改成功後，Activity Timeline 應新增對應紀錄
-5. Activity Timeline 至少應支援 TaskCreated、TaskTitleChanged、TaskDescriptionChanged、TaskDueDateChanged、TaskStateChanged、TaskCompleted、TaskReopened、TaskReordered、TaskArchived、TaskRestoredFromArchive、TaskMovedToTrash、TaskRestoredFromTrash
-6. 當 Task 位於 ActiveRecord 時，Drawer 應允許編輯內容
-7. 當 Task 位於 Archived 或 Trashed 時，Drawer 應以 read-only mode 顯示，且不允許編輯內容、移動狀態或排序
-8. 當 Task 位於 Archived 或 Trashed 時，Drawer 應提供還原操作
+3. 使用者可以在 Drawer 為同一個 Task 建立多個提醒
+4. 每個提醒至少包含提醒時間與提醒說明，其中提醒時間為必填
+5. 使用者可以刪除尚未觸發的提醒
+6. 修改成功後，Drawer 應顯示最新資料
+7. 修改成功後，Activity Timeline 應新增對應紀錄
+8. Activity Timeline 至少應支援 TaskCreated、TaskTitleChanged、TaskDescriptionChanged、TaskDueDateChanged、TaskStateChanged、TaskCompleted、TaskReopened、TaskReordered、TaskArchived、TaskRestoredFromArchive、TaskMovedToTrash、TaskRestoredFromTrash
+9. 當 Task 位於 ActiveRecord 時，Drawer 應允許編輯內容與管理提醒
+10. 當 Task 位於 Archived 或 Trashed 時，Drawer 應以 read-only mode 顯示，且不允許編輯內容、移動狀態、排序或管理提醒
+11. 當 Task 位於 Archived 或 Trashed 時，Drawer 應提供還原操作
 ```
 
 **UI / UX Notes**
@@ -603,6 +619,7 @@ Feature: 建立任務
 5. Archive 與 Move To Trash 操作應放在 Task Detail Drawer 的更多操作中，而不是放在 Task Card 或 hover 快捷操作。
 6. 已封存任務的 Drawer 應顯示「此任務已封存」之類的狀態提示。
 7. 位於垃圾桶的 Drawer 應顯示「此任務位於垃圾桶」之類的狀態提示。
+8. 提醒清單應直接顯示在 Task Detail Drawer 中，讓使用者不需要離開目前 Task 上下文即可管理提醒。
 ```
 
 **State Handling / Feedback**
@@ -959,6 +976,158 @@ Feature: Trash view
     And 該 Task 不應繼續出現在 Trash View
 ```
 
+### 7.10 Task Reminder Management
+
+**Purpose**
+
+讓使用者在 Task Detail Drawer 中管理 Task 的提醒。
+
+**Display**
+
+```text
+1. 提醒清單
+2. 提醒時間
+3. 提醒說明
+4. 新增提醒操作
+5. 刪除提醒操作
+```
+
+**User Actions**
+
+```text
+1. 新增提醒
+2. 輸入提醒時間
+3. 輸入提醒說明
+4. 刪除提醒
+```
+
+**Visible Names**
+
+```text
+1. 區塊標題：提醒
+2. 欄位標籤：提醒時間
+3. 欄位標籤：提醒說明
+4. 主要操作：新增提醒
+5. 刪除操作：刪除提醒
+```
+
+**Expected Behavior**
+
+```text
+1. 每個 Task 可以建立多個提醒
+2. 每個提醒至少包含提醒時間與提醒說明，其中提醒時間為必填
+3. 提醒建立成功後，Task Detail Drawer 應顯示最新的提醒清單
+4. 使用者可以刪除尚未觸發的提醒
+5. 提醒刪除成功後，該提醒不應繼續顯示在提醒清單中
+6. 提醒被刪除後，系統不應再送出該筆提醒通知
+```
+
+**Validation Feedback**
+
+```text
+1. 若提醒時間為空，畫面應顯示「提醒時間為必填欄位」。
+```
+
+**UI / UX Notes**
+
+```text
+1. 使用者應在同一個 Task Detail Drawer 中完成提醒的新增與刪除，不需切換到其他頁面。
+2. 同一個 Task 的多筆提醒應以清單方式呈現，讓使用者可快速辨識目前已設定的提醒。
+3. 每筆提醒至少應可直接看到提醒時間；若有填寫提醒說明，也應一併顯示。
+4. 刪除提醒的操作應對應到單一提醒，不應讓使用者誤刪其他提醒。
+```
+
+**State Handling / Feedback**
+
+```text
+1. 提醒建立或刪除請求進行中時，系統應阻止對同一筆提醒重複送出。
+2. 若提醒建立失敗，Task Detail Drawer 應維持開啟，且使用者已輸入的內容不應被清空。
+3. 若提醒刪除失敗，原提醒應維持顯示，並讓使用者知道刪除未成功。
+```
+
+**Related Rules**
+
+1. [Task 規則](#task-rules)
+2. [Reminder 規則](#reminder-rules)
+
+**Gherkin Draft**
+
+```gherkin
+Feature: Task reminders
+
+  Scenario: 使用者在 Task Detail Drawer 新增多個提醒
+    Given 使用者已開啟標題為 "Build Kanban Board" 的 Task Detail Drawer
+    When 使用者新增一筆提醒，提醒時間為 "2026-05-20 09:00"，提醒說明為 "提醒確認欄位狀態"
+    And 使用者再新增一筆提醒，提醒時間為 "2026-05-21 15:00"，提醒說明為 "提醒追蹤審查結果"
+    Then Drawer 應顯示兩筆提醒
+    And 每筆提醒都應顯示對應的提醒時間
+
+  Scenario: 使用者未輸入提醒時間
+    Given 使用者已開啟標題為 "Build Kanban Board" 的 Task Detail Drawer
+    When 使用者新增提醒但未輸入提醒時間
+    Then 系統應拒絕建立提醒
+    And 畫面應顯示「提醒時間為必填欄位」
+
+  Scenario: 使用者刪除提醒
+    Given 使用者已開啟標題為 "Build Kanban Board" 的 Task Detail Drawer
+    And 該 Task 已存在提醒時間為 "2026-05-20 09:00" 的提醒
+    When 使用者刪除該筆提醒
+    Then 該提醒不應繼續顯示在提醒清單中
+    And 系統不應再送出該筆提醒通知
+```
+
+### 7.11 Reminder Notification Delivery
+
+**Purpose**
+
+讓使用者在沒有持續開啟 RonFlow 前景頁面的情況下，仍可收到 Task 提醒。
+
+**Expected Behavior**
+
+```text
+1. 到達提醒時間時，系統應透過 Web Push + Service Worker 傳送提醒通知
+2. 即使使用者當下沒有開啟 RonFlow 頁面、瀏覽器位於背景，或手機上沒有正在查看網站，系統仍應可送出提醒通知
+3. 提醒通知的送達前提為該裝置/瀏覽器已允許通知並完成推播訂閱
+4. 若目前裝置/瀏覽器尚未具備可用的通知權限或推播訂閱，系統應明確告知提醒可能無法送達
+```
+
+**UI / UX Notes**
+
+```text
+1. 提醒通知的送達能力屬於跨頁面能力，但提醒的建立與管理仍以 Task Detail Drawer 為主要入口。
+2. 提醒通知應讓使用者可辨識是哪一個 Task 觸發的提醒。
+```
+
+**State Handling / Feedback**
+
+```text
+1. 若瀏覽器通知權限被拒絕、封鎖或尚未完成推播訂閱，系統應提供可理解的狀態提示。
+2. 若提醒已成功排程且目前裝置/瀏覽器具備可用推播能力，系統應讓使用者知道提醒會以通知方式送達。
+```
+
+**Related Rules**
+
+1. [Reminder 規則](#reminder-rules)
+
+**Gherkin Draft**
+
+```gherkin
+Feature: Reminder notification delivery
+
+  Scenario: 使用者在未查看 RonFlow 時收到提醒
+    Given 使用者已為標題為 "Build Kanban Board" 的 Task 設定提醒時間為 "2026-05-20 09:00"
+    And 使用者目前裝置已允許通知並完成推播訂閱
+    When 系統時間到達 "2026-05-20 09:00"
+    Then 系統應透過 Web Push + Service Worker 送出提醒通知
+    And 即使使用者沒有開啟 RonFlow 前景頁面，仍應可收到該通知
+
+  Scenario: 使用者尚未完成推播訂閱
+    Given 使用者已開啟標題為 "Build Kanban Board" 的 Task Detail Drawer
+    And 目前裝置尚未具備可用的通知權限或推播訂閱
+    When 使用者查看提醒功能狀態
+    Then 畫面應明確告知提醒可能無法送達
+```
+
 ---
 
 ## 8. 驗證與規則
@@ -996,11 +1165,27 @@ Feature: Trash view
 14. 當 Task 進入 Done 類狀態時，系統應記錄 CompletedAt
 15. 當 Task 進入 Done 類狀態時，活動紀錄應包含 TaskCompleted
 16. Task 調整順序後，活動紀錄應包含 TaskReordered
+17. Task 可以在 Task Detail Drawer 中設定多個提醒
+```
+
+<a id="reminder-rules"></a>
+
+### 8.3 Reminder 規則
+
+```text
+1. 每個 Task 可擁有多個提醒。
+2. Reminder DateTime 為必填。
+3. Reminder Description 可為空。
+4. 提醒應在 Task Detail Drawer 中建立與刪除。
+5. 已刪除的提醒不應繼續被送達。
+6. 到達提醒時間時，系統應透過 Web Push + Service Worker 傳送提醒通知。
+7. 提醒通知的送達前提為裝置/瀏覽器已允許通知並完成推播訂閱。
+8. 若裝置/瀏覽器目前不具備可用的通知權限或推播訂閱，系統應明確告知提醒可能無法送達。
 ```
 
 <a id="lifecycle-rules"></a>
 
-### 8.3 Lifecycle 規則
+### 8.4 Lifecycle 規則
 
 ```text
 1. Task 應同時具有 Workflow State 與 Lifecycle State。
@@ -1025,7 +1210,7 @@ Feature: Trash view
 
 <a id="board-rules"></a>
 
-### 8.4 Board 規則
+### 8.5 Board 規則
 
 ```text
 1. Project Kanban Board 應顯示 Project Name
@@ -1181,4 +1366,26 @@ Feature: Trash view
 4. Drawer 應顯示對應的生命週期提示，例如「此任務已封存」或「此任務位於垃圾桶」。
 5. Drawer 不應允許編輯內容、移動狀態或排序。
 6. Drawer 應提供還原操作。
+```
+
+### 9.14 Manage Task Reminders
+
+```text
+1. 使用者可以在 Task Detail Drawer 為同一個 Task 新增多個提醒。
+2. 每個提醒都應包含必填的 Reminder DateTime。
+3. Reminder Description 可選填。
+4. 提醒建立成功後，Task Detail Drawer 應立即顯示最新提醒清單。
+5. 若 Reminder DateTime 為空，系統應拒絕建立並顯示「提醒時間為必填欄位」。
+6. 使用者可以刪除尚未觸發的提醒。
+7. 提醒刪除成功後，該提醒不應繼續顯示在提醒清單中。
+8. 提醒刪除成功後，系統不應再送出該筆提醒通知。
+```
+
+### 9.15 Deliver Reminder Notification Via Web Push
+
+```text
+1. 到達提醒時間時，系統應透過 Web Push + Service Worker 送出提醒通知。
+2. 即使使用者沒有開啟 RonFlow 前景頁面、瀏覽器位於背景，或手機上沒有正在查看網站，仍應可收到提醒通知。
+3. 提醒通知的送達前提為該裝置/瀏覽器已允許通知並完成推播訂閱。
+4. 若目前裝置/瀏覽器不具備可用的通知權限或推播訂閱，畫面應明確告知提醒可能無法送達。
 ```
