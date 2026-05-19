@@ -1,7 +1,6 @@
 
 using RonFlow.Application;
 using RonFlow.Api.Contracts;
-using RonFlow.Api.Endpoints;
 using RonFlow.Domain;
 using RonFlow.Infrastructure;
 
@@ -14,6 +13,7 @@ public partial class Program
         var builder = WebApplication.CreateBuilder(args);
 
         builder.Services.AddOpenApi();
+        builder.Services.AddControllers();
         builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
         ConfigurePersistence(builder);
         builder.Services.AddSingleton<CreateProjectCommandService>();
@@ -38,9 +38,7 @@ public partial class Program
             app.MapOpenApi();
         }
 
-        app.MapProjectEndpoints();
-        app.MapTaskEndpoints();
-        app.MapTaskLifecycleEndpoints();
+        app.MapControllers();
 
         app.Run();
     }
