@@ -45,6 +45,22 @@ export async function reorderTask(projectId: string, taskId: string, targetTaskI
   })
 }
 
+export async function createTaskReminder(projectId: string, taskId: string, payload: {
+  reminderDateTime: string
+  description: string
+}) {
+  return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}/reminders`), {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function deleteTaskReminder(projectId: string, taskId: string, reminderId: string) {
+  return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}/reminders/${reminderId}`), {
+    method: 'DELETE',
+  })
+}
+
 export async function archiveTask(projectId: string, taskId: string) {
   return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}/archive`), {
     method: 'PATCH',

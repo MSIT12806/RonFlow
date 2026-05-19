@@ -101,12 +101,15 @@
       :error-message="taskDetailError"
       :save-error-message="taskDetailCommandError"
       :title-validation-error="taskTitleValidationError"
+      :reminder-datetime-validation-error="reminderDateTimeValidationError"
       :mode="taskDetailMode"
       :display-title="taskDetailDisplayTitle"
       :task="selectedTask"
       :format-timeline-time="formatTimelineTime"
       @close="closeTaskDetail"
       @save="onTaskDetailSave"
+      @add-reminder="onAddReminder"
+      @delete-reminder="onDeleteReminder"
       @archive="onArchiveTask"
       @move-to-trash="onMoveTaskToTrash"
       @restore="onRestoreTask"
@@ -159,11 +162,14 @@ const {
   pageError,
   boardCommandError,
   taskTitleValidationError,
+  reminderDateTimeValidationError,
   openTaskDetail,
   selectProject,
   closeTaskDetail,
   moveTaskToState,
   updateTaskDetail,
+  createReminder,
+  deleteReminder,
   reorderTaskWithinColumn,
   loadArchivedTasks,
   loadTrashedTasks,
@@ -231,6 +237,14 @@ async function onTaskCreated() {
 
 async function onTaskDetailSave(payload: { taskId: string; title: string; description: string; dueDate: string | null }) {
   await updateTaskDetail(payload.taskId, payload.title, payload.description, payload.dueDate)
+}
+
+async function onAddReminder(payload: { taskId: string; reminderDateTime: string; description: string }) {
+  await createReminder(payload.taskId, payload.reminderDateTime, payload.description)
+}
+
+async function onDeleteReminder(payload: { taskId: string; reminderId: string }) {
+  await deleteReminder(payload.taskId, payload.reminderId)
 }
 
 async function onArchiveTask(taskId: string) {

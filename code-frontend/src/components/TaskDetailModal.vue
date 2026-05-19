@@ -129,18 +129,14 @@
                 <label class="detail-label" for="task-reminder-datetime-input">提醒時間</label>
 
                 <div class="detail-field-control">
-                  <DatePicker
-                    input-id="task-reminder-datetime-input"
-                    v-model="draftReminderDateTimeValue"
+                  <InputText
+                    id="task-reminder-datetime-input"
+                    v-model="draftReminderDateTime"
+                    type="datetime-local"
                     fluid
-                    date-format="yy-mm-dd"
-                    hour-format="24"
-                    icon-display="input"
-                    show-icon
-                    show-time
                     :disabled="isSaving || isReadOnly"
-                    :manual-input="true"
                   />
+                  <p v-if="reminderValidationError" class="error-copy">{{ reminderValidationError }}</p>
                 </div>
               </div>
 
@@ -161,7 +157,29 @@
             </div>
 
             <div class="detail-reminder-actions">
-              <button type="button" class="secondary-button" :disabled="isSaving || isReadOnly">新增提醒</button>
+              <button type="button" class="secondary-button" :disabled="isSaving || isReadOnly" @click="submitReminder">新增提醒</button>
+            </div>
+
+            <div class="detail-reminder-list">
+              <p v-if="taskReminders.length === 0" class="detail-supporting-copy">尚未設定提醒</p>
+
+              <ul v-else class="history-list">
+                <li v-for="reminder in taskReminders" :key="reminder.id" data-testid="task-reminder-item">
+                  <div class="detail-reminder-item-copy">
+                    <span>{{ formatReminderDateTime(reminder.reminderDateTime) }}</span>
+                    <small v-if="reminder.description">{{ reminder.description }}</small>
+                  </div>
+                  <button
+                    v-if="!isReadOnly"
+                    type="button"
+                    class="detail-actions-menu-item"
+                    :disabled="isSaving"
+                    @click="emitDeleteReminder(reminder)"
+                  >
+                    刪除提醒
+                  </button>
+                </li>
+              </ul>
             </div>
           </div>
 
@@ -200,7 +218,7 @@ import Textarea from 'primevue/textarea'
 import AsyncStateBoundary from './bases/AsyncStateBoundary.vue'
 import ApiCommandResourceView from './bases/ApiCommandResourceView.vue'
 import BaseModalShell from './bases/BaseModalShell.vue'
-import type { TaskDetailResponse } from '../api/ronflowApi'
+import type { TaskDetailResponse, TaskReminderResponse } from '../api/ronflowApi'
 import type { TaskDetailMode } from '../composables/useRonFlowBoard'
 
 const props = defineProps<{
@@ -210,6 +228,8 @@ const props = defineProps<{
   errorMessage: string
   saveErrorMessage: string
   titleValidationError: string
+  reminderDateTimeValidationError?: string
+  reminderDatetimeValidationError?: string
   mode: TaskDetailMode
   displayTitle: string
   task: TaskDetailResponse | null
@@ -219,6 +239,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   (event: 'close'): void
   (event: 'save', payload: { taskId: string; title: string; description: string; dueDate: string | null }): void
+  (event: 'add-reminder', payload: { taskId: string; reminderDateTime: string; description: string }): void
+  (event: 'delete-reminder', payload: { taskId: string; reminderId: string }): void
   (event: 'archive', taskId: string): void
   (event: 'move-to-trash', taskId: string): void
   (event: 'restore', taskId: string, mode: Exclude<TaskDetailMode, 'active'>): void
@@ -232,6 +254,12 @@ const draftReminderDescription = ref('')
 const isActionsOpen = ref(false)
 
 const isReadOnly = computed(() => props.mode !== 'active')
+const taskReminders = computed(() => props.task?.reminders ?? [])
+const reminderValidationError = computed(() =>
+  props.reminderDatetimeValidationError
+  ?? props.reminderDateTimeValidationError
+  ?? '',
+)
 const reminderDeliveryStatusMessage = computed(() => {
   if (typeof window === 'undefined' || typeof window.Notification === 'undefined') {
     return '提醒可能無法送達，請確認目前裝置支援通知與推播功能。'
@@ -324,6 +352,55 @@ function formatDateTimeLocal(value: Date | null): string {
   return `${year}-${month}-${day}T${hour}:${minute}`
 }
 
+function normalizeDateTimeLocalInput(value: string): string {
+  const trimmedValue = value.trim()
+
+  if (!trimmedValue) {
+    return ''
+  }
+
+  return trimmedValue.replace(' ', 'T')
+}
+
+function resolveReminderDateTime(): string {
+  if (draftReminderDateTime.value.trim()) {
+    return draftReminderDateTime.value
+  }
+
+  if (typeof document === 'undefined') {
+    return ''
+  }
+
+  const reminderInput = document.getElementById('task-reminder-datetime-input') as HTMLInputElement | null
+  const nextValue = normalizeDateTimeLocalInput(reminderInput?.value ?? '')
+
+  draftReminderDateTime.value = nextValue
+
+  return nextValue
+}
+
+function formatReminderDateTime(value: string): string {
+  const localMatch = value.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/)
+
+  if (localMatch) {
+    return `${localMatch[1]} ${localMatch[2]}`
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hour = String(date.getHours()).padStart(2, '0')
+  const minute = String(date.getMinutes()).padStart(2, '0')
+
+  return `${year}-${month}-${day} ${hour}:${minute}`
+}
+
 function submit() {
   if (!props.task || props.isSaving || isReadOnly.value) {
     return
@@ -334,6 +411,31 @@ function submit() {
     title: draftTitle.value,
     description: draftDescription.value,
     dueDate: draftDueDate.value || null,
+  })
+}
+
+function submitReminder() {
+  if (!props.task || props.isSaving || isReadOnly.value) {
+    return
+  }
+
+  const reminderDateTime = resolveReminderDateTime()
+
+  emit('add-reminder', {
+    taskId: props.task.id,
+    reminderDateTime,
+    description: draftReminderDescription.value,
+  })
+}
+
+function emitDeleteReminder(reminder: TaskReminderResponse) {
+  if (!props.task || props.isSaving || isReadOnly.value) {
+    return
+  }
+
+  emit('delete-reminder', {
+    taskId: props.task.id,
+    reminderId: reminder.id,
   })
 }
 
@@ -372,7 +474,15 @@ function emitRestore() {
 }
 
 watch(
-  () => [props.isOpen, props.task?.id, props.task?.title, props.task?.description, props.task?.dueDate, props.mode] as const,
+  () => [
+    props.isOpen,
+    props.task?.id,
+    props.task?.title,
+    props.task?.description,
+    props.task?.dueDate,
+    props.task?.reminders?.length ?? 0,
+    props.mode,
+  ] as const,
   ([isOpen]) => {
     isActionsOpen.value = false
 

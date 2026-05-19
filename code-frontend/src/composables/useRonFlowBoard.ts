@@ -29,6 +29,7 @@ export function useRonFlowBoard() {
   const pageError = ref('')
   const boardCommandError = ref('')
   const taskLifecycleCommandError = ref('')
+  const reminderDateTimeValidationError = ref('')
 
   const projectsResource = useApiResource(
     () => projectQueryService.getProjects(),
@@ -94,6 +95,22 @@ export function useRonFlowBoard() {
       taskCommandService.reorder(projectId, taskId, targetTaskId),
   )
 
+  const createTaskReminderResource = useApiResource(
+    (projectId: string, taskId: string, reminderDateTime: string, description: string) =>
+      taskCommandService.createReminder(projectId, taskId, reminderDateTime, description),
+    {
+      mapErrorMessage: () => '新增提醒失敗，請稍後再試。',
+    },
+  )
+
+  const deleteTaskReminderResource = useApiResource(
+    (projectId: string, taskId: string, reminderId: string) =>
+      taskCommandService.deleteReminder(projectId, taskId, reminderId),
+    {
+      mapErrorMessage: () => '刪除提醒失敗，請稍後再試。',
+    },
+  )
+
   const archiveTaskResource = useApiResource(
     (projectId: string, taskId: string) => taskCommandService.archive(projectId, taskId),
   )
@@ -115,12 +132,19 @@ export function useRonFlowBoard() {
   const selectedTask = computed(() => taskDetailResource.data.value)
   const taskDetailDisplayTitle = computed(() => taskDetailResource.data.value?.title ?? pendingTaskTitle.value)
   const taskDetailError = computed(() => taskDetailResource.errorMessage.value)
-  const taskDetailCommandError = computed(() => updateTaskDetailResource.errorMessage.value || taskLifecycleCommandError.value)
+  const taskDetailCommandError = computed(() =>
+    updateTaskDetailResource.errorMessage.value
+    || createTaskReminderResource.errorMessage.value
+    || deleteTaskReminderResource.errorMessage.value
+    || taskLifecycleCommandError.value,
+  )
   const isLoadingProjects = computed(() => projectsResource.isLoading.value)
   const isLoadingBoard = computed(() => boardResource.isLoading.value)
   const isLoadingTaskDetail = computed(() => taskDetailResource.isLoading.value)
   const isUpdatingTaskDetail = computed(() =>
     updateTaskDetailResource.isLoading.value
+    || createTaskReminderResource.isLoading.value
+    || deleteTaskReminderResource.isLoading.value
     || archiveTaskResource.isLoading.value
     || restoreArchivedTaskResource.isLoading.value
     || moveTaskToTrashResource.isLoading.value
@@ -153,8 +177,11 @@ export function useRonFlowBoard() {
 
     taskDetailResource.reset()
     updateTaskDetailResource.reset()
+    createTaskReminderResource.reset()
+    deleteTaskReminderResource.reset()
     taskLifecycleCommandError.value = ''
     taskTitleValidationError.value = ''
+    reminderDateTimeValidationError.value = ''
     taskDetailMode.value = mode
     pendingTaskTitle.value = taskTitle
     isTaskDetailOpen.value = true
@@ -168,10 +195,13 @@ export function useRonFlowBoard() {
     activeProjectId.value = projectId
     taskDetailResource.reset()
     updateTaskDetailResource.reset()
+    createTaskReminderResource.reset()
+    deleteTaskReminderResource.reset()
     archivedTasksResource.reset()
     trashedTasksResource.reset()
     taskLifecycleCommandError.value = ''
     taskTitleValidationError.value = ''
+    reminderDateTimeValidationError.value = ''
     taskDetailMode.value = 'active'
     pendingTaskTitle.value = ''
     isTaskDetailOpen.value = false
@@ -182,8 +212,11 @@ export function useRonFlowBoard() {
     isTaskDetailOpen.value = false
     taskDetailResource.reset()
     updateTaskDetailResource.reset()
+    createTaskReminderResource.reset()
+    deleteTaskReminderResource.reset()
     taskLifecycleCommandError.value = ''
     taskTitleValidationError.value = ''
+    reminderDateTimeValidationError.value = ''
     taskDetailMode.value = 'active'
     pendingTaskTitle.value = ''
   }
@@ -255,6 +288,48 @@ export function useRonFlowBoard() {
       }
 
       boardCommandError.value = '調整任務順序失敗，請稍後再試。'
+    }
+  }
+
+  async function createReminder(taskId: string, reminderDateTime: string, description: string) {
+    if (!activeProjectId.value) {
+      return false
+    }
+
+    reminderDateTimeValidationError.value = ''
+    createTaskReminderResource.reset()
+    deleteTaskReminderResource.reset()
+
+    if (!reminderDateTime.trim()) {
+      reminderDateTimeValidationError.value = '提醒時間為必填欄位'
+      return false
+    }
+
+    try {
+      const updatedTask = await createTaskReminderResource.execute(activeProjectId.value, taskId, reminderDateTime, description)
+      taskDetailResource.setData(updatedTask)
+      await loadBoard(activeProjectId.value)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  async function deleteReminder(taskId: string, reminderId: string) {
+    if (!activeProjectId.value) {
+      return false
+    }
+
+    createTaskReminderResource.reset()
+    deleteTaskReminderResource.reset()
+
+    try {
+      const updatedTask = await deleteTaskReminderResource.execute(activeProjectId.value, taskId, reminderId)
+      taskDetailResource.setData(updatedTask)
+      await loadBoard(activeProjectId.value)
+      return true
+    } catch {
+      return false
     }
   }
 
@@ -465,11 +540,14 @@ export function useRonFlowBoard() {
     pageError,
     boardCommandError,
     taskTitleValidationError,
+    reminderDateTimeValidationError,
     openTaskDetail,
     selectProject,
     closeTaskDetail,
     moveTaskToState,
     updateTaskDetail,
+    createReminder,
+    deleteReminder,
     reorderTaskWithinColumn,
     loadArchivedTasks,
     loadTrashedTasks,

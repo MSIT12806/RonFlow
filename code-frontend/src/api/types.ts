@@ -13,6 +13,12 @@ export type ActivityTimelineItemResponse = {
   occurredAt: string
 }
 
+export type TaskReminderResponse = {
+  id: string
+  reminderDateTime: string
+  description: string
+}
+
 export type TaskDetailResponse = {
   id: string
   projectId: string
@@ -22,6 +28,7 @@ export type TaskDetailResponse = {
   dueDate: string | null
   createdAt: string
   completedAt: string | null
+  reminders?: TaskReminderResponse[]
   activityTimeline: ActivityTimelineItemResponse[]
 }
 
