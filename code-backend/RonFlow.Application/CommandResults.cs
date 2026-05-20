@@ -140,3 +140,16 @@ public sealed record DeleteTaskReminderResult(CreateTaskOutput? Task, bool TaskN
         return new(null, false, true);
     }
 }
+
+public sealed record RegisterPushSubscriptionResult(ValidationError? ValidationError)
+{
+    public static RegisterPushSubscriptionResult Success()
+    {
+        return new((ValidationError?)null);
+    }
+
+    public static RegisterPushSubscriptionResult Invalid(string field, string message)
+    {
+        return new(new ValidationError(field, message));
+    }
+}

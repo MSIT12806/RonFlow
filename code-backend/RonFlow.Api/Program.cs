@@ -15,6 +15,10 @@ public partial class Program
         builder.Services.AddOpenApi();
         builder.Services.AddControllers();
         builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+        builder.Services.AddSingleton(_ => PushNotificationConfiguration.Create(
+            builder.Configuration["PushNotifications:Subject"],
+            builder.Configuration["PushNotifications:PublicKey"],
+            builder.Configuration["PushNotifications:PrivateKey"]));
         ConfigurePersistence(builder);
         builder.Services.AddSingleton<CreateProjectCommandService>();
         builder.Services.AddSingleton<CreateTaskCommandService>();
@@ -23,15 +27,19 @@ public partial class Program
         builder.Services.AddSingleton<ReorderTaskCommandService>();
         builder.Services.AddSingleton<CreateTaskReminderCommandService>();
         builder.Services.AddSingleton<DeleteTaskReminderCommandService>();
+        builder.Services.AddSingleton<RegisterPushSubscriptionCommandService>();
+        builder.Services.AddSingleton<DeliverDueReminderNotificationsCommandService>();
         builder.Services.AddSingleton<ArchiveTaskCommandService>();
         builder.Services.AddSingleton<RestoreArchivedTaskCommandService>();
         builder.Services.AddSingleton<MoveTaskToTrashCommandService>();
         builder.Services.AddSingleton<RestoreTrashedTaskCommandService>();
+        builder.Services.AddSingleton<IPushNotificationSender, WebPushNotificationSender>();
         builder.Services.AddSingleton<GetProjectsQueryService>();
         builder.Services.AddSingleton<GetProjectBoardQueryService>();
         builder.Services.AddSingleton<GetTaskDetailQueryService>();
         builder.Services.AddSingleton<GetArchivedTasksQueryService>();
         builder.Services.AddSingleton<GetTrashedTasksQueryService>();
+        builder.Services.AddHostedService<ReminderNotificationBackgroundService>();
 
         var app = builder.Build();
 
@@ -51,6 +59,7 @@ public partial class Program
         {
             builder.Services.AddSingleton<IProjectRepository, InMemoryProjectRepository>();
             builder.Services.AddSingleton<ITaskRepository, InMemoryTaskRepository>();
+            builder.Services.AddSingleton<IPushSubscriptionRepository, InMemoryPushSubscriptionRepository>();
             builder.Services.AddSingleton<ICoreFlowReadStore, InMemoryCoreFlowReadStore>();
             return;
         }
@@ -63,6 +72,7 @@ public partial class Program
         builder.Services.AddSingleton(new SqliteCoreFlowStore(databasePath));
         builder.Services.AddSingleton<IProjectRepository, SqliteProjectRepository>();
         builder.Services.AddSingleton<ITaskRepository, SqliteTaskRepository>();
+        builder.Services.AddSingleton<IPushSubscriptionRepository, SqlitePushSubscriptionRepository>();
         builder.Services.AddSingleton<ICoreFlowReadStore, SqliteCoreFlowReadStore>();
     }
 

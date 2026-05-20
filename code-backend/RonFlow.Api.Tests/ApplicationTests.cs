@@ -305,6 +305,14 @@ internal sealed class TestTaskRepository : ITaskRepository
         return tasks.GetValueOrDefault(taskId);
     }
 
+    public IReadOnlyList<DomainTask> GetAll()
+    {
+        return tasks.Values
+            .OrderBy(task => task.SortOrder)
+            .ThenBy(task => task.CreatedAt)
+            .ToArray();
+    }
+
     public IReadOnlyList<DomainTask> GetByProjectId(Guid projectId)
     {
         return tasks.Values

@@ -102,6 +102,9 @@
       :save-error-message="taskDetailCommandError"
       :title-validation-error="taskTitleValidationError"
       :reminder-datetime-validation-error="reminderDateTimeValidationError"
+      :reminder-delivery-status-message="reminderDeliveryStatusMessage"
+      :can-enable-reminder-delivery="canEnableReminderDelivery"
+      :is-enabling-reminder-delivery="isEnablingReminderDelivery"
       :mode="taskDetailMode"
       :display-title="taskDetailDisplayTitle"
       :task="selectedTask"
@@ -110,6 +113,7 @@
       @save="onTaskDetailSave"
       @add-reminder="onAddReminder"
       @delete-reminder="onDeleteReminder"
+      @enable-reminder-delivery="enableReminderDelivery"
       @archive="onArchiveTask"
       @move-to-trash="onMoveTaskToTrash"
       @restore="onRestoreTask"
@@ -127,6 +131,7 @@ import LifecycleTaskListView from './components/LifecycleTaskListView.vue'
 import ProjectBoard from './components/ProjectBoard.vue'
 import ProjectSidebar from './components/ProjectSidebar.vue'
 import TaskDetailModal from './components/TaskDetailModal.vue'
+import { usePushNotifications } from './composables/usePushNotifications'
 import { useRonFlowBoard, type TaskDetailMode } from './composables/useRonFlowBoard'
 
 type WorkspaceView = 'board' | 'archived' | 'trash'
@@ -137,6 +142,13 @@ const showAsyncStatePlayground = import.meta.env.DEV
 const createProjectModalRef = ref<InstanceType<typeof CreateProjectModal> | null>(null)
 const createTaskModalRef = ref<InstanceType<typeof CreateTaskModal> | null>(null)
 const currentWorkspaceView = ref<WorkspaceView>('board')
+
+const {
+  reminderDeliveryStatusMessage,
+  canEnableReminderDelivery,
+  isEnablingReminderDelivery,
+  enableReminderDelivery,
+} = usePushNotifications()
 
 const {
   projects,

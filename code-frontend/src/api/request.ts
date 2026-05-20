@@ -17,7 +17,21 @@ export async function request<T>(input: string, init?: RequestInit) {
   })
 
   if (response.ok) {
-    return (await response.json()) as T
+    if (response.status === 204) {
+      return undefined as T
+    }
+
+    const contentType = response.headers.get('Content-Type') ?? ''
+    if (!contentType.includes('application/json')) {
+      return undefined as T
+    }
+
+    const responseText = await response.text()
+    if (!responseText.trim()) {
+      return undefined as T
+    }
+
+    return JSON.parse(responseText) as T
   }
 
   if (response.status === 400) {

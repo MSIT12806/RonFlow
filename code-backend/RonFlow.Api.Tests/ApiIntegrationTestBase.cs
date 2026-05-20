@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using RonFlow.Api.Contracts;
 
 namespace RonFlow.Api.Tests;
@@ -60,5 +61,10 @@ public abstract class ApiIntegrationTestBase
                     .EnumerateArray()
                     .Select(item => item.GetString() ?? string.Empty)
                     .ToArray());
+    }
+
+    protected T GetRequiredService<T>() where T : notnull
+    {
+        return factory.Services.GetRequiredService<T>();
     }
 }

@@ -16,6 +16,26 @@ public sealed class SqliteTaskRepository(SqliteCoreFlowStore store) : ITaskRepos
         return json is null ? null : CoreFlowJsonSerializer.DeserializeTask(json);
     }
 
+    public IReadOnlyList<DomainTask> GetAll()
+    {
+        using var connection = store.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Data FROM Tasks";
+
+        using var reader = command.ExecuteReader();
+        var tasks = new List<DomainTask>();
+
+        while (reader.Read())
+        {
+            tasks.Add(CoreFlowJsonSerializer.DeserializeTask(reader.GetString(0)));
+        }
+
+        return tasks
+            .OrderBy(task => task.SortOrder)
+            .ThenBy(task => task.CreatedAt)
+            .ToArray();
+    }
+
     public IReadOnlyList<DomainTask> GetByProjectId(Guid projectId)
     {
         using var connection = store.OpenConnection();

@@ -32,6 +32,9 @@ function mountTaskDetail(task: TaskDetailResponse) {
       saveErrorMessage: '',
       titleValidationError: '',
       reminderDatetimeValidationError: '',
+      reminderDeliveryStatusMessage: '提醒可能無法送達，請先啟用此裝置的提醒通知。',
+      canEnableReminderDelivery: true,
+      isEnablingReminderDelivery: false,
       mode: 'active',
       displayTitle: task.title,
       task,
@@ -84,5 +87,12 @@ describe('TaskDetailModal', () => {
     }))
 
     expect(wrapper.text()).not.toContain('完成時間')
+  })
+
+  it('shows reminder delivery status and enable button from props', () => {
+    const wrapper = mountTaskDetail(createTask())
+
+    expect(wrapper.text()).toContain('提醒可能無法送達，請先啟用此裝置的提醒通知。')
+    expect(wrapper.text()).toContain('啟用提醒通知')
   })
 })

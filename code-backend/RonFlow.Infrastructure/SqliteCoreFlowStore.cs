@@ -45,6 +45,11 @@ CREATE TABLE IF NOT EXISTS Projects (
 CREATE TABLE IF NOT EXISTS Tasks (
     Id TEXT NOT NULL PRIMARY KEY,
     Data TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS PushSubscriptions (
+    Endpoint TEXT NOT NULL PRIMARY KEY,
+    Data TEXT NOT NULL
 );";
 
         command.ExecuteNonQuery();

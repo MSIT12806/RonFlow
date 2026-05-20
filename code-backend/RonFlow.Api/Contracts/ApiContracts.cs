@@ -10,9 +10,15 @@ public sealed record ChangeTaskStateRequest(string? StateKey);
 
 public sealed record CreateTaskReminderRequest(string? ReminderDateTime, string? Description);
 
+public sealed record PushSubscriptionKeysRequest(string? P256dh, string? Auth);
+
+public sealed record RegisterPushSubscriptionRequest(string? Endpoint, PushSubscriptionKeysRequest? Keys);
+
 public sealed record UpdateTaskRequest(string? Title, string? Description, DateOnly? DueDate);
 
 public sealed record ReorderTaskRequest(Guid? TargetTaskId);
+
+public sealed record PushNotificationPublicKeyResponse(string PublicKey);
 
 public sealed record ProjectListResponse(IReadOnlyList<ProjectListItemResponse> Items);
 

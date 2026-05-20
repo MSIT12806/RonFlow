@@ -6,6 +6,17 @@ namespace RonFlow.Infrastructure;
 
 internal static class CoreFlowJsonSerializer
 {
+    public static string Serialize(PushSubscription subscription)
+    {
+        return JsonSerializer.Serialize(subscription);
+    }
+
+    public static PushSubscription DeserializePushSubscription(string json)
+    {
+        return JsonSerializer.Deserialize<PushSubscription>(json)
+            ?? throw new InvalidOperationException("Unable to deserialize push subscription.");
+    }
+
     public static string Serialize(Project project)
     {
         using var stream = new MemoryStream();
@@ -106,6 +117,14 @@ internal static class CoreFlowJsonSerializer
             writer.WriteString("id", reminder.Id);
             writer.WriteString("reminderDateTime", reminder.ReminderDateTime);
             writer.WriteString("description", reminder.Description);
+            if (reminder.NotificationDispatchedAt is null)
+            {
+                writer.WriteNull("notificationDispatchedAt");
+            }
+            else
+            {
+                writer.WriteString("notificationDispatchedAt", reminder.NotificationDispatchedAt.Value);
+            }
             writer.WriteEndObject();
         }
 
@@ -160,7 +179,11 @@ internal static class CoreFlowJsonSerializer
                     GetRequiredString(element, "reminderDateTime"),
                     element.TryGetProperty("description", out var reminderDescriptionElement) && reminderDescriptionElement.ValueKind != JsonValueKind.Null
                         ? reminderDescriptionElement.GetString() ?? string.Empty
-                        : string.Empty))
+                        : string.Empty,
+                    element.TryGetProperty("notificationDispatchedAt", out var reminderDispatchedAtElement)
+                        && reminderDispatchedAtElement.ValueKind != JsonValueKind.Null
+                            ? reminderDispatchedAtElement.GetDateTimeOffset()
+                            : (DateTimeOffset?)null))
                 .ToArray()
             : [];
 

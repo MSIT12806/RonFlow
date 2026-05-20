@@ -127,6 +127,34 @@ public sealed class Task
         return true;
     }
 
+    public IReadOnlyList<TaskReminder> GetDueUndispatchedReminders(DateTimeOffset currentTime)
+    {
+        return reminders
+            .Where(reminder => reminder.IsDue(currentTime))
+            .ToArray();
+    }
+
+    public bool MarkReminderNotificationDispatched(Guid reminderId, DateTimeOffset dispatchedAt)
+    {
+        for (var index = 0; index < reminders.Count; index += 1)
+        {
+            if (reminders[index].Id != reminderId)
+            {
+                continue;
+            }
+
+            if (reminders[index].NotificationDispatchedAt is not null)
+            {
+                return false;
+            }
+
+            reminders[index] = reminders[index].MarkNotificationDispatched(dispatchedAt);
+            return true;
+        }
+
+        return false;
+    }
+
     public bool Archive(DateTimeOffset changedAt)
     {
         if (LifecycleState == TaskLifecycleState.Archived)

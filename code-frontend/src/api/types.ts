@@ -85,3 +85,7 @@ export type ProjectListResponse = {
 }
 
 export type ValidationErrorBag = Record<string, string[]>
+
+export type PushNotificationPublicKeyResponse = {
+  publicKey: string
+}

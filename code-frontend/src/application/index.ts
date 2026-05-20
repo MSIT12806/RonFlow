@@ -1,4 +1,5 @@
 export * from './ProjectCommandService'
+export * from './PushNotificationCommandService'
 export * from './TaskCommandService'
 export * from './ProjectQueryService'
 export * from './TaskQueryService'

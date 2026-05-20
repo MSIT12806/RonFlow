@@ -4,6 +4,8 @@ public interface ITaskRepository
 {
     Task? Get(Guid taskId);
 
+    IReadOnlyList<Task> GetAll();
+
     IReadOnlyList<Task> GetByProjectId(Guid projectId);
 
     void Add(Task task);

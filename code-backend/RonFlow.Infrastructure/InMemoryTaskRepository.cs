@@ -16,6 +16,17 @@ public sealed class InMemoryTaskRepository : ITaskRepository
         }
     }
 
+    public IReadOnlyList<DomainTask> GetAll()
+    {
+        lock (syncRoot)
+        {
+            return tasks.Values
+                .OrderBy(task => task.SortOrder)
+                .ThenBy(task => task.CreatedAt)
+                .ToArray();
+        }
+    }
+
     public IReadOnlyList<DomainTask> GetByProjectId(Guid projectId)
     {
         lock (syncRoot)

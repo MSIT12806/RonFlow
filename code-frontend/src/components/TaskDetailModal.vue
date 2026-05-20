@@ -118,10 +118,22 @@
 
           <div class="detail-card detail-card-full" data-testid="task-reminders-section">
             <div class="detail-section-header">
-              <p class="detail-label">提醒</p>
-              <p v-if="reminderDeliveryStatusMessage" class="detail-supporting-copy" data-testid="reminder-delivery-status">
-                {{ reminderDeliveryStatusMessage }}
-              </p>
+              <div>
+                <p class="detail-label">提醒</p>
+                <p v-if="reminderDeliveryStatusMessage" class="detail-supporting-copy" data-testid="reminder-delivery-status">
+                  {{ reminderDeliveryStatusMessage }}
+                </p>
+              </div>
+
+              <button
+                v-if="canEnableReminderDelivery"
+                type="button"
+                class="secondary-button"
+                :disabled="isSaving || isEnablingReminderDelivery"
+                @click="emitEnableReminderDelivery"
+              >
+                {{ isEnablingReminderDelivery ? '啟用中...' : '啟用提醒通知' }}
+              </button>
             </div>
 
             <div class="detail-reminder-grid">
@@ -230,6 +242,9 @@ const props = defineProps<{
   titleValidationError: string
   reminderDateTimeValidationError?: string
   reminderDatetimeValidationError?: string
+  reminderDeliveryStatusMessage: string
+  canEnableReminderDelivery: boolean
+  isEnablingReminderDelivery: boolean
   mode: TaskDetailMode
   displayTitle: string
   task: TaskDetailResponse | null
@@ -241,6 +256,7 @@ const emit = defineEmits<{
   (event: 'save', payload: { taskId: string; title: string; description: string; dueDate: string | null }): void
   (event: 'add-reminder', payload: { taskId: string; reminderDateTime: string; description: string }): void
   (event: 'delete-reminder', payload: { taskId: string; reminderId: string }): void
+  (event: 'enable-reminder-delivery'): void
   (event: 'archive', taskId: string): void
   (event: 'move-to-trash', taskId: string): void
   (event: 'restore', taskId: string, mode: Exclude<TaskDetailMode, 'active'>): void
@@ -260,15 +276,6 @@ const reminderValidationError = computed(() =>
   ?? props.reminderDateTimeValidationError
   ?? '',
 )
-const reminderDeliveryStatusMessage = computed(() => {
-  if (typeof window === 'undefined' || typeof window.Notification === 'undefined') {
-    return '提醒可能無法送達，請確認目前裝置支援通知與推播功能。'
-  }
-
-  return window.Notification.permission === 'granted'
-    ? ''
-    : '提醒可能無法送達，請確認通知權限與推播訂閱狀態。'
-})
 
 const draftDueDateValue = computed<Date | null>({
   get() {
@@ -276,15 +283,6 @@ const draftDueDateValue = computed<Date | null>({
   },
   set(value) {
     draftDueDate.value = formatDateOnly(value)
-  },
-})
-
-const draftReminderDateTimeValue = computed<Date | null>({
-  get() {
-    return parseDateTimeLocal(draftReminderDateTime.value)
-  },
-  set(value) {
-    draftReminderDateTime.value = formatDateTimeLocal(value)
   },
 })
 
@@ -315,41 +313,6 @@ function formatDateOnly(value: Date | null): string {
   const day = String(value.getDate()).padStart(2, '0')
 
   return `${year}-${month}-${day}`
-}
-
-function parseDateTimeLocal(value: string): Date | null {
-  if (!value) {
-    return null
-  }
-
-  const [datePart, timePart = ''] = value.split('T')
-  const [yearText, monthText, dayText] = datePart.split('-')
-  const [hourText, minuteText] = timePart.split(':')
-  const year = Number(yearText)
-  const month = Number(monthText)
-  const day = Number(dayText)
-  const hour = Number(hourText)
-  const minute = Number(minuteText)
-
-  if (!year || !month || !day || Number.isNaN(hour) || Number.isNaN(minute)) {
-    return null
-  }
-
-  return new Date(year, month - 1, day, hour, minute)
-}
-
-function formatDateTimeLocal(value: Date | null): string {
-  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
-    return ''
-  }
-
-  const year = value.getFullYear()
-  const month = String(value.getMonth() + 1).padStart(2, '0')
-  const day = String(value.getDate()).padStart(2, '0')
-  const hour = String(value.getHours()).padStart(2, '0')
-  const minute = String(value.getMinutes()).padStart(2, '0')
-
-  return `${year}-${month}-${day}T${hour}:${minute}`
 }
 
 function normalizeDateTimeLocalInput(value: string): string {
@@ -437,6 +400,14 @@ function emitDeleteReminder(reminder: TaskReminderResponse) {
     taskId: props.task.id,
     reminderId: reminder.id,
   })
+}
+
+function emitEnableReminderDelivery() {
+  if (props.isSaving || props.isEnablingReminderDelivery) {
+    return
+  }
+
+  emit('enable-reminder-delivery')
 }
 
 function toggleActionsMenu() {
