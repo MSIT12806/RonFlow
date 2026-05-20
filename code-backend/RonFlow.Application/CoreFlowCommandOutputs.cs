@@ -19,7 +19,10 @@ public sealed record CreateTaskOutput(
     DateOnly? DueDate,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
+    IReadOnlyList<CreatedTaskReminderOutput> Reminders,
     IReadOnlyList<CreatedActivityTimelineItemOutput> ActivityTimeline);
+
+public sealed record CreatedTaskReminderOutput(Guid Id, string ReminderDateTime, string Description);
 
 public sealed record CreatedActivityTimelineItemOutput(string Type, string Message, DateTimeOffset OccurredAt);
 
@@ -45,7 +48,13 @@ internal static class CoreFlowCommandOutputFactory
             task.DueDate,
             task.CreatedAt,
             task.CompletedAt,
+            task.Reminders.Select(CreateTaskReminder).ToArray(),
             task.ActivityTimeline.Select(CreateActivityTimelineItem).ToArray());
+    }
+
+    private static CreatedTaskReminderOutput CreateTaskReminder(TaskReminderModel reminder)
+    {
+        return new CreatedTaskReminderOutput(reminder.Id, reminder.ReminderDateTime, reminder.Description);
     }
 
     private static CreatedWorkflowStateOutput CreateWorkflowState(WorkflowStateModel workflowState)

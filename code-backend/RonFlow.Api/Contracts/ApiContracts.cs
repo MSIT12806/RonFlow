@@ -8,6 +8,8 @@ public sealed record CreateTaskRequest(string? Title);
 
 public sealed record ChangeTaskStateRequest(string? StateKey);
 
+public sealed record CreateTaskReminderRequest(string? ReminderDateTime, string? Description);
+
 public sealed record UpdateTaskRequest(string? Title, string? Description, DateOnly? DueDate);
 
 public sealed record ReorderTaskRequest(Guid? TargetTaskId);
@@ -110,6 +112,7 @@ public sealed record TaskDetailResponse(
     DateOnly? DueDate,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
+    IReadOnlyList<TaskReminderResponse> Reminders,
     IReadOnlyList<ActivityTimelineItemResponse> ActivityTimeline)
 {
     public static TaskDetailResponse FromOutput(CreateTaskOutput output)
@@ -123,6 +126,7 @@ public sealed record TaskDetailResponse(
             output.DueDate,
             output.CreatedAt,
             output.CompletedAt,
+                output.Reminders.Select(TaskReminderResponse.FromOutput).ToArray(),
             output.ActivityTimeline.Select(ActivityTimelineItemResponse.FromOutput).ToArray());
     }
 
@@ -137,7 +141,21 @@ public sealed record TaskDetailResponse(
             view.DueDate,
             view.CreatedAt,
             view.CompletedAt,
+            view.Reminders.Select(TaskReminderResponse.FromView).ToArray(),
             view.ActivityTimeline.Select(ActivityTimelineItemResponse.FromView).ToArray());
+    }
+}
+
+public sealed record TaskReminderResponse(Guid Id, string ReminderDateTime, string Description)
+{
+    public static TaskReminderResponse FromOutput(CreatedTaskReminderOutput output)
+    {
+        return new(output.Id, output.ReminderDateTime, output.Description);
+    }
+
+    public static TaskReminderResponse FromView(TaskReminderView view)
+    {
+        return new(view.Id, view.ReminderDateTime, view.Description);
     }
 }
 

@@ -7,3 +7,8 @@ TDD 是 Test-Driven Development 的縮寫，中文常譯為「測試驅動開發
 TDD 的價值不只是增加測試數量，而是迫使開發者從使用介面、依賴邊界與行為需求的角度思考設計。當測試很難寫時，往往也代表設計耦合過高或責任分配不清。
 
 如果實踐得當，TDD 能讓重構更有信心，並且讓系統逐漸形成小而清晰、容易替換與驗證的設計。
+
+在分層架構中， TDD 也會依照由大到小的過程進行撰寫，先寫最大的 application service function test，同時定義 application function 使編譯通過、再實作 application service function ，此時就會寫出 domain 帶出來的東西。
+
+然後再寫這些 funciton 的 unit test，如此一層層往下實作。
+

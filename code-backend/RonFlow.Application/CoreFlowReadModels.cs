@@ -38,6 +38,7 @@ public sealed record TaskDetailView(
     DateOnly? DueDate,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
+    IReadOnlyList<TaskReminderView> Reminders,
     IReadOnlyList<ActivityTimelineItemView> ActivityTimeline);
 
 public sealed record LifecycleTaskListView(IReadOnlyList<LifecycleTaskListItemView> Items);
@@ -51,6 +52,8 @@ public sealed record LifecycleTaskListItemView(
     DateTimeOffset ChangedAt);
 
 public sealed record ActivityTimelineItemView(string Type, string Message, DateTimeOffset OccurredAt);
+
+public sealed record TaskReminderView(Guid Id, string ReminderDateTime, string Description);
 
 internal static class CoreFlowReadModelFactory
 {
@@ -98,6 +101,7 @@ internal static class CoreFlowReadModelFactory
             task.DueDate,
             task.CreatedAt,
             task.CompletedAt,
+            task.Reminders.Select(CreateTaskReminder).ToArray(),
             task.ActivityTimeline.Select(CreateActivityTimelineItem).ToArray());
     }
 
@@ -135,6 +139,11 @@ internal static class CoreFlowReadModelFactory
     private static ActivityTimelineItemView CreateActivityTimelineItem(ActivityTimelineItemModel activityTimelineItem)
     {
         return new ActivityTimelineItemView(activityTimelineItem.Type, activityTimelineItem.Message, activityTimelineItem.OccurredAt);
+    }
+
+    private static TaskReminderView CreateTaskReminder(TaskReminderModel reminder)
+    {
+        return new TaskReminderView(reminder.Id, reminder.ReminderDateTime, reminder.Description);
     }
 
     private static DateTimeOffset GetLifecycleChangedAt(TaskModel task, TaskLifecycleState lifecycleState)

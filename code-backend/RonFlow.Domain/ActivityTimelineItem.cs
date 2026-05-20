@@ -66,6 +66,16 @@ public sealed record ActivityTimelineItem(string Type, string Message, DateTimeO
         return new("TaskRestoredFromTrash", "已從垃圾桶還原", occurredAt);
     }
 
+    public static ActivityTimelineItem TaskReminderAdded(DateTimeOffset occurredAt)
+    {
+        return new("TaskReminderAdded", "已新增提醒", occurredAt);
+    }
+
+    public static ActivityTimelineItem TaskReminderDeleted(DateTimeOffset occurredAt)
+    {
+        return new("TaskReminderDeleted", "已刪除提醒", occurredAt);
+    }
+
     public ActivityTimelineItemModel ToModel()
     {
         return new(Type, Message, OccurredAt);

@@ -104,3 +104,39 @@ public sealed record TaskLifecycleCommandResult(CreateTaskOutput? Task, Validati
         return new(null, null, true);
     }
 }
+
+public sealed record CreateTaskReminderResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound)
+{
+    public static CreateTaskReminderResult Success(CreateTaskOutput task)
+    {
+        return new(task, null, false);
+    }
+
+    public static CreateTaskReminderResult Invalid(string field, string message)
+    {
+        return new(null, new ValidationError(field, message), false);
+    }
+
+    public static CreateTaskReminderResult NotFound()
+    {
+        return new(null, null, true);
+    }
+}
+
+public sealed record DeleteTaskReminderResult(CreateTaskOutput? Task, bool TaskNotFound, bool ReminderNotFound)
+{
+    public static DeleteTaskReminderResult Success(CreateTaskOutput task)
+    {
+        return new(task, false, false);
+    }
+
+    public static DeleteTaskReminderResult TaskMissing()
+    {
+        return new(null, true, false);
+    }
+
+    public static DeleteTaskReminderResult ReminderMissing()
+    {
+        return new(null, false, true);
+    }
+}

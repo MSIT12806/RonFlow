@@ -97,6 +97,20 @@ internal static class CoreFlowJsonSerializer
 
         writer.WriteNumber("sortOrder", task.SortOrder);
 
+        writer.WritePropertyName("reminders");
+        writer.WriteStartArray();
+
+        foreach (var reminder in task.Reminders)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("id", reminder.Id);
+            writer.WriteString("reminderDateTime", reminder.ReminderDateTime);
+            writer.WriteString("description", reminder.Description);
+            writer.WriteEndObject();
+        }
+
+        writer.WriteEndArray();
+
         writer.WritePropertyName("activityTimeline");
         writer.WriteStartArray();
 
@@ -138,6 +152,17 @@ internal static class CoreFlowJsonSerializer
         var sortOrder = root.TryGetProperty("sortOrder", out var sortOrderElement)
             ? sortOrderElement.GetInt32()
             : 0;
+        var reminders = root.TryGetProperty("reminders", out var remindersElement) && remindersElement.ValueKind != JsonValueKind.Null
+            ? remindersElement
+                .EnumerateArray()
+                .Select(element => new TaskReminder(
+                    element.GetProperty("id").GetGuid(),
+                    GetRequiredString(element, "reminderDateTime"),
+                    element.TryGetProperty("description", out var reminderDescriptionElement) && reminderDescriptionElement.ValueKind != JsonValueKind.Null
+                        ? reminderDescriptionElement.GetString() ?? string.Empty
+                        : string.Empty))
+                .ToArray()
+            : [];
 
         return DomainTask.Rehydrate(
             root.GetProperty("id").GetGuid(),
@@ -152,6 +177,7 @@ internal static class CoreFlowJsonSerializer
             archivedAt,
             trashedAt,
             sortOrder,
+            reminders,
             root.GetProperty("activityTimeline")
                 .EnumerateArray()
                 .Select(ReadActivityTimelineItem)

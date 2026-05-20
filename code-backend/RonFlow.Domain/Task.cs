@@ -3,6 +3,7 @@ namespace RonFlow.Domain;
 public sealed class Task
 {
     private readonly List<ActivityTimelineItem> activityTimeline;
+    private readonly List<TaskReminder> reminders;
 
     private Task(
         Guid id,
@@ -17,6 +18,7 @@ public sealed class Task
         DateTimeOffset? archivedAt,
         DateTimeOffset? trashedAt,
         int sortOrder,
+        IEnumerable<TaskReminder> reminders,
         IEnumerable<ActivityTimelineItem> activityTimeline)
     {
         Id = id;
@@ -31,6 +33,7 @@ public sealed class Task
         ArchivedAt = archivedAt;
         TrashedAt = trashedAt;
         SortOrder = sortOrder;
+        this.reminders = reminders.ToList();
         this.activityTimeline = activityTimeline.ToList();
     }
 
@@ -57,6 +60,8 @@ public sealed class Task
 
     public int SortOrder { get; private set; }
 
+    public IReadOnlyList<TaskReminder> Reminders => reminders;
+
     public IReadOnlyList<ActivityTimelineItem> ActivityTimeline => activityTimeline;
 
     public static Task Create(Guid projectId, TaskTitle title, WorkflowState initialState, DateTimeOffset createdAt, int sortOrder)
@@ -74,6 +79,7 @@ public sealed class Task
                 null,
                 null,
             sortOrder,
+            [],
             [ActivityTimelineItem.TaskCreated(createdAt)]);
     }
 
@@ -90,9 +96,35 @@ public sealed class Task
         DateTimeOffset? archivedAt,
         DateTimeOffset? trashedAt,
         int sortOrder,
+        IEnumerable<TaskReminder> reminders,
         IEnumerable<ActivityTimelineItem> activityTimeline)
     {
-        return new Task(id, projectId, title, description, currentState, lifecycleState, dueDate, createdAt, completedAt, archivedAt, trashedAt, sortOrder, activityTimeline);
+        return new Task(id, projectId, title, description, currentState, lifecycleState, dueDate, createdAt, completedAt, archivedAt, trashedAt, sortOrder, reminders, activityTimeline);
+    }
+
+    public bool AddReminder(string reminderDateTime, string description, DateTimeOffset changedAt)
+    {
+        var normalizedDateTime = reminderDateTime.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedDateTime))
+        {
+            return false;
+        }
+
+        reminders.Add(new TaskReminder(Guid.NewGuid(), normalizedDateTime, description.Trim()));
+        activityTimeline.Add(ActivityTimelineItem.TaskReminderAdded(changedAt));
+        return true;
+    }
+
+    public bool DeleteReminder(Guid reminderId, DateTimeOffset changedAt)
+    {
+        var removedCount = reminders.RemoveAll(reminder => reminder.Id == reminderId);
+        if (removedCount == 0)
+        {
+            return false;
+        }
+
+        activityTimeline.Add(ActivityTimelineItem.TaskReminderDeleted(changedAt));
+        return true;
     }
 
     public bool Archive(DateTimeOffset changedAt)
@@ -235,6 +267,7 @@ public sealed class Task
             ArchivedAt,
             TrashedAt,
             SortOrder,
+            reminders.Select(reminder => reminder.ToModel()).ToArray(),
             activityTimeline.Select(item => item.ToModel()).ToArray());
     }
 }

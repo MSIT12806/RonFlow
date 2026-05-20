@@ -11,6 +11,8 @@ public sealed record WorkflowStateModel(string Key, string Label, bool IsInitial
 
 public sealed record ActivityTimelineItemModel(string Type, string Message, DateTimeOffset OccurredAt);
 
+public sealed record TaskReminderModel(Guid Id, string ReminderDateTime, string Description);
+
 public sealed record TaskModel(
     Guid Id,
     Guid ProjectId,
@@ -24,6 +26,7 @@ public sealed record TaskModel(
     DateTimeOffset? ArchivedAt,
     DateTimeOffset? TrashedAt,
     int SortOrder,
+    IReadOnlyList<TaskReminderModel> Reminders,
     IReadOnlyList<ActivityTimelineItemModel> ActivityTimeline);
 
 public sealed record ProjectModel(

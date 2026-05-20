@@ -21,6 +21,8 @@ public partial class Program
         builder.Services.AddSingleton<ChangeTaskStateCommandService>();
         builder.Services.AddSingleton<UpdateTaskCommandService>();
         builder.Services.AddSingleton<ReorderTaskCommandService>();
+        builder.Services.AddSingleton<CreateTaskReminderCommandService>();
+        builder.Services.AddSingleton<DeleteTaskReminderCommandService>();
         builder.Services.AddSingleton<ArchiveTaskCommandService>();
         builder.Services.AddSingleton<RestoreArchivedTaskCommandService>();
         builder.Services.AddSingleton<MoveTaskToTrashCommandService>();
