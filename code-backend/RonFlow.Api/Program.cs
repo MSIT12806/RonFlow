@@ -1,4 +1,7 @@
-
+using System.Security.Claims;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using RonFlow.Application;
 using RonFlow.Api.Contracts;
 using RonFlow.Domain;
@@ -19,6 +22,29 @@ public partial class Program
             builder.Configuration["PushNotifications:Subject"],
             builder.Configuration["PushNotifications:PublicKey"],
             builder.Configuration["PushNotifications:PrivateKey"]));
+        var ronAuthOptions = builder.Configuration.GetSection(RonAuthAuthenticationOptions.SectionName).Get<RonAuthAuthenticationOptions>()
+            ?? new RonAuthAuthenticationOptions();
+        var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(ronAuthOptions.SigningKey));
+        builder.Services.Configure<RonAuthAuthenticationOptions>(builder.Configuration.GetSection(RonAuthAuthenticationOptions.SectionName));
+        builder.Services
+            .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidateLifetime = true,
+                    ValidIssuer = ronAuthOptions.Issuer,
+                    ValidAudience = ronAuthOptions.Audience,
+                    IssuerSigningKey = signingKey,
+                    NameClaimType = ClaimTypes.Name,
+                    RoleClaimType = ClaimTypes.Role,
+                    ClockSkew = TimeSpan.Zero,
+                };
+            });
+        builder.Services.AddAuthorization();
         ConfigurePersistence(builder);
         builder.Services.AddSingleton<CreateProjectCommandService>();
         builder.Services.AddSingleton<CreateTaskCommandService>();
@@ -48,6 +74,8 @@ public partial class Program
             app.MapOpenApi();
         }
 
+        app.UseAuthentication();
+        app.UseAuthorization();
         app.MapControllers();
 
         app.Run();
