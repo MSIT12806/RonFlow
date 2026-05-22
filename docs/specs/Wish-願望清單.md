@@ -8,6 +8,8 @@
 - [x] 實現 office system level 通知
     - Web Push + Service Worker 整合
 - [x] background service
+- [x] 實現 RonFlow 與 RonAuth supporting domain 的結合互動
+    - 以前端 RonAuth SDK + 後端 JWT trust 建立跨 bounded context 的協作邊界
 
 ### what?
 這是 AI 認為是特點，但是我不知道裡面實作細節的東西。
