@@ -7,7 +7,7 @@ import {
 } from './support/ronflowTestHelpers'
 
 test.describe('RonFlow UI/UX 驗收規格 - Task Detail Behavior', () => {
-  test('重新整理後仍可看到已建立的專案與任務', async ({ page }, testInfo) => {
+  test('重新整理後可透過 session restore 還原登入並看到已建立的專案與任務', async ({ page }, testInfo) => {
     const { projectName, taskTitle } = createScenarioData(testInfo)
 
     await setupTaskBoard(page, projectName, taskTitle)
@@ -16,9 +16,9 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Detail Behavior', () => {
       window.localStorage.clear()
       window.sessionStorage.clear()
     })
-    await page.context().clearCookies()
     await page.reload()
 
+    await expect(page.getByRole('button', { name: '登出' })).toBeVisible()
     await page.getByRole('button', { name: projectName }).click()
     await expect(page.getByRole('heading', { name: projectName })).toBeVisible()
     await expect(page.getByTestId('workflow-column-todo')).toContainText(taskTitle)

@@ -59,6 +59,7 @@ Done   -> 已完成
 4. 若只是某次 release 或 milestone 暫時不做，應放在獨立的 release 文件，而不是從核心規格中刪除產品意圖。
 5. 本文件描述可驗證的產品行為，但不規定必須由 E2E、integration test 或 unit test 承接。
 6. 未定議題、討論中選項與暫存決策應放在其他討論文件，不保留在本 spec 中。
+7. 若需規劃 authentication / ownership 前提在各層測試中的承接方式，請參考 [RonFlow Authentication / Ownership Test Strategy](./ronflow-auth-ownership-test-strategy.md)。
 
 ---
 

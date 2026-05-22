@@ -20,6 +20,7 @@ export default defineConfig({
       '/ronauth-api': {
         target: process.env.RONAUTH_API_PROXY_TARGET ?? 'http://127.0.0.1:5136',
         changeOrigin: true,
+        rewrite: path => path.replace(/^\/ronauth-api/, ''),
       },
     },
   },

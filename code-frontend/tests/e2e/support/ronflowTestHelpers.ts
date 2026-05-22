@@ -1,4 +1,5 @@
 import { expect, type APIRequestContext, type Page, type TestInfo } from '@playwright/test'
+import { registerAndEnterWorkspace } from './ronflowAuthTestHelpers'
 
 export const workflowColumns = [
   { key: 'todo', label: '待處理' },
@@ -165,7 +166,7 @@ export async function moveTaskStateThroughApi(
 }
 
 export async function setupProjectBoard(page: Page, projectName: string) {
-  await page.goto('/')
+  await registerAndEnterWorkspace(page)
   await openCreateProjectModal(page)
   await createProject(page, projectName)
 }

@@ -2,8 +2,18 @@ import { expect, test } from '@playwright/test'
 import {
   openCreateProjectModal,
 } from './support/ronflowTestHelpers'
+import { registerAndEnterWorkspace } from './support/ronflowAuthTestHelpers'
 
 test.describe('RonFlow UI/UX 驗收規格 - Project List Screen', () => {
+  test('未登入時首頁顯示登入與註冊入口', async ({ page }) => {
+    await page.goto('/')
+
+    await expect(page).toHaveTitle(/RonFlow/)
+    await expect(page.getByRole('heading', { name: '登入 RonFlow' })).toBeVisible()
+    await expect(page.getByRole('button', { name: '註冊' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '專案列表' })).toHaveCount(0)
+  })
+
   test('專案列表首屏顯示建立專案入口與空狀態', async ({ page }) => {
     await page.route('**/api/projects', async (route) => {
       if (route.request().method() === 'GET') {
@@ -18,7 +28,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Project List Screen', () => {
       await route.continue()
     })
 
-    await page.goto('/')
+    await registerAndEnterWorkspace(page)
 
     await expect(page).toHaveTitle(/RonFlow/)
     await expect(page.getByRole('heading', { name: '專案列表' })).toBeVisible()
@@ -28,7 +38,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Project List Screen', () => {
   })
 
   test('可以從專案列表開啟建立專案對話框', async ({ page }) => {
-    await page.goto('/')
+    await registerAndEnterWorkspace(page)
 
     await openCreateProjectModal(page)
   })
@@ -47,14 +57,14 @@ test.describe('RonFlow UI/UX 驗收規格 - Project List Screen', () => {
       await route.continue()
     })
 
-    await page.goto('/')
+    await registerAndEnterWorkspace(page)
 
     await expect(page.getByText('無法載入專案列表，請確認後端 API 已啟動。')).toBeVisible()
     await expect(page.getByText('尚未建立任何專案')).toHaveCount(0)
   })
 
   test('建立專案對話框開啟後焦點直接落在專案名稱欄位，且只有單一輸入欄位', async ({ page }) => {
-    await page.goto('/')
+    await registerAndEnterWorkspace(page)
     await openCreateProjectModal(page)
 
     const dialog = page.getByRole('dialog', { name: '建立專案' })

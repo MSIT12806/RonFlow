@@ -17,6 +17,19 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
         DateTimeOffset ChangedAt);
 
     [Test]
+    public async Task CreateTask_WhenAnonymousUser_ReturnsUnauthorized()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        using var anonymousClient = CreateAnonymousClient();
+
+        var response = await anonymousClient.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks",
+            new CreateTaskRequest("Build Kanban Board"));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+    }
+
+    [Test]
     public async Task CreateTask_WithBlankTitle_ReturnsValidationError()
     {
         var project = await CreateProjectAsync("RonFlow Project");
@@ -239,6 +252,32 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
         var response = await Client.GetAsync($"/api/projects/{project.Id}/tasks/{Guid.NewGuid()}");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+    }
+
+    [Test]
+    public async Task GetTaskDetail_WhenTaskBelongsToAnotherUser_ReturnsAccessDenied()
+    {
+        using var outsiderClient = CreateAuthenticatedClient(TestUser.OwnerB);
+        var project = await CreateProjectAsync(Client, "Owner A Project");
+        var createdTask = await CreateTaskAsync(Client, project.Id, "Build Kanban Board");
+
+        var response = await outsiderClient.GetAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}");
+
+        await AssertAccessDeniedAsync(response);
+    }
+
+    [Test]
+    public async Task ChangeTaskState_WhenTaskBelongsToAnotherUser_ReturnsAccessDenied()
+    {
+        using var outsiderClient = CreateAuthenticatedClient(TestUser.OwnerB);
+        var project = await CreateProjectAsync(Client, "Owner A Project");
+        var createdTask = await CreateTaskAsync(Client, project.Id, "Build Kanban Board");
+
+        var response = await outsiderClient.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{createdTask.Id}/state",
+            new ChangeTaskStateRequest("active"));
+
+        await AssertAccessDeniedAsync(response);
     }
 
     [Test]

@@ -3,10 +3,11 @@ import {
   createScenarioData,
   openCreateProjectModal,
 } from './support/ronflowTestHelpers'
+import { registerAndEnterWorkspace } from './support/ronflowAuthTestHelpers'
 
 test.describe('RonFlow UI/UX 驗收規格 - Project List Behavior', () => {
   test('拒絕空白的專案名稱', async ({ page }) => {
-    await page.goto('/')
+    await registerAndEnterWorkspace(page)
     await openCreateProjectModal(page)
 
     const dialog = page.getByRole('dialog', { name: '建立專案' })
@@ -38,7 +39,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Project List Behavior', () => {
       })
     })
 
-    await page.goto('/')
+    await registerAndEnterWorkspace(page)
     await openCreateProjectModal(page)
 
     const dialog = page.getByRole('dialog', { name: '建立專案' })

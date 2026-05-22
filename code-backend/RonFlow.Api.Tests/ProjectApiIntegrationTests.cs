@@ -7,7 +7,7 @@ namespace RonFlow.Api.Tests;
 public sealed class ProjectApiIntegrationTests : ApiIntegrationTestBase
 {
     [Test]
-    public async Task GetProjects_WhenNoProjectsExist_ReturnsEmptyList()
+    public async Task GetProjects_WhenAuthenticatedUserHasNoProjects_ReturnsEmptyList()
     {
         var response = await Client.GetAsync("/api/projects");
 
@@ -17,6 +17,39 @@ public sealed class ProjectApiIntegrationTests : ApiIntegrationTestBase
 
         Assert.That(payload, Is.Not.Null);
         Assert.That(payload!.Items, Is.Empty);
+    }
+
+    [Test]
+    public async Task GetProjects_WhenAnonymousUser_ReturnsUnauthorized()
+    {
+        using var anonymousClient = CreateAnonymousClient();
+
+        var response = await anonymousClient.GetAsync("/api/projects");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+    }
+
+    [Test]
+    public async Task GetProjects_WhenMultipleUsersHaveProjects_ReturnsOnlyCurrentUsersProjects()
+    {
+        using var outsiderClient = CreateAuthenticatedClient(TestUser.OwnerB);
+
+        var ownerProject = await CreateProjectAsync(Client, "Owner A Project");
+        var outsiderProject = await CreateProjectAsync(outsiderClient, "Owner B Project");
+
+        var ownerResponse = await Client.GetAsync("/api/projects");
+        var outsiderResponse = await outsiderClient.GetAsync("/api/projects");
+
+        Assert.That(ownerResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(outsiderResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var ownerPayload = await ownerResponse.Content.ReadFromJsonAsync<ProjectListResponse>();
+        var outsiderPayload = await outsiderResponse.Content.ReadFromJsonAsync<ProjectListResponse>();
+
+        Assert.That(ownerPayload, Is.Not.Null);
+        Assert.That(outsiderPayload, Is.Not.Null);
+        Assert.That(ownerPayload!.Items.Select(item => item.Id), Is.EqualTo(new[] { ownerProject.Id }));
+        Assert.That(outsiderPayload!.Items.Select(item => item.Id), Is.EqualTo(new[] { outsiderProject.Id }));
     }
 
     [Test]
@@ -30,6 +63,16 @@ public sealed class ProjectApiIntegrationTests : ApiIntegrationTestBase
 
         Assert.That(errors, Does.ContainKey("name"));
         Assert.That(errors["name"], Does.Contain("專案名稱為必填欄位"));
+    }
+
+    [Test]
+    public async Task CreateProject_WhenAnonymousUser_ReturnsUnauthorized()
+    {
+        using var anonymousClient = CreateAnonymousClient();
+
+        var response = await anonymousClient.PostAsJsonAsync("/api/projects", new CreateProjectRequest("RonFlow Project"));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
     }
 
     [Test]
@@ -70,5 +113,16 @@ public sealed class ProjectApiIntegrationTests : ApiIntegrationTestBase
         var response = await Client.GetAsync($"/api/projects/{Guid.NewGuid()}/board");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+    }
+
+    [Test]
+    public async Task GetBoard_WhenProjectBelongsToAnotherUser_ReturnsAccessDenied()
+    {
+        using var outsiderClient = CreateAuthenticatedClient(TestUser.OwnerB);
+        var project = await CreateProjectAsync(Client, "Owner A Project");
+
+        var response = await outsiderClient.GetAsync($"/api/projects/{project.Id}/board");
+
+        await AssertAccessDeniedAsync(response);
     }
 }
