@@ -8,6 +8,10 @@
         </div>
 
         <div class="board-header-actions">
+          <button type="button" class="secondary-button" @click="$emit('open-project-members')">
+            專案成員
+          </button>
+
           <button type="button" class="secondary-button" @click="$emit('open-archived-tasks')">
             已封存任務
           </button>
@@ -107,6 +111,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (event: 'open-create-task'): void
+  (event: 'open-project-members'): void
   (event: 'open-archived-tasks'): void
   (event: 'open-trash-view'): void
   (event: 'open-task-detail', taskId: string, taskTitle: string): void

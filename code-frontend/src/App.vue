@@ -49,6 +49,7 @@
             :has-error="Boolean(pageError)"
             :format-project-meta="formatProjectMeta"
             @select-project="onSelectProject"
+            @open-invitation-inbox="openInvitationInbox"
           />
 
           <ProjectBoard
@@ -58,11 +59,24 @@
             :is-loading-board="isLoadingBoard"
             :command-error-message="boardCommandError"
             @open-create-task="onOpenCreateTask"
+            @open-project-members="openProjectMembersPanel"
             @open-archived-tasks="openArchivedTasksView"
             @open-trash-view="openTrashView"
             @open-task-detail="onOpenTaskDetail"
             @move-task-to-state="moveTaskToState"
             @reorder-task-within-column="reorderTaskWithinColumn"
+          />
+
+          <ProjectMembersPanel
+            v-else-if="currentWorkspaceView === 'members'"
+            :active-project-name="activeProject?.name ?? null"
+            :current-user-name="currentUser?.userName ?? null"
+            @back-to-board="openBoardView"
+          />
+
+          <InvitationInboxView
+            v-else-if="currentWorkspaceView === 'invitations'"
+            @back-to-board="openBoardView"
           />
 
           <LifecycleTaskListView
@@ -82,7 +96,7 @@
           />
 
           <LifecycleTaskListView
-            v-else
+            v-else-if="currentWorkspaceView === 'trash'"
             title="垃圾桶"
             empty-message="垃圾桶目前沒有任務"
             description="移到垃圾桶的任務會顯示在這裡，之後可從這裡查看與還原。"
@@ -157,8 +171,10 @@ import AsyncStatePlayground from './devtools/playground/AsyncStatePlayground.vue
 import AsyncStateBoundary from './components/bases/AsyncStateBoundary.vue'
 import CreateProjectModal from './components/CreateProjectModal.vue'
 import CreateTaskModal from './components/CreateTaskModal.vue'
+import InvitationInboxView from './components/InvitationInboxView.vue'
 import LifecycleTaskListView from './components/LifecycleTaskListView.vue'
 import ProjectBoard from './components/ProjectBoard.vue'
+import ProjectMembersPanel from './components/ProjectMembersPanel.vue'
 import ProjectSidebar from './components/ProjectSidebar.vue'
 import RonAuthEntryPanel from './components/RonAuthEntryPanel.vue'
 import TaskDetailModal from './components/TaskDetailModal.vue'
@@ -167,7 +183,7 @@ import { usePushNotifications } from './composables/usePushNotifications'
 import { useRonFlowAuth } from './composables/useRonFlowAuth'
 import { useRonFlowBoard, type TaskDetailMode } from './composables/useRonFlowBoard'
 
-type WorkspaceView = 'board' | 'archived' | 'trash'
+type WorkspaceView = 'board' | 'members' | 'invitations' | 'archived' | 'trash'
 
 const showAsyncStatePlayground = import.meta.env.DEV
   && new URLSearchParams(window.location.search).get('playground') === 'async-states'
@@ -359,5 +375,17 @@ async function onRestoreTask(taskId: string, mode: Exclude<TaskDetailMode, 'acti
   if (restored) {
     currentWorkspaceView.value = 'board'
   }
+}
+
+function openProjectMembersPanel() {
+  if (!activeProjectId.value) {
+    return
+  }
+
+  currentWorkspaceView.value = 'members'
+}
+
+function openInvitationInbox() {
+  currentWorkspaceView.value = 'invitations'
 }
 </script>

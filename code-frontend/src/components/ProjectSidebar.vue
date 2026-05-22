@@ -8,6 +8,12 @@
       <span class="count-badge">{{ projects.length }}</span>
     </div>
 
+    <div class="project-panel-actions">
+      <button type="button" class="secondary-button" @click="$emit('open-invitation-inbox')">
+        邀請收件匣
+      </button>
+    </div>
+
     <AsyncStateBoundary
       :is-loading="isLoadingProjects"
       error-message=""
@@ -23,8 +29,9 @@
             :class="{ 'project-chip-active': project.id === activeProjectId }"
             @click="$emit('select-project', project.id)"
           >
-            <span>{{ project.name }}</span>
+            <span class="project-chip-title">{{ project.name }}</span>
             <small>{{ formatProjectMeta(project.updatedAt) }}</small>
+            <small class="project-chip-role">專案擁有者</small>
           </button>
         </li>
       </ul>
@@ -46,5 +53,6 @@ defineProps<{
 
 defineEmits<{
   (event: 'select-project', projectId: string): void
+  (event: 'open-invitation-inbox'): void
 }>()
 </script>
