@@ -7,7 +7,7 @@
     <div class="ambient ambient-left"></div>
     <div class="ambient ambient-right"></div>
 
-    <section class="workspace-shell">
+    <section v-if="isAuthenticated" class="workspace-shell">
       <header class="topbar">
         <div>
           <p class="eyebrow">RonFlow</p>
@@ -15,9 +15,25 @@
           <p class="app-subtitle">以真後端 API 驅動專案看板，讓使用者流程與後端規則保持一致。</p>
         </div>
 
-        <button type="button" class="primary-button" @click="createProjectModalRef?.open()">
-          建立專案
-        </button>
+        <div class="topbar-actions">
+          <div class="user-chip">
+            <span class="user-chip-label">目前使用者</span>
+            <strong>{{ currentUser?.userName }}</strong>
+            <span>{{ currentUser?.email }}</span>
+          </div>
+
+          <button type="button" class="secondary-button" @click="onRefreshCurrentUser">
+            重新整理 me
+          </button>
+
+          <button type="button" class="primary-button" @click="createProjectModalRef?.open()">
+            建立專案
+          </button>
+
+          <button type="button" class="ghost-button" @click="onLogout">
+            登出
+          </button>
+        </div>
       </header>
 
       <AsyncStateBoundary
@@ -85,16 +101,19 @@
     </section>
 
     <CreateProjectModal
+      v-if="isAuthenticated"
       ref="createProjectModalRef"
       @project-created="onProjectCreated"
     />
 
     <CreateTaskModal
+      v-if="isAuthenticated"
       ref="createTaskModalRef"
       @task-created="onTaskCreated"
     />
 
     <TaskDetailModal
+      v-if="isAuthenticated"
       :is-open="isTaskDetailOpen"
       :is-loading="isLoadingTaskDetail"
       :is-saving="isUpdatingTaskDetail"
@@ -118,11 +137,22 @@
       @move-to-trash="onMoveTaskToTrash"
       @restore="onRestoreTask"
     />
+
+    <section v-if="!isAuthenticated" class="workspace-shell auth-shell">
+      <RonAuthEntryPanel
+        :is-initializing="isInitializingAuth"
+        :is-submitting="isSubmittingAuth"
+        :error-message="authErrorMessage"
+        :validation-errors="authValidationErrors"
+        @login="onLogin"
+        @register="onRegister"
+      />
+    </section>
   </main>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import AsyncStatePlayground from './devtools/playground/AsyncStatePlayground.vue'
 import AsyncStateBoundary from './components/bases/AsyncStateBoundary.vue'
 import CreateProjectModal from './components/CreateProjectModal.vue'
@@ -130,8 +160,11 @@ import CreateTaskModal from './components/CreateTaskModal.vue'
 import LifecycleTaskListView from './components/LifecycleTaskListView.vue'
 import ProjectBoard from './components/ProjectBoard.vue'
 import ProjectSidebar from './components/ProjectSidebar.vue'
+import RonAuthEntryPanel from './components/RonAuthEntryPanel.vue'
 import TaskDetailModal from './components/TaskDetailModal.vue'
+import type { PasswordLoginInput, RegisterUserInput } from './api/ronauth'
 import { usePushNotifications } from './composables/usePushNotifications'
+import { useRonFlowAuth } from './composables/useRonFlowAuth'
 import { useRonFlowBoard, type TaskDetailMode } from './composables/useRonFlowBoard'
 
 type WorkspaceView = 'board' | 'archived' | 'trash'
@@ -142,6 +175,20 @@ const showAsyncStatePlayground = import.meta.env.DEV
 const createProjectModalRef = ref<InstanceType<typeof CreateProjectModal> | null>(null)
 const createTaskModalRef = ref<InstanceType<typeof CreateTaskModal> | null>(null)
 const currentWorkspaceView = ref<WorkspaceView>('board')
+
+const {
+  user: currentUser,
+  isAuthenticated,
+  isInitializing: isInitializingAuth,
+  isSubmitting: isSubmittingAuth,
+  errorMessage: authErrorMessage,
+  validationErrors: authValidationErrors,
+  initialize,
+  login,
+  register,
+  loadCurrentUser,
+  logout,
+} = useRonFlowAuth()
 
 const {
   reminderDeliveryStatusMessage,
@@ -194,6 +241,41 @@ const {
   loadProjects,
   loadBoard,
 } = useRonFlowBoard()
+
+onMounted(async () => {
+  const authenticated = await initialize()
+  if (authenticated) {
+    await initializeWorkspace()
+  }
+})
+
+async function initializeWorkspace() {
+  currentWorkspaceView.value = 'board'
+  await loadProjects()
+}
+
+async function onLogin(payload: PasswordLoginInput) {
+  const succeeded = await login(payload)
+  if (succeeded) {
+    await initializeWorkspace()
+  }
+}
+
+async function onRegister(payload: RegisterUserInput) {
+  const succeeded = await register(payload)
+  if (succeeded) {
+    await initializeWorkspace()
+  }
+}
+
+async function onRefreshCurrentUser() {
+  await loadCurrentUser()
+}
+
+async function onLogout() {
+  await logout()
+  currentWorkspaceView.value = 'board'
+}
 
 function onOpenCreateTask() {
   if (activeProjectId.value) {

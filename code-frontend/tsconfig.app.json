@@ -3,6 +3,9 @@
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "types": ["vite/client"],
+    "paths": {
+      "@ronauth/sdk": ["../../RonAuth/sdk/src/index.ts"]
+    },
 
     /* Linting */
     "noUnusedLocals": true,

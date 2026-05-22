@@ -17,6 +17,16 @@
 
 ## 2. 核心產品流程
 
+本文件目前描述的是 authenticated single-owner 版本的 RonFlow。
+
+也就是說：
+
+```text
+1. 除登入、註冊與 session restore 入口外，使用者必須先登入才能使用 RonFlow。
+2. 使用者成功登入後，才會進入 Project List Page 與後續核心 flow。
+3. 目前每位使用者只會看到屬於自己的資料，不包含多人共享 Project 或 workspace collaboration。
+```
+
 RonFlow 目前的核心流程是：
 
 1. 使用者進入 Project List Page。
@@ -78,6 +88,17 @@ Done   -> 已完成
 19. 系統會提供 Project Name 與 Task Title 的基本驗證
 20. 使用者可以在 Task Detail Drawer 為 Task 設定多個提醒
 21. 系統會透過 Web Push + Service Worker 傳送提醒通知
+```
+
+### 4.1 身分與資料邊界前提
+
+```text
+1. 除 RonAuth 提供的登入、註冊與 session restore 入口外，使用者必須先登入才能使用 RonFlow。
+2. RonFlow v1 採用 single-owner data boundary：Project 與其下的 Task、Reminder、Activity Timeline、Archived Tasks、Trash View 資料，都屬於建立者。
+3. 使用者只可查看與操作屬於自己的資料。
+4. Project List、Project Kanban Board、Task Detail Drawer、Archived Tasks View、Trash View 的資料範圍，都應以目前登入使用者為準。
+5. 若使用者嘗試訪問、查看、修改、拖曳、封存、還原或以其他方式操作不屬於自己的資料，系統應拒絕該次請求，並回應 Access Denied。
+6. 本文件目前不描述多人共享 Project、workspace member、tenant role 或跨使用者協作流程。
 ```
 
 ## 5. Ubiquitous Language 對照表
@@ -144,6 +165,13 @@ Done   -> 已完成
 ## 6. Core User Flow
 
 ### 6.1 Flow Summary
+
+前提：
+
+```text
+1. 使用者已完成登入，或系統已透過既有 session restore 成功還原登入狀態。
+2. 使用者目前只會看到屬於自己的 Project 與 Task。
+```
 
 ```text
 1. 使用者進入 Project List Page
@@ -226,7 +254,7 @@ flowchart TD
 
 **Purpose**
 
-讓使用者看到已有的 Projects，並開始建立新的 Project。
+讓已登入使用者看到屬於自己的 Projects，並開始建立新的 Project。
 
 **Display**
 
@@ -315,10 +343,12 @@ Feature: 專案列表頁
 **Expected Behavior**
 
 ```text
-1. 使用者可以輸入 Project Name
-2. 使用者可以送出或取消
-3. 成功建立後，系統會立即關閉 Modal
-4. 成功建立後會進入 Project Kanban Board
+1. 若使用者尚未登入，系統不應直接顯示 Project List Page，而應先要求完成登入或註冊。
+2. 若使用者已登入，Project List Page 只顯示屬於目前登入使用者的 Projects。
+3. 使用者可以輸入 Project Name
+4. 使用者可以送出或取消
+5. 成功建立後，系統會立即關閉 Modal
+6. 成功建立後會進入 Project Kanban Board
 ```
 
 **Validation Feedback**
@@ -408,13 +438,15 @@ Feature: 建立專案
 **Expected Behavior**
 
 ```text
-1. 顯示「待處理 / 進行中 / 審查中 / 已完成」四個欄位
-2. 新建 Task 出現在「待處理」（Todo）欄位
-3. 點擊 Task Card 可開啟 Task Detail Drawer
-4. 只有 Lifecycle State 為 ActiveRecord 的 Task 會出現在 Project Kanban Board
-5. 已封存或已移到垃圾桶的 Task 不應繼續出現在 Board
-6. 使用者可以從 Project Kanban Board 進入 Archived Tasks View
-7. 使用者可以從 Project Kanban Board 進入 Trash View
+1. 使用者只可進入屬於自己的 Project Kanban Board。
+2. 若使用者嘗試進入不屬於自己的 Project，系統應拒絕存取並回應 Access Denied。
+3. 顯示「待處理 / 進行中 / 審查中 / 已完成」四個欄位
+4. 新建 Task 出現在「待處理」（Todo）欄位
+5. 點擊 Task Card 可開啟 Task Detail Drawer
+6. 只有 Lifecycle State 為 ActiveRecord 的 Task 會出現在 Project Kanban Board
+7. 已封存或已移到垃圾桶的 Task 不應繼續出現在 Board
+8. 使用者可以從 Project Kanban Board 進入 Archived Tasks View
+9. 使用者可以從 Project Kanban Board 進入 Trash View
 ```
 
 **UI / UX Notes**
@@ -833,7 +865,7 @@ Feature: Reorder task within a workflow column
 **Expected Behavior**
 
 ```text
-1. Archived Tasks View 只顯示 Lifecycle State 為 Archived 的 Task
+1. Archived Tasks View 只顯示目前登入使用者且 Lifecycle State 為 Archived 的 Task
 2. 使用者可以從清單開啟已封存 Task 的 read-only Task Detail Drawer
 3. 已封存 Task 可以被還原
 4. 還原後，Task 回到原本 workflow state
@@ -922,7 +954,7 @@ Feature: Archived tasks view
 **Expected Behavior**
 
 ```text
-1. Trash View 只顯示 Lifecycle State 為 Trashed 的 Task
+1. Trash View 只顯示目前登入使用者且 Lifecycle State 為 Trashed 的 Task
 2. 使用者可以從清單開啟垃圾桶 Task 的 read-only Task Detail Drawer
 3. 垃圾桶中的 Task 可以被還原
 4. 還原後，Task 回到原本 workflow state
@@ -1132,16 +1164,30 @@ Feature: Reminder notification delivery
 
 ## 8. 驗證與規則
 
+<a id="authentication-access-rules"></a>
+
+### 8.0 Authentication / Access 規則
+
+```text
+1. 除登入、註冊與 session restore 入口外，RonFlow 其他核心功能都要求使用者先登入。
+2. 未登入使用者不應直接看到 Project List Page、Project Kanban Board、Task Detail Drawer、Archived Tasks View 或 Trash View 的資料內容。
+3. Project、Task、Reminder、Archived Tasks、Trash View 與相關 read model 查詢，都應以目前登入使用者為範圍。
+4. 若使用者嘗試讀取、修改、封存、還原、拖曳、排序或以其他方式操作不屬於自己的資料，系統應拒絕該次請求，並回應 Access Denied。
+5. Access Denied 屬於 authorization failure，不應被視為 validation error。
+6. 本文件目前描述的是 authenticated single-owner 版本，不包含跨使用者共享資料的行為。
+```
+
 <a id="project-rules"></a>
 
 ### 8.1 Project 規則
 
 ```text
 1. Project Name 不可為空
-2. 建立 Project 後，系統套用 Default Workflow
-3. 建立 Project 後，系統導向對應的 Project Kanban Board
-4. 建立成功後，建立專案 Modal 應立即關閉
-5. Project Name 的必填錯誤訊息為「專案名稱為必填欄位」
+2. 每個 Project 都應屬於建立它的登入使用者
+3. 建立 Project 後，系統套用 Default Workflow
+4. 建立 Project 後，系統導向對應的 Project Kanban Board
+5. 建立成功後，建立專案 Modal 應立即關閉
+6. Project Name 的必填錯誤訊息為「專案名稱為必填欄位」
 ```
 
 <a id="task-rules"></a>
@@ -1151,21 +1197,22 @@ Feature: Reminder notification delivery
 ```text
 1. Task Title 不可為空
 2. Task 必須屬於目前 Project
-3. Task 建立後進入 Workflow Initial State
-4. Task 建立後顯示在 Kanban Board 的「待處理」（Todo）欄位
-5. 建立成功後，建立任務 Modal 應立即關閉
-6. Task Title 的必填錯誤訊息為「任務標題為必填欄位」
-7. Task 應可在 Task Detail Drawer 中編輯 Title、Description 與 Due Date
-8. Task 更新成功後，Activity Timeline 應包含對應的變更紀錄
-9. Task 狀態可以從目前欄位變更到另一個 workflow state
-10. Task 可在同一欄位內調整順序，且順序代表個人工作優先順序
-11. Task 從非 Done 類狀態移動到另一個非 Done 類狀態時，系統應記錄 TaskStateChanged
-12. Task 從 Done 類狀態移回非 Done 類狀態時，系統應另外記錄 TaskReopened
-13. Task 處於非 Done 類狀態時，不應顯示目前的 CompletedAt
-14. 當 Task 進入 Done 類狀態時，系統應記錄 CompletedAt
-15. 當 Task 進入 Done 類狀態時，活動紀錄應包含 TaskCompleted
-16. Task 調整順序後，活動紀錄應包含 TaskReordered
-17. Task 可以在 Task Detail Drawer 中設定多個提醒
+3. 每個 Task 都應屬於其所屬 Project 的擁有者
+4. Task 建立後進入 Workflow Initial State
+5. Task 建立後顯示在 Kanban Board 的「待處理」（Todo）欄位
+6. 建立成功後，建立任務 Modal 應立即關閉
+7. Task Title 的必填錯誤訊息為「任務標題為必填欄位」
+8. Task 應可在 Task Detail Drawer 中編輯 Title、Description 與 Due Date
+9. Task 更新成功後，Activity Timeline 應包含對應的變更紀錄
+10. Task 狀態可以從目前欄位變更到另一個 workflow state
+11. Task 可在同一欄位內調整順序，且順序代表個人工作優先順序
+12. Task 從非 Done 類狀態移動到另一個非 Done 類狀態時，系統應記錄 TaskStateChanged
+13. Task 從 Done 類狀態移回非 Done 類狀態時，系統應另外記錄 TaskReopened
+14. Task 處於非 Done 類狀態時，不應顯示目前的 CompletedAt
+15. 當 Task 進入 Done 類狀態時，系統應記錄 CompletedAt
+16. 當 Task 進入 Done 類狀態時，活動紀錄應包含 TaskCompleted
+17. Task 調整順序後，活動紀錄應包含 TaskReordered
+18. Task 可以在 Task Detail Drawer 中設定多個提醒
 ```
 
 <a id="reminder-rules"></a>
@@ -1231,6 +1278,17 @@ Feature: Reminder notification delivery
 ---
 
 ## 9. Acceptance Criteria
+
+### 9.0 Authentication / Ownership Boundary
+
+```text
+1. 若使用者尚未登入，系統不應直接顯示 RonFlow workspace 資料，而應要求先登入或註冊。
+2. 使用者登入成功後，才可以進入 Project List Page 與後續核心流程。
+3. Project List 只應顯示屬於目前登入使用者的 Projects。
+4. Project Kanban Board、Task Detail Drawer、Archived Tasks View 與 Trash View 只應顯示屬於目前登入使用者的資料。
+5. 若使用者嘗試訪問或操作不屬於自己的 Project 或 Task，系統應拒絕該次請求，並回應 Access Denied。
+6. Access Denied 應適用於讀取、編輯、拖曳、排序、封存、移到垃圾桶與還原等操作。
+```
 
 ### 9.1 Create Project
 

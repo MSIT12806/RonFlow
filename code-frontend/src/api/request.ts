@@ -1,5 +1,6 @@
 import { ApiRequestError, ApiValidationError } from './errors'
 import type { ValidationErrorBag } from './types'
+import { ronAuthAccessTokenStore } from '../auth/ronauthClient'
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
@@ -8,10 +9,13 @@ export function apiPath(path: string) {
 }
 
 export async function request<T>(input: string, init?: RequestInit) {
+  const accessToken = ronAuthAccessTokenStore.get()
+
   const response = await fetch(input, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...(init?.headers ?? {}),
     },
   })

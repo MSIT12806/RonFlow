@@ -1,4 +1,4 @@
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import {
   ApiRequestError,
   ApiValidationError,
@@ -163,12 +163,6 @@ export function useRonFlowBoard() {
   )
 
   const activeColumns = computed<BoardColumnResponse[]>(() => activeBoard.value?.columns ?? [])
-
-  onMounted(async () => {
-    await loadProjects()
-  })
-
-
 
   async function openTaskDetail(taskId: string, mode: TaskDetailMode = 'active', taskTitle = '') {
     if (!activeProjectId.value) {
