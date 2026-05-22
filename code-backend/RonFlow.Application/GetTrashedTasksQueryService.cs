@@ -2,20 +2,26 @@ using RonFlow.Domain;
 
 namespace RonFlow.Application;
 
-public sealed class GetTrashedTasksQueryService(IProjectRepository projectRepository, ITaskRepository taskRepository)
+public sealed class GetTrashedTasksQueryService(ProjectAccessService projectAccessService, ITaskRepository taskRepository)
 {
-    public LifecycleTaskListView? Get(Guid projectId)
+    public OwnedResourceQueryResult<LifecycleTaskListView> Get(Guid currentUserId, Guid projectId)
     {
-        var project = projectRepository.Get(projectId);
-        if (project is null)
+        var access = projectAccessService.GetOwnedProject(currentUserId, projectId);
+        if (access.ProjectNotFound)
         {
-            return null;
+            return OwnedResourceQueryResult<LifecycleTaskListView>.Missing();
+        }
+
+        if (access.AccessDenied)
+        {
+            return OwnedResourceQueryResult<LifecycleTaskListView>.Denied();
         }
 
         var tasks = taskRepository.GetByProjectId(projectId)
             .Select(task => task.ToModel())
             .ToArray();
 
-        return CoreFlowReadModelFactory.CreateLifecycleTaskList(project, tasks, TaskLifecycleState.Trashed);
+        return OwnedResourceQueryResult<LifecycleTaskListView>.Success(
+            CoreFlowReadModelFactory.CreateLifecycleTaskList(access.Project!, tasks, TaskLifecycleState.Trashed));
     }
 }

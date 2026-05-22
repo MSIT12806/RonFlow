@@ -15,129 +15,164 @@ public sealed record CreateProjectResult(CreateProjectOutput? Project, Validatio
     }
 }
 
-public sealed record CreateTaskResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool ProjectNotFound)
+public sealed record CreateTaskResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool ProjectNotFound, bool AccessDenied)
 {
     public static CreateTaskResult Success(CreateTaskOutput task)
     {
-        return new(task, null, false);
+        return new(task, null, false, false);
     }
 
     public static CreateTaskResult Invalid(string field, string message)
     {
-        return new(null, new ValidationError(field, message), false);
+        return new(null, new ValidationError(field, message), false, false);
     }
 
     public static CreateTaskResult NotFound()
     {
-        return new(null, null, true);
+        return new(null, null, true, false);
+    }
+
+    public static CreateTaskResult Denied()
+    {
+        return new(null, null, false, true);
     }
 }
 
-public sealed record ChangeTaskStateResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound)
+public sealed record ChangeTaskStateResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound, bool AccessDenied)
 {
     public static ChangeTaskStateResult Success(CreateTaskOutput task)
     {
-        return new(task, null, false);
+        return new(task, null, false, false);
     }
 
     public static ChangeTaskStateResult Invalid(string field, string message)
     {
-        return new(null, new ValidationError(field, message), false);
+        return new(null, new ValidationError(field, message), false, false);
     }
 
     public static ChangeTaskStateResult NotFound()
     {
-        return new(null, null, true);
+        return new(null, null, true, false);
+    }
+
+    public static ChangeTaskStateResult Denied()
+    {
+        return new(null, null, false, true);
     }
 }
 
-public sealed record UpdateTaskResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound)
+public sealed record UpdateTaskResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound, bool AccessDenied)
 {
     public static UpdateTaskResult Success(CreateTaskOutput task)
     {
-        return new(task, null, false);
+        return new(task, null, false, false);
     }
 
     public static UpdateTaskResult Invalid(string field, string message)
     {
-        return new(null, new ValidationError(field, message), false);
+        return new(null, new ValidationError(field, message), false, false);
     }
 
     public static UpdateTaskResult NotFound()
     {
-        return new(null, null, true);
+        return new(null, null, true, false);
+    }
+
+    public static UpdateTaskResult Denied()
+    {
+        return new(null, null, false, true);
     }
 }
 
-public sealed record ReorderTaskResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound)
+public sealed record ReorderTaskResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound, bool AccessDenied)
 {
     public static ReorderTaskResult Success(CreateTaskOutput task)
     {
-        return new(task, null, false);
+        return new(task, null, false, false);
     }
 
     public static ReorderTaskResult Invalid(string field, string message)
     {
-        return new(null, new ValidationError(field, message), false);
+        return new(null, new ValidationError(field, message), false, false);
     }
 
     public static ReorderTaskResult NotFound()
     {
-        return new(null, null, true);
+        return new(null, null, true, false);
+    }
+
+    public static ReorderTaskResult Denied()
+    {
+        return new(null, null, false, true);
     }
 }
 
-public sealed record TaskLifecycleCommandResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound)
+public sealed record TaskLifecycleCommandResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound, bool AccessDenied)
 {
     public static TaskLifecycleCommandResult Success(CreateTaskOutput task)
     {
-        return new(task, null, false);
+        return new(task, null, false, false);
     }
 
     public static TaskLifecycleCommandResult Invalid(string field, string message)
     {
-        return new(null, new ValidationError(field, message), false);
+        return new(null, new ValidationError(field, message), false, false);
     }
 
     public static TaskLifecycleCommandResult NotFound()
     {
-        return new(null, null, true);
+        return new(null, null, true, false);
+    }
+
+    public static TaskLifecycleCommandResult Denied()
+    {
+        return new(null, null, false, true);
     }
 }
 
-public sealed record CreateTaskReminderResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound)
+public sealed record CreateTaskReminderResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound, bool AccessDenied)
 {
     public static CreateTaskReminderResult Success(CreateTaskOutput task)
     {
-        return new(task, null, false);
+        return new(task, null, false, false);
     }
 
     public static CreateTaskReminderResult Invalid(string field, string message)
     {
-        return new(null, new ValidationError(field, message), false);
+        return new(null, new ValidationError(field, message), false, false);
     }
 
     public static CreateTaskReminderResult NotFound()
     {
-        return new(null, null, true);
+        return new(null, null, true, false);
+    }
+
+    public static CreateTaskReminderResult Denied()
+    {
+        return new(null, null, false, true);
     }
 }
 
-public sealed record DeleteTaskReminderResult(CreateTaskOutput? Task, bool TaskNotFound, bool ReminderNotFound)
+public sealed record DeleteTaskReminderResult(CreateTaskOutput? Task, bool TaskNotFound, bool ReminderNotFound, bool AccessDenied)
 {
     public static DeleteTaskReminderResult Success(CreateTaskOutput task)
     {
-        return new(task, false, false);
+        return new(task, false, false, false);
     }
 
     public static DeleteTaskReminderResult TaskMissing()
     {
-        return new(null, true, false);
+        return new(null, true, false, false);
     }
 
     public static DeleteTaskReminderResult ReminderMissing()
     {
-        return new(null, false, true);
+        return new(null, false, true, false);
+    }
+
+    public static DeleteTaskReminderResult Denied()
+    {
+        return new(null, false, false, true);
     }
 }
 

@@ -31,11 +31,12 @@ public sealed record TaskModel(
 
 public sealed record ProjectModel(
     Guid Id,
+    Guid OwnerId,
     string Name,
     DateTimeOffset UpdatedAt,
     IReadOnlyList<WorkflowStateModel> WorkflowStates);
 
-public sealed record ProjectSummaryModel(Guid Id, string Name, DateTimeOffset UpdatedAt);
+public sealed record ProjectSummaryModel(Guid Id, Guid OwnerId, string Name, DateTimeOffset UpdatedAt);
 
 public sealed record ProjectBoardModel(
     Guid ProjectId,

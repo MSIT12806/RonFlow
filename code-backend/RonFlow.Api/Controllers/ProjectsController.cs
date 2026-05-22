@@ -1,4 +1,5 @@
 using System.Net.Mime;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RonFlow.Application;
 using RonFlow.Api.Contracts;
@@ -7,13 +8,19 @@ namespace RonFlow.Api.Controllers;
 
 [ApiController]
 [Route("api/projects")]
-public sealed class ProjectsController : ControllerBase
+[Authorize]
+public sealed class ProjectsController : AuthenticatedControllerBase
 {
     [HttpGet]
     [ProducesResponseType<ProjectListResponse>(StatusCodes.Status200OK)]
     public IResult GetProjects([FromServices] GetProjectsQueryService queryService)
     {
-        var projects = queryService.Get().Items
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var projects = queryService.Get(currentUserId).Items
             .Select(ProjectListItemResponse.FromView)
             .ToArray();
 
@@ -28,7 +35,12 @@ public sealed class ProjectsController : ControllerBase
         [FromBody] CreateProjectRequest request,
         [FromServices] CreateProjectCommandService commandService)
     {
-        var result = commandService.Create(request.Name);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = commandService.Create(currentUserId, request.Name);
 
         if (result.ValidationError is not null)
         {
@@ -47,7 +59,19 @@ public sealed class ProjectsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IResult GetBoard(Guid projectId, [FromServices] GetProjectBoardQueryService queryService)
     {
-        var board = queryService.Get(projectId);
-        return board is null ? Results.NotFound() : Results.Ok(ProjectBoardResponse.FromView(board));
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = queryService.Get(currentUserId, projectId);
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
+        }
+
+        return result.NotFound
+            ? Results.NotFound()
+            : Results.Ok(ProjectBoardResponse.FromView(result.Resource!));
     }
 }

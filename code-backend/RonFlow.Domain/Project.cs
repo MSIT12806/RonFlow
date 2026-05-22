@@ -4,9 +4,10 @@ public sealed class Project
 {
     private readonly IReadOnlyList<WorkflowState> workflowStates;
 
-    private Project(Guid id, string name, DateTimeOffset updatedAt, IEnumerable<WorkflowState> workflowStates)
+    private Project(Guid id, Guid ownerId, string name, DateTimeOffset updatedAt, IEnumerable<WorkflowState> workflowStates)
     {
         Id = id;
+        OwnerId = ownerId;
         Name = name;
         UpdatedAt = updatedAt;
         this.workflowStates = workflowStates
@@ -16,30 +17,37 @@ public sealed class Project
 
     public Guid Id { get; }
 
+    public Guid OwnerId { get; }
+
     public string Name { get; }
 
     public DateTimeOffset UpdatedAt { get; private set; }
 
     public IReadOnlyList<WorkflowState> WorkflowStates => workflowStates;
 
-    public static Project Create(ProjectName name, DateTimeOffset createdAt, IEnumerable<WorkflowState> workflowStates)
+    public static Project Create(Guid ownerId, ProjectName name, DateTimeOffset createdAt, IEnumerable<WorkflowState> workflowStates)
     {
-        return new Project(Guid.NewGuid(), name.Value, createdAt, workflowStates);
+        return new Project(Guid.NewGuid(), ownerId, name.Value, createdAt, workflowStates);
     }
 
-    public static Project Rehydrate(Guid id, string name, DateTimeOffset updatedAt, IEnumerable<WorkflowState> workflowStates)
+    public static Project Create(ProjectName name, DateTimeOffset createdAt, IEnumerable<WorkflowState> workflowStates)
     {
-        return new Project(id, name, updatedAt, workflowStates);
+        return Create(Guid.Empty, name, createdAt, workflowStates);
+    }
+
+    public static Project Rehydrate(Guid id, Guid ownerId, string name, DateTimeOffset updatedAt, IEnumerable<WorkflowState> workflowStates)
+    {
+        return new Project(id, ownerId, name, updatedAt, workflowStates);
     }
 
     public ProjectModel ToModel()
     {
-        return new ProjectModel(Id, Name, UpdatedAt, workflowStates.Select(state => state.ToModel()).ToArray());
+        return new ProjectModel(Id, OwnerId, Name, UpdatedAt, workflowStates.Select(state => state.ToModel()).ToArray());
     }
 
     public ProjectSummaryModel ToSummaryModel()
     {
-        return new ProjectSummaryModel(Id, Name, UpdatedAt);
+        return new ProjectSummaryModel(Id, OwnerId, Name, UpdatedAt);
     }
 
     /// <summary>

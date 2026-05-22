@@ -4,16 +4,37 @@ namespace RonFlow.Application;
 
 public sealed class ChangeTaskStateCommandService(
     IProjectRepository projectRepository,
+    ProjectAccessService projectAccessService,
     ITaskRepository taskRepository,
     TimeProvider timeProvider)
 {
+    public ChangeTaskStateCommandService(
+        IProjectRepository projectRepository,
+        ITaskRepository taskRepository,
+        TimeProvider timeProvider)
+        : this(projectRepository, new ProjectAccessService(projectRepository), taskRepository, timeProvider)
+    {
+    }
+
     public ChangeTaskStateResult Change(Guid projectId, Guid taskId, string stateKey)
     {
-        var project = projectRepository.Get(projectId);
-        if (project is null)
+        return Change(Guid.Empty, projectId, taskId, stateKey);
+    }
+
+    public ChangeTaskStateResult Change(Guid currentUserId, Guid projectId, Guid taskId, string stateKey)
+    {
+        var access = projectAccessService.GetOwnedProject(currentUserId, projectId);
+        if (access.ProjectNotFound)
         {
             return ChangeTaskStateResult.NotFound();
         }
+
+        if (access.AccessDenied)
+        {
+            return ChangeTaskStateResult.Denied();
+        }
+
+        var project = access.Project!;
 
         var task = taskRepository.Get(taskId);
         if (task is null || task.ProjectId != projectId)

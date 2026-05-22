@@ -46,6 +46,7 @@ public partial class Program
             });
         builder.Services.AddAuthorization();
         ConfigurePersistence(builder);
+        builder.Services.AddSingleton<ProjectAccessService>();
         builder.Services.AddSingleton<CreateProjectCommandService>();
         builder.Services.AddSingleton<CreateTaskCommandService>();
         builder.Services.AddSingleton<ChangeTaskStateCommandService>();

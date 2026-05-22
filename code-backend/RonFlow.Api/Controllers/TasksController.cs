@@ -1,4 +1,5 @@
 using System.Net.Mime;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RonFlow.Application;
 using RonFlow.Api.Contracts;
@@ -7,7 +8,8 @@ namespace RonFlow.Api.Controllers;
 
 [ApiController]
 [Route("api/projects/{projectId:guid}/tasks")]
-public sealed class TasksController : ControllerBase
+[Authorize]
+public sealed class TasksController : AuthenticatedControllerBase
 {
     [HttpPost]
     [Consumes(MediaTypeNames.Application.Json)]
@@ -19,11 +21,21 @@ public sealed class TasksController : ControllerBase
         [FromBody] CreateTaskRequest request,
         [FromServices] CreateTaskCommandService commandService)
     {
-        var result = commandService.Create(projectId, request.Title);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = commandService.Create(currentUserId, projectId, request.Title);
 
         if (result.ValidationError is not null)
         {
             return ValidationResults.FromError(result.ValidationError);
+        }
+
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
         }
 
         if (result.ProjectNotFound)
@@ -47,11 +59,21 @@ public sealed class TasksController : ControllerBase
         [FromBody] ChangeTaskStateRequest request,
         [FromServices] ChangeTaskStateCommandService commandService)
     {
-        var result = commandService.Change(projectId, taskId, request.StateKey ?? string.Empty);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = commandService.Change(currentUserId, projectId, taskId, request.StateKey ?? string.Empty);
 
         if (result.ValidationError is not null)
         {
             return ValidationResults.FromError(result.ValidationError);
+        }
+
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
         }
 
         return result.TaskNotFound
@@ -70,11 +92,21 @@ public sealed class TasksController : ControllerBase
         [FromBody] UpdateTaskRequest request,
         [FromServices] UpdateTaskCommandService commandService)
     {
-        var result = commandService.Update(projectId, taskId, request.Title, request.Description, request.DueDate);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = commandService.Update(currentUserId, projectId, taskId, request.Title, request.Description, request.DueDate);
 
         if (result.ValidationError is not null)
         {
             return ValidationResults.FromError(result.ValidationError);
+        }
+
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
         }
 
         return result.TaskNotFound
@@ -98,11 +130,21 @@ public sealed class TasksController : ControllerBase
             return ValidationResults.FromError(new ValidationError("targetTaskId", "目標任務為必填欄位"));
         }
 
-        var result = commandService.Reorder(projectId, taskId, request.TargetTaskId.Value);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = commandService.Reorder(currentUserId, projectId, taskId, request.TargetTaskId.Value);
 
         if (result.ValidationError is not null)
         {
             return ValidationResults.FromError(result.ValidationError);
+        }
+
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
         }
 
         return result.TaskNotFound
@@ -118,7 +160,19 @@ public sealed class TasksController : ControllerBase
         Guid taskId,
         [FromServices] GetTaskDetailQueryService queryService)
     {
-        var task = queryService.Get(projectId, taskId);
-        return task is null ? Results.NotFound() : Results.Ok(TaskDetailResponse.FromView(task));
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = queryService.Get(currentUserId, projectId, taskId);
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
+        }
+
+        return result.NotFound
+            ? Results.NotFound()
+            : Results.Ok(TaskDetailResponse.FromView(result.Resource!));
     }
 }

@@ -4,16 +4,24 @@ namespace RonFlow.Application;
 
 public sealed class RestoreTrashedTaskCommandService(
     IProjectRepository projectRepository,
+    ProjectAccessService projectAccessService,
     ITaskRepository taskRepository,
     TimeProvider timeProvider)
 {
-    public TaskLifecycleCommandResult Restore(Guid projectId, Guid taskId)
+    public TaskLifecycleCommandResult Restore(Guid currentUserId, Guid projectId, Guid taskId)
     {
-        var project = projectRepository.Get(projectId);
-        if (project is null)
+        var access = projectAccessService.GetOwnedProject(currentUserId, projectId);
+        if (access.ProjectNotFound)
         {
             return TaskLifecycleCommandResult.NotFound();
         }
+
+        if (access.AccessDenied)
+        {
+            return TaskLifecycleCommandResult.Denied();
+        }
+
+        var project = access.Project!;
 
         var task = taskRepository.Get(taskId);
         if (task is null || task.ProjectId != projectId)

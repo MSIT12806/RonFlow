@@ -4,16 +4,24 @@ namespace RonFlow.Application;
 
 public sealed class ReorderTaskCommandService(
     IProjectRepository projectRepository,
+    ProjectAccessService projectAccessService,
     ITaskRepository taskRepository,
     TimeProvider timeProvider)
 {
-    public ReorderTaskResult Reorder(Guid projectId, Guid taskId, Guid targetTaskId)
+    public ReorderTaskResult Reorder(Guid currentUserId, Guid projectId, Guid taskId, Guid targetTaskId)
     {
-        var project = projectRepository.Get(projectId);
-        if (project is null)
+        var access = projectAccessService.GetOwnedProject(currentUserId, projectId);
+        if (access.ProjectNotFound)
         {
             return ReorderTaskResult.NotFound();
         }
+
+        if (access.AccessDenied)
+        {
+            return ReorderTaskResult.Denied();
+        }
+
+        var project = access.Project!;
 
         var task = taskRepository.Get(taskId);
         var targetTask = taskRepository.Get(targetTaskId);

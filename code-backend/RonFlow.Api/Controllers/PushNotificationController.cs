@@ -1,4 +1,5 @@
 using System.Net.Mime;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RonFlow.Api.Contracts;
 using RonFlow.Application;
@@ -8,7 +9,8 @@ namespace RonFlow.Api.Controllers;
 
 [ApiController]
 [Route("api/notifications/push")]
-public sealed class PushNotificationController : ControllerBase
+[Authorize]
+public sealed class PushNotificationController : AuthenticatedControllerBase
 {
     [HttpGet("public-key")]
     [ProducesResponseType<PushNotificationPublicKeyResponse>(StatusCodes.Status200OK)]

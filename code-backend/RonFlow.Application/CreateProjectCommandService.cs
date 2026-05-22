@@ -6,12 +6,17 @@ public sealed class CreateProjectCommandService(IProjectRepository projectReposi
 {
     public CreateProjectResult Create(string? rawName)
     {
+        return Create(Guid.Empty, rawName);
+    }
+
+    public CreateProjectResult Create(Guid currentUserId, string? rawName)
+    {
         if (!ProjectName.TryCreate(rawName, out var projectName))
         {
             return CreateProjectResult.Invalid("name", "專案名稱為必填欄位");
         }
 
-        var project = Project.Create(projectName!, timeProvider.GetUtcNow(), DefaultWorkflow.CreateStates());
+        var project = Project.Create(currentUserId, projectName!, timeProvider.GetUtcNow(), DefaultWorkflow.CreateStates());
         projectRepository.Add(project);
 
         return CreateProjectResult.Success(CoreFlowCommandOutputFactory.CreateProject(project.ToModel()));

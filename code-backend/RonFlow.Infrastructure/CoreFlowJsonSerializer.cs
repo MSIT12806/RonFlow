@@ -24,6 +24,7 @@ internal static class CoreFlowJsonSerializer
 
         writer.WriteStartObject();
         writer.WriteString("id", project.Id);
+        writer.WriteString("ownerId", project.OwnerId);
         writer.WriteString("name", project.Name);
         writer.WriteString("updatedAt", project.UpdatedAt);
         writer.WritePropertyName("workflowStates");
@@ -48,6 +49,9 @@ internal static class CoreFlowJsonSerializer
 
         return Project.Rehydrate(
             root.GetProperty("id").GetGuid(),
+            root.TryGetProperty("ownerId", out var ownerIdElement) && ownerIdElement.ValueKind != JsonValueKind.Null
+                ? ownerIdElement.GetGuid()
+                : Guid.Empty,
             GetRequiredString(root, "name"),
             root.GetProperty("updatedAt").GetDateTimeOffset(),
             root.GetProperty("workflowStates")

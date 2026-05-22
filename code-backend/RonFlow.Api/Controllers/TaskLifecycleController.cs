@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RonFlow.Application;
 using RonFlow.Api.Contracts;
@@ -6,15 +7,26 @@ namespace RonFlow.Api.Controllers;
 
 [ApiController]
 [Route("api/projects/{projectId:guid}/tasks")]
-public sealed class TaskLifecycleController : ControllerBase
+[Authorize]
+public sealed class TaskLifecycleController : AuthenticatedControllerBase
 {
     [HttpGet("archived")]
     [ProducesResponseType<LifecycleTaskListResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IResult GetArchivedTasks(Guid projectId, [FromServices] GetArchivedTasksQueryService queryService)
     {
-        var tasks = queryService.Get(projectId);
-        return tasks is null ? Results.NotFound() : Results.Ok(LifecycleTaskListResponse.FromView(tasks));
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = queryService.Get(currentUserId, projectId);
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
+        }
+
+        return result.NotFound ? Results.NotFound() : Results.Ok(LifecycleTaskListResponse.FromView(result.Resource!));
     }
 
     [HttpGet("trashed")]
@@ -22,8 +34,18 @@ public sealed class TaskLifecycleController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IResult GetTrashedTasks(Guid projectId, [FromServices] GetTrashedTasksQueryService queryService)
     {
-        var tasks = queryService.Get(projectId);
-        return tasks is null ? Results.NotFound() : Results.Ok(LifecycleTaskListResponse.FromView(tasks));
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = queryService.Get(currentUserId, projectId);
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
+        }
+
+        return result.NotFound ? Results.NotFound() : Results.Ok(LifecycleTaskListResponse.FromView(result.Resource!));
     }
 
     [HttpPatch("{taskId:guid}/archive")]
@@ -35,11 +57,21 @@ public sealed class TaskLifecycleController : ControllerBase
         Guid taskId,
         [FromServices] ArchiveTaskCommandService commandService)
     {
-        var result = commandService.Archive(projectId, taskId);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = commandService.Archive(currentUserId, projectId, taskId);
 
         if (result.ValidationError is not null)
         {
             return ValidationResults.FromError(result.ValidationError);
+        }
+
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
         }
 
         return result.TaskNotFound
@@ -56,11 +88,21 @@ public sealed class TaskLifecycleController : ControllerBase
         Guid taskId,
         [FromServices] RestoreArchivedTaskCommandService commandService)
     {
-        var result = commandService.Restore(projectId, taskId);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = commandService.Restore(currentUserId, projectId, taskId);
 
         if (result.ValidationError is not null)
         {
             return ValidationResults.FromError(result.ValidationError);
+        }
+
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
         }
 
         return result.TaskNotFound
@@ -77,11 +119,21 @@ public sealed class TaskLifecycleController : ControllerBase
         Guid taskId,
         [FromServices] MoveTaskToTrashCommandService commandService)
     {
-        var result = commandService.Move(projectId, taskId);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = commandService.Move(currentUserId, projectId, taskId);
 
         if (result.ValidationError is not null)
         {
             return ValidationResults.FromError(result.ValidationError);
+        }
+
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
         }
 
         return result.TaskNotFound
@@ -98,11 +150,21 @@ public sealed class TaskLifecycleController : ControllerBase
         Guid taskId,
         [FromServices] RestoreTrashedTaskCommandService commandService)
     {
-        var result = commandService.Restore(projectId, taskId);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = commandService.Restore(currentUserId, projectId, taskId);
 
         if (result.ValidationError is not null)
         {
             return ValidationResults.FromError(result.ValidationError);
+        }
+
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
         }
 
         return result.TaskNotFound

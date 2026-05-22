@@ -1,4 +1,5 @@
 using System.Net.Mime;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RonFlow.Application;
 using RonFlow.Api.Contracts;
@@ -7,7 +8,8 @@ namespace RonFlow.Api.Controllers;
 
 [ApiController]
 [Route("api/projects/{projectId:guid}/tasks/{taskId:guid}/reminders")]
-public sealed class TaskReminderController : ControllerBase
+[Authorize]
+public sealed class TaskReminderController : AuthenticatedControllerBase
 {
     [HttpPost]
     [Consumes(MediaTypeNames.Application.Json)]
@@ -20,11 +22,21 @@ public sealed class TaskReminderController : ControllerBase
         [FromBody] CreateTaskReminderRequest request,
         [FromServices] CreateTaskReminderCommandService commandService)
     {
-        var result = commandService.Create(projectId, taskId, request.ReminderDateTime, request.Description);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = commandService.Create(currentUserId, projectId, taskId, request.ReminderDateTime, request.Description);
 
         if (result.ValidationError is not null)
         {
             return ValidationResults.FromError(result.ValidationError);
+        }
+
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
         }
 
         if (result.TaskNotFound)
@@ -46,7 +58,17 @@ public sealed class TaskReminderController : ControllerBase
         Guid reminderId,
         [FromServices] DeleteTaskReminderCommandService commandService)
     {
-        var result = commandService.Delete(projectId, taskId, reminderId);
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = commandService.Delete(currentUserId, projectId, taskId, reminderId);
+
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
+        }
 
         if (result.TaskNotFound)
         {

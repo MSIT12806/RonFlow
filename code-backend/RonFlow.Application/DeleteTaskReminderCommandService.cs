@@ -4,16 +4,24 @@ namespace RonFlow.Application;
 
 public sealed class DeleteTaskReminderCommandService(
     IProjectRepository projectRepository,
+    ProjectAccessService projectAccessService,
     ITaskRepository taskRepository,
     TimeProvider timeProvider)
 {
-    public DeleteTaskReminderResult Delete(Guid projectId, Guid taskId, Guid reminderId)
+    public DeleteTaskReminderResult Delete(Guid currentUserId, Guid projectId, Guid taskId, Guid reminderId)
     {
-        var project = projectRepository.Get(projectId);
-        if (project is null)
+        var access = projectAccessService.GetOwnedProject(currentUserId, projectId);
+        if (access.ProjectNotFound)
         {
             return DeleteTaskReminderResult.TaskMissing();
         }
+
+        if (access.AccessDenied)
+        {
+            return DeleteTaskReminderResult.Denied();
+        }
+
+        var project = access.Project!;
 
         var task = taskRepository.Get(taskId);
         if (task is null || task.ProjectId != projectId)
