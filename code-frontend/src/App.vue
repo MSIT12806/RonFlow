@@ -69,6 +69,7 @@
 
           <ProjectMembersPanel
             v-else-if="currentWorkspaceView === 'members'"
+            :active-project-id="activeProjectId"
             :active-project-name="activeProject?.name ?? null"
             :current-user-name="currentUser?.userName ?? null"
             @back-to-board="openBoardView"
@@ -76,6 +77,7 @@
 
           <InvitationInboxView
             v-else-if="currentWorkspaceView === 'invitations'"
+            @invitation-accepted="onInvitationAccepted"
             @back-to-board="openBoardView"
           />
 
@@ -387,5 +389,9 @@ function openProjectMembersPanel() {
 
 function openInvitationInbox() {
   currentWorkspaceView.value = 'invitations'
+}
+
+async function onInvitationAccepted() {
+  await loadProjects(activeProjectId.value ?? undefined)
 }
 </script>

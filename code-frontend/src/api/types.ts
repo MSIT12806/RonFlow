@@ -80,6 +80,26 @@ export type ProjectListItemResponse = {
   updatedAt: string
 }
 
+export type ProjectMemberResponse = {
+  userName: string
+  role: string
+}
+
+export type ProjectMembersResponse = {
+  items: ProjectMemberResponse[]
+}
+
+export type ProjectInvitationResponse = {
+  id: string
+  invitee: string
+  projectName?: string
+  inviterName?: string
+}
+
+export type ProjectInvitationListResponse = {
+  items: ProjectInvitationResponse[]
+}
+
 export type ProjectListResponse = {
   items: ProjectListItemResponse[]
 }
