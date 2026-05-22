@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test'
 import {
+  createProject,
+  createScenarioData,
   openCreateProjectModal,
+  openInvitationInbox,
 } from './support/ronflowTestHelpers'
 import { registerAndEnterWorkspace } from './support/ronflowAuthTestHelpers'
 
@@ -14,7 +17,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Project List Screen', () => {
     await expect(page.getByRole('heading', { name: '專案列表' })).toHaveCount(0)
   })
 
-  test('專案列表首屏顯示建立專案入口與空狀態', async ({ page }) => {
+  test('專案列表首屏顯示建立專案入口、邀請收件匣入口與空狀態', async ({ page }) => {
     await page.route('**/api/projects', async (route) => {
       if (route.request().method() === 'GET') {
         await route.fulfill({
@@ -34,6 +37,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Project List Screen', () => {
     await expect(page.getByRole('heading', { name: '專案列表' })).toBeVisible()
     await expect(page.getByRole('button', { name: '建立專案' })).toBeVisible()
     await expect(page.getByRole('button', { name: '建立專案' })).toBeInViewport()
+    await expect(page.getByText('邀請收件匣', { exact: true })).toBeVisible()
     await expect(page.getByText('尚未建立任何專案')).toBeVisible()
   })
 
@@ -72,5 +76,24 @@ test.describe('RonFlow UI/UX 驗收規格 - Project List Screen', () => {
 
     await expect(dialog.getByRole('textbox')).toHaveCount(1)
     await expect(projectNameInput).toBeFocused()
+  })
+
+  test('專案列表會顯示使用者在專案中的角色', async ({ page }, testInfo) => {
+    const { projectName } = createScenarioData(testInfo)
+
+    await registerAndEnterWorkspace(page)
+    await openCreateProjectModal(page)
+    await createProject(page, projectName)
+    await page.goto('/')
+
+    await expect(page.getByRole('heading', { name: '專案列表' })).toBeVisible()
+    await expect(page.getByRole('button', { name: new RegExp(projectName) })).toBeVisible()
+    await expect(page.locator('.project-chip-role').filter({ hasText: '專案擁有者' })).toBeVisible()
+  })
+
+  test('可以從專案列表開啟邀請收件匣', async ({ page }) => {
+    await registerAndEnterWorkspace(page)
+
+    await openInvitationInbox(page)
   })
 })

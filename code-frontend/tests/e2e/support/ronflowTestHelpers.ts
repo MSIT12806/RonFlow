@@ -58,6 +58,16 @@ export async function openCreateTaskModal(page: Page) {
   await expect(page.getByRole('dialog', { name: '建立任務' })).toBeVisible()
 }
 
+export async function openProjectMembersPanel(page: Page) {
+  await page.getByText('專案成員', { exact: true }).click()
+  await expect(page.getByRole('heading', { name: '專案成員' })).toBeVisible()
+}
+
+export async function openInvitationInbox(page: Page) {
+  await page.getByText('邀請收件匣', { exact: true }).click()
+  await expect(page.getByRole('heading', { name: '邀請收件匣' })).toBeVisible()
+}
+
 export async function createTask(page: Page, taskTitle: string) {
   const dialog = page.getByRole('dialog', { name: '建立任務' })
 
