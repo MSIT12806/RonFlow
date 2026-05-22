@@ -17,14 +17,15 @@
 
 ## 2. 核心產品流程
 
-本文件目前描述的是 authenticated single-owner 版本的 RonFlow。
+本文件目前描述的是 authenticated collaborative-project 版本的 RonFlow。
 
 也就是說：
 
 ```text
 1. 除登入、註冊與 session restore 入口外，使用者必須先登入才能使用 RonFlow。
 2. 使用者成功登入後，才會進入 Project List Page 與後續核心 flow。
-3. 目前每位使用者只會看到屬於自己的資料，不包含多人共享 Project 或 workspace collaboration。
+3. 使用者可以建立屬於自己的 Project，並邀請其他已註冊使用者加入同一個 Project 共同協作。
+4. 目前協作邊界以 Project 為單位，不包含 workspace / tenant / organization 等更高層級邊界。
 ```
 
 RonFlow 目前的核心流程是：
@@ -32,11 +33,12 @@ RonFlow 目前的核心流程是：
 1. 使用者進入 Project List Page。
 2. 使用者建立 Project。
 3. 系統套用 Default Workflow。
-4. 使用者進入 Project Kanban Board。
-5. 使用者建立 Task。
-6. Task 出現在 workflow initial state 欄位。
-7. 使用者可以開啟 Task Detail Drawer 查看基本資訊。
-8. 使用者可以在 Task Detail Drawer 設定與刪除提醒。
+4. Project Owner 可以邀請其他已註冊使用者加入 Project。
+5. 被邀請使用者接受邀請後，可以進入同一個 Project Kanban Board。
+6. Project 成員可以建立 Task。
+7. Task 出現在 workflow initial state 欄位。
+8. Project 成員可以開啟 Task Detail Drawer 查看基本資訊。
+9. Project 成員可以在 Task Detail Drawer 設定與刪除提醒。
 
 目前預設 workflow columns 的工程 key 與使用者可見名稱如下：
 
@@ -71,35 +73,38 @@ Done   -> 已完成
 1. 使用者可以查看 Project List Page
 2. 使用者可以建立 Project
 3. Project 建立後會套用 Default Workflow
-4. 使用者可以進入 Project Kanban Board
-5. 使用者可以建立 Task
-6. 新建立的 Task 會進入 workflow initial state
-7. 使用者可以從 Kanban Board 開啟 Task Detail Drawer
-8. 使用者可以在 Kanban Board 透過 drag & drop 變更 Task 狀態
-9. 使用者可以在 Task Detail Drawer 查看與編輯 Task Title、Description 與 Due Date
-10. 使用者可以在同欄位內調整 Task 順序，以順序反映目前工作的優先順序
-11. Task 應同時具有 Workflow State 與 Lifecycle State 兩條狀態軸線
-12. 使用者可以封存 Task，讓它離開主要工作視野但保留紀錄
-13. 使用者可以還原已封存的 Task
-14. 使用者可以將 Task 移到垃圾桶，讓它離開主要工作視野但保留反悔機會
-15. 使用者可以還原垃圾桶中的 Task
-16. 系統會提供 Archived Tasks View 與 Trash View
-17. Archived / Trashed Task 可開啟 read-only Task Detail Drawer 並查看活動紀錄
-18. 系統會記錄 Task 的建立、內容更新、狀態推進、完成、重新開啟、排序、封存、移到垃圾桶與還原活動
-19. 系統會提供 Project Name 與 Task Title 的基本驗證
-20. 使用者可以在 Task Detail Drawer 為 Task 設定多個提醒
-21. 系統會透過 Web Push + Service Worker 傳送提醒通知
+4. Project Owner 可以邀請其他已註冊使用者加入 Project
+5. 被邀請使用者可以接受或拒絕 Project 邀請
+6. Project 成員可以進入 Project Kanban Board
+7. Project 成員可以建立 Task
+8. 新建立的 Task 會進入 workflow initial state
+9. Project 成員可以從 Kanban Board 開啟 Task Detail Drawer
+10. Project 成員可以在 Kanban Board 透過 drag & drop 變更 Task 狀態
+11. Project 成員可以在 Task Detail Drawer 查看與編輯 Task Title、Description 與 Due Date
+12. Project 成員可以在同欄位內調整 Task 順序，以順序反映目前工作的優先順序
+13. Task 應同時具有 Workflow State 與 Lifecycle State 兩條狀態軸線
+14. Project 成員可以封存 Task，讓它離開主要工作視野但保留紀錄
+15. Project 成員可以還原已封存的 Task
+16. Project 成員可以將 Task 移到垃圾桶，讓它離開主要工作視野但保留反悔機會
+17. Project 成員可以還原垃圾桶中的 Task
+18. 系統會提供 Archived Tasks View 與 Trash View
+19. Archived / Trashed Task 可開啟 read-only Task Detail Drawer 並查看活動紀錄
+20. 系統會記錄 Task 的建立、內容更新、狀態推進、完成、重新開啟、排序、封存、移到垃圾桶與還原活動，並標示執行操作的成員
+21. 系統會提供 Project Name 與 Task Title 的基本驗證
+22. Project 成員可以在 Task Detail Drawer 為 Task 設定多個提醒
+23. 系統會透過 Web Push + Service Worker 傳送提醒通知
 ```
 
 ### 4.1 身分與資料邊界前提
 
 ```text
 1. 除 RonAuth 提供的登入、註冊與 session restore 入口外，使用者必須先登入才能使用 RonFlow。
-2. RonFlow v1 採用 single-owner data boundary：Project 與其下的 Task、Reminder、Activity Timeline、Archived Tasks、Trash View 資料，都屬於建立者。
-3. 使用者只可查看與操作屬於自己的資料。
-4. Project List、Project Kanban Board、Task Detail Drawer、Archived Tasks View、Trash View 的資料範圍，都應以目前登入使用者為準。
-5. 若使用者嘗試訪問、查看、修改、拖曳、封存、還原或以其他方式操作不屬於自己的資料，系統應拒絕該次請求，並回應 Access Denied。
-6. 本文件目前不描述多人共享 Project、workspace member、tenant role 或跨使用者協作流程。
+2. 每個 Project 都有一位建立它的 Project Owner。
+3. Project Owner 可以邀請其他已註冊使用者成為 Project Member。
+4. Project 與其下的 Task、Reminder、Activity Timeline、Archived Tasks、Trash View 資料，都屬於該 Project 的共享協作資料。
+5. Project List、Project Kanban Board、Task Detail Drawer、Archived Tasks View、Trash View 的資料範圍，都應以目前登入使用者可存取的 Project 為準。
+6. 若使用者不是該 Project 的 Owner 或已接受邀請的 Member，系統應拒絕其訪問、查看、修改、拖曳、封存、還原或其他操作，並回應 Access Denied。
+7. 本文件目前只描述以 Project 為單位的多人協作，不描述 workspace member、tenant role、organization boundary 或跨租戶協作流程。
 ```
 
 ## 5. Ubiquitous Language 對照表
@@ -116,9 +121,14 @@ Done   -> 已完成
 
 | Concept | 工程/規格用語 | 使用者可見文字 | 說明 |
 |---|---|---|---|
-| 專案 | Project | 專案 | 使用者建立並進入的一個工作空間。 |
+| 專案 | Project | 專案 | 使用者建立並進入的一個協作工作空間。 |
+| 專案擁有者 | Project Owner | 專案擁有者 | 建立 Project 並可管理成員邀請的使用者。 |
+| 專案成員 | Project Member | 專案成員 | 已接受邀請並可共同協作 Project 的使用者。 |
+| 專案邀請 | Project Invitation | 專案邀請 | Project Owner 發給其他已註冊使用者的加入邀請。 |
 | 專案列表頁 | Project List Page | 專案列表 | 顯示 Project 清單的頁面。 |
 | 建立專案對話框 | Create Project Modal | 建立專案 | 用來建立 Project 的 Modal。 |
+| 專案成員面板 | Project Members Panel | 專案成員 | 顯示目前成員與待處理邀請的區域。 |
+| 邀請收件匣 | Invitation Inbox | 邀請收件匣 | 顯示目前登入使用者收到的 Project 邀請。 |
 | 專案名稱欄位 | Project Name | 專案名稱 | Project 的資料欄位名稱與表單 label。 |
 | 預設流程 | Default Workflow | 預設流程 | Project 建立後系統自動套用的流程欄位集合。 |
 | 專案看板頁 | Project Kanban Board | 專案看板 | 顯示某個 Project workflow columns 與 tasks 的主要畫面。 |
@@ -171,7 +181,8 @@ Done   -> 已完成
 
 ```text
 1. 使用者已完成登入，或系統已透過既有 session restore 成功還原登入狀態。
-2. 使用者目前只會看到屬於自己的 Project 與 Task。
+2. 使用者目前會看到自己建立的 Project，以及自己已接受邀請加入的 Project。
+3. 若使用者已接受某個 Project 邀請，該 Project 的共享資料即屬於其可存取範圍。
 ```
 
 ```text
@@ -183,28 +194,31 @@ Done   -> 已完成
 6. 系統建立 Project
 7. 系統套用 Default Workflow，並立即關閉建立專案 Modal
 8. 系統導向 Project Kanban Board
-9. 使用者看到預設欄位「待處理 / 進行中 / 審查中 / 已完成」
-10. 使用者點擊 Create Task
-11. 系統開啟 Create Task Modal
-12. 使用者輸入 Task Title
-13. 使用者送出表單
-14. 系統建立 Task
-15. 系統立即關閉建立任務 Modal，Task 出現在「待處理」（Todo）欄位
-16. 使用者點擊 Task Card
-17. 系統開啟 Task Detail Drawer
-18. 使用者可以在 Drawer 編輯 Task Title、Description 與 Due Date
-19. 系統在 Task 更新後保留最新資料，並新增對應的活動紀錄
-20. 使用者可以在 Drawer 新增多個提醒，並為每個提醒設定提醒時間與提醒說明
-21. 使用者可以在 Drawer 刪除既有提醒
-22. 到達提醒時間時，系統會透過 Web Push + Service Worker 傳送提醒通知，即使 RonFlow 沒有開在前景中
-23. 使用者可以拖曳 Task 到其他欄位，或在同欄位內調整順序
-24. Task 進入 Done 時系統記錄完成；移回非 Done 時系統記錄重新開啟
-25. 使用者可以從 Task Detail Drawer 的更多操作封存 Task 或移到垃圾桶
-26. 封存或移到垃圾桶成功後，系統應關閉 Drawer，並回到 Project Kanban Board
-27. 已封存 / 已移到垃圾桶的 Task 不出現在 Project Kanban Board
-28. 使用者可以從 Project Kanban Board 進入 Archived Tasks View 或 Trash View
-29. 使用者可以在 Archived Tasks View 或 Trash View 開啟 read-only Task Detail Drawer
-30. 使用者可以從 Archived Tasks View 或 Trash View 還原 Task；還原後系統回到 Project Kanban Board
+9. Project Owner 可以開啟 Project Members Panel，邀請其他已註冊使用者加入 Project
+10. 被邀請使用者可以在 Invitation Inbox 接受邀請
+11. 接受邀請後，該使用者可從 Project List Page 進入同一個 Project Kanban Board
+12. Project 成員看到預設欄位「待處理 / 進行中 / 審查中 / 已完成」
+13. Project 成員點擊 Create Task
+14. 系統開啟 Create Task Modal
+15. Project 成員輸入 Task Title
+16. 使用者送出表單
+17. 系統建立 Task
+18. 系統立即關閉建立任務 Modal，Task 出現在「待處理」（Todo）欄位
+19. Project 成員點擊 Task Card
+20. 系統開啟 Task Detail Drawer
+21. Project 成員可以在 Drawer 編輯 Task Title、Description 與 Due Date
+22. 系統在 Task 更新後保留最新資料，並新增對應的活動紀錄
+23. Project 成員可以在 Drawer 新增多個提醒，並為每個提醒設定提醒時間與提醒說明
+24. Project 成員可以在 Drawer 刪除既有提醒
+25. 到達提醒時間時，系統會透過 Web Push + Service Worker 傳送提醒通知，即使 RonFlow 沒有開在前景中
+26. Project 成員可以拖曳 Task 到其他欄位，或在同欄位內調整順序
+27. Task 進入 Done 時系統記錄完成；移回非 Done 時系統記錄重新開啟
+28. Project 成員可以從 Task Detail Drawer 的更多操作封存 Task 或移到垃圾桶
+29. 封存或移到垃圾桶成功後，系統應關閉 Drawer，並回到 Project Kanban Board
+30. 已封存 / 已移到垃圾桶的 Task 不出現在 Project Kanban Board
+31. Project 成員可以從 Project Kanban Board 進入 Archived Tasks View 或 Trash View
+32. Project 成員可以在 Archived Tasks View 或 Trash View 開啟 read-only Task Detail Drawer
+33. Project 成員可以從 Archived Tasks View 或 Trash View 還原 Task；還原後系統回到 Project Kanban Board
 ```
 
 ### 6.2 Flow Map
@@ -220,10 +234,16 @@ flowchart TD
     E[Task Detail Drawer]
     F[Archived Tasks View]
     G[Trash View]
+  H[Project Members Panel]
+  I[Invitation Inbox]
 
     A -->|Click Create Project| B
     B -->|Project Created and Modal Closed| C
     A -->|Open Project| C
+  C -->|Open Members Panel| H
+  H -->|Invite Member / ProjectMemberInvited| C
+  A -->|Open Invitation Inbox| I
+  I -->|Accept Invitation / ProjectInvitationAccepted| C
     C -->|Click Create Task| D
     D -->|Create Task / TaskCreated| C
     C -->|Click Task Card| E
@@ -255,7 +275,7 @@ flowchart TD
 
 **Purpose**
 
-讓已登入使用者看到屬於自己的 Projects，並開始建立新的 Project。
+讓已登入使用者看到自己建立或已加入的 Projects，並開始建立新的 Project。
 
 **Display**
 
@@ -264,7 +284,9 @@ flowchart TD
 2. 專案清單
 3. 專案名稱
 4. 專案更新時間
-5. 建立專案按鈕
+5. 使用者在專案中的角色
+6. 建立專案按鈕
+7. 邀請收件匣入口
 ```
 
 **User Actions**
@@ -272,6 +294,7 @@ flowchart TD
 ```text
 1. 建立專案
 2. 開啟專案
+3. 開啟邀請收件匣
 ```
 
 **Visible Names**
@@ -345,11 +368,12 @@ Feature: 專案列表頁
 
 ```text
 1. 若使用者尚未登入，系統不應直接顯示 Project List Page，而應先要求完成登入或註冊。
-2. 若使用者已登入，Project List Page 只顯示屬於目前登入使用者的 Projects。
+2. 若使用者已登入，Project List Page 應顯示目前登入使用者建立或已接受邀請加入的 Projects。
 3. 使用者可以輸入 Project Name
 4. 使用者可以送出或取消
 5. 成功建立後，系統會立即關閉 Modal
 6. 成功建立後會進入 Project Kanban Board
+7. 建立 Project 的使用者自動成為該 Project 的 Owner
 ```
 
 **Validation Feedback**
@@ -415,6 +439,7 @@ Feature: 建立專案
 4. 任務卡片
 5. 已封存任務入口
 6. 垃圾桶入口
+7. 專案成員入口
 ```
 
 **User Actions**
@@ -426,6 +451,7 @@ Feature: 建立專案
 4. 拖曳 Task 調整順序
 5. 進入 Archived Tasks View
 6. 進入 Trash View
+7. 開啟 Project Members Panel
 ```
 
 **Visible Names**
@@ -439,8 +465,8 @@ Feature: 建立專案
 **Expected Behavior**
 
 ```text
-1. 使用者只可進入屬於自己的 Project Kanban Board。
-2. 若使用者嘗試進入不屬於自己的 Project，系統應拒絕存取並回應 Access Denied。
+1. Project Owner 與已接受邀請的 Project Member 都可進入對應的 Project Kanban Board。
+2. 若使用者不是該 Project 的 Owner 或已接受邀請的 Member，系統應拒絕存取並回應 Access Denied。
 3. 顯示「待處理 / 進行中 / 審查中 / 已完成」四個欄位
 4. 新建 Task 出現在「待處理」（Todo）欄位
 5. 點擊 Task Card 可開啟 Task Detail Drawer
@@ -448,6 +474,7 @@ Feature: 建立專案
 7. 已封存或已移到垃圾桶的 Task 不應繼續出現在 Board
 8. 使用者可以從 Project Kanban Board 進入 Archived Tasks View
 9. 使用者可以從 Project Kanban Board 進入 Trash View
+10. Project Owner 應可從 Project Kanban Board 開啟成員管理入口以邀請成員
 ```
 
 **UI / UX Notes**
@@ -636,7 +663,7 @@ Feature: 建立任務
 5. 使用者可以刪除尚未觸發的提醒
 6. 修改成功後，Drawer 應顯示最新資料
 7. 修改成功後，Activity Timeline 應新增對應紀錄
-8. Activity Timeline 至少應支援 TaskCreated、TaskTitleChanged、TaskDescriptionChanged、TaskDueDateChanged、TaskStateChanged、TaskCompleted、TaskReopened、TaskReordered、TaskArchived、TaskRestoredFromArchive、TaskMovedToTrash、TaskRestoredFromTrash
+8. Activity Timeline 至少應支援 TaskCreated、TaskTitleChanged、TaskDescriptionChanged、TaskDueDateChanged、TaskStateChanged、TaskCompleted、TaskReopened、TaskReordered、TaskArchived、TaskRestoredFromArchive、TaskMovedToTrash、TaskRestoredFromTrash，並標示執行該操作的 Project Member
 9. 當 Task 位於 ActiveRecord 時，Drawer 應允許編輯內容與管理提醒
 10. 當 Task 位於 Archived 或 Trashed 時，Drawer 應以 read-only mode 顯示，且不允許編輯內容、移動狀態、排序或管理提醒
 11. 當 Task 位於 Archived 或 Trashed 時，Drawer 應提供還原操作
@@ -866,7 +893,7 @@ Feature: Reorder task within a workflow column
 **Expected Behavior**
 
 ```text
-1. Archived Tasks View 只顯示目前登入使用者且 Lifecycle State 為 Archived 的 Task
+1. Archived Tasks View 只顯示目前登入使用者可存取 Project 中且 Lifecycle State 為 Archived 的 Task
 2. 使用者可以從清單開啟已封存 Task 的 read-only Task Detail Drawer
 3. 已封存 Task 可以被還原
 4. 還原後，Task 回到原本 workflow state
@@ -955,7 +982,7 @@ Feature: Archived tasks view
 **Expected Behavior**
 
 ```text
-1. Trash View 只顯示目前登入使用者且 Lifecycle State 為 Trashed 的 Task
+1. Trash View 只顯示目前登入使用者可存取 Project 中且 Lifecycle State 為 Trashed 的 Task
 2. 使用者可以從清單開啟垃圾桶 Task 的 read-only Task Detail Drawer
 3. 垃圾桶中的 Task 可以被還原
 4. 還原後，Task 回到原本 workflow state
@@ -1161,6 +1188,147 @@ Feature: Reminder notification delivery
     Then 畫面應明確告知提醒可能無法送達
 ```
 
+### 7.12 Project Members Panel
+
+**Purpose**
+
+讓 Project Owner 查看目前成員、待處理邀請，並邀請其他已註冊使用者加入目前 Project。
+
+**Display**
+
+```text
+1. 區塊標題
+2. 目前成員清單
+3. 成員角色
+4. 待處理邀請清單
+5. 邀請對象輸入欄位
+6. 邀請操作
+```
+
+**User Actions**
+
+```text
+1. 查看目前成員
+2. 輸入邀請對象
+3. 送出邀請
+```
+
+**Visible Names**
+
+```text
+1. 區塊標題：專案成員
+2. 主要操作：邀請成員
+3. 送出操作：邀請
+```
+
+**Expected Behavior**
+
+```text
+1. 只有 Project Owner 可開啟並操作 Project Members Panel。
+2. Project Owner 可以邀請其他已註冊使用者加入目前 Project。
+3. 邀請送出後，系統應建立一筆待處理的 Project Invitation。
+4. 被邀請使用者在接受邀請前，不應取得該 Project 的存取權。
+5. 若邀請對象已是目前 Project Member，系統應拒絕重複邀請並顯示可理解的訊息。
+```
+
+**Validation Feedback**
+
+```text
+1. 若邀請對象為空，畫面應顯示「邀請對象為必填欄位」。
+2. 若邀請對象不存在於已註冊使用者中，畫面應顯示「找不到可邀請的使用者」。
+```
+
+**Related Rules**
+
+1. [Authentication / Access 規則](#authentication-access-rules)
+2. [Project 規則](#project-rules)
+
+**Gherkin Draft**
+
+```gherkin
+Feature: Project member management
+
+  Scenario: Project Owner 邀請已註冊使用者加入 Project
+    Given 使用者是目前 Project 的 Owner
+    And 使用者已開啟「專案成員」面板
+    When 使用者輸入邀請對象並送出邀請
+    Then 系統應建立待處理的 Project Invitation
+    And 畫面應顯示該邀請位於待處理清單中
+
+  Scenario: 嘗試重複邀請已是成員的使用者
+    Given 使用者是目前 Project 的 Owner
+    And 某位使用者已是目前 Project Member
+    When 使用者再次邀請該使用者
+    Then 系統應拒絕該次邀請
+    And 畫面應顯示可理解的錯誤訊息
+```
+
+### 7.13 Invitation Inbox
+
+**Purpose**
+
+讓被邀請的使用者查看自己收到的 Project 邀請，並決定接受或拒絕。
+
+**Display**
+
+```text
+1. 頁面標題
+2. 邀請清單
+3. Project 名稱
+4. 邀請者
+5. 接受操作
+6. 拒絕操作
+```
+
+**User Actions**
+
+```text
+1. 查看待處理邀請
+2. 接受邀請
+3. 拒絕邀請
+```
+
+**Visible Names**
+
+```text
+1. 頁面標題：邀請收件匣
+2. 主要操作：接受邀請
+3. 次要操作：拒絕邀請
+```
+
+**Expected Behavior**
+
+```text
+1. 使用者只能看到寄送給自己的待處理 Project Invitations。
+2. 使用者接受邀請後，系統應授予該使用者對應 Project 的 Member 存取權。
+3. 使用者接受邀請後，該 Project 應出現在 Project List Page。
+4. 使用者拒絕邀請後，不應取得該 Project 的存取權。
+5. 已接受或已拒絕的邀請不應繼續顯示在待處理邀請清單中。
+```
+
+**Related Rules**
+
+1. [Authentication / Access 規則](#authentication-access-rules)
+2. [Project 規則](#project-rules)
+
+**Gherkin Draft**
+
+```gherkin
+Feature: Invitation inbox
+
+  Scenario: 使用者接受 Project 邀請
+    Given 使用者有一筆待處理的 Project Invitation
+    When 使用者在「邀請收件匣」執行接受邀請
+    Then 系統應授予該使用者對應 Project 的 Member 存取權
+    And 該 Project 應顯示在 Project List Page
+
+  Scenario: 使用者拒絕 Project 邀請
+    Given 使用者有一筆待處理的 Project Invitation
+    When 使用者在「邀請收件匣」執行拒絕邀請
+    Then 系統不應授予該使用者對應 Project 的存取權
+    And 該邀請不應繼續顯示在待處理邀請清單中
+```
+
 ---
 
 ## 8. 驗證與規則
@@ -1172,10 +1340,11 @@ Feature: Reminder notification delivery
 ```text
 1. 除登入、註冊與 session restore 入口外，RonFlow 其他核心功能都要求使用者先登入。
 2. 未登入使用者不應直接看到 Project List Page、Project Kanban Board、Task Detail Drawer、Archived Tasks View 或 Trash View 的資料內容。
-3. Project、Task、Reminder、Archived Tasks、Trash View 與相關 read model 查詢，都應以目前登入使用者為範圍。
-4. 若使用者嘗試讀取、修改、封存、還原、拖曳、排序或以其他方式操作不屬於自己的資料，系統應拒絕該次請求，並回應 Access Denied。
-5. Access Denied 屬於 authorization failure，不應被視為 validation error。
-6. 本文件目前描述的是 authenticated single-owner 版本，不包含跨使用者共享資料的行為。
+3. Project、Task、Reminder、Archived Tasks、Trash View 與相關 read model 查詢，都應以目前登入使用者可存取的 Project 為範圍。
+4. 只有 Project Owner 或已接受邀請的 Project Member，才可讀取與操作該 Project 的共享資料。
+5. 若使用者尚未接受邀請、已拒絕邀請，或根本不是該 Project 的成員，系統應拒絕其存取並回應 Access Denied。
+6. Access Denied 屬於 authorization failure，不應被視為 validation error。
+7. 本文件目前描述的是 authenticated collaborative-project 版本，不包含 workspace、tenant 或 organization 層級的共享資料邊界。
 ```
 
 <a id="project-rules"></a>
@@ -1184,11 +1353,13 @@ Feature: Reminder notification delivery
 
 ```text
 1. Project Name 不可為空
-2. 每個 Project 都應屬於建立它的登入使用者
+2. 建立 Project 的使用者自動成為該 Project 的 Owner
 3. 建立 Project 後，系統套用 Default Workflow
 4. 建立 Project 後，系統導向對應的 Project Kanban Board
 5. 建立成功後，建立專案 Modal 應立即關閉
-6. Project Name 的必填錯誤訊息為「專案名稱為必填欄位」
+6. Project Owner 可以邀請其他已註冊使用者加入該 Project
+7. 被邀請使用者接受邀請後，成為該 Project 的 Member
+8. Project Name 的必填錯誤訊息為「專案名稱為必填欄位」
 ```
 
 <a id="task-rules"></a>
@@ -1198,22 +1369,23 @@ Feature: Reminder notification delivery
 ```text
 1. Task Title 不可為空
 2. Task 必須屬於目前 Project
-3. 每個 Task 都應屬於其所屬 Project 的擁有者
+3. Project Owner 與已接受邀請的 Project Member 都可在其可存取的 Project 中建立與操作 Task
 4. Task 建立後進入 Workflow Initial State
 5. Task 建立後顯示在 Kanban Board 的「待處理」（Todo）欄位
 6. 建立成功後，建立任務 Modal 應立即關閉
 7. Task Title 的必填錯誤訊息為「任務標題為必填欄位」
 8. Task 應可在 Task Detail Drawer 中編輯 Title、Description 與 Due Date
 9. Task 更新成功後，Activity Timeline 應包含對應的變更紀錄
-10. Task 狀態可以從目前欄位變更到另一個 workflow state
-11. Task 可在同一欄位內調整順序，且順序代表個人工作優先順序
-12. Task 從非 Done 類狀態移動到另一個非 Done 類狀態時，系統應記錄 TaskStateChanged
-13. Task 從 Done 類狀態移回非 Done 類狀態時，系統應另外記錄 TaskReopened
-14. Task 處於非 Done 類狀態時，不應顯示目前的 CompletedAt
-15. 當 Task 進入 Done 類狀態時，系統應記錄 CompletedAt
-16. 當 Task 進入 Done 類狀態時，活動紀錄應包含 TaskCompleted
-17. Task 調整順序後，活動紀錄應包含 TaskReordered
-18. Task 可以在 Task Detail Drawer 中設定多個提醒
+10. Task 的 Activity Timeline 應標示執行該操作的 Project Member
+11. Task 狀態可以從目前欄位變更到另一個 workflow state
+12. Task 可在同一欄位內調整順序，且順序代表目前專案協作中的工作優先順序
+13. Task 從非 Done 類狀態移動到另一個非 Done 類狀態時，系統應記錄 TaskStateChanged
+14. Task 從 Done 類狀態移回非 Done 類狀態時，系統應另外記錄 TaskReopened
+15. Task 處於非 Done 類狀態時，不應顯示目前的 CompletedAt
+16. 當 Task 進入 Done 類狀態時，系統應記錄 CompletedAt
+17. 當 Task 進入 Done 類狀態時，活動紀錄應包含 TaskCompleted
+18. Task 調整順序後，活動紀錄應包含 TaskReordered
+19. Task 可以在 Task Detail Drawer 中設定多個提醒
 ```
 
 <a id="reminder-rules"></a>
@@ -1280,14 +1452,14 @@ Feature: Reminder notification delivery
 
 ## 9. Acceptance Criteria
 
-### 9.0 Authentication / Ownership Boundary
+### 9.0 Authentication / Collaboration Boundary
 
 ```text
 1. 若使用者尚未登入，系統不應直接顯示 RonFlow workspace 資料，而應要求先登入或註冊。
 2. 使用者登入成功後，才可以進入 Project List Page 與後續核心流程。
-3. Project List 只應顯示屬於目前登入使用者的 Projects。
-4. Project Kanban Board、Task Detail Drawer、Archived Tasks View 與 Trash View 只應顯示屬於目前登入使用者的資料。
-5. 若使用者嘗試訪問或操作不屬於自己的 Project 或 Task，系統應拒絕該次請求，並回應 Access Denied。
+3. Project List 應顯示目前登入使用者建立或已接受邀請加入的 Projects。
+4. Project Kanban Board、Task Detail Drawer、Archived Tasks View 與 Trash View 只應顯示目前登入使用者可存取 Project 的資料。
+5. 若使用者不是該 Project 的 Owner 或已接受邀請的 Member，系統應拒絕該次請求，並回應 Access Denied。
 6. Access Denied 應適用於讀取、編輯、拖曳、排序、封存、移到垃圾桶與還原等操作。
 ```
 
@@ -1297,15 +1469,16 @@ Feature: Reminder notification delivery
 1. 使用者可以從 Project List Page 開啟 Create Project Modal。
 2. 使用者輸入有效 Project Name 後，可以建立 Project。
 3. Project 建立後，系統會套用 Default Workflow。
-4. Project 建立後，使用者會進入 Project Kanban Board。
-5. Project 建立成功後，建立專案 Modal 應立即關閉。
-6. 若 Project Name 為空，系統應拒絕建立並顯示「專案名稱為必填欄位」。
+4. 建立 Project 的使用者應自動成為該 Project 的 Owner。
+5. Project 建立後，使用者會進入 Project Kanban Board。
+6. Project 建立成功後，建立專案 Modal 應立即關閉。
+7. 若 Project Name 為空，系統應拒絕建立並顯示「專案名稱為必填欄位」。
 ```
 
 ### 9.2 Create Task On Board
 
 ```text
-1. 使用者可以從 Project Kanban Board 開啟 Create Task Modal。
+1. Project Owner 或已接受邀請的 Project Member 可以從 Project Kanban Board 開啟 Create Task Modal。
 2. 使用者輸入有效 Task Title 後，可以建立 Task。
 3. Task 建立後，應屬於目前 Project。
 4. Task 建立後，應進入 Workflow Initial State。
@@ -1332,7 +1505,8 @@ Feature: Reminder notification delivery
 1. 使用者可以在 Task Detail Drawer 修改 Task Title、Description 與 Due Date。
 2. 修改成功後，Drawer 應顯示最新資料。
 3. 修改成功後，Activity Timeline 應新增對應紀錄。
-4. 修改失敗時，畫面應顯示錯誤訊息，且不應錯誤覆蓋原資料。
+4. Activity Timeline 應標示執行該操作的 Project Member。
+5. 修改失敗時，畫面應顯示錯誤訊息，且不應錯誤覆蓋原資料。
 ```
 
 ### 9.5 Move Task State To Another Workflow State
@@ -1447,4 +1621,24 @@ Feature: Reminder notification delivery
 2. 即使使用者沒有開啟 RonFlow 前景頁面、瀏覽器位於背景，或手機上沒有正在查看網站，仍應可收到提醒通知。
 3. 提醒通知的送達前提為該裝置/瀏覽器已允許通知並完成推播訂閱。
 4. 若目前裝置/瀏覽器不具備可用的通知權限或推播訂閱，畫面應明確告知提醒可能無法送達。
+```
+
+### 9.16 Invite Project Member
+
+```text
+1. 只有 Project Owner 可以邀請其他已註冊使用者加入目前 Project。
+2. Project Owner 可以從目前 Project 開啟 Project Members Panel。
+3. Project Owner 輸入有效邀請對象後，可以建立待處理的 Project Invitation。
+4. 若邀請對象已是目前 Project Member，系統應拒絕重複邀請。
+5. 邀請建立後，被邀請使用者在接受邀請前，不應取得該 Project 的存取權。
+```
+
+### 9.17 Accept Or Reject Project Invitation
+
+```text
+1. 被邀請使用者可以在 Invitation Inbox 查看寄送給自己的待處理 Project Invitations。
+2. 使用者接受邀請後，應取得對應 Project 的 Member 存取權。
+3. 使用者接受邀請後，該 Project 應出現在 Project List Page。
+4. 使用者拒絕邀請後，不應取得該 Project 的存取權。
+5. 已接受或已拒絕的邀請不應繼續顯示在待處理邀請清單中。
 ```
