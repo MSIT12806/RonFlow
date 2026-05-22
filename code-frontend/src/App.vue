@@ -58,6 +58,7 @@
             :columns="activeColumns"
             :is-loading-board="isLoadingBoard"
             :command-error-message="boardCommandError"
+            :can-manage-members="activeProject?.role !== '專案成員'"
             @open-create-task="onOpenCreateTask"
             @open-project-members="openProjectMembersPanel"
             @open-archived-tasks="openArchivedTasksView"
@@ -78,6 +79,7 @@
           <InvitationInboxView
             v-else-if="currentWorkspaceView === 'invitations'"
             @invitation-accepted="onInvitationAccepted"
+            @invitations-changed="onInvitationsChanged"
             @back-to-board="openBoardView"
           />
 
@@ -380,7 +382,7 @@ async function onRestoreTask(taskId: string, mode: Exclude<TaskDetailMode, 'acti
 }
 
 function openProjectMembersPanel() {
-  if (!activeProjectId.value) {
+  if (!activeProjectId.value || activeProject.value?.role === '專案成員') {
     return
   }
 
@@ -392,6 +394,10 @@ function openInvitationInbox() {
 }
 
 async function onInvitationAccepted() {
+  await loadProjects(activeProjectId.value ?? undefined)
+}
+
+async function onInvitationsChanged() {
   await loadProjects(activeProjectId.value ?? undefined)
 }
 </script>

@@ -78,6 +78,7 @@ export type ProjectListItemResponse = {
   id: string
   name: string
   updatedAt: string
+  role?: string
 }
 
 export type ProjectMemberResponse = {

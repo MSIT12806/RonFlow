@@ -15,13 +15,13 @@
     </header>
 
     <BaseErrorState
-      v-if="loadErrorMessage"
+      v-if="membersLoadErrorMessage"
       class="collaboration-load-error"
-      :message="loadErrorMessage"
+      :message="membersLoadErrorMessage"
       scope="section"
     />
 
-    <div class="collaboration-grid">
+    <div v-if="!membersLoadErrorMessage" class="collaboration-grid">
       <section class="collaboration-card">
         <div class="panel-heading-row">
           <div>
@@ -86,7 +86,13 @@
           <span class="count-badge">{{ pendingInvitations.length }}</span>
         </div>
 
-        <ul v-if="pendingInvitations.length > 0" class="collaboration-list">
+        <BaseErrorState
+          v-if="invitationsLoadErrorMessage"
+          :message="invitationsLoadErrorMessage"
+          scope="section"
+        />
+
+        <ul v-else-if="pendingInvitations.length > 0" class="collaboration-list">
           <li
             v-for="invitation in pendingInvitations"
             :key="invitation.id"
@@ -150,7 +156,8 @@ const inviteMemberResource = useApiResource(
 
 const invitee = ref('')
 const inviteeError = ref('')
-const loadErrorMessage = ref('')
+const membersLoadErrorMessage = ref('')
+const invitationsLoadErrorMessage = ref('')
 
 const members = computed(() => {
   const items = membersResource.data.value?.items ?? []
@@ -177,20 +184,25 @@ watch(() => props.activeProjectId, async (projectId) => {
     return
   }
 
-  loadErrorMessage.value = ''
+  membersLoadErrorMessage.value = ''
+  invitationsLoadErrorMessage.value = ''
 
   const [membersResult, invitationsResult] = await Promise.allSettled([
     membersResource.execute(projectId),
     invitationsResource.execute(projectId),
   ])
 
-  const nonFallbackFailure = [membersResult, invitationsResult].some((result) => {
-    return result.status === 'rejected'
-      && !(result.reason instanceof ApiRequestError && result.reason.status === 404)
-  })
+  const membersFailed = membersResult.status === 'rejected'
+    && !(membersResult.reason instanceof ApiRequestError && membersResult.reason.status === 404)
+  const invitationsFailed = invitationsResult.status === 'rejected'
+    && !(invitationsResult.reason instanceof ApiRequestError && invitationsResult.reason.status === 404)
 
-  if (nonFallbackFailure) {
-    loadErrorMessage.value = '無法載入專案成員資料，請稍後再試。'
+  if (membersFailed) {
+    membersLoadErrorMessage.value = '無法載入專案成員資料，請稍後再試。'
+  }
+
+  if (!membersFailed && invitationsFailed) {
+    invitationsLoadErrorMessage.value = '無法載入待處理邀請，請稍後再試。'
   }
 }, { immediate: true })
 

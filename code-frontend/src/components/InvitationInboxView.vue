@@ -30,7 +30,7 @@
         <span class="count-badge">{{ invitations.length }}</span>
       </div>
 
-      <ul v-if="invitations.length > 0" class="collaboration-list">
+      <ul v-if="!loadErrorMessage && invitations.length > 0" class="collaboration-list">
         <li
           v-for="invitation in invitations"
           :key="invitation.id"
@@ -63,7 +63,7 @@
         </li>
       </ul>
 
-      <p v-else class="empty-copy collaboration-empty-copy">目前沒有待處理邀請</p>
+      <p v-else-if="!loadErrorMessage" class="empty-copy collaboration-empty-copy">目前沒有待處理邀請</p>
 
       <ApiCommandResourceView
         :is-submitting="isProcessingInvitation"
@@ -71,7 +71,16 @@
         submitting-message="正在處理邀請，請稍候..."
       />
 
-      <div v-if="invitations.length === 0" class="board-header-actions collaboration-actions">
+      <p
+        v-if="syncMessage"
+        class="command-resource-feedback"
+        data-testid="invitation-sync-message"
+        role="status"
+      >
+        {{ syncMessage }}
+      </p>
+
+      <div v-if="!loadErrorMessage && invitations.length === 0" class="board-header-actions collaboration-actions">
         <button type="button" class="primary-button" disabled>接受邀請</button>
         <button type="button" class="secondary-button" disabled>拒絕邀請</button>
       </div>
@@ -90,6 +99,7 @@ import { useApiResource } from '../composables/useApiResource'
 const emit = defineEmits<{
   (event: 'back-to-board'): void
   (event: 'invitation-accepted'): void
+  (event: 'invitations-changed'): void
 }>()
 
 const projectQueryService = new ProjectQueryService()
@@ -111,12 +121,17 @@ const rejectInvitationResource = useApiResource(
 )
 
 const loadErrorMessage = ref('')
+const syncMessage = ref('')
 
 const invitations = computed(() => invitationsResource.data.value?.items ?? [])
 const isProcessingInvitation = computed(() => acceptInvitationResource.isLoading.value || rejectInvitationResource.isLoading.value)
 const commandErrorMessage = computed(() => acceptInvitationResource.errorMessage.value || rejectInvitationResource.errorMessage.value)
 
 onMounted(async () => {
+  await reloadInvitationInbox()
+})
+
+async function reloadInvitationInbox() {
   loadErrorMessage.value = ''
 
   try {
@@ -126,11 +141,29 @@ onMounted(async () => {
       loadErrorMessage.value = '無法載入邀請收件匣，請稍後再試。'
     }
   }
-})
+}
+
+function isInvitationConflict(error: unknown) {
+  return error instanceof ApiRequestError && (error.status === 404 || error.status === 409)
+}
+
+async function syncInvitationConflict() {
+  acceptInvitationResource.reset()
+  rejectInvitationResource.reset()
+  await reloadInvitationInbox()
+
+  if (loadErrorMessage.value) {
+    return
+  }
+
+  syncMessage.value = '此邀請狀態已變更，已更新收件匣。'
+  emit('invitations-changed')
+}
 
 async function onAcceptInvitation(invitationId: string) {
   acceptInvitationResource.reset()
   rejectInvitationResource.reset()
+  syncMessage.value = ''
 
   try {
     await acceptInvitationResource.execute(invitationId)
@@ -138,18 +171,29 @@ async function onAcceptInvitation(invitationId: string) {
       items: invitations.value.filter((invitation) => invitation.id !== invitationId),
     })
     emit('invitation-accepted')
-  } catch {}
+    emit('invitations-changed')
+  } catch (error) {
+    if (isInvitationConflict(error)) {
+      await syncInvitationConflict()
+    }
+  }
 }
 
 async function onRejectInvitation(invitationId: string) {
   acceptInvitationResource.reset()
   rejectInvitationResource.reset()
+  syncMessage.value = ''
 
   try {
     await rejectInvitationResource.execute(invitationId)
     invitationsResource.setData({
       items: invitations.value.filter((invitation) => invitation.id !== invitationId),
     })
-  } catch {}
+    emit('invitations-changed')
+  } catch (error) {
+    if (isInvitationConflict(error)) {
+      await syncInvitationConflict()
+    }
+  }
 }
 </script>

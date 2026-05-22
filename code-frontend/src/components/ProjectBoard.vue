@@ -8,7 +8,12 @@
         </div>
 
         <div class="board-header-actions">
-          <button type="button" class="secondary-button" @click="$emit('open-project-members')">
+          <button
+            v-if="canManageMembers"
+            type="button"
+            class="secondary-button"
+            @click="$emit('open-project-members')"
+          >
             專案成員
           </button>
 
@@ -107,6 +112,7 @@ const props = defineProps<{
   columns: BoardColumnResponse[]
   isLoadingBoard: boolean
   commandErrorMessage: string
+  canManageMembers?: boolean
 }>()
 
 const emit = defineEmits<{

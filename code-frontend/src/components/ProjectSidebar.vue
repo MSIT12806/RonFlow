@@ -31,7 +31,7 @@
           >
             <span class="project-chip-title">{{ project.name }}</span>
             <small>{{ formatProjectMeta(project.updatedAt) }}</small>
-            <small class="project-chip-role">專案擁有者</small>
+            <small class="project-chip-role">{{ project.role || '專案擁有者' }}</small>
           </button>
         </li>
       </ul>
