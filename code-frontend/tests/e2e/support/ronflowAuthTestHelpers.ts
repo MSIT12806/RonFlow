@@ -21,10 +21,12 @@ export async function registerAndEnterWorkspace(page: Page, user = createRonFlow
   await expect(page.getByRole('heading', { name: '登入 RonFlow' })).toBeVisible()
 
   await page.getByRole('button', { name: '註冊' }).click()
-  await page.getByLabel('帳號').fill(user.userName)
-  await page.getByLabel('電子郵件').fill(user.email)
-  await page.getByLabel('密碼').fill(user.password)
-  await page.getByRole('button', { name: '建立帳號並登入' }).click()
+  const form = page.locator('form')
+
+  await form.getByLabel('帳號').fill(user.userName)
+  await form.getByLabel('電子郵件').fill(user.email)
+  await form.getByLabel('密碼').fill(user.password)
+  await form.getByRole('button', { name: '建立帳號並登入' }).click()
 
   await expect(page.getByRole('button', { name: '登出' })).toBeVisible()
   return user
@@ -34,10 +36,12 @@ export async function loginAndEnterWorkspace(page: Page, user: RonFlowAuthUser) 
   await page.goto('/')
   await expect(page.getByRole('heading', { name: '登入 RonFlow' })).toBeVisible()
 
-  await page.getByRole('button', { name: '登入' }).click()
-  await page.getByLabel('帳號').fill(user.userName)
-  await page.getByLabel('密碼').fill(user.password)
-  await page.getByRole('button', { name: '登入', exact: true }).click()
+  await page.getByRole('button', { name: '登入' }).first().click()
+  const form = page.locator('form')
+
+  await form.getByLabel('帳號').fill(user.userName)
+  await form.getByLabel('密碼').fill(user.password)
+  await form.getByRole('button', { name: '登入', exact: true }).click()
 
   await expect(page.getByRole('button', { name: '登出' })).toBeVisible()
 }

@@ -6,8 +6,10 @@ const e2eFrontendPort = 4174
 const e2eBackendPort = 5079
 const e2eRonAuthPort = 5136
 const e2eBackendApiBaseUrl = `http://127.0.0.1:${e2eBackendPort}/api`
+const e2eRonAuthApiBaseUrl = `http://127.0.0.1:${e2eRonAuthPort}/api/auth`
 
 process.env.RONFLOW_E2E_BACKEND_API_BASE_URL = e2eBackendApiBaseUrl
+process.env.RONFLOW_E2E_RONAUTH_API_BASE_URL = e2eRonAuthApiBaseUrl
 
 export default defineConfig({
   testDir: './tests/e2e',

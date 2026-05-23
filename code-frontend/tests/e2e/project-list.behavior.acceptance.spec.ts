@@ -3,7 +3,8 @@ import {
   createScenarioData,
   openCreateProjectModal,
 } from './support/ronflowTestHelpers'
-import { registerAndEnterWorkspace } from './support/ronflowAuthTestHelpers'
+import { createRonFlowAuthUser, loginAndEnterWorkspace, registerAndEnterWorkspace } from './support/ronflowAuthTestHelpers'
+import { configureTestFaultsThroughApi, registerRonFlowApiUser } from './support/ronflowApiTestHelpers'
 
 test.describe('RonFlow UI/UX 驗收規格 - Project List Behavior', () => {
   test('拒絕空白的專案名稱', async ({ page }) => {
@@ -18,28 +19,19 @@ test.describe('RonFlow UI/UX 驗收規格 - Project List Behavior', () => {
     await expect(dialog).toBeVisible()
   })
 
-  test('建立專案失敗時保持對話框開啟並保留輸入內容', async ({ page }, testInfo) => {
+  test('建立專案失敗時保持對話框開啟並保留輸入內容', async ({ page, request }, testInfo) => {
     const { projectName } = createScenarioData(testInfo)
-    let releaseProjectCreationFailure: (() => void) | null = null
-    const projectCreationFailureReleased = new Promise<void>((resolve) => {
-      releaseProjectCreationFailure = resolve
-    })
+    const userSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
 
-    await page.route('**/api/projects', async (route) => {
-      if (route.request().method() !== 'POST') {
-        await route.continue()
-        return
-      }
+    await configureTestFaultsThroughApi(request, userSession, [{
+      method: 'POST',
+      pathPattern: '/api/projects',
+      statusCode: 500,
+      delayMs: 1200,
+      message: 'create failed',
+    }])
 
-      await projectCreationFailureReleased
-      await route.fulfill({
-        status: 500,
-        contentType: 'application/json',
-        body: JSON.stringify({ message: 'create failed' }),
-      })
-    })
-
-    await registerAndEnterWorkspace(page)
+    await loginAndEnterWorkspace(page, userSession.user)
     await openCreateProjectModal(page)
 
     const dialog = page.getByRole('dialog', { name: '建立專案' })
@@ -55,10 +47,6 @@ test.describe('RonFlow UI/UX 驗收規格 - Project List Behavior', () => {
     await expect(submitButton).toBeDisabled()
     await expect(cancelButton).toBeDisabled()
     await expect(closeButton).toBeDisabled()
-
-    if (releaseProjectCreationFailure) {
-      releaseProjectCreationFailure()
-    }
 
     await expect(page.getByText('建立專案失敗，請稍後再試。')).toBeVisible()
     await expect(dialog).toBeVisible()

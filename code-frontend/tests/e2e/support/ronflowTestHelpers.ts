@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext, type Page, type TestInfo } from '@playwright/test'
+import { expect, type Page, type TestInfo } from '@playwright/test'
 import { registerAndEnterWorkspace } from './ronflowAuthTestHelpers'
 
 export const workflowColumns = [
@@ -7,23 +7,6 @@ export const workflowColumns = [
   { key: 'review', label: '審查中' },
   { key: 'done', label: '已完成' },
 ] as const
-
-type ProjectResponse = {
-  id: string
-}
-
-type TaskResponse = {
-  id: string
-}
-
-type ProcessEnvironment = typeof globalThis & {
-  process?: {
-    env?: Record<string, string | undefined>
-  }
-}
-
-const backendApiBaseUrl = (globalThis as ProcessEnvironment).process?.env?.RONFLOW_E2E_BACKEND_API_BASE_URL
-  ?? 'http://127.0.0.1:5079/api'
 
 export function createTaskTitle(testInfo: TestInfo, label: string) {
   return `${label} ${testInfo.workerIndex}-${testInfo.retry}-${Date.now()}`
@@ -66,6 +49,11 @@ export async function openProjectMembersPanel(page: Page) {
 export async function openInvitationInbox(page: Page) {
   await page.getByText('邀請收件匣', { exact: true }).click()
   await expect(page.getByRole('heading', { name: '邀請收件匣' })).toBeVisible()
+}
+
+export async function openProjectFromList(page: Page, projectName: string) {
+  await page.getByRole('button', { name: new RegExp(projectName) }).click()
+  await expect(page.getByRole('heading', { name: projectName })).toBeVisible()
 }
 
 export async function createTask(page: Page, taskTitle: string) {
@@ -142,37 +130,6 @@ export async function dragTaskToColumn(page: Page, fromStateKey: string, toState
 
   await expect(targetColumn).toContainText(taskTitle, { timeout: 10000 })
   await expect(sourceColumn).not.toContainText(taskTitle, { timeout: 10000 })
-}
-
-export async function createProjectThroughApi(request: APIRequestContext, projectName: string) {
-  const response = await request.post(`${backendApiBaseUrl}/projects`, {
-    data: { name: projectName },
-  })
-
-  expect(response.ok()).toBeTruthy()
-  return response.json() as Promise<ProjectResponse>
-}
-
-export async function createTaskThroughApi(request: APIRequestContext, projectId: string, taskTitle: string) {
-  const response = await request.post(`${backendApiBaseUrl}/projects/${projectId}/tasks`, {
-    data: { title: taskTitle },
-  })
-
-  expect(response.ok()).toBeTruthy()
-  return response.json() as Promise<TaskResponse>
-}
-
-export async function moveTaskStateThroughApi(
-  request: APIRequestContext,
-  projectId: string,
-  taskId: string,
-  stateKey: string,
-) {
-  const response = await request.patch(`${backendApiBaseUrl}/projects/${projectId}/tasks/${taskId}/state`, {
-    data: { stateKey },
-  })
-
-  expect(response.ok()).toBeTruthy()
 }
 
 export async function setupProjectBoard(page: Page, projectName: string) {

@@ -1,9 +1,33 @@
 import { expect, test } from '@playwright/test'
 import {
   createScenarioData,
+  openProjectFromList,
   openTaskDetail,
   setupTaskBoard,
 } from './support/ronflowTestHelpers'
+import {
+  configureTestFaultsThroughApi,
+  createProjectThroughApi,
+  createTaskThroughApi,
+  registerRonFlowApiUser,
+} from './support/ronflowApiTestHelpers'
+import { createRonFlowAuthUser, loginAndEnterWorkspace } from './support/ronflowAuthTestHelpers'
+
+async function setupTaskBoardThroughApi(
+  request: Parameters<typeof test>[0]['request'],
+  page: Parameters<typeof test>[0]['page'],
+  projectName: string,
+  taskTitle: string,
+) {
+  const userSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
+  const project = await createProjectThroughApi(request, userSession, projectName)
+  await createTaskThroughApi(request, userSession, project.id, taskTitle)
+
+  await loginAndEnterWorkspace(page, userSession.user)
+  await openProjectFromList(page, projectName)
+
+  return { userSession }
+}
 
 test.describe('RonFlow UI/UX 驗收規格 - Task Detail Screen', () => {
   test('任務詳細資訊顯示基本資訊，未完成任務不顯示完成時間', async ({ page }, testInfo) => {
@@ -22,20 +46,18 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Detail Screen', () => {
     await expect(detailDialog.getByText('完成時間', { exact: true })).toHaveCount(0)
   })
 
-  test('任務詳細資訊載入中時在 drawer 內顯示 shared loading state', async ({ page }, testInfo) => {
+  test('任務詳細資訊載入中時在 drawer 內顯示 shared loading state', async ({ page, request }, testInfo) => {
     const { projectName, taskTitle } = createScenarioData(testInfo)
 
-    await page.route('**/api/projects/*/tasks/*', async (route) => {
-      if (route.request().method() !== 'GET') {
-        await route.continue()
-        return
-      }
+    const { userSession } = await setupTaskBoardThroughApi(request, page, projectName, taskTitle)
 
-      await new Promise((resolve) => setTimeout(resolve, 300))
-      await route.continue()
-    })
+    await configureTestFaultsThroughApi(request, userSession, [{
+      method: 'GET',
+      pathPattern: '/api/projects/*/tasks/*',
+      statusCode: null,
+      delayMs: 600,
+    }])
 
-    await setupTaskBoard(page, projectName, taskTitle)
     await page.getByTestId('workflow-column-todo').getByText(taskTitle, { exact: true }).click()
 
     const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
@@ -45,23 +67,18 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Detail Screen', () => {
     await expect(detailDialog.getByRole('heading', { name: taskTitle })).toBeVisible()
   })
 
-  test('任務詳細資訊載入失敗時在 drawer 內顯示 shared error state', async ({ page }, testInfo) => {
+  test('任務詳細資訊載入失敗時在 drawer 內顯示 shared error state', async ({ page, request }, testInfo) => {
     const { projectName, taskTitle } = createScenarioData(testInfo)
 
-    await page.route('**/api/projects/*/tasks/*', async (route) => {
-      if (route.request().method() !== 'GET') {
-        await route.continue()
-        return
-      }
+    const { userSession } = await setupTaskBoardThroughApi(request, page, projectName, taskTitle)
 
-      await route.fulfill({
-        status: 500,
-        contentType: 'application/json',
-        body: JSON.stringify({ message: 'detail failed' }),
-      })
-    })
+    await configureTestFaultsThroughApi(request, userSession, [{
+      method: 'GET',
+      pathPattern: '/api/projects/*/tasks/*',
+      statusCode: 500,
+      message: 'detail failed',
+    }])
 
-    await setupTaskBoard(page, projectName, taskTitle)
     await openTaskDetail(page, 'todo', taskTitle)
 
     const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })

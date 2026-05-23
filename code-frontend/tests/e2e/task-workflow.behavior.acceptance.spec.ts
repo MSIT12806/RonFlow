@@ -1,19 +1,72 @@
 import { expect, test } from '@playwright/test'
 import {
-  createProjectThroughApi,
   createScenarioData,
   createTask,
-  createTaskThroughApi,
   createTaskTitle,
   dragTaskToColumn,
   expectTaskOrder,
   getTaskCard,
-  moveTaskStateThroughApi,
   openCreateTaskModal,
+  openProjectFromList,
   openTaskDetail,
   setupProjectBoard,
   setupTaskBoard,
 } from './support/ronflowTestHelpers'
+import {
+  configureTestFaultsThroughApi,
+  createProjectThroughApi,
+  createTaskThroughApi,
+  moveTaskStateThroughApi,
+  registerRonFlowApiUser,
+} from './support/ronflowApiTestHelpers'
+import { createRonFlowAuthUser, loginAndEnterWorkspace } from './support/ronflowAuthTestHelpers'
+
+async function dragTaskAndWaitForStateResponse(
+  page: Parameters<typeof test>[0]['page'],
+  fromStateKey: string,
+  toStateKey: string,
+  taskTitle: string,
+) {
+  const taskCard = getTaskCard(page, fromStateKey, taskTitle)
+  const targetColumn = page.getByTestId(`workflow-column-${toStateKey}`)
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const responsePromise = page.waitForResponse((response) => {
+      return response.request().method() === 'PATCH'
+        && /\/api\/projects\/[^/]+\/tasks\/[^/]+\/state$/.test(response.url())
+    }, { timeout: 3000 }).catch(() => null)
+
+    await taskCard.dragTo(targetColumn)
+
+    const response = await responsePromise
+    if (response) {
+      return response
+    }
+  }
+
+  return null
+}
+
+async function setupTaskBoardThroughApi(
+  request: Parameters<typeof test>[0]['request'],
+  page: Parameters<typeof test>[0]['page'],
+  projectName: string,
+  taskTitle: string,
+  taskStates: string[] = [],
+) {
+  const userSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
+  const project = await createProjectThroughApi(request, userSession, projectName)
+  const task = await createTaskThroughApi(request, userSession, project.id, taskTitle)
+
+  for (const stateKey of taskStates) {
+    await moveTaskStateThroughApi(request, userSession, project.id, task.id, stateKey)
+  }
+
+  await loginAndEnterWorkspace(page, userSession.user)
+  await openProjectFromList(page, projectName)
+
+  return { userSession, project, task }
+}
 
 test.describe('RonFlow UI/UX 驗收規格 - Task Workflow Behavior', () => {
   test('使用者可以拖曳任務到進行中欄位，並在詳細資訊看到最新狀態', async ({ page }, testInfo) => {
@@ -24,8 +77,9 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Workflow Behavior', () => {
     const taskCard = getTaskCard(page, 'todo', taskTitle)
     const activeColumn = page.getByTestId('workflow-column-active')
 
-    await taskCard.dragTo(activeColumn)
+    const response = await dragTaskAndWaitForStateResponse(page, 'todo', 'active', taskTitle)
 
+    expect(response?.ok()).toBeTruthy()
     await expect(activeColumn).toContainText(taskTitle)
     await expect(page.getByTestId('workflow-column-todo')).not.toContainText(taskTitle)
 
@@ -41,13 +95,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Workflow Behavior', () => {
   test('使用者可以將進行中的任務拖曳到已完成欄位並看到完成紀錄', async ({ page, request }, testInfo) => {
     const { projectName, taskTitle } = createScenarioData(testInfo)
 
-    const project = await createProjectThroughApi(request, projectName)
-    const task = await createTaskThroughApi(request, project.id, taskTitle)
-    await moveTaskStateThroughApi(request, project.id, task.id, 'active')
-
-    await page.goto('/')
-    await page.getByRole('button', { name: projectName }).click()
-    await expect(page.getByRole('heading', { name: projectName })).toBeVisible()
+    await setupTaskBoardThroughApi(request, page, projectName, taskTitle, ['active'])
 
     await dragTaskToColumn(page, 'active', 'done', taskTitle)
 
@@ -87,26 +135,21 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Workflow Behavior', () => {
     await expect(page.getByTestId('workflow-column-active')).not.toContainText(secondTaskTitle)
   })
 
-  test('狀態變更 API 失敗時，Task Card 會回到原欄位並顯示錯誤訊息', async ({ page }, testInfo) => {
+  test('狀態變更 API 失敗時，Task Card 會回到原欄位並顯示錯誤訊息', async ({ page, request }, testInfo) => {
     const { projectName, taskTitle } = createScenarioData(testInfo)
 
-    await page.route('**/api/projects/*/tasks/*/state', async (route) => {
-      if (route.request().method() !== 'PATCH') {
-        await route.continue()
-        return
-      }
+    const { userSession } = await setupTaskBoardThroughApi(request, page, projectName, taskTitle)
 
-      await route.fulfill({
-        status: 500,
-        contentType: 'application/json',
-        body: JSON.stringify({ message: 'move failed' }),
-      })
-    })
+    await configureTestFaultsThroughApi(request, userSession, [{
+      method: 'PATCH',
+      pathPattern: '/api/projects/*/tasks/*/state',
+      statusCode: 500,
+      message: 'move failed',
+    }])
 
-    await setupTaskBoard(page, projectName, taskTitle)
+    const response = await dragTaskAndWaitForStateResponse(page, 'todo', 'active', taskTitle)
 
-    await getTaskCard(page, 'todo', taskTitle).dragTo(page.getByTestId('workflow-column-active'))
-
+    expect(response?.status()).toBe(500)
     await expect(page.getByTestId('workflow-column-todo')).toContainText(taskTitle)
     await expect(page.getByTestId('workflow-column-active')).not.toContainText(taskTitle)
     await expect(page.getByTestId('base-error-state')).toContainText('變更任務狀態失敗，請稍後再試。')
@@ -115,14 +158,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Workflow Behavior', () => {
   test('使用者可以將已完成任務重新開啟，清除目前完成時間並記錄重新開啟活動', async ({ page, request }, testInfo) => {
     const { projectName, taskTitle } = createScenarioData(testInfo)
 
-    const project = await createProjectThroughApi(request, projectName)
-    const task = await createTaskThroughApi(request, project.id, taskTitle)
-    await moveTaskStateThroughApi(request, project.id, task.id, 'active')
-    await moveTaskStateThroughApi(request, project.id, task.id, 'done')
-
-    await page.goto('/')
-    await page.getByRole('button', { name: projectName }).click()
-    await expect(page.getByRole('heading', { name: projectName })).toBeVisible()
+    await setupTaskBoardThroughApi(request, page, projectName, taskTitle, ['active', 'done'])
 
     await dragTaskToColumn(page, 'done', 'active', taskTitle)
 

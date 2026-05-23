@@ -5,7 +5,8 @@ import {
   openCreateProjectModal,
   openInvitationInbox,
 } from './support/ronflowTestHelpers'
-import { registerAndEnterWorkspace } from './support/ronflowAuthTestHelpers'
+import { createRonFlowAuthUser, loginAndEnterWorkspace, registerAndEnterWorkspace } from './support/ronflowAuthTestHelpers'
+import { configureTestFaultsThroughApi, registerRonFlowApiUser } from './support/ronflowApiTestHelpers'
 
 test.describe('RonFlow UI/UX 驗收規格 - Project List Screen', () => {
   test('未登入時首頁顯示登入與註冊入口', async ({ page }) => {
@@ -18,19 +19,6 @@ test.describe('RonFlow UI/UX 驗收規格 - Project List Screen', () => {
   })
 
   test('專案列表首屏顯示建立專案入口、邀請收件匣入口與空狀態', async ({ page }) => {
-    await page.route('**/api/projects', async (route) => {
-      if (route.request().method() === 'GET') {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ items: [] }),
-        })
-        return
-      }
-
-      await route.continue()
-    })
-
     await registerAndEnterWorkspace(page)
 
     await expect(page).toHaveTitle(/RonFlow/)
@@ -47,21 +35,17 @@ test.describe('RonFlow UI/UX 驗收規格 - Project List Screen', () => {
     await openCreateProjectModal(page)
   })
 
-  test('專案列表載入失敗時顯示 page-level 錯誤而不是空白清單', async ({ page }) => {
-    await page.route('**/api/projects', async (route) => {
-      if (route.request().method() === 'GET') {
-        await route.fulfill({
-          status: 500,
-          contentType: 'application/json',
-          body: JSON.stringify({ message: 'load failed' }),
-        })
-        return
-      }
+  test('專案列表載入失敗時顯示 page-level 錯誤而不是空白清單', async ({ page, request }) => {
+    const userSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
 
-      await route.continue()
-    })
+    await configureTestFaultsThroughApi(request, userSession, [{
+      method: 'GET',
+      pathPattern: '/api/projects',
+      statusCode: 500,
+      message: 'load failed',
+    }])
 
-    await registerAndEnterWorkspace(page)
+    await loginAndEnterWorkspace(page, userSession.user)
 
     await expect(page.getByText('無法載入專案列表，請確認後端 API 已啟動。')).toBeVisible()
     await expect(page.getByText('尚未建立任何專案')).toHaveCount(0)

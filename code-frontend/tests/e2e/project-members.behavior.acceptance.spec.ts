@@ -1,227 +1,136 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 import {
-  createScenarioData,
-  openProjectMembersPanel,
-  setupProjectBoard,
-  workflowColumns,
-} from './support/ronflowTestHelpers'
-import { registerAndEnterWorkspace } from './support/ronflowAuthTestHelpers'
+  acceptInvitationThroughApi,
+  configureTestFaultsThroughApi,
+  createProjectThroughApi,
+  getInvitationInboxThroughApi,
+  getProjectInvitationsThroughApi,
+  inviteProjectMemberThroughApi,
+  registerRonFlowApiUser,
+} from './support/ronflowApiTestHelpers'
+import { createRonFlowAuthUser, loginAndEnterWorkspace } from './support/ronflowAuthTestHelpers'
+import { createScenarioData, openProjectFromList, openProjectMembersPanel } from './support/ronflowTestHelpers'
 
-const projectInvitationsRoute = '**/api/projects/*/invitations'
-const projectMembersRoute = '**/api/projects/*/members'
-const projectsRoute = '**/api/projects'
-const projectBoardRoute = '**/api/projects/*/board'
+async function loginOwnerAndOpenMembersPanel(page: Page, request: APIRequestContext, projectName: string) {
+  const ownerSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
+  const project = await createProjectThroughApi(request, ownerSession, projectName)
+
+  await loginAndEnterWorkspace(page, ownerSession.user)
+  await openProjectFromList(page, projectName)
+  await openProjectMembersPanel(page)
+
+  return { ownerSession, project }
+}
 
 test.describe('RonFlow UI/UX 驗收規格 - Project Members Behavior', () => {
-  test('邀請對象為必填', async ({ page }, testInfo) => {
+  test('邀請對象為必填', async ({ page, request }, testInfo) => {
     const { projectName } = createScenarioData(testInfo)
 
-    await setupProjectBoard(page, projectName)
-    await openProjectMembersPanel(page)
+    await loginOwnerAndOpenMembersPanel(page, request, projectName)
 
     await page.getByRole('button', { name: '邀請', exact: true }).click()
 
     await expect(page.getByText('邀請對象為必填欄位', { exact: true })).toBeVisible()
   })
 
-  test('Project Owner 可以送出邀請並在待處理清單看到結果', async ({ page }, testInfo) => {
+  test('Project Owner 可以送出邀請並在待處理清單看到結果', async ({ page, request }, testInfo) => {
     const { projectName } = createScenarioData(testInfo)
-    const invitee = `teammate-${Date.now()}@example.test`
-    const pendingInvitations: Array<{ id: string; invitee: string }> = []
-    let postedPayload: unknown = null
-
-    await page.route(projectInvitationsRoute, async (route) => {
-      if (route.request().method() === 'GET') {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ items: pendingInvitations }),
-        })
-        return
-      }
-
-      if (route.request().method() === 'POST') {
-        postedPayload = route.request().postDataJSON()
-        pendingInvitations.push({
-          id: 'invitation-1',
-          invitee,
-        })
-
-        await route.fulfill({
-          status: 201,
-          contentType: 'application/json',
-          body: JSON.stringify({ id: 'invitation-1', invitee }),
-        })
-        return
-      }
-
-      await route.continue()
-    })
-
-    await setupProjectBoard(page, projectName)
-    await openProjectMembersPanel(page)
+    const inviteeSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('teammate'))
+    const { ownerSession, project } = await loginOwnerAndOpenMembersPanel(page, request, projectName)
 
     const inviteeInput = page.getByLabel('邀請對象')
 
-    await inviteeInput.fill(invitee)
+    await inviteeInput.fill(inviteeSession.user.email)
     await page.getByRole('button', { name: '邀請', exact: true }).click()
 
-    await expect.poll(() => postedPayload).toEqual({ invitee })
-    await expect(page.getByText(invitee, { exact: true })).toBeVisible()
+    await expect(page.getByText(inviteeSession.user.email, { exact: true })).toBeVisible()
     await expect(inviteeInput).toHaveValue('')
+
+    const invitations = await getProjectInvitationsThroughApi(request, ownerSession, project.id)
+    expect(invitations).toHaveLength(1)
+    expect(invitations[0]?.invitee).toBe(inviteeSession.user.email)
   })
 
-  test('邀請失敗時保留輸入內容並顯示錯誤訊息', async ({ page }, testInfo) => {
+  test('邀請失敗時保留輸入內容並顯示錯誤訊息', async ({ page, request }, testInfo) => {
     const { projectName } = createScenarioData(testInfo)
-    const invitee = `teammate-${Date.now()}@example.test`
-    let releaseInvitationFailure: (() => void) | null = null
-    const invitationFailureReleased = new Promise<void>((resolve) => {
-      releaseInvitationFailure = resolve
-    })
+    const inviteeSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('teammate'))
+    const { ownerSession } = await loginOwnerAndOpenMembersPanel(page, request, projectName)
 
-    await page.route(projectInvitationsRoute, async (route) => {
-      if (route.request().method() !== 'POST') {
-        await route.continue()
-        return
-      }
-
-      await invitationFailureReleased
-      await route.fulfill({
-        status: 500,
-        contentType: 'application/json',
-        body: JSON.stringify({ message: 'invite failed' }),
-      })
-    })
-
-    await setupProjectBoard(page, projectName)
-    await openProjectMembersPanel(page)
+    await configureTestFaultsThroughApi(request, ownerSession, [{
+      method: 'POST',
+      pathPattern: '/api/projects/*/invitations',
+      statusCode: 500,
+      delayMs: 1200,
+      message: 'invite failed',
+    }])
 
     const inviteeInput = page.getByLabel('邀請對象')
     const inviteButton = page.getByRole('button', { name: '邀請', exact: true })
 
-    await inviteeInput.fill(invitee)
+    await inviteeInput.fill(inviteeSession.user.email)
     await inviteButton.click()
 
     await expect(inviteeInput).toBeDisabled()
     await expect(inviteButton).toBeDisabled()
-
-    if (releaseInvitationFailure) {
-      releaseInvitationFailure()
-    }
-
     await expect(page.getByText('邀請成員失敗，請稍後再試。', { exact: true })).toBeVisible()
-    await expect(inviteeInput).toHaveValue(invitee)
+    await expect(inviteeInput).toHaveValue(inviteeSession.user.email)
   })
 
-  test('邀請送出進行中時會鎖定輸入與按鈕，避免重複送出', async ({ page }, testInfo) => {
+  test('邀請送出進行中時會鎖定輸入與按鈕，避免重複送出', async ({ page, request }, testInfo) => {
     const { projectName } = createScenarioData(testInfo)
-    const invitee = `teammate-${Date.now()}@example.test`
-    let invitationRequestCount = 0
-    let releaseInvitationRequest: (() => void) | null = null
-    const invitationRequestReleased = new Promise<void>((resolve) => {
-      releaseInvitationRequest = resolve
-    })
+    const inviteeSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('teammate'))
+    const { ownerSession, project } = await loginOwnerAndOpenMembersPanel(page, request, projectName)
 
-    await page.route(projectInvitationsRoute, async (route) => {
-      if (route.request().method() === 'GET') {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ items: [] }),
-        })
-        return
-      }
-
-      if (route.request().method() !== 'POST') {
-        await route.continue()
-        return
-      }
-
-      invitationRequestCount += 1
-      await invitationRequestReleased
-      await route.fulfill({
-        status: 201,
-        contentType: 'application/json',
-        body: JSON.stringify({ id: 'invitation-inflight-1', invitee }),
-      })
-    })
-
-    await setupProjectBoard(page, projectName)
-    await openProjectMembersPanel(page)
+    await configureTestFaultsThroughApi(request, ownerSession, [{
+      method: 'POST',
+      pathPattern: '/api/projects/*/invitations',
+      statusCode: null,
+      delayMs: 1200,
+    }])
 
     const inviteeInput = page.getByLabel('邀請對象')
     const inviteButton = page.getByRole('button', { name: '邀請', exact: true })
 
-    await inviteeInput.fill(invitee)
+    await inviteeInput.fill(inviteeSession.user.email)
     await inviteButton.dblclick()
 
-    await expect.poll(() => invitationRequestCount).toBe(1)
     await expect(inviteeInput).toBeDisabled()
     await expect(inviteButton).toBeDisabled()
+    await expect(page.getByText(inviteeSession.user.email, { exact: true })).toBeVisible()
 
-    if (releaseInvitationRequest) {
-      releaseInvitationRequest()
-    }
-
-    await expect(page.getByText(invitee, { exact: true })).toBeVisible()
+    const invitations = await getProjectInvitationsThroughApi(request, ownerSession, project.id)
+    expect(invitations.filter((invitation) => invitation.invitee === inviteeSession.user.email)).toHaveLength(1)
   })
 
-  test('嘗試邀請已是目前專案成員的使用者時，顯示重複邀請錯誤訊息', async ({ page }, testInfo) => {
+  test('嘗試邀請已是目前專案成員的使用者時，顯示重複邀請錯誤訊息', async ({ page, request }, testInfo) => {
     const { projectName } = createScenarioData(testInfo)
-    const existingMember = `member-${Date.now()}@example.test`
+    const ownerSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
+    const memberSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('member'))
+    const project = await createProjectThroughApi(request, ownerSession, projectName)
 
-    await page.route(projectInvitationsRoute, async (route) => {
-      if (route.request().method() !== 'POST') {
-        await route.continue()
-        return
-      }
+    await inviteProjectMemberThroughApi(request, ownerSession, project.id, memberSession.user.email)
 
-      await route.fulfill({
-        status: 400,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          errors: {
-            invitee: ['該使用者已是目前專案成員'],
-          },
-        }),
-      })
-    })
+    const invitation = (await getInvitationInboxThroughApi(request, memberSession))[0]
+    await acceptInvitationThroughApi(request, memberSession, invitation.id)
 
-    await setupProjectBoard(page, projectName)
+    await loginAndEnterWorkspace(page, ownerSession.user)
+    await openProjectFromList(page, projectName)
     await openProjectMembersPanel(page)
 
     const inviteeInput = page.getByLabel('邀請對象')
 
-    await inviteeInput.fill(existingMember)
+    await inviteeInput.fill(memberSession.user.email)
     await page.getByRole('button', { name: '邀請', exact: true }).click()
 
     await expect(page.getByText('該使用者已是目前專案成員', { exact: true })).toBeVisible()
-    await expect(inviteeInput).toHaveValue(existingMember)
+    await expect(inviteeInput).toHaveValue(memberSession.user.email)
   })
 
-  test('邀請不存在的使用者時，顯示找不到可邀請使用者', async ({ page }, testInfo) => {
+  test('邀請不存在的使用者時，顯示找不到可邀請使用者', async ({ page, request }, testInfo) => {
     const { projectName } = createScenarioData(testInfo)
     const unknownUser = `unknown-${Date.now()}@example.test`
 
-    await page.route(projectInvitationsRoute, async (route) => {
-      if (route.request().method() !== 'POST') {
-        await route.continue()
-        return
-      }
-
-      await route.fulfill({
-        status: 400,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          errors: {
-            invitee: ['找不到可邀請的使用者'],
-          },
-        }),
-      })
-    })
-
-    await setupProjectBoard(page, projectName)
-    await openProjectMembersPanel(page)
+    await loginOwnerAndOpenMembersPanel(page, request, projectName)
 
     const inviteeInput = page.getByLabel('邀請對象')
 
@@ -232,135 +141,71 @@ test.describe('RonFlow UI/UX 驗收規格 - Project Members Behavior', () => {
     await expect(inviteeInput).toHaveValue(unknownUser)
   })
 
-  test('專案成員面板載入失敗時，顯示 section-level 錯誤訊息而不是一般內容', async ({ page }, testInfo) => {
+  test('專案成員面板載入失敗時，顯示 section-level 錯誤訊息而不是一般內容', async ({ page, request }, testInfo) => {
     const { projectName } = createScenarioData(testInfo)
+    const ownerSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
 
-    await page.route(projectMembersRoute, async (route) => {
-      if (route.request().method() !== 'GET') {
-        await route.continue()
-        return
-      }
+    await createProjectThroughApi(request, ownerSession, projectName)
+    await configureTestFaultsThroughApi(request, ownerSession, [
+      {
+        method: 'GET',
+        pathPattern: '/api/projects/*/members',
+        statusCode: 500,
+        message: 'members load failed',
+      },
+      {
+        method: 'GET',
+        pathPattern: '/api/projects/*/invitations',
+        statusCode: 500,
+        message: 'invitations load failed',
+      },
+    ])
 
-      await route.fulfill({
-        status: 500,
-        contentType: 'application/json',
-        body: JSON.stringify({ message: 'members load failed' }),
-      })
-    })
-
-    await page.route(projectInvitationsRoute, async (route) => {
-      if (route.request().method() !== 'GET') {
-        await route.continue()
-        return
-      }
-
-      await route.fulfill({
-        status: 500,
-        contentType: 'application/json',
-        body: JSON.stringify({ message: 'invitations load failed' }),
-      })
-    })
-
-    await setupProjectBoard(page, projectName)
+    await loginAndEnterWorkspace(page, ownerSession.user)
+    await openProjectFromList(page, projectName)
     await openProjectMembersPanel(page)
 
     await expect(page.getByTestId('base-error-state')).toContainText('無法載入專案成員資料，請稍後再試。')
     await expect(page.getByText('目前沒有待處理邀請', { exact: true })).toHaveCount(0)
   })
 
-  test('成員查詢成功但 invitations 查詢失敗時，保留成員區塊並顯示待處理邀請錯誤', async ({ page }, testInfo) => {
+  test('成員查詢成功但 invitations 查詢失敗時，保留成員區塊並顯示待處理邀請錯誤', async ({ page, request }, testInfo) => {
     const { projectName } = createScenarioData(testInfo)
-    const ownerName = `owner-${Date.now()}`
+    const ownerSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
 
-    await page.route(projectMembersRoute, async (route) => {
-      if (route.request().method() !== 'GET') {
-        await route.continue()
-        return
-      }
+    await createProjectThroughApi(request, ownerSession, projectName)
+    await configureTestFaultsThroughApi(request, ownerSession, [{
+      method: 'GET',
+      pathPattern: '/api/projects/*/invitations',
+      statusCode: 500,
+      message: 'invitations load failed',
+    }])
 
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          items: [{ userName: ownerName, role: '專案擁有者' }],
-        }),
-      })
-    })
-
-    await page.route(projectInvitationsRoute, async (route) => {
-      if (route.request().method() !== 'GET') {
-        await route.continue()
-        return
-      }
-
-      await route.fulfill({
-        status: 500,
-        contentType: 'application/json',
-        body: JSON.stringify({ message: 'invitations load failed' }),
-      })
-    })
-
-    await setupProjectBoard(page, projectName)
+    await loginAndEnterWorkspace(page, ownerSession.user)
+    await openProjectFromList(page, projectName)
     await openProjectMembersPanel(page)
 
-    await expect(page.getByText(ownerName, { exact: true })).toBeVisible()
+    await expect(page.getByRole('listitem').filter({ hasText: ownerSession.user.userName })).toBeVisible()
     await expect(page.getByLabel('邀請對象')).toBeVisible()
     await expect(page.getByTestId('base-error-state')).toContainText('無法載入待處理邀請，請稍後再試。')
     await expect(page.getByText('目前沒有待處理邀請', { exact: true })).toHaveCount(0)
     await expect(page.getByText('無法載入專案成員資料，請稍後再試。', { exact: true })).toHaveCount(0)
   })
 
-  test('non-owner 在專案看板上看不到成員面板入口，因此無法操作邀請', async ({ page }) => {
-    const projectId = 'member-project-1'
-    const projectName = `Member Project ${Date.now()}`
+  test('non-owner 在專案看板上看不到成員面板入口，因此無法操作邀請', async ({ page, request }, testInfo) => {
+    const { projectName } = createScenarioData(testInfo)
+    const ownerSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
+    const memberSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('member'))
+    const project = await createProjectThroughApi(request, ownerSession, projectName)
 
-    await page.route(projectsRoute, async (route) => {
-      if (route.request().method() !== 'GET') {
-        await route.continue()
-        return
-      }
+    await inviteProjectMemberThroughApi(request, ownerSession, project.id, memberSession.user.email)
 
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          items: [{
-            id: projectId,
-            name: projectName,
-            updatedAt: '2026-05-20T09:00:00Z',
-            role: '專案成員',
-          }],
-        }),
-      })
-    })
+    const invitation = (await getInvitationInboxThroughApi(request, memberSession))[0]
+    await acceptInvitationThroughApi(request, memberSession, invitation.id)
 
-    await page.route(projectBoardRoute, async (route) => {
-      if (route.request().method() !== 'GET') {
-        await route.continue()
-        return
-      }
+    await loginAndEnterWorkspace(page, memberSession.user)
+    await openProjectFromList(page, projectName)
 
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          projectId,
-          projectName,
-          columns: workflowColumns.map((column) => ({
-            stateKey: column.key,
-            label: column.label,
-            isInitialState: column.key === 'todo',
-            isCompletedState: column.key === 'done',
-            emptyStateMessage: '目前沒有任務',
-            tasks: [],
-          })),
-        }),
-      })
-    })
-
-    await registerAndEnterWorkspace(page)
-
-    await expect(page.getByRole('heading', { name: projectName })).toBeVisible()
     await expect(page.getByRole('button', { name: '專案成員', exact: true })).toHaveCount(0)
     await expect(page.getByLabel('邀請對象')).toHaveCount(0)
   })

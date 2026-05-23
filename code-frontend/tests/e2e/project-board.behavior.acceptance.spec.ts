@@ -2,9 +2,16 @@ import { expect, test } from '@playwright/test'
 import {
   createScenarioData,
   openCreateTaskModal,
+  openProjectFromList,
   setupProjectBoard,
   setupTaskBoard,
 } from './support/ronflowTestHelpers'
+import {
+  configureTestFaultsThroughApi,
+  createProjectThroughApi,
+  registerRonFlowApiUser,
+} from './support/ronflowApiTestHelpers'
+import { createRonFlowAuthUser, loginAndEnterWorkspace } from './support/ronflowAuthTestHelpers'
 
 test.describe('RonFlow UI/UX 驗收規格 - Project Board Behavior', () => {
   test('拒絕空白的任務標題', async ({ page }, testInfo) => {
@@ -21,24 +28,21 @@ test.describe('RonFlow UI/UX 驗收規格 - Project Board Behavior', () => {
     await expect(dialog).toBeVisible()
   })
 
-  test('建立任務失敗時保持對話框開啟並保留輸入內容', async ({ page }, testInfo) => {
+  test('建立任務失敗時保持對話框開啟並保留輸入內容', async ({ page, request }, testInfo) => {
     const { projectName, taskTitle } = createScenarioData(testInfo)
+    const userSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
 
-    await page.route('**/api/projects/*/tasks', async (route) => {
-      if (route.request().method() !== 'POST') {
-        await route.continue()
-        return
-      }
+    await createProjectThroughApi(request, userSession, projectName)
+    await configureTestFaultsThroughApi(request, userSession, [{
+      method: 'POST',
+      pathPattern: '/api/projects/*/tasks',
+      statusCode: 500,
+      delayMs: 600,
+      message: 'create failed',
+    }])
 
-      await new Promise((resolve) => setTimeout(resolve, 300))
-      await route.fulfill({
-        status: 500,
-        contentType: 'application/json',
-        body: JSON.stringify({ message: 'create failed' }),
-      })
-    })
-
-    await setupProjectBoard(page, projectName)
+    await loginAndEnterWorkspace(page, userSession.user)
+    await openProjectFromList(page, projectName)
     await openCreateTaskModal(page)
 
     const dialog = page.getByRole('dialog', { name: '建立任務' })
