@@ -277,6 +277,13 @@ internal sealed class TestProjectRepository : IProjectRepository
             .ToArray();
     }
 
+    public IReadOnlyList<Project> GetAll()
+    {
+        return projects.Values
+            .OrderByDescending(project => project.UpdatedAt)
+            .ToArray();
+    }
+
     public void Add(Project project)
     {
         projects.Add(project.Id, project);
