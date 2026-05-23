@@ -41,6 +41,9 @@ public sealed class ProjectInvitationApiIntegrationTests : ApiIntegrationTestBas
         var project = await CreateProjectAsync("RonFlow Project");
         using var inviteeClient = CreateAuthenticatedClient(TestUser.OwnerB);
 
+        await EnsureKnownUserAsync(Client);
+        await EnsureKnownUserAsync(inviteeClient);
+
         await InviteMemberAsync(project.Id, TestUser.OwnerB.Email);
 
         var pendingInvitationsResponse = await Client.GetAsync($"/api/projects/{project.Id}/invitations");
@@ -77,6 +80,9 @@ public sealed class ProjectInvitationApiIntegrationTests : ApiIntegrationTestBas
         var project = await CreateProjectAsync("RonFlow Project");
         using var inviteeClient = CreateAuthenticatedClient(TestUser.OwnerB);
 
+        await EnsureKnownUserAsync(Client);
+        await EnsureKnownUserAsync(inviteeClient);
+
         var createdInvitation = await InviteMemberAsync(project.Id, TestUser.OwnerB.Email);
 
         var invitationInboxResponse = await inviteeClient.GetAsync("/api/invitations");
@@ -111,6 +117,7 @@ public sealed class ProjectInvitationApiIntegrationTests : ApiIntegrationTestBas
         Assert.That(inviteeProjectsResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
         Assert.That(inviteeProjects, Is.Not.Null);
         Assert.That(inviteeProjects!.Items.Select(item => item.Id), Does.Contain(project.Id));
+        Assert.That(inviteeProjects.Items.Single(item => item.Id == project.Id).Role, Is.EqualTo("專案成員"));
 
         var inviteeBoardResponse = await inviteeClient.GetAsync($"/api/projects/{project.Id}/board");
 
@@ -122,6 +129,9 @@ public sealed class ProjectInvitationApiIntegrationTests : ApiIntegrationTestBas
     {
         var project = await CreateProjectAsync("RonFlow Project");
         using var inviteeClient = CreateAuthenticatedClient(TestUser.OwnerB);
+
+        await EnsureKnownUserAsync(Client);
+        await EnsureKnownUserAsync(inviteeClient);
 
         var createdInvitation = await InviteMemberAsync(project.Id, TestUser.OwnerB.Email);
 
@@ -154,6 +164,9 @@ public sealed class ProjectInvitationApiIntegrationTests : ApiIntegrationTestBas
         var project = await CreateProjectAsync("RonFlow Project");
         using var inviteeClient = CreateAuthenticatedClient(TestUser.OwnerB);
 
+        await EnsureKnownUserAsync(Client);
+        await EnsureKnownUserAsync(inviteeClient);
+
         var createdInvitation = await InviteMemberAsync(project.Id, TestUser.OwnerB.Email);
         var acceptResponse = await inviteeClient.PostAsync($"/api/invitations/{createdInvitation.Id}/accept", content: null);
 
@@ -168,7 +181,7 @@ public sealed class ProjectInvitationApiIntegrationTests : ApiIntegrationTestBas
         var errors = await ReadValidationErrorsAsync(reinviteResponse);
 
         Assert.That(errors, Does.ContainKey("invitee"));
-        Assert.That(errors["invitee"], Does.Contain("該使用者已是目前 Project Member"));
+        Assert.That(errors["invitee"], Does.Contain("該使用者已是目前專案成員"));
     }
 
     [Test]
@@ -176,6 +189,9 @@ public sealed class ProjectInvitationApiIntegrationTests : ApiIntegrationTestBas
     {
         var project = await CreateProjectAsync("RonFlow Project");
         using var memberClient = CreateAuthenticatedClient(TestUser.OwnerB);
+
+        await EnsureKnownUserAsync(Client);
+        await EnsureKnownUserAsync(memberClient);
 
         var createdInvitation = await InviteMemberAsync(project.Id, TestUser.OwnerB.Email);
         var acceptResponse = await memberClient.PostAsync($"/api/invitations/{createdInvitation.Id}/accept", content: null);
@@ -191,5 +207,60 @@ public sealed class ProjectInvitationApiIntegrationTests : ApiIntegrationTestBas
         await AssertAccessDeniedAsync(membersResponse);
         await AssertAccessDeniedAsync(invitationsResponse);
         await AssertAccessDeniedAsync(inviteResponse);
+    }
+
+    [Test]
+    public async Task InviteProjectMember_WhenInviteeIsUnknown_ReturnsValidationError()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+
+        await EnsureKnownUserAsync(Client);
+
+        var inviteResponse = await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/invitations",
+            new CreateProjectInvitationRequest("unknown-user@example.test"));
+
+        Assert.That(inviteResponse.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+
+        var errors = await ReadValidationErrorsAsync(inviteResponse);
+
+        Assert.That(errors, Does.ContainKey("invitee"));
+        Assert.That(errors["invitee"], Does.Contain("找不到可邀請的使用者"));
+    }
+
+    [Test]
+    public async Task AcceptInvitation_WhenAlreadyAccepted_ReturnsConflict()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        using var inviteeClient = CreateAuthenticatedClient(TestUser.OwnerB);
+
+        await EnsureKnownUserAsync(Client);
+        await EnsureKnownUserAsync(inviteeClient);
+
+        var createdInvitation = await InviteMemberAsync(project.Id, TestUser.OwnerB.Email);
+
+        var firstAcceptResponse = await inviteeClient.PostAsync($"/api/invitations/{createdInvitation.Id}/accept", content: null);
+        var secondAcceptResponse = await inviteeClient.PostAsync($"/api/invitations/{createdInvitation.Id}/accept", content: null);
+
+        Assert.That(firstAcceptResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(secondAcceptResponse.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+    }
+
+    [Test]
+    public async Task RejectInvitation_WhenAlreadyRejected_ReturnsNotFound()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        using var inviteeClient = CreateAuthenticatedClient(TestUser.OwnerB);
+
+        await EnsureKnownUserAsync(Client);
+        await EnsureKnownUserAsync(inviteeClient);
+
+        var createdInvitation = await InviteMemberAsync(project.Id, TestUser.OwnerB.Email);
+
+        var firstRejectResponse = await inviteeClient.PostAsync($"/api/invitations/{createdInvitation.Id}/reject", content: null);
+        var secondRejectResponse = await inviteeClient.PostAsync($"/api/invitations/{createdInvitation.Id}/reject", content: null);
+
+        Assert.That(firstRejectResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(secondRejectResponse.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
     }
 }

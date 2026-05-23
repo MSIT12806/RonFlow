@@ -50,6 +50,18 @@ public abstract class ApiIntegrationTestBase
         return client;
     }
 
+    protected async Task EnsureKnownUserAsync(HttpClient client)
+    {
+        var response = await client.GetAsync("/api/projects");
+        response.EnsureSuccessStatusCode();
+    }
+
+    protected Task EnsureKnownUserAsync(TestUser user)
+    {
+        using var client = CreateAuthenticatedClient(user);
+        return EnsureKnownUserAsync(client);
+    }
+
     protected async Task<ProjectResponse> CreateProjectAsync(string name)
     {
         var response = await Client.PostAsJsonAsync("/api/projects", new CreateProjectRequest(name));

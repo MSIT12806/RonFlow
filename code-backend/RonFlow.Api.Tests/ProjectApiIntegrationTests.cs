@@ -34,6 +34,9 @@ public sealed class ProjectApiIntegrationTests : ApiIntegrationTestBase
     {
         using var outsiderClient = CreateAuthenticatedClient(TestUser.OwnerB);
 
+        await EnsureKnownUserAsync(Client);
+        await EnsureKnownUserAsync(outsiderClient);
+
         var ownerProject = await CreateProjectAsync(Client, "Owner A Project");
         var outsiderProject = await CreateProjectAsync(outsiderClient, "Owner B Project");
 
@@ -50,6 +53,8 @@ public sealed class ProjectApiIntegrationTests : ApiIntegrationTestBase
         Assert.That(outsiderPayload, Is.Not.Null);
         Assert.That(ownerPayload!.Items.Select(item => item.Id), Is.EqualTo(new[] { ownerProject.Id }));
         Assert.That(outsiderPayload!.Items.Select(item => item.Id), Is.EqualTo(new[] { outsiderProject.Id }));
+        Assert.That(ownerPayload.Items.Single().Role, Is.EqualTo("專案擁有者"));
+        Assert.That(outsiderPayload.Items.Single().Role, Is.EqualTo("專案擁有者"));
     }
 
     [Test]
