@@ -13,6 +13,7 @@
 - RonFlow 的 Clean Architecture 實踐：`ronflow-clean-architecture.md`
 - RonFlow 的 DDD 實踐：`ronflow-ddd.md`
 - RonFlow 的 CQRS 實踐：`ronflow-cqrs.md`
+- RonFlow 的 Testing-only HTTP fault injection 實踐：`ronflow-testing-http-fault-injection.md`
 - RonFlow 的 office system level 通知實踐：`ronflow-office-level-notifications.md`
 - RonFlow 的 Background Service 實踐：`ronflow-background-service.md`
 - RonFlow x RonAuth supporting domain 結合互動：`ronflow-ronauth-domain-integration.md`

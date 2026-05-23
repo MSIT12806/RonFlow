@@ -10,6 +10,8 @@
 - [x] background service
 - [x] 實現 RonFlow 與 RonAuth supporting domain 的結合互動
     - 以前端 RonAuth SDK + 後端 JWT trust 建立跨 bounded context 的協作邊界
+- [x] 實作 Testing-only HTTP fault injection
+    - 讓前端 E2E 仍然打真實 API，但可由後端 middleware 受控地回傳指定 status code、message 與 delay
 
 ### what?
 這是 AI 認為是特點，但是我不知道裡面實作細節的東西。
@@ -31,6 +33,7 @@
 - [ ] 多租戶 / workspace 邊界
 - [ ] html editor / markdown editor
 - [ ] 檔案附件 / 物件儲存
+- [ ] 部署到正式機的流程，例如 Docker、Health Check 等等
 
 ### maybe
 - [ ] 支援 android app
