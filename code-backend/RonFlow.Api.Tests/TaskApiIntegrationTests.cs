@@ -1,11 +1,14 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Security.Claims;
 using RonFlow.Api.Contracts;
 
 namespace RonFlow.Api.Tests;
 
 public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
 {
+    public sealed record ProjectInvitationResponse(Guid Id, string Invitee, string Status);
+
     public sealed record LifecycleTaskListResponse(IReadOnlyList<LifecycleTaskListItemResponse> Items);
 
     public sealed record LifecycleTaskListItemResponse(
@@ -62,6 +65,7 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
         Assert.That(task.Title, Is.EqualTo("Build Kanban Board"));
         Assert.That(task.CurrentState.Key, Is.EqualTo("todo"));
         Assert.That(task.CurrentState.Label, Is.EqualTo("待處理"));
+        Assert.That(task.LifecycleState, Is.EqualTo("activeRecord"));
 
         var boardResponse = await Client.GetAsync($"/api/projects/{project.Id}/board");
         var board = await boardResponse.Content.ReadFromJsonAsync<ProjectBoardResponse>();
@@ -91,8 +95,339 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
         Assert.That(task!.Id, Is.EqualTo(createdTask.Id));
         Assert.That(task.Title, Is.EqualTo("Build Kanban Board"));
         Assert.That(task.CurrentState.Label, Is.EqualTo("待處理"));
+        Assert.That(task.LifecycleState, Is.EqualTo("activeRecord"));
         Assert.That(task.CompletedAt, Is.Null);
         Assert.That(task.ActivityTimeline.Select(item => item.Message), Does.Contain("已建立任務"));
+        Assert.That(task.CanEnterEdit, Is.True);
+    }
+
+    [Test]
+    public async Task GetTaskDetail_WhenOldRonFlowSessionIsInvalidated_ReturnsUnauthorized()
+    {
+        using var firstSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-task-detail-session-1");
+        using var secondSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-task-detail-session-2");
+
+        await EnsureKnownUserAsync(firstSessionClient);
+        await EnsureKnownUserAsync(secondSessionClient);
+
+        var project = await CreateProjectAsync(firstSessionClient, "RonFlow Project");
+        var createdTask = await CreateTaskAsync(firstSessionClient, project.Id, "Build Kanban Board");
+
+        await ActivateSessionAsync(firstSessionClient);
+        await ActivateSessionAsync(secondSessionClient);
+
+        var response = await firstSessionClient.GetAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}");
+
+        await AssertSessionInvalidatedAsync(response);
+    }
+
+    [Test]
+    public async Task GetTaskDetail_WhenAnotherUserHoldsContentEditLock_ReturnsCanEnterEditFalseAndAcquireReturnsConflict()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var createdTask = await CreateTaskAsync(project.Id, "Build Kanban Board");
+        using var memberClient = CreateAuthenticatedClient(TestUser.OwnerB);
+
+        await EnsureKnownUserAsync(Client);
+        await EnsureKnownUserAsync(memberClient);
+
+        var invitationResponse = await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/invitations",
+            new CreateProjectInvitationRequest(TestUser.OwnerB.Email));
+
+        Assert.That(invitationResponse.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+
+        var invitation = await invitationResponse.Content.ReadFromJsonAsync<ProjectInvitationResponse>();
+        Assert.That(invitation, Is.Not.Null);
+
+        var acceptResponse = await memberClient.PostAsync($"/api/invitations/{invitation!.Id}/accept", content: null);
+        Assert.That(acceptResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var acquireResponse = await Client.PostAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}/content-edit-lock", content: null);
+        Assert.That(acquireResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var memberDetailResponse = await memberClient.GetAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}");
+        var memberTask = await memberDetailResponse.Content.ReadFromJsonAsync<TaskDetailResponse>();
+
+        Assert.That(memberDetailResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(memberTask, Is.Not.Null);
+        Assert.That(memberTask!.CanEnterEdit, Is.False);
+
+        var memberAcquireResponse = await memberClient.PostAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}/content-edit-lock", content: null);
+        Assert.That(memberAcquireResponse.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+    }
+
+    [Test]
+    public async Task ContentEditLock_WhenOwnerReleasesLock_OtherMemberCanEnterEditAndAcquireSuccessfully()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var createdTask = await CreateTaskAsync(project.Id, "Build Kanban Board");
+        using var memberClient = CreateAuthenticatedClient(TestUser.OwnerB);
+
+        await EnsureKnownUserAsync(Client);
+        await EnsureKnownUserAsync(memberClient);
+
+        var invitationResponse = await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/invitations",
+            new CreateProjectInvitationRequest(TestUser.OwnerB.Email));
+
+        Assert.That(invitationResponse.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+
+        var invitation = await invitationResponse.Content.ReadFromJsonAsync<ProjectInvitationResponse>();
+        Assert.That(invitation, Is.Not.Null);
+
+        var acceptResponse = await memberClient.PostAsync($"/api/invitations/{invitation!.Id}/accept", content: null);
+        Assert.That(acceptResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var ownerAcquireResponse = await Client.PostAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}/content-edit-lock", content: null);
+        Assert.That(ownerAcquireResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var ownerReleaseResponse = await Client.DeleteAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}/content-edit-lock");
+        Assert.That(ownerReleaseResponse.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
+
+        var memberDetailResponse = await memberClient.GetAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}");
+        var memberTask = await memberDetailResponse.Content.ReadFromJsonAsync<TaskDetailResponse>();
+
+        Assert.That(memberDetailResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(memberTask, Is.Not.Null);
+        Assert.That(memberTask!.CanEnterEdit, Is.True);
+
+        var memberAcquireResponse = await memberClient.PostAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}/content-edit-lock", content: null);
+        Assert.That(memberAcquireResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+    }
+
+    [Test]
+    public async Task ContentEditLock_WhenNewRonFlowSessionForSameUserBecomesActive_ReleasesOldSessionLock()
+    {
+        using var firstSessionClient = CreateAuthenticatedClient(
+            TestUser.OwnerA,
+            new Claim("ronflow_session_id", "owner-a-session-1"));
+        using var secondSessionClient = CreateAuthenticatedClient(
+            TestUser.OwnerA,
+            new Claim("ronflow_session_id", "owner-a-session-2"));
+        using var memberClient = CreateAuthenticatedClient(TestUser.OwnerB);
+
+        await EnsureKnownUserAsync(firstSessionClient);
+        await EnsureKnownUserAsync(secondSessionClient);
+        await EnsureKnownUserAsync(memberClient);
+
+        var project = await CreateProjectAsync(firstSessionClient, "RonFlow Project");
+        var createdTask = await CreateTaskAsync(firstSessionClient, project.Id, "Build Kanban Board");
+
+        var invitationResponse = await firstSessionClient.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/invitations",
+            new CreateProjectInvitationRequest(TestUser.OwnerB.Email));
+
+        Assert.That(invitationResponse.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+
+        var invitation = await invitationResponse.Content.ReadFromJsonAsync<ProjectInvitationResponse>();
+        Assert.That(invitation, Is.Not.Null);
+
+        var acceptResponse = await memberClient.PostAsync($"/api/invitations/{invitation!.Id}/accept", content: null);
+        Assert.That(acceptResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var firstAcquireResponse = await firstSessionClient.PostAsync(
+            $"/api/projects/{project.Id}/tasks/{createdTask.Id}/content-edit-lock",
+            content: null);
+
+        var firstSessionActivationResponse = await firstSessionClient.PostAsync("/api/session/activate", content: null);
+        Assert.That(firstSessionActivationResponse.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
+
+        firstAcquireResponse = await firstSessionClient.PostAsync(
+            $"/api/projects/{project.Id}/tasks/{createdTask.Id}/content-edit-lock",
+            content: null);
+
+        Assert.That(firstAcquireResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var secondSessionActivationResponse = await secondSessionClient.PostAsync("/api/session/activate", content: null);
+        Assert.That(secondSessionActivationResponse.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
+
+        var memberDetailResponse = await memberClient.GetAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}");
+        var memberTask = await memberDetailResponse.Content.ReadFromJsonAsync<TaskDetailResponse>();
+
+        Assert.That(memberDetailResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(memberTask, Is.Not.Null);
+        Assert.That(memberTask!.CanEnterEdit, Is.True);
+
+        var memberAcquireResponse = await memberClient.PostAsync(
+            $"/api/projects/{project.Id}/tasks/{createdTask.Id}/content-edit-lock",
+            content: null);
+
+        Assert.That(memberAcquireResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+    }
+
+    [Test]
+    public async Task ContentEditLock_WhenOwnerSwitchesToAnotherProject_ReleasesOldProjectLockForOtherMember()
+    {
+        using var ownerSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-project-switch-lock-session");
+        using var memberClient = CreateAuthenticatedClient(TestUser.OwnerB);
+
+        await EnsureKnownUserAsync(ownerSessionClient);
+        await EnsureKnownUserAsync(memberClient);
+        await ActivateSessionAsync(ownerSessionClient);
+
+        var sourceProject = await CreateProjectAsync(ownerSessionClient, "Lock Source Project");
+        var targetProject = await CreateProjectAsync(ownerSessionClient, "Lock Target Project");
+        var createdTask = await CreateTaskAsync(ownerSessionClient, sourceProject.Id, "Build Kanban Board");
+
+        var invitationResponse = await ownerSessionClient.PostAsJsonAsync(
+            $"/api/projects/{sourceProject.Id}/invitations",
+            new CreateProjectInvitationRequest(TestUser.OwnerB.Email));
+
+        Assert.That(invitationResponse.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+
+        var invitation = await invitationResponse.Content.ReadFromJsonAsync<ProjectInvitationResponse>();
+        Assert.That(invitation, Is.Not.Null);
+
+        var acceptResponse = await memberClient.PostAsync($"/api/invitations/{invitation!.Id}/accept", content: null);
+        Assert.That(acceptResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var sourceBoardResponse = await ownerSessionClient.GetAsync($"/api/projects/{sourceProject.Id}/board");
+        Assert.That(sourceBoardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var ownerAcquireResponse = await ownerSessionClient.PostAsync(
+            $"/api/projects/{sourceProject.Id}/tasks/{createdTask.Id}/content-edit-lock",
+            content: null);
+        Assert.That(ownerAcquireResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var memberDetailBeforeSwitchResponse = await memberClient.GetAsync($"/api/projects/{sourceProject.Id}/tasks/{createdTask.Id}");
+        var memberTaskBeforeSwitch = await memberDetailBeforeSwitchResponse.Content.ReadFromJsonAsync<TaskDetailResponse>();
+
+        Assert.That(memberDetailBeforeSwitchResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(memberTaskBeforeSwitch, Is.Not.Null);
+        Assert.That(memberTaskBeforeSwitch!.CanEnterEdit, Is.False);
+
+        await ReleaseProjectScopeAsync(ownerSessionClient);
+
+        var targetBoardResponse = await ownerSessionClient.GetAsync($"/api/projects/{targetProject.Id}/board");
+        Assert.That(targetBoardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var memberDetailAfterSwitchResponse = await memberClient.GetAsync($"/api/projects/{sourceProject.Id}/tasks/{createdTask.Id}");
+        var memberTaskAfterSwitch = await memberDetailAfterSwitchResponse.Content.ReadFromJsonAsync<TaskDetailResponse>();
+
+        Assert.That(memberDetailAfterSwitchResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(memberTaskAfterSwitch, Is.Not.Null);
+        Assert.That(memberTaskAfterSwitch!.CanEnterEdit, Is.True);
+
+        var memberAcquireResponse = await memberClient.PostAsync(
+            $"/api/projects/{sourceProject.Id}/tasks/{createdTask.Id}/content-edit-lock",
+            content: null);
+
+        Assert.That(memberAcquireResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+    }
+
+    [Test]
+    public async Task AcquireContentEditLock_WhenOldRonFlowSessionIsInvalidated_ReturnsUnauthorized()
+    {
+        using var firstSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-lock-acquire-session-1");
+        using var secondSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-lock-acquire-session-2");
+
+        await EnsureKnownUserAsync(firstSessionClient);
+        await EnsureKnownUserAsync(secondSessionClient);
+
+        var project = await CreateProjectAsync(firstSessionClient, "RonFlow Project");
+        var createdTask = await CreateTaskAsync(firstSessionClient, project.Id, "Build Kanban Board");
+
+        await ActivateSessionAsync(firstSessionClient);
+        await ActivateSessionAsync(secondSessionClient);
+
+        var response = await firstSessionClient.PostAsync(
+            $"/api/projects/{project.Id}/tasks/{createdTask.Id}/content-edit-lock",
+            content: null);
+
+        await AssertSessionInvalidatedAsync(response);
+    }
+
+    [Test]
+    public async Task ReleaseContentEditLock_WhenOldRonFlowSessionIsInvalidated_ReturnsUnauthorized()
+    {
+        using var firstSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-lock-release-session-1");
+        using var secondSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-lock-release-session-2");
+
+        await EnsureKnownUserAsync(firstSessionClient);
+        await EnsureKnownUserAsync(secondSessionClient);
+
+        var project = await CreateProjectAsync(firstSessionClient, "RonFlow Project");
+        var createdTask = await CreateTaskAsync(firstSessionClient, project.Id, "Build Kanban Board");
+
+        await ActivateSessionAsync(firstSessionClient);
+
+        var acquireResponse = await firstSessionClient.PostAsync(
+            $"/api/projects/{project.Id}/tasks/{createdTask.Id}/content-edit-lock",
+            content: null);
+        Assert.That(acquireResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        await ActivateSessionAsync(secondSessionClient);
+
+        var response = await firstSessionClient.DeleteAsync(
+            $"/api/projects/{project.Id}/tasks/{createdTask.Id}/content-edit-lock");
+
+        await AssertSessionInvalidatedAsync(response);
+    }
+
+    [Test]
+    public async Task UpdateTask_WhenCallerHasNotAcquiredContentEditLock_ReturnsConflict()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var createdTask = await CreateTaskAsync(project.Id, "Build Kanban Board");
+
+        var response = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{createdTask.Id}",
+            new UpdateTaskRequest("Updated Title", "Updated Description", new DateOnly(2026, 5, 20)));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+    }
+
+    [Test]
+    public async Task ChangeTaskState_WhenOldRonFlowSessionIsInvalidated_ReturnsUnauthorized()
+    {
+        using var firstSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-task-session-1");
+        using var secondSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-task-session-2");
+
+        await EnsureKnownUserAsync(firstSessionClient);
+        await EnsureKnownUserAsync(secondSessionClient);
+
+        var project = await CreateProjectAsync(firstSessionClient, "RonFlow Project");
+        var createdTask = await CreateTaskAsync(firstSessionClient, project.Id, "Build Kanban Board");
+
+        await ActivateSessionAsync(firstSessionClient);
+        await ActivateSessionAsync(secondSessionClient);
+
+        var response = await firstSessionClient.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{createdTask.Id}/state",
+            new ChangeTaskStateRequest("active"));
+
+        await AssertSessionInvalidatedAsync(response);
+    }
+
+    [Test]
+    public async Task ArchiveTask_WhenAnotherUserHoldsContentEditLock_ReturnsConflict()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var createdTask = await CreateTaskAsync(project.Id, "Build Kanban Board");
+        using var memberClient = CreateAuthenticatedClient(TestUser.OwnerB);
+
+        await EnsureKnownUserAsync(Client);
+        await EnsureKnownUserAsync(memberClient);
+
+        var invitationResponse = await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/invitations",
+            new CreateProjectInvitationRequest(TestUser.OwnerB.Email));
+
+        Assert.That(invitationResponse.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+
+        var invitation = await invitationResponse.Content.ReadFromJsonAsync<ProjectInvitationResponse>();
+        Assert.That(invitation, Is.Not.Null);
+
+        var acceptResponse = await memberClient.PostAsync($"/api/invitations/{invitation!.Id}/accept", content: null);
+        Assert.That(acceptResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var ownerAcquireResponse = await Client.PostAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}/content-edit-lock", content: null);
+        Assert.That(ownerAcquireResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var archiveResponse = await memberClient.PatchAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}/archive", content: null);
+
+        Assert.That(archiveResponse.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
     }
 
     [Test]
@@ -296,6 +631,7 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
 
         Assert.That(archivedTask, Is.Not.Null);
         Assert.That(archivedTask!.CurrentState.Key, Is.EqualTo("todo"));
+        Assert.That(archivedTask.LifecycleState, Is.EqualTo("archived"));
         Assert.That(archivedTask.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskArchived"));
 
         var boardResponse = await Client.GetAsync($"/api/projects/{project.Id}/board");
@@ -342,6 +678,7 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
 
         Assert.That(restoredTask, Is.Not.Null);
         Assert.That(restoredTask!.CurrentState.Key, Is.EqualTo("todo"));
+        Assert.That(restoredTask.LifecycleState, Is.EqualTo("activeRecord"));
         Assert.That(restoredTask.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskRestoredFromArchive"));
 
         var boardResponse = await Client.GetAsync($"/api/projects/{project.Id}/board");
@@ -382,6 +719,7 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
 
         Assert.That(trashedTask, Is.Not.Null);
         Assert.That(trashedTask!.CurrentState.Key, Is.EqualTo("todo"));
+        Assert.That(trashedTask.LifecycleState, Is.EqualTo("trashed"));
         Assert.That(trashedTask.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskMovedToTrash"));
 
         var boardResponse = await Client.GetAsync($"/api/projects/{project.Id}/board");
@@ -428,6 +766,7 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
 
         Assert.That(restoredTask, Is.Not.Null);
         Assert.That(restoredTask!.CurrentState.Key, Is.EqualTo("todo"));
+        Assert.That(restoredTask.LifecycleState, Is.EqualTo("activeRecord"));
         Assert.That(restoredTask.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskRestoredFromTrash"));
 
         var boardResponse = await Client.GetAsync($"/api/projects/{project.Id}/board");

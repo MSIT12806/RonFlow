@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using RonFlow.Api.Contracts;
 
 namespace RonFlow.Api.Tests;
@@ -20,6 +21,34 @@ public sealed class ProjectInvitationApiIntegrationTests : ApiIntegrationTestBas
 
     private sealed record InvitationInboxResponse(IReadOnlyList<InvitationInboxItemResponse> Items);
 
+    private static async Task<JsonDocument> ReadJsonDocumentAsync(HttpResponseMessage response)
+    {
+        await using var stream = await response.Content.ReadAsStreamAsync();
+        return await JsonDocument.ParseAsync(stream);
+    }
+
+    private static IReadOnlyList<string> ReadOnlineUserNames(JsonDocument payload)
+    {
+        Assert.That(
+            payload.RootElement.TryGetProperty("onlineUsers", out var onlineUsers),
+            Is.True,
+            "Expected members response to include onlineUsers.");
+
+        return onlineUsers
+            .EnumerateArray()
+            .Select(item =>
+            {
+                Assert.That(
+                    item.TryGetProperty("userName", out var userName),
+                    Is.True,
+                    "Expected each onlineUsers item to include userName.");
+
+                return userName.GetString();
+            })
+            .OfType<string>()
+            .ToArray();
+    }
+
     private async Task<ProjectInvitationResponse> InviteMemberAsync(Guid projectId, string inviteeEmail)
     {
         var inviteResponse = await Client.PostAsJsonAsync(
@@ -33,6 +62,268 @@ public sealed class ProjectInvitationApiIntegrationTests : ApiIntegrationTestBas
         Assert.That(invitation, Is.Not.Null);
 
         return invitation!;
+    }
+
+    private static async Task<ProjectInvitationResponse> InviteMemberAsync(HttpClient client, Guid projectId, string inviteeEmail)
+    {
+        var inviteResponse = await client.PostAsJsonAsync(
+            $"/api/projects/{projectId}/invitations",
+            new CreateProjectInvitationRequest(inviteeEmail));
+
+        Assert.That(inviteResponse.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+
+        var invitation = await inviteResponse.Content.ReadFromJsonAsync<ProjectInvitationResponse>();
+
+        Assert.That(invitation, Is.Not.Null);
+
+        return invitation!;
+    }
+
+    [Test]
+    public async Task GetInvitationInbox_WhenOldRonFlowSessionIsInvalidated_ReturnsUnauthorized()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        using var firstSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerB, "owner-b-inbox-session-1");
+        using var secondSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerB, "owner-b-inbox-session-2");
+
+        await EnsureKnownUserAsync(Client);
+        await EnsureKnownUserAsync(firstSessionClient);
+        await EnsureKnownUserAsync(secondSessionClient);
+
+        await InviteMemberAsync(project.Id, TestUser.OwnerB.Email);
+
+        await ActivateSessionAsync(firstSessionClient);
+        await ActivateSessionAsync(secondSessionClient);
+
+        var response = await firstSessionClient.GetAsync("/api/invitations");
+
+        await AssertSessionInvalidatedAsync(response);
+    }
+
+    [Test]
+    public async Task GetProjectMembers_WhenAcceptedMemberIsInProjectScope_ReturnsOnlineUsers()
+    {
+        using var ownerSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-members-presence-session");
+        using var memberSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerB, "owner-b-presence-session-1");
+        using var memberBootstrapClient = CreateAuthenticatedClient(TestUser.OwnerB);
+
+        await EnsureKnownUserAsync(memberBootstrapClient);
+
+        await ActivateSessionAsync(ownerSessionClient);
+        await ActivateSessionAsync(memberSessionClient);
+
+        var project = await CreateProjectAsync("RonFlow Project");
+        var invitation = await InviteMemberAsync(project.Id, TestUser.OwnerB.Email);
+        var acceptResponse = await memberSessionClient.PostAsync($"/api/invitations/{invitation.Id}/accept", content: null);
+
+        Assert.That(acceptResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var enterProjectResponse = await memberSessionClient.GetAsync($"/api/projects/{project.Id}/board");
+
+        Assert.That(enterProjectResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var membersResponse = await ownerSessionClient.GetAsync($"/api/projects/{project.Id}/members");
+
+        Assert.That(membersResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        using var payload = await ReadJsonDocumentAsync(membersResponse);
+        var onlineUserNames = ReadOnlineUserNames(payload);
+
+        Assert.That(onlineUserNames, Does.Contain(TestUser.OwnerB.UserName));
+    }
+
+    [Test]
+    public async Task GetProjectMembers_WhenAcceptedMemberOldSessionIsInvalidatedByNewSession_RemovesOldSessionPresence()
+    {
+        using var ownerSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-members-presence-observer-session");
+        using var memberSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerB, "owner-b-presence-session-1");
+        using var replacementSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerB, "owner-b-presence-session-2");
+        using var memberBootstrapClient = CreateAuthenticatedClient(TestUser.OwnerB);
+
+        await EnsureKnownUserAsync(memberBootstrapClient);
+
+        await ActivateSessionAsync(ownerSessionClient);
+        await ActivateSessionAsync(memberSessionClient);
+
+        var project = await CreateProjectAsync("RonFlow Project");
+        var invitation = await InviteMemberAsync(project.Id, TestUser.OwnerB.Email);
+        var acceptResponse = await memberSessionClient.PostAsync($"/api/invitations/{invitation.Id}/accept", content: null);
+
+        Assert.That(acceptResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var enterProjectResponse = await memberSessionClient.GetAsync($"/api/projects/{project.Id}/board");
+
+        Assert.That(enterProjectResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var beforeInvalidationResponse = await ownerSessionClient.GetAsync($"/api/projects/{project.Id}/members");
+
+        Assert.That(beforeInvalidationResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        using (var beforePayload = await ReadJsonDocumentAsync(beforeInvalidationResponse))
+        {
+            var onlineUserNames = ReadOnlineUserNames(beforePayload);
+            Assert.That(onlineUserNames, Does.Contain(TestUser.OwnerB.UserName));
+        }
+
+        await ActivateSessionAsync(replacementSessionClient);
+
+        var afterInvalidationResponse = await ownerSessionClient.GetAsync($"/api/projects/{project.Id}/members");
+
+        Assert.That(afterInvalidationResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        using var afterPayload = await ReadJsonDocumentAsync(afterInvalidationResponse);
+        var onlineUserNamesAfterInvalidation = ReadOnlineUserNames(afterPayload);
+
+        Assert.That(onlineUserNamesAfterInvalidation, Does.Not.Contain(TestUser.OwnerB.UserName));
+    }
+
+    [Test]
+    public async Task ReleaseProjectScope_WhenAcceptedMemberLeavesProjectScope_RemovesPresenceFromOnlineUsers()
+    {
+        using var ownerSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-members-presence-observer-session");
+        using var memberSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerB, "owner-b-project-scope-session-1");
+        using var memberBootstrapClient = CreateAuthenticatedClient(TestUser.OwnerB);
+
+        await EnsureKnownUserAsync(memberBootstrapClient);
+
+        await ActivateSessionAsync(ownerSessionClient);
+        await ActivateSessionAsync(memberSessionClient);
+
+        var project = await CreateProjectAsync("RonFlow Project");
+        var invitation = await InviteMemberAsync(project.Id, TestUser.OwnerB.Email);
+        var acceptResponse = await memberSessionClient.PostAsync($"/api/invitations/{invitation.Id}/accept", content: null);
+
+        Assert.That(acceptResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var enterProjectResponse = await memberSessionClient.GetAsync($"/api/projects/{project.Id}/board");
+
+        Assert.That(enterProjectResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var beforeLeavingResponse = await ownerSessionClient.GetAsync($"/api/projects/{project.Id}/members");
+
+        Assert.That(beforeLeavingResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        using (var beforePayload = await ReadJsonDocumentAsync(beforeLeavingResponse))
+        {
+            var onlineUserNames = ReadOnlineUserNames(beforePayload);
+            Assert.That(onlineUserNames, Does.Contain(TestUser.OwnerB.UserName));
+        }
+
+        await ReleaseProjectScopeAsync(memberSessionClient);
+
+        var afterLeavingResponse = await ownerSessionClient.GetAsync($"/api/projects/{project.Id}/members");
+
+        Assert.That(afterLeavingResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        using var afterPayload = await ReadJsonDocumentAsync(afterLeavingResponse);
+        var onlineUserNamesAfterLeaving = ReadOnlineUserNames(afterPayload);
+
+        Assert.That(onlineUserNamesAfterLeaving, Does.Not.Contain(TestUser.OwnerB.UserName));
+    }
+
+    [Test]
+    public async Task GetProjectMembers_WhenAcceptedMemberOpensTaskDetailWithinProjectScope_KeepsPresenceInOnlineUsers()
+    {
+        using var ownerSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-members-presence-observer-session");
+        using var memberSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerB, "owner-b-task-detail-project-scope-session-1");
+        using var memberBootstrapClient = CreateAuthenticatedClient(TestUser.OwnerB);
+
+        await EnsureKnownUserAsync(memberBootstrapClient);
+
+        await ActivateSessionAsync(ownerSessionClient);
+        await ActivateSessionAsync(memberSessionClient);
+
+        var project = await CreateProjectAsync("RonFlow Project");
+        var createdTask = await CreateTaskAsync(project.Id, "Build Kanban Board");
+        var invitation = await InviteMemberAsync(project.Id, TestUser.OwnerB.Email);
+        var acceptResponse = await memberSessionClient.PostAsync($"/api/invitations/{invitation.Id}/accept", content: null);
+
+        Assert.That(acceptResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var boardResponse = await memberSessionClient.GetAsync($"/api/projects/{project.Id}/board");
+        Assert.That(boardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var taskDetailResponse = await memberSessionClient.GetAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}");
+        Assert.That(taskDetailResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var membersResponse = await ownerSessionClient.GetAsync($"/api/projects/{project.Id}/members");
+
+        Assert.That(membersResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        using var payload = await ReadJsonDocumentAsync(membersResponse);
+        var onlineUserNames = ReadOnlineUserNames(payload);
+
+        Assert.That(onlineUserNames, Does.Contain(TestUser.OwnerB.UserName));
+    }
+
+    [Test]
+    public async Task GetProjectMembers_WhenAcceptedMemberSwitchesToAnotherProject_MovesPresenceToNewProject()
+    {
+        using var firstOwnerClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-project-switch-observer-session");
+        using var secondOwnerClient = CreateSessionAuthenticatedClient(TestUser.OwnerB, "owner-b-project-switch-observer-session");
+        using var memberClient = CreateSessionAuthenticatedClient(
+            new TestUser(new Guid("33333333-3333-3333-3333-333333333333"), "member-c", "member-c@example.test"),
+            "member-c-project-switch-session");
+
+        await EnsureKnownUserAsync(firstOwnerClient);
+        await EnsureKnownUserAsync(secondOwnerClient);
+        await EnsureKnownUserAsync(memberClient);
+
+        await ActivateSessionAsync(firstOwnerClient);
+        await ActivateSessionAsync(secondOwnerClient);
+        await ActivateSessionAsync(memberClient);
+
+        var firstProject = await CreateProjectAsync(firstOwnerClient, "Presence Source Project");
+        var secondProject = await CreateProjectAsync(secondOwnerClient, "Presence Target Project");
+        var firstInvitation = await InviteMemberAsync(firstOwnerClient, firstProject.Id, "member-c@example.test");
+        var secondInvitation = await InviteMemberAsync(secondOwnerClient, secondProject.Id, "member-c@example.test");
+
+        var acceptFirstResponse = await memberClient.PostAsync($"/api/invitations/{firstInvitation.Id}/accept", content: null);
+        var acceptSecondResponse = await memberClient.PostAsync($"/api/invitations/{secondInvitation.Id}/accept", content: null);
+
+        Assert.That(acceptFirstResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(acceptSecondResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var firstBoardResponse = await memberClient.GetAsync($"/api/projects/{firstProject.Id}/board");
+        Assert.That(firstBoardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var beforeSwitchFirstMembersResponse = await firstOwnerClient.GetAsync($"/api/projects/{firstProject.Id}/members");
+        var beforeSwitchSecondMembersResponse = await secondOwnerClient.GetAsync($"/api/projects/{secondProject.Id}/members");
+
+        Assert.That(beforeSwitchFirstMembersResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(beforeSwitchSecondMembersResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        using (var firstProjectPayload = await ReadJsonDocumentAsync(beforeSwitchFirstMembersResponse))
+        {
+            var onlineUserNames = ReadOnlineUserNames(firstProjectPayload);
+            Assert.That(onlineUserNames, Does.Contain("member-c"));
+        }
+
+        using (var secondProjectPayload = await ReadJsonDocumentAsync(beforeSwitchSecondMembersResponse))
+        {
+            var onlineUserNames = ReadOnlineUserNames(secondProjectPayload);
+            Assert.That(onlineUserNames, Does.Not.Contain("member-c"));
+        }
+
+        var secondBoardResponse = await memberClient.GetAsync($"/api/projects/{secondProject.Id}/board");
+        Assert.That(secondBoardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var afterSwitchFirstMembersResponse = await firstOwnerClient.GetAsync($"/api/projects/{firstProject.Id}/members");
+        var afterSwitchSecondMembersResponse = await secondOwnerClient.GetAsync($"/api/projects/{secondProject.Id}/members");
+
+        Assert.That(afterSwitchFirstMembersResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(afterSwitchSecondMembersResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        using (var firstProjectPayload = await ReadJsonDocumentAsync(afterSwitchFirstMembersResponse))
+        {
+            var onlineUserNames = ReadOnlineUserNames(firstProjectPayload);
+            Assert.That(onlineUserNames, Does.Not.Contain("member-c"));
+        }
+
+        using var afterSwitchSecondProjectPayload = await ReadJsonDocumentAsync(afterSwitchSecondMembersResponse);
+        var onlineUserNamesAfterSwitch = ReadOnlineUserNames(afterSwitchSecondProjectPayload);
+
+        Assert.That(onlineUserNamesAfterSwitch, Does.Contain("member-c"));
     }
 
     [Test]
@@ -207,6 +498,27 @@ public sealed class ProjectInvitationApiIntegrationTests : ApiIntegrationTestBas
         await AssertAccessDeniedAsync(membersResponse);
         await AssertAccessDeniedAsync(invitationsResponse);
         await AssertAccessDeniedAsync(inviteResponse);
+    }
+
+    [Test]
+    public async Task InviteProjectMember_WhenOldRonFlowSessionIsInvalidated_ReturnsUnauthorized()
+    {
+        using var firstSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-invite-session-1");
+        using var secondSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-invite-session-2");
+
+        await EnsureKnownUserAsync(firstSessionClient);
+        await EnsureKnownUserAsync(secondSessionClient);
+
+        var project = await CreateProjectAsync(firstSessionClient, "RonFlow Project");
+
+        await ActivateSessionAsync(firstSessionClient);
+        await ActivateSessionAsync(secondSessionClient);
+
+        var response = await firstSessionClient.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/invitations",
+            new CreateProjectInvitationRequest(TestUser.OwnerB.Email));
+
+        await AssertSessionInvalidatedAsync(response);
     }
 
     [Test]

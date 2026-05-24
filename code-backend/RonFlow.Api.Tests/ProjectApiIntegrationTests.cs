@@ -20,6 +20,22 @@ public sealed class ProjectApiIntegrationTests : ApiIntegrationTestBase
     }
 
     [Test]
+    public async Task GetProjects_WhenOldRonFlowSessionIsInvalidated_ReturnsUnauthorized()
+    {
+        using var firstSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-project-read-session-1");
+        using var secondSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-project-read-session-2");
+
+        await EnsureKnownUserAsync(firstSessionClient);
+        await EnsureKnownUserAsync(secondSessionClient);
+        await ActivateSessionAsync(firstSessionClient);
+        await ActivateSessionAsync(secondSessionClient);
+
+        var response = await firstSessionClient.GetAsync("/api/projects");
+
+        await AssertSessionInvalidatedAsync(response);
+    }
+
+    [Test]
     public async Task GetProjects_WhenAnonymousUser_ReturnsUnauthorized()
     {
         using var anonymousClient = CreateAnonymousClient();
@@ -81,6 +97,22 @@ public sealed class ProjectApiIntegrationTests : ApiIntegrationTestBase
     }
 
     [Test]
+    public async Task CreateProject_WhenOldRonFlowSessionIsInvalidated_ReturnsUnauthorized()
+    {
+        using var firstSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-project-session-1");
+        using var secondSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-project-session-2");
+
+        await EnsureKnownUserAsync(firstSessionClient);
+        await EnsureKnownUserAsync(secondSessionClient);
+        await ActivateSessionAsync(firstSessionClient);
+        await ActivateSessionAsync(secondSessionClient);
+
+        var response = await firstSessionClient.PostAsJsonAsync("/api/projects", new CreateProjectRequest("Stale Session Project"));
+
+        await AssertSessionInvalidatedAsync(response);
+    }
+
+    [Test]
     public async Task CreateProject_WithValidName_AppliesDefaultWorkflowAndCreatesEmptyBoard()
     {
         var createResponse = await Client.PostAsJsonAsync("/api/projects", new CreateProjectRequest("RonFlow Project"));
@@ -118,6 +150,25 @@ public sealed class ProjectApiIntegrationTests : ApiIntegrationTestBase
         var response = await Client.GetAsync($"/api/projects/{Guid.NewGuid()}/board");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+    }
+
+    [Test]
+    public async Task GetBoard_WhenOldRonFlowSessionIsInvalidated_ReturnsUnauthorized()
+    {
+        using var firstSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-board-session-1");
+        using var secondSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-board-session-2");
+
+        await EnsureKnownUserAsync(firstSessionClient);
+        await EnsureKnownUserAsync(secondSessionClient);
+
+        var project = await CreateProjectAsync(firstSessionClient, "RonFlow Project");
+
+        await ActivateSessionAsync(firstSessionClient);
+        await ActivateSessionAsync(secondSessionClient);
+
+        var response = await firstSessionClient.GetAsync($"/api/projects/{project.Id}/board");
+
+        await AssertSessionInvalidatedAsync(response);
     }
 
     [Test]

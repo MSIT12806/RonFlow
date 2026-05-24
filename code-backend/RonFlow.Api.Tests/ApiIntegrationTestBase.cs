@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using RonFlow.Api;
 using RonFlow.Api.Contracts;
 
 namespace RonFlow.Api.Tests;
@@ -50,10 +51,43 @@ public abstract class ApiIntegrationTestBase
         return client;
     }
 
+    protected HttpClient CreateAuthenticatedClient(TestUser user, params Claim[] additionalClaims)
+    {
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateAccessToken(user, additionalClaims));
+
+        var sessionId = additionalClaims.FirstOrDefault(claim => claim.Type == RonFlowSessionConstants.SessionIdClaimType)?.Value;
+        if (!string.IsNullOrWhiteSpace(sessionId))
+        {
+            client.DefaultRequestHeaders.Add(RonFlowSessionConstants.SessionIdHeaderName, sessionId);
+        }
+
+        return client;
+    }
+
+    protected HttpClient CreateSessionAuthenticatedClient(TestUser user, string sessionId)
+    {
+        return CreateAuthenticatedClient(user, new Claim(RonFlowSessionConstants.SessionIdClaimType, sessionId));
+    }
+
     protected async Task EnsureKnownUserAsync(HttpClient client)
     {
         var response = await client.GetAsync("/api/projects");
         response.EnsureSuccessStatusCode();
+    }
+
+    protected static async Task ActivateSessionAsync(HttpClient client)
+    {
+        var response = await client.PostAsync("/api/session/activate", content: null);
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
+        await response.Content.ReadAsStringAsync();
+    }
+
+    protected static async Task ReleaseProjectScopeAsync(HttpClient client)
+    {
+        var response = await client.PostAsync("/api/session/project-scope/release", content: null);
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
+        await response.Content.ReadAsStringAsync();
     }
 
     protected Task EnsureKnownUserAsync(TestUser user)
@@ -114,6 +148,17 @@ public abstract class ApiIntegrationTestBase
         Assert.That(payload, Does.Contain("Access Denied").IgnoreCase);
     }
 
+    protected static async Task AssertSessionInvalidatedAsync(HttpResponseMessage response)
+    {
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+        Assert.That(response.Headers.TryGetValues(RonFlowSessionConstants.SessionInvalidatedHeaderName, out var values), Is.True);
+        Assert.That(values, Is.Not.Null);
+        Assert.That(values!, Does.Contain("true"));
+
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.That(payload, Does.Contain("RonFlow session invalidated"));
+    }
+
     protected static async Task<IReadOnlyDictionary<string, string[]>> ReadValidationErrorsAsync(HttpResponseMessage response)
     {
         await using var stream = await response.Content.ReadAsStreamAsync();
@@ -135,7 +180,7 @@ public abstract class ApiIntegrationTestBase
         return factory.Services.GetRequiredService<T>();
     }
 
-    private static string CreateAccessToken(TestUser user)
+    private static string CreateAccessToken(TestUser user, IEnumerable<Claim>? additionalClaims = null)
     {
         const string issuer = "RonAuth";
         const string audience = "RonFlow.Client";
@@ -148,6 +193,11 @@ public abstract class ApiIntegrationTestBase
             new(ClaimTypes.Name, user.UserName),
             new(ClaimTypes.Email, user.Email),
         };
+
+        if (additionalClaims is not null)
+        {
+            claims.AddRange(additionalClaims);
+        }
 
         var credentials = new SigningCredentials(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)),

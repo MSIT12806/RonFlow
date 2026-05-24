@@ -22,6 +22,12 @@ public sealed class TaskReminderApiIntegrationTests : ApiIntegrationTestBase
         IReadOnlyList<TaskReminderResponse> Reminders,
         IReadOnlyList<ActivityTimelineItemResponse> ActivityTimeline);
 
+    private async Task AcquireContentEditLockAsync(Guid projectId, Guid taskId)
+    {
+        var response = await Client.PostAsync($"/api/projects/{projectId}/tasks/{taskId}/content-edit-lock", content: null);
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+    }
+
     [Test]
     public async Task CreateReminder_WithBlankReminderDateTime_ReturnsValidationError()
     {
@@ -45,6 +51,8 @@ public sealed class TaskReminderApiIntegrationTests : ApiIntegrationTestBase
     {
         var project = await CreateProjectAsync("RonFlow Project");
         var task = await CreateTaskAsync(project.Id, "Build Kanban Board");
+
+        await AcquireContentEditLockAsync(project.Id, task.Id);
 
         var createResponse = await Client.PostAsJsonAsync(
             $"/api/projects/{project.Id}/tasks/{task.Id}/reminders",
@@ -71,10 +79,47 @@ public sealed class TaskReminderApiIntegrationTests : ApiIntegrationTestBase
     }
 
     [Test]
+    public async Task CreateReminder_WhenCallerHasNotAcquiredContentEditLock_ReturnsConflict()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var task = await CreateTaskAsync(project.Id, "Build Kanban Board");
+
+        var response = await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{task.Id}/reminders",
+            new { reminderDateTime = "2026-05-20T09:00", description = "提醒確認欄位狀態" });
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+    }
+
+    [Test]
+    public async Task CreateReminder_WhenOldRonFlowSessionIsInvalidated_ReturnsUnauthorized()
+    {
+        using var firstSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-reminder-session-1");
+        using var secondSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-reminder-session-2");
+
+        await EnsureKnownUserAsync(firstSessionClient);
+        await EnsureKnownUserAsync(secondSessionClient);
+
+        var project = await CreateProjectAsync(firstSessionClient, "RonFlow Project");
+        var task = await CreateTaskAsync(firstSessionClient, project.Id, "Build Kanban Board");
+
+        await ActivateSessionAsync(firstSessionClient);
+        await ActivateSessionAsync(secondSessionClient);
+
+        var response = await firstSessionClient.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{task.Id}/reminders",
+            new { reminderDateTime = "2026-05-20T09:00", description = "舊 session 不得新增提醒" });
+
+        await AssertSessionInvalidatedAsync(response);
+    }
+
+    [Test]
     public async Task CreateReminder_ForSameTask_AllowsMultipleReminders()
     {
         var project = await CreateProjectAsync("RonFlow Project");
         var task = await CreateTaskAsync(project.Id, "Build Kanban Board");
+
+        await AcquireContentEditLockAsync(project.Id, task.Id);
 
         var firstResponse = await Client.PostAsJsonAsync(
             $"/api/projects/{project.Id}/tasks/{task.Id}/reminders",
@@ -125,6 +170,8 @@ public sealed class TaskReminderApiIntegrationTests : ApiIntegrationTestBase
         var project = await CreateProjectAsync("RonFlow Project");
         var task = await CreateTaskAsync(project.Id, "Build Kanban Board");
 
+        await AcquireContentEditLockAsync(project.Id, task.Id);
+
         var createResponse = await Client.PostAsJsonAsync(
             $"/api/projects/{project.Id}/tasks/{task.Id}/reminders",
             new { reminderDateTime = "2026-05-20T09:00", description = "提醒確認欄位狀態" });
@@ -160,6 +207,8 @@ public sealed class TaskReminderApiIntegrationTests : ApiIntegrationTestBase
     {
         var project = await CreateProjectAsync("RonFlow Project");
         var task = await CreateTaskAsync(project.Id, "Build Kanban Board");
+
+        await AcquireContentEditLockAsync(project.Id, task.Id);
 
         var response = await Client.DeleteAsync(
             $"/api/projects/{project.Id}/tasks/{task.Id}/reminders/{Guid.NewGuid()}");
