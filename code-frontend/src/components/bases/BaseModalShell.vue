@@ -1,10 +1,17 @@
 <template>
-  <div v-if="isOpen" data-testid="base-modal-shell" class="base-modal-shell__backdrop">
+  <div
+    v-if="isOpen"
+    data-testid="base-modal-shell"
+    :class="[
+      'base-modal-shell__backdrop',
+      { 'base-modal-shell__backdrop--allow-underlay-interaction': allowUnderlayInteraction },
+    ]"
+  >
     <div
       :class="['base-modal-shell__card', { 'base-modal-shell__card--wide': size === 'wide' }]"
       data-testid="base-modal-shell-card"
       role="dialog"
-      aria-modal="true"
+      :aria-modal="allowUnderlayInteraction ? 'false' : 'true'"
       :aria-labelledby="titleId"
     >
       <div class="base-modal-shell__header">
@@ -36,10 +43,12 @@ withDefaults(defineProps<{
   eyebrow?: string
   size?: 'default' | 'wide'
   closeDisabled?: boolean
+  allowUnderlayInteraction?: boolean
 }>(), {
   eyebrow: '',
   size: 'default',
   closeDisabled: false,
+  allowUnderlayInteraction: false,
 })
 
 defineEmits<{
@@ -60,6 +69,10 @@ defineEmits<{
   background: rgba(15, 23, 42, 0.34);
 }
 
+.base-modal-shell__backdrop--allow-underlay-interaction {
+  pointer-events: none;
+}
+
 .base-modal-shell__card {
   width: min(560px, 100%);
   max-height: calc(100dvh - 48px);
@@ -68,6 +81,7 @@ defineEmits<{
   border: 1px solid rgba(255, 255, 255, 0.75);
   border-radius: 28px;
   background: rgba(255, 252, 248, 0.94);
+  pointer-events: auto;
 }
 
 .base-modal-shell__card--wide {

@@ -45,6 +45,7 @@
           <ProjectSidebar
             :projects="projects"
             :active-project-id="activeProjectId"
+            :invitation-inbox-count="invitationInboxCount"
             :is-loading-projects="isLoadingProjects"
             :has-error="Boolean(pageError)"
             :format-project-meta="formatProjectMeta"
@@ -135,6 +136,8 @@
       :is-open="isTaskDetailOpen"
       :is-loading="isLoadingTaskDetail"
       :is-saving="isUpdatingTaskDetail"
+      :is-editing="isEditingTaskDetail"
+      :can-enter-edit="selectedTask?.canEnterEdit ?? true"
       :error-message="taskDetailError"
       :save-error-message="taskDetailCommandError"
       :title-validation-error="taskTitleValidationError"
@@ -147,6 +150,7 @@
       :task="selectedTask"
       :format-timeline-time="formatTimelineTime"
       @close="closeTaskDetail"
+      @enter-edit="enterTaskDetailEditMode"
       @save="onTaskDetailSave"
       @add-reminder="onAddReminder"
       @delete-reminder="onDeleteReminder"
@@ -170,7 +174,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import AsyncStatePlayground from './devtools/playground/AsyncStatePlayground.vue'
 import AsyncStateBoundary from './components/bases/AsyncStateBoundary.vue'
 import CreateProjectModal from './components/CreateProjectModal.vue'
@@ -183,9 +187,12 @@ import ProjectSidebar from './components/ProjectSidebar.vue'
 import RonAuthEntryPanel from './components/RonAuthEntryPanel.vue'
 import TaskDetailModal from './components/TaskDetailModal.vue'
 import type { PasswordLoginInput, RegisterUserInput } from './api/ronauth'
+import { activateRonFlowSession, releaseRonFlowProjectScope } from './api/ronflowApi'
+import { ProjectQueryService } from './application'
 import { usePushNotifications } from './composables/usePushNotifications'
 import { useRonFlowAuth } from './composables/useRonFlowAuth'
 import { useRonFlowBoard, type TaskDetailMode } from './composables/useRonFlowBoard'
+import { onRonFlowSessionInvalidated } from './ronflowSession'
 
 type WorkspaceView = 'board' | 'members' | 'invitations' | 'archived' | 'trash'
 
@@ -195,6 +202,12 @@ const showAsyncStatePlayground = import.meta.env.DEV
 const createProjectModalRef = ref<InstanceType<typeof CreateProjectModal> | null>(null)
 const createTaskModalRef = ref<InstanceType<typeof CreateTaskModal> | null>(null)
 const currentWorkspaceView = ref<WorkspaceView>('board')
+const invitationInboxCount = ref(0)
+
+const projectQueryService = new ProjectQueryService()
+let workspacePollTimer: ReturnType<typeof window.setInterval> | null = null
+let isPollingWorkspace = false
+let removeSessionInvalidatedListener: (() => void) | null = null
 
 const {
   user: currentUser,
@@ -208,6 +221,7 @@ const {
   register,
   loadCurrentUser,
   logout,
+  clearLocalSession,
 } = useRonFlowAuth()
 
 const {
@@ -225,6 +239,7 @@ const {
   selectedTask,
   taskDetailDisplayTitle,
   taskDetailMode,
+  isEditingTaskDetail,
   archivedTasks,
   trashedTasks,
   isTaskDetailOpen,
@@ -243,6 +258,7 @@ const {
   taskTitleValidationError,
   reminderDateTimeValidationError,
   openTaskDetail,
+  enterTaskDetailEditMode,
   selectProject,
   closeTaskDetail,
   moveTaskToState,
@@ -259,19 +275,90 @@ const {
   formatProjectMeta,
   formatTimelineTime,
   loadProjects,
+  refreshProjectsSilently,
   loadBoard,
+  refreshBoardSilently,
+  refreshSelectedTaskDetailSilently,
 } = useRonFlowBoard()
 
 onMounted(async () => {
+  removeSessionInvalidatedListener = onRonFlowSessionInvalidated(() => {
+    handleSessionInvalidated()
+  })
+
   const authenticated = await initialize()
   if (authenticated) {
     await initializeWorkspace()
   }
 })
 
+onUnmounted(() => {
+  stopWorkspacePolling()
+  removeSessionInvalidatedListener?.()
+})
+
+watch(isAuthenticated, (authenticated) => {
+  if (!authenticated) {
+    stopWorkspacePolling()
+    invitationInboxCount.value = 0
+  }
+})
+
 async function initializeWorkspace() {
   currentWorkspaceView.value = 'board'
+  await activateRonFlowSession()
   await loadProjects()
+  await refreshInvitationInboxCount()
+  startWorkspacePolling()
+}
+
+async function refreshInvitationInboxCount() {
+  try {
+    const inbox = await projectQueryService.getInvitationInbox()
+    invitationInboxCount.value = inbox.items.length
+  } catch {}
+}
+
+async function pollWorkspace() {
+  if (!isAuthenticated.value || isPollingWorkspace) {
+    return
+  }
+
+  isPollingWorkspace = true
+
+  try {
+    await refreshProjectsSilently()
+
+    if (currentWorkspaceView.value !== 'invitations') {
+      await refreshBoardSilently()
+      await refreshSelectedTaskDetailSilently()
+    }
+
+    await refreshInvitationInboxCount()
+  } finally {
+    isPollingWorkspace = false
+  }
+}
+
+function startWorkspacePolling() {
+  stopWorkspacePolling()
+  workspacePollTimer = window.setInterval(() => {
+    void pollWorkspace()
+  }, 3000)
+}
+
+function stopWorkspacePolling() {
+  if (workspacePollTimer !== null) {
+    window.clearInterval(workspacePollTimer)
+    workspacePollTimer = null
+  }
+}
+
+function handleSessionInvalidated() {
+  stopWorkspacePolling()
+  clearLocalSession('RonFlow session 已失效，請重新登入。')
+  currentWorkspaceView.value = 'board'
+  invitationInboxCount.value = 0
 }
 
 async function onLogin(payload: PasswordLoginInput) {
@@ -293,8 +380,23 @@ async function onRefreshCurrentUser() {
 }
 
 async function onLogout() {
+  stopWorkspacePolling()
+  await leaveActiveProjectScope()
   await logout()
   currentWorkspaceView.value = 'board'
+  invitationInboxCount.value = 0
+}
+
+async function leaveActiveProjectScope() {
+  if (!activeProjectId.value) {
+    return
+  }
+
+  closeTaskDetail()
+
+  try {
+    await releaseRonFlowProjectScope()
+  } catch {}
 }
 
 function onOpenCreateTask() {
@@ -326,8 +428,14 @@ async function openTrashView() {
 }
 
 async function onSelectProject(projectId: string) {
+  if (activeProjectId.value && activeProjectId.value !== projectId) {
+    stopWorkspacePolling()
+    await leaveActiveProjectScope()
+  }
+
   currentWorkspaceView.value = 'board'
   await selectProject(projectId)
+  startWorkspacePolling()
 }
 
 async function onOpenTaskDetail(taskId: string, taskTitle: string) {
@@ -389,15 +497,20 @@ function openProjectMembersPanel() {
   currentWorkspaceView.value = 'members'
 }
 
-function openInvitationInbox() {
+async function openInvitationInbox() {
+  stopWorkspacePolling()
+  await leaveActiveProjectScope()
   currentWorkspaceView.value = 'invitations'
+  startWorkspacePolling()
 }
 
 async function onInvitationAccepted() {
   await loadProjects(activeProjectId.value ?? undefined)
+  await refreshInvitationInboxCount()
 }
 
 async function onInvitationsChanged() {
   await loadProjects(activeProjectId.value ?? undefined)
+  await refreshInvitationInboxCount()
 }
 </script>

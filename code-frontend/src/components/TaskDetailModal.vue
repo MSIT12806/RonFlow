@@ -2,6 +2,7 @@
   <BaseModalShell
     :is-open="isOpen"
     :close-disabled="isSaving"
+    allow-underlay-interaction
     title="任務詳細資訊"
     title-id="task-detail-title"
     eyebrow="Task detail"
@@ -19,17 +20,28 @@
       >
         <section v-if="task" class="detail-layout">
           <div class="detail-card detail-card-full detail-toolbar">
-            <div v-if="isReadOnly" class="detail-lifecycle-banner">
+            <div v-if="isLifecycleReadOnly" class="detail-lifecycle-banner">
               <strong v-if="mode === 'archived'">此任務已封存</strong>
               <strong v-else>此任務位於垃圾桶</strong>
             </div>
 
             <div v-else class="detail-toolbar-actions">
               <button
+                v-if="!isEditing"
+                type="button"
+                class="primary-button"
+                :disabled="isSaving || !canEnterEdit"
+                @click="emitEnterEdit"
+              >
+                編輯
+              </button>
+
+              <button
                 type="button"
                 class="secondary-button"
                 aria-haspopup="menu"
                 :aria-expanded="isActionsOpen"
+                :disabled="isSaving || isLifecycleReadOnly || isEditing || !canEnterEdit"
                 @click="toggleActionsMenu"
               >
                 更多操作
@@ -204,7 +216,7 @@
 
             <div class="modal-actions">
               <button v-if="!isReadOnly" type="button" class="primary-button" :disabled="isSaving" @click="submit">儲存變更</button>
-              <button v-else type="button" class="primary-button" :disabled="isSaving" @click="emitRestore">還原</button>
+              <button v-else-if="isLifecycleReadOnly" type="button" class="primary-button" :disabled="isSaving" @click="emitRestore">還原</button>
             </div>
           </div>
 
@@ -233,10 +245,12 @@ import BaseModalShell from './bases/BaseModalShell.vue'
 import type { TaskDetailResponse, TaskReminderResponse } from '../api/ronflowApi'
 import type { TaskDetailMode } from '../composables/useRonFlowBoard'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   isOpen: boolean
   isLoading: boolean
   isSaving: boolean
+  isEditing?: boolean
+  canEnterEdit?: boolean
   errorMessage: string
   saveErrorMessage: string
   titleValidationError: string
@@ -249,10 +263,14 @@ const props = defineProps<{
   displayTitle: string
   task: TaskDetailResponse | null
   formatTimelineTime: (occurredAt: string) => string
-}>()
+}>(), {
+  isEditing: false,
+  canEnterEdit: true,
+})
 
 const emit = defineEmits<{
   (event: 'close'): void
+  (event: 'enter-edit'): void
   (event: 'save', payload: { taskId: string; title: string; description: string; dueDate: string | null }): void
   (event: 'add-reminder', payload: { taskId: string; reminderDateTime: string; description: string }): void
   (event: 'delete-reminder', payload: { taskId: string; reminderId: string }): void
@@ -269,7 +287,10 @@ const draftReminderDateTime = ref('')
 const draftReminderDescription = ref('')
 const isActionsOpen = ref(false)
 
-const isReadOnly = computed(() => props.mode !== 'active')
+const isLifecycleReadOnly = computed(() => props.mode !== 'active')
+const canEnterEdit = computed(() => !isLifecycleReadOnly.value && (props.canEnterEdit ?? true))
+const isEditing = computed(() => !isLifecycleReadOnly.value && Boolean(props.isEditing))
+const isReadOnly = computed(() => isLifecycleReadOnly.value || !isEditing.value)
 const taskReminders = computed(() => props.task?.reminders ?? [])
 const reminderValidationError = computed(() =>
   props.reminderDatetimeValidationError
@@ -411,11 +432,19 @@ function emitEnableReminderDelivery() {
 }
 
 function toggleActionsMenu() {
-  if (props.isSaving || isReadOnly.value) {
+  if (props.isSaving || isLifecycleReadOnly.value || isEditing.value || !canEnterEdit.value) {
     return
   }
 
   isActionsOpen.value = !isActionsOpen.value
+}
+
+function emitEnterEdit() {
+  if (props.isSaving || !canEnterEdit.value || isEditing.value) {
+    return
+  }
+
+  emit('enter-edit')
 }
 
 function emitArchive() {

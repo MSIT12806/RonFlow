@@ -77,4 +77,18 @@ describe('BaseModalShell', () => {
     expect(wrapper.get('[data-testid="base-modal-shell"]').classes()).toContain('base-modal-shell__backdrop')
     expect(wrapper.get('[data-testid="base-modal-shell-card"]').classes()).toContain('base-modal-shell__card')
   })
+
+  it('can expose a non-blocking shell for drawer-like surfaces', () => {
+    const wrapper = mount(BaseModalShell, {
+      props: {
+        isOpen: true,
+        title: '任務詳細資訊',
+        titleId: 'task-detail-title',
+        allowUnderlayInteraction: true,
+      },
+    })
+
+    expect(wrapper.get('[data-testid="base-modal-shell"]').classes()).toContain('base-modal-shell__backdrop--allow-underlay-interaction')
+    expect(wrapper.get('[role="dialog"]').attributes('aria-modal')).toBe('false')
+  })
 })

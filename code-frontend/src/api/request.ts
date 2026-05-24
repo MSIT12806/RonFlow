@@ -1,6 +1,7 @@
 import { ApiRequestError, ApiValidationError } from './errors'
 import type { ValidationErrorBag } from './types'
 import { ronAuthAccessTokenStore } from '../auth/ronauthClient'
+import { dispatchRonFlowSessionInvalidated, getRonFlowSessionId } from '../ronflowSession'
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
@@ -16,6 +17,7 @@ export async function request<T>(input: string, init?: RequestInit) {
     headers: {
       'Content-Type': 'application/json',
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      'X-RonFlow-Session-Id': getRonFlowSessionId(),
       ...(init?.headers ?? {}),
     },
   })
@@ -45,6 +47,11 @@ export async function request<T>(input: string, init?: RequestInit) {
 
   if (response.status === 404) {
     throw new ApiRequestError('resource not found', response.status)
+  }
+
+  if (response.status === 401 && response.headers.get('X-RonFlow-Session-Invalidated') === 'true') {
+    dispatchRonFlowSessionInvalidated()
+    throw new ApiRequestError('session invalidated', response.status)
   }
 
   throw new ApiRequestError(`request failed with status ${response.status}`, response.status)

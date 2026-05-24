@@ -18,6 +18,7 @@ function createTask(overrides: Partial<TaskDetailResponse> = {}): TaskDetailResp
     createdAt: '2026-05-12T08:00:00.000Z',
     completedAt: null,
     activityTimeline: [],
+    canEnterEdit: true,
     ...overrides,
   }
 }
@@ -28,6 +29,7 @@ function mountTaskDetail(task: TaskDetailResponse) {
       isOpen: true,
       isLoading: false,
       isSaving: false,
+      isEditing: false,
       errorMessage: '',
       saveErrorMessage: '',
       titleValidationError: '',
@@ -94,5 +96,59 @@ describe('TaskDetailModal', () => {
 
     expect(wrapper.text()).toContain('提醒可能無法送達，請先啟用此裝置的提醒通知。')
     expect(wrapper.text()).toContain('啟用提醒通知')
+  })
+
+  it('opens active tasks in view mode until the user explicitly enters edit mode', () => {
+    const wrapper = mountTaskDetail(createTask())
+
+    expect(wrapper.text()).toContain('編輯')
+    expect(wrapper.text()).not.toContain('儲存變更')
+  })
+
+  it('shows save action after entering edit mode', () => {
+    const wrapper = mount(TaskDetailModal, {
+      props: {
+        isOpen: true,
+        isLoading: false,
+        isSaving: false,
+        isEditing: true,
+        errorMessage: '',
+        saveErrorMessage: '',
+        titleValidationError: '',
+        reminderDatetimeValidationError: '',
+        reminderDeliveryStatusMessage: '',
+        canEnableReminderDelivery: true,
+        isEnablingReminderDelivery: false,
+        mode: 'active',
+        displayTitle: '補上 Drawer 編輯測試',
+        task: createTask(),
+        formatTimelineTime: (occurredAt: string) => occurredAt,
+      },
+      global: {
+        stubs: {
+          BaseModalShell: {
+            template: '<div><slot /></div>',
+          },
+          AsyncStateBoundary: {
+            template: '<div><slot /></div>',
+          },
+          ApiCommandResourceView: {
+            template: '<div data-testid="command-resource-view"></div>',
+          },
+          DatePicker: {
+            template: '<input />',
+          },
+          InputText: {
+            template: '<input />',
+          },
+          Textarea: {
+            template: '<textarea></textarea>',
+          },
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('儲存變更')
+    expect(wrapper.text()).not.toContain('編輯')
   })
 })

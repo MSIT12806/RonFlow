@@ -24,6 +24,7 @@ export function useRonFlowBoard() {
   const activeProjectId = ref<string | null>(null)
   const isTaskDetailOpen = ref(false)
   const taskDetailMode = ref<TaskDetailMode>('active')
+  const isEditingTaskDetail = ref(false)
   const pendingTaskTitle = ref('')
 
   const pageError = ref('')
@@ -164,6 +165,17 @@ export function useRonFlowBoard() {
 
   const activeColumns = computed<BoardColumnResponse[]>(() => activeBoard.value?.columns ?? [])
 
+  function setSelectedTaskCanEnterEdit(canEnterEdit: boolean) {
+    if (!selectedTask.value) {
+      return
+    }
+
+    taskDetailResource.setData({
+      ...selectedTask.value,
+      canEnterEdit,
+    })
+  }
+
   async function openTaskDetail(taskId: string, mode: TaskDetailMode = 'active', taskTitle = '') {
     if (!activeProjectId.value) {
       return
@@ -177,6 +189,7 @@ export function useRonFlowBoard() {
     taskTitleValidationError.value = ''
     reminderDateTimeValidationError.value = ''
     taskDetailMode.value = mode
+    isEditingTaskDetail.value = false
     pendingTaskTitle.value = taskTitle
     isTaskDetailOpen.value = true
 
@@ -197,12 +210,17 @@ export function useRonFlowBoard() {
     taskTitleValidationError.value = ''
     reminderDateTimeValidationError.value = ''
     taskDetailMode.value = 'active'
+    isEditingTaskDetail.value = false
     pendingTaskTitle.value = ''
     isTaskDetailOpen.value = false
     await loadBoard(projectId)
   }
 
   function closeTaskDetail() {
+    if (isEditingTaskDetail.value && activeProjectId.value && selectedTask.value) {
+      void taskCommandService.releaseContentEditLock(activeProjectId.value, selectedTask.value.id).catch(() => {})
+    }
+
     isTaskDetailOpen.value = false
     taskDetailResource.reset()
     updateTaskDetailResource.reset()
@@ -212,7 +230,25 @@ export function useRonFlowBoard() {
     taskTitleValidationError.value = ''
     reminderDateTimeValidationError.value = ''
     taskDetailMode.value = 'active'
+    isEditingTaskDetail.value = false
     pendingTaskTitle.value = ''
+  }
+
+  function enterTaskDetailEditMode() {
+    if (taskDetailMode.value !== 'active' || !selectedTask.value || !activeProjectId.value) {
+      return
+    }
+
+    void taskCommandService.acquireContentEditLock(activeProjectId.value, selectedTask.value.id)
+      .then((task) => {
+        taskDetailResource.setData(task)
+        isEditingTaskDetail.value = true
+      })
+      .catch((error) => {
+        if (error instanceof ApiRequestError && error.status === 409) {
+          setSelectedTaskCanEnterEdit(false)
+        }
+      })
   }
 
   async function moveTaskToState(taskId: string, stateKey: WorkflowKey) {
@@ -251,7 +287,17 @@ export function useRonFlowBoard() {
 
     try {
       const updatedTask = await updateTaskDetailResource.execute(activeProjectId.value, taskId, title, description, dueDate)
-      taskDetailResource.setData(updatedTask)
+      if (isEditingTaskDetail.value) {
+        try {
+          await taskCommandService.releaseContentEditLock(activeProjectId.value, taskId)
+        } catch {}
+      }
+
+      taskDetailResource.setData({
+        ...updatedTask,
+        canEnterEdit: true,
+      })
+      isEditingTaskDetail.value = false
       await loadBoard(activeProjectId.value)
     } catch (error) {
       if (error instanceof ApiValidationError) {
@@ -473,6 +519,7 @@ export function useRonFlowBoard() {
         archivedTasksResource.reset()
         trashedTasksResource.reset()
         isTaskDetailOpen.value = false
+        isEditingTaskDetail.value = false
         return
       }
 
@@ -487,6 +534,31 @@ export function useRonFlowBoard() {
     } catch {
       pageError.value = '無法載入專案列表，請確認後端 API 已啟動。'
     }
+  }
+
+  async function refreshProjectsSilently(preferredProjectId = activeProjectId.value ?? undefined) {
+    try {
+      const projectList = await projectQueryService.getProjects()
+      projectsResource.setData(projectList)
+
+      if (projectList.items.length === 0) {
+        activeProjectId.value = null
+        boardResource.reset()
+        archivedTasksResource.reset()
+        trashedTasksResource.reset()
+        isTaskDetailOpen.value = false
+        isEditingTaskDetail.value = false
+        return
+      }
+
+      const nextProjectId = preferredProjectId && projectList.items.some((project) => project.id === preferredProjectId)
+        ? preferredProjectId
+        : activeProjectId.value && projectList.items.some((project) => project.id === activeProjectId.value)
+          ? activeProjectId.value
+          : projectList.items[0].id
+
+      activeProjectId.value = nextProjectId
+    } catch {}
   }
 
   async function loadBoard(projectId: string) {
@@ -508,6 +580,28 @@ export function useRonFlowBoard() {
     }
   }
 
+  async function refreshBoardSilently(projectId = activeProjectId.value) {
+    if (!projectId) {
+      return
+    }
+
+    try {
+      const board = await projectQueryService.getBoard(projectId)
+      boardResource.setData(board)
+    } catch {}
+  }
+
+  async function refreshSelectedTaskDetailSilently() {
+    if (!activeProjectId.value || !isTaskDetailOpen.value || isEditingTaskDetail.value || !selectedTask.value) {
+      return
+    }
+
+    try {
+      const task = await taskQueryService.getDetail(activeProjectId.value, selectedTask.value.id)
+      taskDetailResource.setData(task)
+    } catch {}
+  }
+
 
 
   return {
@@ -518,6 +612,7 @@ export function useRonFlowBoard() {
     selectedTask,
     taskDetailDisplayTitle,
     taskDetailMode,
+    isEditingTaskDetail,
     archivedTasks,
     trashedTasks,
     isTaskDetailOpen,
@@ -536,6 +631,7 @@ export function useRonFlowBoard() {
     taskTitleValidationError,
     reminderDateTimeValidationError,
     openTaskDetail,
+    enterTaskDetailEditMode,
     selectProject,
     closeTaskDetail,
     moveTaskToState,
@@ -550,7 +646,10 @@ export function useRonFlowBoard() {
     restoreArchivedTask,
     restoreTrashedTask,
     loadProjects,
+    refreshProjectsSilently,
     loadBoard,
+    refreshBoardSilently,
+    refreshSelectedTaskDetailSilently,
     formatProjectMeta,
     formatTimelineTime,
   }

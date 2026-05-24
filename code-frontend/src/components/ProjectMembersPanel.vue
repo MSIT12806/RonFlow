@@ -22,7 +22,7 @@
     />
 
     <div v-if="!membersLoadErrorMessage" class="collaboration-grid">
-      <section class="collaboration-card">
+      <section class="collaboration-card" data-testid="project-members-list">
         <div class="panel-heading-row">
           <div>
             <p class="eyebrow">Current members</p>
@@ -44,6 +44,31 @@
             <span class="collaboration-role-badge">{{ member.role }}</span>
           </li>
         </ul>
+      </section>
+
+      <section class="collaboration-card" data-testid="project-online-users">
+        <div class="panel-heading-row">
+          <div>
+            <p class="eyebrow">Online users</p>
+            <h3>在線成員</h3>
+          </div>
+          <span class="count-badge">{{ onlineUsers.length }}</span>
+        </div>
+
+        <ul v-if="onlineUsers.length > 0" class="collaboration-list">
+          <li
+            v-for="onlineUser in onlineUsers"
+            :key="onlineUser.userName"
+            class="collaboration-list-item"
+          >
+            <div>
+              <strong>{{ onlineUser.userName }}</strong>
+              <small>目前仍在這個 Project scope 中</small>
+            </div>
+          </li>
+        </ul>
+
+        <p v-else class="empty-copy collaboration-empty-copy">目前沒有在線成員</p>
       </section>
 
       <section class="collaboration-card">
@@ -112,13 +137,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { ProjectCommandService, ProjectQueryService } from '../application'
 import {
   ApiRequestError,
   ApiValidationError,
   type ProjectInvitationResponse,
   type ProjectMemberResponse,
+  type ProjectOnlineUserResponse,
 } from '../api/ronflowApi'
 import BaseErrorState from './bases/BaseErrorState.vue'
 import ApiCommandResourceView from './bases/ApiCommandResourceView.vue'
@@ -139,7 +165,7 @@ const projectCommandService = new ProjectCommandService()
 
 const membersResource = useApiResource(
   (projectId: string) => projectQueryService.getMembers(projectId),
-  { createInitialData: () => ({ items: [] as ProjectMemberResponse[] }) },
+  { createInitialData: () => ({ items: [] as ProjectMemberResponse[], onlineUsers: [] as ProjectOnlineUserResponse[] }) },
 )
 
 const invitationsResource = useApiResource(
@@ -158,6 +184,7 @@ const invitee = ref('')
 const inviteeError = ref('')
 const membersLoadErrorMessage = ref('')
 const invitationsLoadErrorMessage = ref('')
+let collaborationPollTimer: ReturnType<typeof window.setInterval> | null = null
 
 const members = computed(() => {
   const items = membersResource.data.value?.items ?? []
@@ -173,17 +200,28 @@ const members = computed(() => {
 })
 
 const pendingInvitations = computed(() => invitationsResource.data.value?.items ?? [])
+const onlineUsers = computed(() => membersResource.data.value?.onlineUsers ?? [])
 const ownerDescription = computed(() => props.activeProjectName ? `${props.activeProjectName} 的建立者` : '目前建立此專案的使用者')
 const isSubmitting = computed(() => inviteMemberResource.isLoading.value)
 const commandErrorMessage = computed(() => inviteMemberResource.errorMessage.value)
 
 watch(() => props.activeProjectId, async (projectId) => {
   if (!projectId) {
+    stopCollaborationPolling()
     membersResource.reset()
     invitationsResource.reset()
     return
   }
 
+  await loadCollaborationData(projectId)
+  startCollaborationPolling(projectId)
+}, { immediate: true })
+
+onUnmounted(() => {
+  stopCollaborationPolling()
+})
+
+async function loadCollaborationData(projectId: string) {
   membersLoadErrorMessage.value = ''
   invitationsLoadErrorMessage.value = ''
 
@@ -204,7 +242,21 @@ watch(() => props.activeProjectId, async (projectId) => {
   if (!membersFailed && invitationsFailed) {
     invitationsLoadErrorMessage.value = '無法載入待處理邀請，請稍後再試。'
   }
-}, { immediate: true })
+}
+
+function startCollaborationPolling(projectId: string) {
+  stopCollaborationPolling()
+  collaborationPollTimer = window.setInterval(() => {
+    void loadCollaborationData(projectId)
+  }, 3000)
+}
+
+function stopCollaborationPolling() {
+  if (collaborationPollTimer !== null) {
+    window.clearInterval(collaborationPollTimer)
+    collaborationPollTimer = null
+  }
+}
 
 async function submitInvitation() {
   if (!props.activeProjectId) {

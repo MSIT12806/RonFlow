@@ -89,7 +89,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { ProjectCommandService, ProjectQueryService } from '../application'
 import { ApiRequestError, type ProjectInvitationResponse } from '../api/ronflowApi'
 import ApiCommandResourceView from './bases/ApiCommandResourceView.vue'
@@ -122,6 +122,8 @@ const rejectInvitationResource = useApiResource(
 
 const loadErrorMessage = ref('')
 const syncMessage = ref('')
+let invitationInboxPollTimer: ReturnType<typeof window.setInterval> | null = null
+let invitationInboxPollStartTimer: ReturnType<typeof window.setTimeout> | null = null
 
 const invitations = computed(() => invitationsResource.data.value?.items ?? [])
 const isProcessingInvitation = computed(() => acceptInvitationResource.isLoading.value || rejectInvitationResource.isLoading.value)
@@ -129,6 +131,11 @@ const commandErrorMessage = computed(() => acceptInvitationResource.errorMessage
 
 onMounted(async () => {
   await reloadInvitationInbox()
+  startInvitationInboxPolling()
+})
+
+onUnmounted(() => {
+  stopInvitationInboxPolling()
 })
 
 async function reloadInvitationInbox() {
@@ -140,6 +147,44 @@ async function reloadInvitationInbox() {
     if (!(error instanceof ApiRequestError && error.status === 404)) {
       loadErrorMessage.value = '無法載入邀請收件匣，請稍後再試。'
     }
+  }
+}
+
+async function pollInvitationInbox() {
+  if (isProcessingInvitation.value) {
+    return
+  }
+
+  const previousIds = invitations.value.map((invitation) => invitation.id).join('|')
+  await reloadInvitationInbox()
+
+  if (!loadErrorMessage.value) {
+    const nextIds = invitations.value.map((invitation) => invitation.id).join('|')
+    if (previousIds !== nextIds) {
+      emit('invitations-changed')
+    }
+  }
+}
+
+function startInvitationInboxPolling() {
+  stopInvitationInboxPolling()
+  invitationInboxPollStartTimer = window.setTimeout(() => {
+    void pollInvitationInbox()
+    invitationInboxPollTimer = window.setInterval(() => {
+      void pollInvitationInbox()
+    }, 5000)
+  }, 6000)
+}
+
+function stopInvitationInboxPolling() {
+  if (invitationInboxPollStartTimer !== null) {
+    window.clearTimeout(invitationInboxPollStartTimer)
+    invitationInboxPollStartTimer = null
+  }
+
+  if (invitationInboxPollTimer !== null) {
+    window.clearInterval(invitationInboxPollTimer)
+    invitationInboxPollTimer = null
   }
 }
 

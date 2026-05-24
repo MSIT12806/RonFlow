@@ -1,4 +1,5 @@
 import {
+  acquireTaskContentEditLock,
   archiveTask,
   changeTaskState,
   createTask,
@@ -6,6 +7,7 @@ import {
   deleteTaskReminder,
   moveTaskToTrash,
   reorderTask,
+  releaseTaskContentEditLock,
   restoreArchivedTask,
   restoreTrashedTask,
   updateTask,
@@ -34,6 +36,14 @@ export class TaskCommandService {
 
   async reorder(projectId: string, taskId: string, targetTaskId: string): Promise<TaskDetailResponse> {
     return reorderTask(projectId, taskId, targetTaskId)
+  }
+
+  async acquireContentEditLock(projectId: string, taskId: string): Promise<TaskDetailResponse> {
+    return acquireTaskContentEditLock(projectId, taskId)
+  }
+
+  async releaseContentEditLock(projectId: string, taskId: string): Promise<void> {
+    await releaseTaskContentEditLock(projectId, taskId)
   }
 
   async createReminder(

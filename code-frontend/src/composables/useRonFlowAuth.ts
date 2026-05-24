@@ -11,6 +11,7 @@ import {
   type RegisterUserInput,
   type UserProfile,
 } from '../api/ronauth'
+import { ronAuthAccessTokenStore } from '../auth/ronauthClient'
 
 export function useRonFlowAuth() {
   const user = ref<UserProfile | null>(null)
@@ -70,6 +71,13 @@ export function useRonFlowAuth() {
     }
   }
 
+  function clearLocalSession(message = 'RonFlow session 已失效，請重新登入。') {
+    ronAuthAccessTokenStore.clear()
+    user.value = null
+    errorMessage.value = message
+    validationErrors.value = {}
+  }
+
   function clearErrors() {
     errorMessage.value = ''
     validationErrors.value = {}
@@ -123,6 +131,7 @@ export function useRonFlowAuth() {
     register,
     loadCurrentUser,
     logout,
+    clearLocalSession,
     clearErrors,
   }
 }

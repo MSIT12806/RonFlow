@@ -30,6 +30,7 @@ export type TaskDetailResponse = {
   completedAt: string | null
   reminders?: TaskReminderResponse[]
   activityTimeline: ActivityTimelineItemResponse[]
+  canEnterEdit: boolean
 }
 
 export type TaskLifecycleState = 'activeRecord' | 'archived' | 'trashed'
@@ -86,8 +87,13 @@ export type ProjectMemberResponse = {
   role: string
 }
 
+export type ProjectOnlineUserResponse = {
+  userName: string
+}
+
 export type ProjectMembersResponse = {
   items: ProjectMemberResponse[]
+  onlineUsers: ProjectOnlineUserResponse[]
 }
 
 export type ProjectInvitationResponse = {

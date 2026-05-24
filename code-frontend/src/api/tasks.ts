@@ -45,6 +45,18 @@ export async function reorderTask(projectId: string, taskId: string, targetTaskI
   })
 }
 
+export async function acquireTaskContentEditLock(projectId: string, taskId: string) {
+  return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}/content-edit-lock`), {
+    method: 'POST',
+  })
+}
+
+export async function releaseTaskContentEditLock(projectId: string, taskId: string) {
+  return request<void>(apiPath(`/projects/${projectId}/tasks/${taskId}/content-edit-lock`), {
+    method: 'DELETE',
+  })
+}
+
 export async function createTaskReminder(projectId: string, taskId: string, payload: {
   reminderDateTime: string
   description: string

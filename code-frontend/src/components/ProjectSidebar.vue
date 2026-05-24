@@ -12,6 +12,13 @@
       <button type="button" class="secondary-button" @click="$emit('open-invitation-inbox')">
         邀請收件匣
       </button>
+      <span
+        v-if="invitationInboxCount > 0"
+        class="count-badge"
+        data-testid="invitation-inbox-badge"
+      >
+        {{ invitationInboxCount }}
+      </span>
     </div>
 
     <AsyncStateBoundary
@@ -46,6 +53,7 @@ import type { ProjectListItemResponse } from '../api/ronflowApi'
 defineProps<{
   projects: ProjectListItemResponse[]
   activeProjectId: string | null
+  invitationInboxCount: number
   isLoadingProjects: boolean
   hasError: boolean
   formatProjectMeta: (updatedAt: string) => string
