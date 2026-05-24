@@ -1,15 +1,22 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
+import { expect, test, type APIRequestContext, type Browser, type Page } from '@playwright/test'
 import {
   acceptInvitationThroughApi,
   configureTestFaultsThroughApi,
   createProjectThroughApi,
+  createTaskThroughApi,
   getInvitationInboxThroughApi,
   getProjectInvitationsThroughApi,
   inviteProjectMemberThroughApi,
   registerRonFlowApiUser,
 } from './support/ronflowApiTestHelpers'
 import { createRonFlowAuthUser, loginAndEnterWorkspace } from './support/ronflowAuthTestHelpers'
-import { createScenarioData, openProjectFromList, openProjectMembersPanel } from './support/ronflowTestHelpers'
+import {
+  createScenarioData,
+  openInvitationInbox,
+  openProjectFromList,
+  openProjectMembersPanel,
+  openTaskDetail,
+} from './support/ronflowTestHelpers'
 
 async function loginOwnerAndOpenMembersPanel(page: Page, request: APIRequestContext, projectName: string) {
   const ownerSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
@@ -20,6 +27,106 @@ async function loginOwnerAndOpenMembersPanel(page: Page, request: APIRequestCont
   await openProjectMembersPanel(page)
 
   return { ownerSession, project }
+}
+
+async function setupPresenceObservation(browser: Browser, request: APIRequestContext, projectName: string, taskTitle?: string) {
+  const ownerSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
+  const memberSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('member'))
+  const project = await createProjectThroughApi(request, ownerSession, projectName)
+
+  if (taskTitle) {
+    await createTaskThroughApi(request, ownerSession, project.id, taskTitle)
+  }
+
+  await inviteProjectMemberThroughApi(request, ownerSession, project.id, memberSession.user.email)
+
+  const invitation = (await getInvitationInboxThroughApi(request, memberSession)).find(
+    (item) => item.projectId === project.id,
+  )
+
+  expect(invitation).toBeDefined()
+
+  await acceptInvitationThroughApi(request, memberSession, invitation!.id)
+
+  const ownerContext = await browser.newContext()
+  const memberContext = await browser.newContext()
+  const ownerPage = await ownerContext.newPage()
+  const memberPage = await memberContext.newPage()
+
+  await loginAndEnterWorkspace(ownerPage, ownerSession.user)
+  await openProjectFromList(ownerPage, projectName)
+  await openProjectMembersPanel(ownerPage)
+
+  await loginAndEnterWorkspace(memberPage, memberSession.user)
+  await openProjectFromList(memberPage, projectName)
+
+  return {
+    ownerPage,
+    memberPage,
+    ownerContext,
+    memberContext,
+    ownerSession,
+    memberSession,
+    project,
+  }
+}
+
+async function setupCrossProjectPresenceObservation(browser: Browser, request: APIRequestContext, firstProjectName: string, secondProjectName: string) {
+  const firstOwnerSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner-a'))
+  const secondOwnerSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner-b'))
+  const memberSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('member'))
+
+  const firstProject = await createProjectThroughApi(request, firstOwnerSession, firstProjectName)
+  const secondProject = await createProjectThroughApi(request, secondOwnerSession, secondProjectName)
+
+  await inviteProjectMemberThroughApi(request, firstOwnerSession, firstProject.id, memberSession.user.email)
+  await inviteProjectMemberThroughApi(request, secondOwnerSession, secondProject.id, memberSession.user.email)
+
+  const invitations = await getInvitationInboxThroughApi(request, memberSession)
+  const firstInvitation = invitations.find((item) => item.projectId === firstProject.id)
+  const secondInvitation = invitations.find((item) => item.projectId === secondProject.id)
+
+  expect(firstInvitation).toBeDefined()
+  expect(secondInvitation).toBeDefined()
+
+  await acceptInvitationThroughApi(request, memberSession, firstInvitation!.id)
+  await acceptInvitationThroughApi(request, memberSession, secondInvitation!.id)
+
+  const firstOwnerContext = await browser.newContext()
+  const secondOwnerContext = await browser.newContext()
+  const memberContext = await browser.newContext()
+  const firstOwnerPage = await firstOwnerContext.newPage()
+  const secondOwnerPage = await secondOwnerContext.newPage()
+  const memberPage = await memberContext.newPage()
+
+  await loginAndEnterWorkspace(firstOwnerPage, firstOwnerSession.user)
+  await openProjectFromList(firstOwnerPage, firstProjectName)
+  await openProjectMembersPanel(firstOwnerPage)
+
+  await loginAndEnterWorkspace(secondOwnerPage, secondOwnerSession.user)
+  await openProjectFromList(secondOwnerPage, secondProjectName)
+  await openProjectMembersPanel(secondOwnerPage)
+
+  await loginAndEnterWorkspace(memberPage, memberSession.user)
+  await openProjectFromList(memberPage, firstProjectName)
+
+  return {
+    firstOwnerPage,
+    secondOwnerPage,
+    memberPage,
+    firstOwnerContext,
+    secondOwnerContext,
+    memberContext,
+    memberSession,
+  }
+}
+
+function getOnlineUsersSection(page: Page) {
+  return page.getByTestId('project-online-users')
+}
+
+function getOnlineUserItem(page: Page, userName: string) {
+  return getOnlineUsersSection(page).getByRole('listitem').filter({ hasText: userName }).first()
 }
 
 test.describe('RonFlow UI/UX 驗收規格 - Project Members Behavior', () => {
@@ -185,7 +292,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Project Members Behavior', () => {
     await openProjectFromList(page, projectName)
     await openProjectMembersPanel(page)
 
-    await expect(page.getByRole('listitem').filter({ hasText: ownerSession.user.userName })).toBeVisible()
+    await expect(page.getByTestId('project-members-list').getByRole('listitem').filter({ hasText: ownerSession.user.userName })).toBeVisible()
     await expect(page.getByLabel('邀請對象')).toBeVisible()
     await expect(page.getByTestId('base-error-state')).toContainText('無法載入待處理邀請，請稍後再試。')
     await expect(page.getByText('目前沒有待處理邀請', { exact: true })).toHaveCount(0)
@@ -208,5 +315,110 @@ test.describe('RonFlow UI/UX 驗收規格 - Project Members Behavior', () => {
 
     await expect(page.getByRole('button', { name: '專案成員', exact: true })).toHaveCount(0)
     await expect(page.getByLabel('邀請對象')).toHaveCount(0)
+  })
+
+  test('待處理邀請被接受後，Project Members Panel 應在 10 秒內自動把成員從 pending 轉入 members list', async ({ page, request }, testInfo) => {
+    const { projectName } = createScenarioData(testInfo)
+    const memberSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('member'))
+    const { ownerSession, project } = await loginOwnerAndOpenMembersPanel(page, request, projectName)
+
+    const inviteeInput = page.getByLabel('邀請對象')
+
+    await inviteeInput.fill(memberSession.user.email)
+    await page.getByRole('button', { name: '邀請', exact: true }).click()
+
+    await expect(page.getByText(memberSession.user.email, { exact: true })).toBeVisible()
+
+    const invitation = (await getInvitationInboxThroughApi(request, memberSession)).find(
+      (item) => item.projectId === project.id,
+    )
+
+    expect(invitation).toBeDefined()
+
+    await acceptInvitationThroughApi(request, memberSession, invitation!.id)
+
+    await expect(
+      page.getByRole('listitem').filter({ hasText: memberSession.user.userName }),
+    ).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(memberSession.user.email, { exact: true })).toHaveCount(0)
+    await expect(page.getByText('目前沒有待處理邀請', { exact: true })).toBeVisible()
+  })
+
+  test('成員離開 project scope 後，在線名單應於 10 秒內移除該成員', async ({ browser, request }, testInfo) => {
+    const { projectName } = createScenarioData(testInfo)
+    const { ownerPage, memberPage, ownerContext, memberContext, memberSession } = await setupPresenceObservation(browser, request, projectName)
+
+    try {
+      await expect(getOnlineUserItem(ownerPage, memberSession.user.userName)).toBeVisible({ timeout: 10000 })
+
+      await openInvitationInbox(memberPage)
+
+      await expect(getOnlineUserItem(ownerPage, memberSession.user.userName)).toHaveCount(0, { timeout: 10000 })
+    } finally {
+      await Promise.all([ownerContext.close(), memberContext.close()])
+    }
+  })
+
+  test('成員登出後，在線名單應於 10 秒內移除該成員', async ({ browser, request }, testInfo) => {
+    const { projectName } = createScenarioData(testInfo)
+    const { ownerPage, memberPage, ownerContext, memberContext, memberSession } = await setupPresenceObservation(browser, request, projectName)
+
+    try {
+      await expect(getOnlineUserItem(ownerPage, memberSession.user.userName)).toBeVisible({ timeout: 10000 })
+
+      await memberPage.getByRole('button', { name: '登出' }).click()
+      await expect(memberPage.getByRole('heading', { name: '登入 RonFlow' })).toBeVisible()
+
+      await expect(getOnlineUserItem(ownerPage, memberSession.user.userName)).toHaveCount(0, { timeout: 10000 })
+    } finally {
+      await Promise.all([ownerContext.close(), memberContext.close()])
+    }
+  })
+
+  test('成員關閉 Task Detail Drawer 但仍停留在 Project Board 時，在線名單應保留該成員', async ({ browser, request }, testInfo) => {
+    const { projectName, taskTitle } = createScenarioData(testInfo)
+    const { ownerPage, memberPage, ownerContext, memberContext, memberSession } = await setupPresenceObservation(browser, request, projectName, taskTitle)
+
+    try {
+      await expect(getOnlineUserItem(ownerPage, memberSession.user.userName)).toBeVisible({ timeout: 10000 })
+
+      await openTaskDetail(memberPage, 'todo', taskTitle)
+      await memberPage.getByRole('button', { name: '關閉視窗' }).click()
+      await expect(memberPage.getByRole('dialog', { name: '任務詳細資訊' })).toHaveCount(0)
+      await expect(memberPage.getByRole('heading', { name: projectName })).toBeVisible()
+
+      await memberPage.waitForTimeout(3500)
+
+      await expect(getOnlineUserItem(ownerPage, memberSession.user.userName)).toBeVisible()
+    } finally {
+      await Promise.all([ownerContext.close(), memberContext.close()])
+    }
+  })
+
+  test('成員切換到另一個 Project 後，舊 Project 在線名單應移除該成員，新的 Project 在線名單應顯示該成員', async ({ browser, request }, testInfo) => {
+    const suffix = `${testInfo.workerIndex}-${testInfo.retry}-${Date.now()}`
+    const firstProjectName = `Presence Source Project ${suffix}`
+    const secondProjectName = `Presence Target Project ${suffix}`
+    const {
+      firstOwnerPage,
+      secondOwnerPage,
+      memberPage,
+      firstOwnerContext,
+      secondOwnerContext,
+      memberContext,
+      memberSession,
+    } = await setupCrossProjectPresenceObservation(browser, request, firstProjectName, secondProjectName)
+
+    try {
+      await expect(getOnlineUserItem(firstOwnerPage, memberSession.user.userName)).toBeVisible({ timeout: 10000 })
+      await expect(getOnlineUserItem(secondOwnerPage, memberSession.user.userName)).toHaveCount(0)
+
+      await openProjectFromList(memberPage, secondProjectName)
+
+      await expect(getOnlineUserItem(firstOwnerPage, memberSession.user.userName)).toHaveCount(0, { timeout: 10000 })
+      await expect(getOnlineUserItem(secondOwnerPage, memberSession.user.userName)).toBeVisible({ timeout: 10000 })
+    } finally {
+      await Promise.all([firstOwnerContext.close(), secondOwnerContext.close(), memberContext.close()])
+    }
   })
 })

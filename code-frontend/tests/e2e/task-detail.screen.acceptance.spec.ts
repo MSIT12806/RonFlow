@@ -46,6 +46,22 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Detail Screen', () => {
     await expect(detailDialog.getByText('完成時間', { exact: true })).toHaveCount(0)
   })
 
+  test('Task Detail Drawer 預設以 view mode 開啟，顯示編輯按鈕且編輯欄位為唯讀', async ({ page }, testInfo) => {
+    const { projectName, taskTitle } = createScenarioData(testInfo)
+
+    await setupTaskBoard(page, projectName, taskTitle)
+    await openTaskDetail(page, 'todo', taskTitle)
+
+    const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
+
+    await expect(detailDialog.getByRole('button', { name: '編輯', exact: true })).toBeVisible()
+    await expect(detailDialog.getByRole('button', { name: '儲存變更', exact: true })).toHaveCount(0)
+    await expect(detailDialog.getByLabel('任務標題')).toBeDisabled()
+    await expect(detailDialog.getByLabel('任務描述')).toBeDisabled()
+    await expect(detailDialog.getByLabel('到期日')).toBeDisabled()
+    await expect(detailDialog.getByRole('button', { name: '新增提醒', exact: true })).toBeDisabled()
+  })
+
   test('任務詳細資訊載入中時在 drawer 內顯示 shared loading state', async ({ page, request }, testInfo) => {
     const { projectName, taskTitle } = createScenarioData(testInfo)
 

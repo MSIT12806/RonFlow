@@ -44,6 +44,10 @@ async function expectInvitationRemoved(page: Page, projectName: string) {
   await expect(page.getByTestId('invitation-item').filter({ hasText: projectName })).toHaveCount(0)
 }
 
+function getInvitationItem(page: Page, projectName: string) {
+  return page.getByTestId('invitation-item').filter({ hasText: projectName }).first()
+}
+
 test.describe('RonFlow UI/UX 驗收規格 - Invitation Inbox Behavior', () => {
   test('使用者接受邀請後，邀請會從清單消失且專案出現在專案列表', async ({ page, request }) => {
     const projectName = `Invited Project ${Date.now()}`
@@ -94,6 +98,32 @@ test.describe('RonFlow UI/UX 驗收規格 - Invitation Inbox Behavior', () => {
     await expect(page.getByRole('button', { name: projectName, exact: true })).toHaveCount(0)
   })
 
+  test('邀請在其他地方被接受後，Invitation Inbox 應在 10 秒內自動刷新並移除該邀請', async ({ page, request }) => {
+    const projectName = `Auto Refreshed Accepted Project ${Date.now()}`
+    const { memberSession, invitation } = await setupPendingInvitation(request, projectName)
+
+    await loginMemberAndOpenInbox(page, memberSession.user)
+    await expectInvitationVisible(page, projectName)
+
+    await acceptInvitationThroughApi(request, memberSession, invitation.id)
+
+    await expect(page.getByTestId('invitation-item').filter({ hasText: projectName })).toHaveCount(0, { timeout: 10000 })
+    await expect(page.getByRole('button', { name: new RegExp(projectName) })).toBeVisible({ timeout: 10000 })
+  })
+
+  test('邀請在其他地方被拒絕後，Invitation Inbox 應在 10 秒內自動刷新並移除該邀請', async ({ page, request }) => {
+    const projectName = `Auto Refreshed Rejected Project ${Date.now()}`
+    const { memberSession, invitation } = await setupPendingInvitation(request, projectName)
+
+    await loginMemberAndOpenInbox(page, memberSession.user)
+    await expectInvitationVisible(page, projectName)
+
+    await rejectInvitationThroughApi(request, memberSession, invitation.id)
+
+    await expect(page.getByTestId('invitation-item').filter({ hasText: projectName })).toHaveCount(0, { timeout: 10000 })
+    await expect(page.getByRole('button', { name: projectName, exact: true })).toHaveCount(0)
+  })
+
   test('接受邀請失敗時，邀請仍保留在清單中並顯示錯誤訊息', async ({ page, request }) => {
     const projectName = `Failed Invitation ${Date.now()}`
     const { memberSession } = await setupPendingInvitation(request, projectName)
@@ -119,7 +149,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Invitation Inbox Behavior', () => {
     await loginMemberAndOpenInbox(page, memberSession.user)
     await acceptInvitationThroughApi(request, memberSession, invitation.id)
 
-    await page.getByRole('button', { name: '接受邀請', exact: true }).click()
+    await getInvitationItem(page, projectName).getByRole('button', { name: '接受邀請', exact: true }).click()
 
     await expectInvitationRemoved(page, projectName)
     await expect(page.getByText(staleInvitationMessage, { exact: true })).toBeVisible()
@@ -270,7 +300,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Invitation Inbox Behavior', () => {
     await ownerPage.reload()
     await openProjectFromList(ownerPage, projectName)
     await openProjectMembersPanel(ownerPage)
-    await expect(ownerPage.getByRole('listitem').filter({ hasText: memberSession.user.userName })).toBeVisible()
+    await expect(ownerPage.getByTestId('project-members-list').getByRole('listitem').filter({ hasText: memberSession.user.userName })).toBeVisible()
 
     await ownerContext.close()
     await memberContext.close()

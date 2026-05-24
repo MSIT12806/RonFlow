@@ -4,9 +4,52 @@ import {
   openCreateProjectModal,
 } from './support/ronflowTestHelpers'
 import { createRonFlowAuthUser, loginAndEnterWorkspace, registerAndEnterWorkspace } from './support/ronflowAuthTestHelpers'
-import { configureTestFaultsThroughApi, registerRonFlowApiUser } from './support/ronflowApiTestHelpers'
+import {
+  acceptInvitationThroughApi,
+  configureTestFaultsThroughApi,
+  createProjectThroughApi,
+  getInvitationInboxThroughApi,
+  inviteProjectMemberThroughApi,
+  registerRonFlowApiUser,
+} from './support/ronflowApiTestHelpers'
 
 test.describe('RonFlow UI/UX 驗收規格 - Project List Behavior', () => {
+  test('使用者停留在專案列表時，收到新邀請後應在 10 秒內看到邀請收件匣 badge，且專案仍不提前出現在列表', async ({ page, request }, testInfo) => {
+    const { projectName } = createScenarioData(testInfo)
+    const ownerSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
+    const memberSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('member'))
+    const project = await createProjectThroughApi(request, ownerSession, projectName)
+
+    await loginAndEnterWorkspace(page, memberSession.user)
+
+    await expect(page.getByRole('button', { name: new RegExp(projectName) })).toHaveCount(0)
+    await expect(page.getByTestId('invitation-inbox-badge')).toHaveCount(0)
+
+    await inviteProjectMemberThroughApi(request, ownerSession, project.id, memberSession.user.email)
+
+    await expect(page.getByTestId('invitation-inbox-badge')).toHaveText('1', { timeout: 10000 })
+    await expect(page.getByRole('button', { name: new RegExp(projectName) })).toHaveCount(0)
+  })
+
+  test('使用者接受邀請後，Project 應在 10 秒內自動出現在 Project List，且顯示專案成員角色', async ({ page, request }, testInfo) => {
+    const { projectName } = createScenarioData(testInfo)
+    const ownerSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
+    const memberSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('member'))
+    const project = await createProjectThroughApi(request, ownerSession, projectName)
+
+    await inviteProjectMemberThroughApi(request, ownerSession, project.id, memberSession.user.email)
+
+    await loginAndEnterWorkspace(page, memberSession.user)
+
+    await expect(page.getByRole('button', { name: new RegExp(projectName) })).toHaveCount(0)
+
+    const [pendingInvitation] = await getInvitationInboxThroughApi(request, memberSession)
+    await acceptInvitationThroughApi(request, memberSession, pendingInvitation.id)
+
+    await expect(page.getByRole('button', { name: new RegExp(projectName) })).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('.project-chip-role').filter({ hasText: '專案成員' })).toBeVisible()
+  })
+
   test('拒絕空白的專案名稱', async ({ page }) => {
     await registerAndEnterWorkspace(page)
     await openCreateProjectModal(page)
