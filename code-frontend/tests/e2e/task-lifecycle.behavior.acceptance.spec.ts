@@ -9,11 +9,21 @@ import {
   moveTaskToTrashFromDrawer,
   openArchivedTasksView,
   openCreateTaskModal,
+  openProjectFromList,
   openTaskDetail,
   openTrashView,
   setupProjectBoard,
   setupTaskBoard,
 } from './support/ronflowTestHelpers'
+import {
+  acceptInvitationThroughApi,
+  createProjectThroughApi,
+  createTaskThroughApi,
+  getInvitationInboxThroughApi,
+  inviteProjectMemberThroughApi,
+  registerRonFlowApiUser,
+} from './support/ronflowApiTestHelpers'
+import { createRonFlowAuthUser, loginAndEnterWorkspace } from './support/ronflowAuthTestHelpers'
 
 test.describe('RonFlow UI/UX 驗收規格 - Task Lifecycle Behavior', () => {
   test('使用者可以封存任務，任務會離開看板並出現在已封存任務頁', async ({ page }, testInfo) => {
@@ -115,5 +125,82 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Lifecycle Behavior', () => {
 
     await openTaskDetail(page, 'todo', trashedTaskTitle)
     await expect(page.getByRole('dialog', { name: '任務詳細資訊' }).getByText('已從垃圾桶還原', { exact: true })).toBeVisible()
+  })
+
+  test('A 封存任務後，B 已開啟的 Drawer 應切換為 archived read-only 狀態', async ({ browser, request }, testInfo) => {
+    const { projectName, taskTitle } = createScenarioData(testInfo)
+    const ownerSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
+    const memberSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('member'))
+    const project = await createProjectThroughApi(request, ownerSession, projectName)
+
+    await createTaskThroughApi(request, ownerSession, project.id, taskTitle)
+    await inviteProjectMemberThroughApi(request, ownerSession, project.id, memberSession.user.email)
+
+    const [pendingInvitation] = await getInvitationInboxThroughApi(request, memberSession)
+    await acceptInvitationThroughApi(request, memberSession, pendingInvitation.id)
+
+    const ownerContext = await browser.newContext()
+    const memberContext = await browser.newContext()
+    const ownerPage = await ownerContext.newPage()
+    const memberPage = await memberContext.newPage()
+
+    await loginAndEnterWorkspace(ownerPage, ownerSession.user)
+    await openProjectFromList(ownerPage, projectName)
+    await openTaskDetail(ownerPage, 'todo', taskTitle)
+
+    await loginAndEnterWorkspace(memberPage, memberSession.user)
+    await openProjectFromList(memberPage, projectName)
+    await openTaskDetail(memberPage, 'todo', taskTitle)
+
+    await archiveTaskFromDrawer(ownerPage)
+
+    const memberDetailDialog = memberPage.getByRole('dialog', { name: '任務詳細資訊' })
+    await expect(memberPage.getByTestId('workflow-column-todo')).not.toContainText(taskTitle, { timeout: 10000 })
+    await expect(memberDetailDialog.getByText('此任務已封存', { exact: true })).toBeVisible({ timeout: 10000 })
+    await expect(memberDetailDialog.getByRole('button', { name: '編輯', exact: true })).toHaveCount(0)
+    await expect(memberDetailDialog.getByRole('button', { name: '還原', exact: true })).toBeVisible()
+
+    await ownerContext.close()
+    await memberContext.close()
+  })
+
+  test('A 還原已封存任務後，B 已開啟的 archived Drawer 應切回 active 可查看狀態', async ({ browser, request }, testInfo) => {
+    const { projectName, taskTitle } = createScenarioData(testInfo)
+    const ownerSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
+    const memberSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('member'))
+    const project = await createProjectThroughApi(request, ownerSession, projectName)
+
+    await createTaskThroughApi(request, ownerSession, project.id, taskTitle)
+    await inviteProjectMemberThroughApi(request, ownerSession, project.id, memberSession.user.email)
+
+    const [pendingInvitation] = await getInvitationInboxThroughApi(request, memberSession)
+    await acceptInvitationThroughApi(request, memberSession, pendingInvitation.id)
+
+    const ownerContext = await browser.newContext()
+    const memberContext = await browser.newContext()
+    const ownerPage = await ownerContext.newPage()
+    const memberPage = await memberContext.newPage()
+
+    await loginAndEnterWorkspace(ownerPage, ownerSession.user)
+    await openProjectFromList(ownerPage, projectName)
+    await loginAndEnterWorkspace(memberPage, memberSession.user)
+    await openProjectFromList(memberPage, projectName)
+    await openTaskDetail(memberPage, 'todo', taskTitle)
+
+    await openTaskDetail(ownerPage, 'todo', taskTitle)
+    await archiveTaskFromDrawer(ownerPage)
+    await expect(memberPage.getByRole('dialog', { name: '任務詳細資訊' }).getByText('此任務已封存', { exact: true })).toBeVisible({ timeout: 10000 })
+
+    await openArchivedTasksView(ownerPage)
+    await getLifecycleTaskItem(ownerPage, taskTitle).getByRole('button', { name: '還原', exact: true }).click()
+
+    const memberDetailDialog = memberPage.getByRole('dialog', { name: '任務詳細資訊' })
+    await expect(memberPage.getByTestId('workflow-column-todo')).toContainText(taskTitle, { timeout: 10000 })
+    await expect(memberDetailDialog.getByText('此任務已封存', { exact: true })).toHaveCount(0, { timeout: 10000 })
+    await expect(memberDetailDialog.getByRole('button', { name: '編輯', exact: true })).toBeVisible({ timeout: 10000 })
+    await expect(memberDetailDialog.getByRole('button', { name: '還原', exact: true })).toHaveCount(0)
+
+    await ownerContext.close()
+    await memberContext.close()
   })
 })
