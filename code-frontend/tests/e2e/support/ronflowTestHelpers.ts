@@ -72,8 +72,39 @@ export async function openTaskDetail(page: Page, stateKey: string, taskTitle: st
 
 export async function openTaskActions(page: Page) {
   const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
+  const actionsButton = detailDialog.getByRole('button', { name: /更多|更多操作/ })
 
-  await detailDialog.getByRole('button', { name: /更多|更多操作/ }).click()
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await actionsButton.click()
+
+    try {
+      await expect(actionsButton).toHaveAttribute('aria-expanded', 'true')
+      return
+    } catch (error) {
+      if (attempt === 1) {
+        throw error
+      }
+    }
+  }
+}
+
+async function clickTaskActionMenuItem(page: Page, actionName: string) {
+  const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await openTaskActions(page)
+
+      const actionButton = detailDialog.getByRole('menuitem', { name: actionName, exact: true })
+      await expect(actionButton).toBeVisible()
+      await actionButton.click()
+      return
+    } catch (error) {
+      if (attempt === 1) {
+        throw error
+      }
+    }
+  }
 }
 
 export async function openArchivedTasksView(page: Page) {
@@ -91,13 +122,11 @@ export function getLifecycleTaskItem(page: Page, taskTitle: string) {
 }
 
 export async function archiveTaskFromDrawer(page: Page) {
-  await openTaskActions(page)
-  await page.getByRole('menuitem', { name: '封存' }).click()
+  await clickTaskActionMenuItem(page, '封存')
 }
 
 export async function moveTaskToTrashFromDrawer(page: Page) {
-  await openTaskActions(page)
-  await page.getByRole('menuitem', { name: '移到垃圾桶' }).click()
+  await clickTaskActionMenuItem(page, '移到垃圾桶')
 }
 
 export function getTaskCard(page: Page, stateKey: string, taskTitle: string) {

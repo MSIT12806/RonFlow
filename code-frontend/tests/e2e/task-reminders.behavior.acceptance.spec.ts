@@ -40,6 +40,11 @@ function getReminderItem(detailDialog: Locator, reminderDescription: string) {
     .first()
 }
 
+async function enterTaskDetailEditMode(detailDialog: Locator) {
+  await detailDialog.getByRole('button', { name: '編輯', exact: true }).click()
+  await expect(detailDialog.getByRole('button', { name: '儲存變更', exact: true })).toBeVisible()
+}
+
 async function mockPushNotifications(page: Parameters<typeof test>[0]['page']) {
   await page.addInitScript(() => {
     let notificationPermission = 'default'
@@ -118,6 +123,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Reminders Behavior', () => {
     await openTaskDetail(page, 'todo', taskTitle)
 
     const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
+    await enterTaskDetailEditMode(detailDialog)
 
     await addReminder(detailDialog, reminderDateTime, reminderDescription)
 
@@ -139,6 +145,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Reminders Behavior', () => {
 
     const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
     const remindersSection = getRemindersSection(detailDialog)
+    await enterTaskDetailEditMode(detailDialog)
 
     await addReminder(detailDialog, firstReminderDateTime, firstReminderDescription)
     await addReminder(detailDialog, secondReminderDateTime, secondReminderDescription)
@@ -158,6 +165,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Reminders Behavior', () => {
     await openTaskDetail(page, 'todo', taskTitle)
 
     const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
+    await enterTaskDetailEditMode(detailDialog)
 
     await expect(getRemindersSection(detailDialog)).toContainText('提醒')
     await detailDialog.getByLabel('提醒說明').fill(reminderDescription)
@@ -193,6 +201,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Reminders Behavior', () => {
     await openTaskDetail(page, 'todo', taskTitle)
 
     const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
+    await enterTaskDetailEditMode(detailDialog)
 
     await addReminder(detailDialog, reminderDateTime, reminderDescription)
     await expect(getReminderItem(detailDialog, reminderDescription)).toBeVisible()
@@ -221,6 +230,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Reminders Behavior', () => {
     await openTaskDetail(page, 'todo', taskTitle)
 
     const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
+    await enterTaskDetailEditMode(detailDialog)
 
     await addReminder(detailDialog, reminderDateTime, reminderDescription)
 
@@ -239,6 +249,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Reminders Behavior', () => {
     await openTaskDetail(page, 'todo', taskTitle)
 
     const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
+    await enterTaskDetailEditMode(detailDialog)
 
     await addReminder(detailDialog, reminderDateTime, reminderDescription)
 

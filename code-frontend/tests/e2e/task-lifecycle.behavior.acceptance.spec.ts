@@ -63,8 +63,13 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Lifecycle Behavior', () => {
     await openTaskDetail(page, 'todo', archivedTaskTitle)
     await archiveTaskFromDrawer(page)
 
+    await expect(page.getByRole('dialog', { name: '任務詳細資訊' })).toHaveCount(0)
+    await expect(page.getByTestId('workflow-column-todo')).not.toContainText(archivedTaskTitle)
+
     await openArchivedTasksView(page)
-    await page.getByText(archivedTaskTitle, { exact: true }).click()
+
+    const archivedTaskItem = getLifecycleTaskItem(page, archivedTaskTitle)
+    await archivedTaskItem.getByRole('button', { name: archivedTaskTitle, exact: true }).click()
 
     const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
     await detailDialog.getByRole('button', { name: '還原' }).click()
@@ -114,8 +119,13 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Lifecycle Behavior', () => {
     await openTaskDetail(page, 'todo', trashedTaskTitle)
     await moveTaskToTrashFromDrawer(page)
 
+    await expect(page.getByRole('dialog', { name: '任務詳細資訊' })).toHaveCount(0)
+    await expect(page.getByTestId('workflow-column-todo')).not.toContainText(trashedTaskTitle)
+
     await openTrashView(page)
-    await page.getByText(trashedTaskTitle, { exact: true }).click()
+
+    const trashedTaskItem = getLifecycleTaskItem(page, trashedTaskTitle)
+    await trashedTaskItem.getByRole('button', { name: trashedTaskTitle, exact: true }).click()
 
     const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
     await detailDialog.getByRole('button', { name: '還原' }).click()

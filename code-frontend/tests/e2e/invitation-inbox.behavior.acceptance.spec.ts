@@ -155,9 +155,10 @@ test.describe('RonFlow UI/UX 驗收規格 - Invitation Inbox Behavior', () => {
     const { memberSession, invitation } = await setupPendingInvitation(request, projectName)
 
     await loginMemberAndOpenInbox(page, memberSession.user)
+    await expectInvitationVisible(page, projectName)
     await acceptInvitationThroughApi(request, memberSession, invitation.id)
 
-    await getInvitationItem(page, projectName).getByRole('button', { name: '接受邀請', exact: true }).click()
+    await acceptInvitationFromInbox(page, projectName)
 
     await expectInvitationRemoved(page, projectName)
     await expect(page.getByText(staleInvitationMessage, { exact: true })).toBeVisible()
@@ -187,6 +188,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Invitation Inbox Behavior', () => {
     const { memberSession, invitation } = await setupPendingInvitation(request, projectName)
 
     await loginMemberAndOpenInbox(page, memberSession.user)
+    await expectInvitationVisible(page, projectName)
     await rejectInvitationThroughApi(request, memberSession, invitation.id)
 
     await rejectInvitationFromInbox(page, projectName)
