@@ -1,10 +1,11 @@
-import { computed, ref } from 'vue'
+import { computed, onScopeDispose, ref, watch } from 'vue'
 import {
   ApiRequestError,
   ApiValidationError,
   type BoardColumnResponse,
   type LifecycleTaskListItemResponse,
   type ProjectListItemResponse,
+  type TaskLifecycleState,
   type WorkflowKey,
 } from '../api/ronflowApi'
 import {
@@ -20,12 +21,17 @@ const taskCommandService = new TaskCommandService()
 
 export type TaskDetailMode = 'active' | 'archived' | 'trashed'
 
+const CONTENT_EDIT_LOCK_INACTIVITY_MS = 30_000
+const contentEditActivityEvents = ['pointerdown', 'keydown', 'scroll'] as const
+
 export function useRonFlowBoard() {
   const activeProjectId = ref<string | null>(null)
   const isTaskDetailOpen = ref(false)
   const taskDetailMode = ref<TaskDetailMode>('active')
   const isEditingTaskDetail = ref(false)
   const pendingTaskTitle = ref('')
+  let contentEditInactivityTimer: ReturnType<typeof window.setTimeout> | null = null
+  let stopTrackingContentEditActivity: (() => void) | null = null
 
   const pageError = ref('')
   const boardCommandError = ref('')
@@ -176,6 +182,93 @@ export function useRonFlowBoard() {
     })
   }
 
+  function resolveTaskDetailMode(lifecycleState: TaskLifecycleState): TaskDetailMode {
+    switch (lifecycleState) {
+      case 'archived':
+        return 'archived'
+      case 'trashed':
+        return 'trashed'
+      default:
+        return 'active'
+    }
+  }
+
+  function clearContentEditInactivityTimer() {
+    if (contentEditInactivityTimer !== null) {
+      window.clearTimeout(contentEditInactivityTimer)
+      contentEditInactivityTimer = null
+    }
+  }
+
+  async function releaseContentEditLockDueToInactivity() {
+    if (!activeProjectId.value || !selectedTask.value || !isEditingTaskDetail.value) {
+      return
+    }
+
+    const projectId = activeProjectId.value
+    const taskId = selectedTask.value.id
+
+    try {
+      await taskCommandService.releaseContentEditLock(projectId, taskId)
+    } catch {}
+
+    isEditingTaskDetail.value = false
+    updateTaskDetailResource.reset()
+    taskTitleValidationError.value = ''
+    reminderDateTimeValidationError.value = ''
+
+    try {
+      const task = await taskQueryService.getDetail(projectId, taskId)
+      taskDetailResource.setData(task)
+      taskDetailMode.value = resolveTaskDetailMode(task.lifecycleState)
+    } catch {}
+  }
+
+  function resetContentEditInactivityTimer() {
+    clearContentEditInactivityTimer()
+
+    if (!isEditingTaskDetail.value) {
+      return
+    }
+
+    contentEditInactivityTimer = window.setTimeout(() => {
+      void releaseContentEditLockDueToInactivity()
+    }, CONTENT_EDIT_LOCK_INACTIVITY_MS)
+  }
+
+  function stopContentEditActivityTracking() {
+    clearContentEditInactivityTimer()
+
+    if (stopTrackingContentEditActivity) {
+      stopTrackingContentEditActivity()
+      stopTrackingContentEditActivity = null
+    }
+  }
+
+  function startContentEditActivityTracking() {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    stopContentEditActivityTracking()
+
+    const onActivity = () => {
+      resetContentEditInactivityTimer()
+    }
+
+    for (const eventName of contentEditActivityEvents) {
+      window.addEventListener(eventName, onActivity, { passive: true })
+    }
+
+    stopTrackingContentEditActivity = () => {
+      for (const eventName of contentEditActivityEvents) {
+        window.removeEventListener(eventName, onActivity)
+      }
+    }
+
+    resetContentEditInactivityTimer()
+  }
+
   async function openTaskDetail(taskId: string, mode: TaskDetailMode = 'active', taskTitle = '') {
     if (!activeProjectId.value) {
       return
@@ -194,7 +287,8 @@ export function useRonFlowBoard() {
     isTaskDetailOpen.value = true
 
     try {
-      await taskDetailResource.execute(activeProjectId.value, taskId)
+      const task = await taskDetailResource.execute(activeProjectId.value, taskId)
+      taskDetailMode.value = resolveTaskDetailMode(task.lifecycleState)
     } catch {}
   }
 
@@ -599,10 +693,24 @@ export function useRonFlowBoard() {
     try {
       const task = await taskQueryService.getDetail(activeProjectId.value, selectedTask.value.id)
       taskDetailResource.setData(task)
+      taskDetailMode.value = resolveTaskDetailMode(task.lifecycleState)
     } catch {}
   }
 
 
+
+  watch(isEditingTaskDetail, (isEditing) => {
+    if (isEditing) {
+      startContentEditActivityTracking()
+      return
+    }
+
+    stopContentEditActivityTracking()
+  })
+
+  onScopeDispose(() => {
+    stopContentEditActivityTracking()
+  })
 
   return {
     projects,

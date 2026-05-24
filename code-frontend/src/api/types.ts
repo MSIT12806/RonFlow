@@ -25,6 +25,7 @@ export type TaskDetailResponse = {
   title: string
   description: string
   currentState: WorkflowStateResponse
+  lifecycleState: TaskLifecycleState
   dueDate: string | null
   createdAt: string
   completedAt: string | null

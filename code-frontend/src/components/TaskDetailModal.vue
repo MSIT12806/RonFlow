@@ -476,6 +476,7 @@ function emitRestore() {
 watch(
   () => [
     props.isOpen,
+    props.isEditing,
     props.task?.id,
     props.task?.title,
     props.task?.description,
