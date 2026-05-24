@@ -107,6 +107,18 @@ Done   -> 已完成
 7. 本文件目前只描述以 Project 為單位的多人協作，不描述 workspace member、tenant role、organization boundary 或跨租戶協作流程。
 ```
 
+### 4.2 多人協作與 Session 前提
+
+```text
+1. RonFlow 目前的多人協作核心面包含 Project Board 與 Task Detail Drawer，這些畫面中的已儲存資料變更應近即時同步。
+2. Invitation Inbox、Project Members Panel 與 Project List 上的邀請 badge 屬於通知面，應自動更新，但可接受最晚在 10 秒內反映最新狀態。
+3. Task Detail Drawer 預設為 view mode；使用者需明確進入 edit mode，才可編輯 Task Title、Description、Due Date 與 Reminder。
+4. Task 的未儲存草稿不屬於共享資料；其他使用者只能看到目前已儲存版本與該 Task 的鎖定狀態。
+5. RonFlow 對同一使用者採 single active session 應用政策：一旦新的 RonFlow session 建立，舊 session 應失效，且舊 session 持有的 project presence 與所有 task lock 應立即釋放。
+6. 同一個瀏覽器中的不同分頁，對 RonFlow 而言仍視為不同 session；新分頁只要成功載入 RonFlow workspace，就會建立新的 RonFlow session。
+7. 舊 session 失效後，畫面應先顯示 session 已失效的訊息，再自動導回登入頁；失效 session 不得再操作任何 RonFlow 功能。
+```
+
 ## 5. Ubiquitous Language 對照表
 
 ### 5.1 用語使用原則
@@ -206,10 +218,10 @@ Done   -> 已完成
 18. 系統立即關閉建立任務 Modal，Task 出現在「待處理」（Todo）欄位
 19. Project 成員點擊 Task Card
 20. 系統開啟 Task Detail Drawer
-21. Project 成員可以在 Drawer 編輯 Task Title、Description 與 Due Date
-22. 系統在 Task 更新後保留最新資料，並新增對應的活動紀錄
-23. Project 成員可以在 Drawer 新增多個提醒，並為每個提醒設定提醒時間與提醒說明
-24. Project 成員可以在 Drawer 刪除既有提醒
+21. Project 成員可以先在 Drawer 查看 Task 基本資訊，並在需要時進入 edit mode
+22. 進入 edit mode 後，Project 成員可以編輯 Task Title、Description、Due Date 與 Reminder
+23. 系統在 Task 更新後保留最新資料，並新增對應的活動紀錄
+24. 其他正在查看同一個 Project 的成員，應在對應畫面近即時看到這些已儲存變更
 25. 到達提醒時間時，系統會透過 Web Push + Service Worker 傳送提醒通知，即使 RonFlow 沒有開在前景中
 26. Project 成員可以拖曳 Task 到其他欄位，或在同欄位內調整順序
 27. Task 進入 Done 時系統記錄完成；移回非 Done 時系統記錄重新開啟
@@ -287,6 +299,7 @@ flowchart TD
 5. 使用者在專案中的角色
 6. 建立專案按鈕
 7. 邀請收件匣入口
+8. 邀請收件匣 badge（若存在待處理邀請）
 ```
 
 **User Actions**
@@ -326,6 +339,9 @@ flowchart TD
 1. 當專案清單為空時，畫面仍應顯示空狀態訊息「尚未建立任何專案」與可點擊的「建立專案」按鈕；畫面不應只剩空白區域。
 2. 專案列表的資料讀取 loading/error handling 依 [共用前端設計規範](../../../../CommonSpec/frontend-guidelines.md)。
 3. 使用者成功建立 Project 後，系統應立即關閉 Create Project Modal，並導向新建立 Project 的 Project Kanban Board；使用者不需要重新整理頁面或重新選取該 Project。
+4. 若使用者在其他 session 接受 Project 邀請，對應 Project 應在 10 秒內自動出現在 Project List，並顯示正確角色。
+5. 若使用者尚未接受邀請，Project List 不應提前顯示該 Project。
+6. Invitation Inbox 入口的 badge 應在 10 秒內自動更新。
 ```
 
 **Related Rules**
@@ -440,6 +456,7 @@ Feature: 建立專案
 5. 已封存任務入口
 6. 垃圾桶入口
 7. 專案成員入口
+8. 目前在線成員清單
 ```
 
 **User Actions**
@@ -475,6 +492,9 @@ Feature: 建立專案
 8. 使用者可以從 Project Kanban Board 進入 Archived Tasks View
 9. 使用者可以從 Project Kanban Board 進入 Trash View
 10. Project Owner 應可從 Project Kanban Board 開啟成員管理入口以邀請成員
+11. 其他成員已儲存的 Task 變更，應近即時反映在目前 Board 上可見的資訊中。
+12. 若某張 Task 正由其他使用者拖曳、編輯或執行 lifecycle 操作，該 Task 仍可被查看，但衝突操作應被禁止。
+13. Board 應顯示目前仍在此 Project scope 中的在線成員清單。
 ```
 
 **UI / UX Notes**
@@ -499,6 +519,8 @@ Feature: 建立專案
 ```text
 1. 即使某個 workflow column 目前沒有任何 Task，該欄位仍應顯示欄位標題與空狀態區域；畫面不應因空欄位而少一個 column。
 2. Project Kanban Board 的資料讀取 loading/error handling 依 [共用前端設計規範](../../../../CommonSpec/frontend-guidelines.md)。
+3. Board 屬於多人協作的核心即時面；若即時同步通道暫時中斷，系統應顯示輕量提示、暫時退回自動輪詢，並在恢復後回到即時模式。
+4. 被其他使用者持有 lock 的 Task，應以 disabled 狀態搭配外框、顏色與使用者標記呈現；lock 一旦釋放，畫面應立即恢復可操作狀態。
 ```
 
 **Testability**
@@ -642,31 +664,35 @@ Feature: 建立任務
 **User Actions**
 
 ```text
-1. 編輯任務標題
-2. 編輯任務描述
-3. 修改到期日
-4. 新增提醒
-5. 刪除提醒
-6. 關閉 Drawer
-7. 從更多操作封存任務
-8. 從更多操作移到垃圾桶
-9. 在 read-only mode 還原任務
+1. 查看 Task 詳細資訊
+2. 進入 edit mode
+3. 編輯任務標題
+4. 編輯任務描述
+5. 修改到期日
+6. 新增提醒
+7. 刪除提醒
+8. 關閉 Drawer
+9. 從更多操作封存任務
+10. 從更多操作移到垃圾桶
+11. 在 read-only mode 還原任務
 ```
 
 **Expected Behavior**
 
 ```text
 1. 使用者可以在 Drawer 查看 Task 的 Title、Description、Current State、Due Date、CreatedAt、CompletedAt 與 Activity Timeline
-2. 使用者可以在 Drawer 修改 Task Title、Description 與 Due Date
-3. 使用者可以在 Drawer 為同一個 Task 建立多個提醒
-4. 每個提醒至少包含提醒時間與提醒說明，其中提醒時間為必填
-5. 使用者可以刪除尚未觸發的提醒
-6. 修改成功後，Drawer 應顯示最新資料
-7. 修改成功後，Activity Timeline 應新增對應紀錄
-8. Activity Timeline 至少應支援 TaskCreated、TaskTitleChanged、TaskDescriptionChanged、TaskDueDateChanged、TaskStateChanged、TaskCompleted、TaskReopened、TaskReordered、TaskArchived、TaskRestoredFromArchive、TaskMovedToTrash、TaskRestoredFromTrash，並標示執行該操作的 Project Member
-9. 當 Task 位於 ActiveRecord 時，Drawer 應允許編輯內容與管理提醒
-10. 當 Task 位於 Archived 或 Trashed 時，Drawer 應以 read-only mode 顯示，且不允許編輯內容、移動狀態、排序或管理提醒
-11. 當 Task 位於 Archived 或 Trashed 時，Drawer 應提供還原操作
+2. Task Detail Drawer 預設應以 view mode 開啟；使用者需明確進入 edit mode，才可編輯內容。
+3. 使用者進入 edit mode 後，才可修改 Task Title、Description、Due Date 與 Reminder。
+4. 每個提醒至少包含提醒時間與提醒說明，其中提醒時間為必填。
+5. 使用者可以刪除尚未觸發的提醒。
+6. 修改成功後，Drawer 應顯示最新資料。
+7. 修改成功後，Activity Timeline 應新增對應紀錄。
+8. Activity Timeline 至少應支援 TaskCreated、TaskTitleChanged、TaskDescriptionChanged、TaskDueDateChanged、TaskStateChanged、TaskCompleted、TaskReopened、TaskReordered、TaskArchived、TaskRestoredFromArchive、TaskMovedToTrash、TaskRestoredFromTrash，並標示執行該操作的 Project Member。
+9. 當 Task 位於 ActiveRecord 時，Drawer 應允許查看內容；只有取得內容編輯權的使用者可進入 edit mode 與管理提醒。
+10. 若其他使用者正在編輯同一個 Task，後來開啟 Drawer 的使用者仍可查看目前已儲存內容，但衝突操作應被禁止。
+11. 當其他使用者儲存同一個 Task 後，view mode 的 Drawer 應自動更新為最新已儲存內容。
+12. 當 Task 位於 Archived 或 Trashed 時，Drawer 應以 read-only mode 顯示，且不允許編輯內容、移動狀態、排序或管理提醒。
+13. 當 Task 位於 Archived 或 Trashed 時，Drawer 應提供還原操作。
 ```
 
 **UI / UX Notes**
@@ -690,6 +716,8 @@ Feature: 建立任務
 3. 封存成功後，系統應將 Task 移出主要工作視野，並可顯示 toast：「已封存任務」與「復原」。
 4. 移到垃圾桶成功後，系統應將 Task 移出主要工作視野，並可顯示 toast：「已移到垃圾桶」與「復原」。
 5. 使用者點擊 toast 的「復原」後，系統應還原對應 Task。
+6. 若使用者在 edit mode 中失去編輯權，例如 session 失效或鎖定被回收，Drawer 應自動退回 view mode，丟棄未儲存草稿，並改顯示最新已儲存內容。
+7. 若其他使用者在目前 Task 上執行 drag 操作，Drawer 內的 Current State 與 Activity Timeline 應近即時更新。
 ```
 
 **Visible Names**
@@ -697,6 +725,7 @@ Feature: 建立任務
 ```text
 1. Drawer 可見名稱：任務詳細資訊
 2. 關閉操作：關閉
+3. 進入編輯操作：編輯
 ```
 
 **Related Rules**
@@ -1076,10 +1105,11 @@ Feature: Trash view
 ```text
 1. 每個 Task 可以建立多個提醒
 2. 每個提醒至少包含提醒時間與提醒說明，其中提醒時間為必填
-3. 提醒建立成功後，Task Detail Drawer 應顯示最新的提醒清單
-4. 使用者可以刪除尚未觸發的提醒
-5. 提醒刪除成功後，該提醒不應繼續顯示在提醒清單中
-6. 提醒被刪除後，系統不應再送出該筆提醒通知
+3. 使用者必須先進入 Task Detail Drawer 的 edit mode，並取得內容編輯權，才可新增或刪除提醒
+4. 提醒建立成功後，Task Detail Drawer 應顯示最新的提醒清單
+5. 使用者可以刪除尚未觸發的提醒
+6. 提醒刪除成功後，該提醒不應繼續顯示在提醒清單中
+7. 提醒被刪除後，系統不應再送出該筆提醒通知
 ```
 
 **Validation Feedback**
@@ -1229,6 +1259,15 @@ Feature: Reminder notification delivery
 3. 邀請送出後，系統應建立一筆待處理的 Project Invitation。
 4. 被邀請使用者在接受邀請前，不應取得該 Project 的存取權。
 5. 若邀請對象已是目前 Project Member，系統應拒絕重複邀請並顯示可理解的訊息。
+6. Project Members Panel 屬於通知面；目前成員與待處理邀請應自動更新，且最晚應在 10 秒內反映最新狀態。
+7. 若待處理邀請被接受，該使用者應從 pending invitations 轉入 members list。
+```
+
+**State Handling / Feedback**
+
+```text
+1. Owner 成功送出邀請後，pending invitations 應自動更新，但不需要額外顯示提示。
+2. 若待處理邀請被接受，Project Members Panel 應在 10 秒內更新 members list 與 pending invitations，並可顯示輕量提示。
 ```
 
 **Validation Feedback**
@@ -1304,6 +1343,14 @@ Feature: Project member management
 3. 使用者接受邀請後，該 Project 應出現在 Project List Page。
 4. 使用者拒絕邀請後，不應取得該 Project 的存取權。
 5. 已接受或已拒絕的邀請不應繼續顯示在待處理邀請清單中。
+6. Invitation Inbox 屬於通知面，待處理邀請應自動更新，且最晚應在 10 秒內反映最新狀態。
+```
+
+**State Handling / Feedback**
+
+```text
+1. 若使用者收到新的邀請，Invitation Inbox 入口與收件匣內容應在 10 秒內自動更新。
+2. 若邀請被接受、拒絕或過期，對應邀請應自動從清單移除，並可顯示輕量提示。
 ```
 
 **Related Rules**
@@ -1345,6 +1392,8 @@ Feature: Invitation inbox
 5. 若使用者尚未接受邀請、已拒絕邀請，或根本不是該 Project 的成員，系統應拒絕其存取並回應 Access Denied。
 6. Access Denied 屬於 authorization failure，不應被視為 validation error。
 7. 本文件目前描述的是 authenticated collaborative-project 版本，不包含 workspace、tenant 或 organization 層級的共享資料邊界。
+8. RonFlow 應採 single active session 應用政策；同一個使用者一旦建立新的 RonFlow session，舊 session 不得再使用 RonFlow 功能。
+9. RonAuth 應提供足以讓 RonFlow 辨識目前 session 身分或版本的支援能力，但是否為最新 RonFlow session 的判定規則由 RonFlow 決定。
 ```
 
 <a id="project-rules"></a>
@@ -1386,6 +1435,9 @@ Feature: Invitation inbox
 17. 當 Task 進入 Done 類狀態時，活動紀錄應包含 TaskCompleted
 18. Task 調整順序後，活動紀錄應包含 TaskReordered
 19. Task 可以在 Task Detail Drawer 中設定多個提醒
+20. Task Detail Drawer 預設以 view mode 開啟；使用者需明確進入 edit mode 才可編輯內容
+21. 儲存成功後，Drawer 應回到 view mode，並釋放內容編輯鎖
+22. 未儲存草稿不屬於共享資料；其他使用者只能看到最新已儲存版本
 ```
 
 <a id="reminder-rules"></a>
@@ -1397,10 +1449,11 @@ Feature: Invitation inbox
 2. Reminder DateTime 為必填。
 3. Reminder Description 可為空。
 4. 提醒應在 Task Detail Drawer 中建立與刪除。
-5. 已刪除的提醒不應繼續被送達。
-6. 到達提醒時間時，系統應透過 Web Push + Service Worker 傳送提醒通知。
-7. 提醒通知的送達前提為裝置/瀏覽器已允許通知並完成推播訂閱。
-8. 若裝置/瀏覽器目前不具備可用的通知權限或推播訂閱，系統應明確告知提醒可能無法送達。
+5. 新增或刪除提醒前，使用者必須先進入 edit mode，並取得該 Task 的內容編輯權。
+6. 已刪除的提醒不應繼續被送達。
+7. 到達提醒時間時，系統應透過 Web Push + Service Worker 傳送提醒通知。
+8. 提醒通知的送達前提為裝置/瀏覽器已允許通知並完成推播訂閱。
+9. 若裝置/瀏覽器目前不具備可用的通知權限或推播訂閱，系統應明確告知提醒可能無法送達。
 ```
 
 <a id="lifecycle-rules"></a>
@@ -1446,6 +1499,44 @@ Feature: Invitation inbox
 11. Task 移動或排序成功後，欄位中的卡片順序都應反映最新位置
 12. 只有 Lifecycle State 為 ActiveRecord 的 Task 應顯示在 Board
 13. Archived / Trashed Task 不應顯示在任何 workflow column
+14. Board 上已儲存的共享資料變更應近即時同步到其他正在查看同一個 Project 的成員
+15. Board 只需同步 Task Card 上本來就可見的資訊；未顯示於卡片上的內容不需在 Board 上額外提示
+16. 若某張 Task 正由其他使用者執行衝突操作，Board 應以 disabled 狀態搭配外框、顏色與使用者標記呈現，但仍允許開啟 view mode 的 Drawer
+17. Board 應顯示目前仍在此 Project scope 中的在線成員清單
+```
+
+<a id="collaboration-rules"></a>
+
+### 8.6 多人協作同步與 Lock 規則
+
+```text
+1. Project Board 與 Task Detail Drawer 屬於多人協作的核心即時面；這些畫面中的已儲存變更應近即時同步。
+2. Task 的 lock 至少區分為 content edit lock、drag lock 與 lifecycle lock。
+3. 內容編輯操作採 edit mode 進入；未進入 edit mode 前，Drawer 僅為 view mode。
+4. content edit lock 與 drag lock 可以並存。
+5. lifecycle lock 不可與 drag lock 並存，且與 content edit lock 之間採先到先得。
+6. 拿不到 lock 的使用者仍可查看 Task，但衝突操作應被禁止。
+7. 拖曳中的 Task，其他使用者先看到原卡片被鎖定；直到 drop 成功後，Board 才一次更新到新欄位或新順序。
+8. view mode 的 Drawer 應自動更新其他使用者已儲存的內容；未儲存草稿不共享。
+9. Activity Timeline 不應記錄 lock、presence、heartbeat 或 timeout 回收等協作暫態事件。
+10. 若即時同步通道暫時中斷，系統應顯示輕量提示、暫時退回自動輪詢，並在恢復後回到即時模式。
+```
+
+<a id="presence-session-rules"></a>
+
+### 8.7 Presence 與 RonFlow Session 規則
+
+```text
+1. Project presence 的範圍包含 Project Board、Task Detail Drawer、Archived Tasks View、Trash View 與 Project Members Panel。
+2. 只有目前真的仍在該 Project scope 中的成員，才應出現在該 Project 的在線名單。
+3. 在線名單以使用者為單位去重顯示，不因同一使用者有多個操作端而重複列出。
+4. Members Panel、Invitation Inbox、Project List badge 與在線名單屬於通知面，可接受最晚在 10 秒內自動更新。
+5. 同一個瀏覽器中的不同分頁，對 RonFlow 而言仍視為不同 session。
+6. 新分頁只要成功載入 RonFlow workspace，就會建立新的 RonFlow session，並使舊 session 失效。
+7. 舊 session 一旦失效，應立即釋放它的 project presence 與所有 task lock。
+8. 舊 session 應先顯示 session 已失效的訊息，再自動導回登入頁。
+9. 若使用者主動離開某個 Project scope，該 Project 的 presence 與所有 lock 應立即釋放。
+10. 若使用者持有 lock 但整個 browser tab 無活動、離線或失去連線超過 30 秒，應視為 inactivity 並回收該 lock。
 ```
 
 ---
@@ -1641,4 +1732,49 @@ Feature: Invitation inbox
 3. 使用者接受邀請後，該 Project 應出現在 Project List Page。
 4. 使用者拒絕邀請後，不應取得該 Project 的存取權。
 5. 已接受或已拒絕的邀請不應繼續顯示在待處理邀請清單中。
+```
+
+### 9.18 Real-Time Collaboration On Board And Drawer
+
+```text
+1. Project Board 與 Task Detail Drawer 中的已儲存共享資料變更，應近即時同步到其他正在查看同一個 Project 的成員。
+2. 若使用者在 view mode 中查看 Task Detail Drawer，其他成員儲存後，Drawer 應自動切換到最新已儲存內容。
+3. Board 只需更新 Task Card 上本來就可見的資訊；例如 Title、目前欄位與排序位置。
+4. 當其他成員拖曳某張 Task 時，Board 應先顯示原卡片被鎖定；drop 成功後，再一次更新到新欄位或新順序。
+5. 當其他成員 archive 或 move to trash 某張 Task 時，Board 應立即移除該 Task；若目前正開著 Drawer，Drawer 應自動切到對應生命週期的 read-only 狀態。
+6. 當其他成員還原已封存或已移到垃圾桶的 Task 時，Board 應立即讓 Task 回到原欄位；若目前正開著 Drawer，Drawer 應自動切回 active task 的可查看狀態。
+```
+
+### 9.19 Edit Mode, Locking, And Draft Handling
+
+```text
+1. Task Detail Drawer 預設應以 view mode 開啟；使用者需明確點擊「編輯」後，才進入 edit mode。
+2. 使用者只有在 edit mode 且取得內容編輯權後，才可編輯 Task Title、Description、Due Date 與 Reminder。
+3. 拿不到 lock 的使用者仍可查看 Task，但 edit、drag、lifecycle 或 reminder 等衝突操作應被禁止。
+4. 若使用者在 edit mode 中失去內容編輯權，例如 session 失效、lock 被回收或 timeout，Drawer 應自動退回 view mode，丟棄未儲存草稿，並改顯示最新已儲存內容。
+5. 當使用者儲存成功後，Drawer 應維持開啟，但退出 edit mode、回到 view mode，並立即釋放內容編輯鎖。
+6. lock 狀態只需以 disabled 狀態搭配外框、顏色與使用者標記表達，不需要另外跳出阻擋訊息。
+```
+
+### 9.20 Notification Surfaces Auto Refresh
+
+```text
+1. Invitation Inbox、Project Members Panel、Project List 上的 Invitation Inbox badge 與 Project 在線名單，應最晚在 10 秒內自動更新。
+2. 使用者接受邀請後，對應 Project 應在 10 秒內自動出現在 Project List，並顯示正確角色。
+3. 使用者尚未接受邀請前，Project List 不應提前顯示該 Project。
+4. 若使用者收到新的邀請，Invitation Inbox 入口的 badge 應在 10 秒內自動更新。
+5. 若邀請被接受、拒絕或過期，Invitation Inbox 應自動更新，並可顯示輕量提示。
+6. Owner 送出邀請後，Project Members Panel 的 pending invitations 應自動更新，但不需要額外提示。
+7. Owner 端的 pending invitation 被接受後，Project Members Panel 應在 10 秒內將該使用者轉入 members list，並可顯示輕量提示。
+```
+
+### 9.21 RonFlow Single Active Session Policy
+
+```text
+1. RonFlow 應採 single active session 應用政策，而不是依賴 RonAuth 直接強制全域單一登入。
+2. 同一個瀏覽器中的不同分頁，對 RonFlow 而言仍視為不同 session。
+3. 新分頁只要成功載入 RonFlow workspace，就會建立新的 RonFlow session。
+4. 新 RonFlow session 建立後，舊 session 應立即失效，並釋放該 session 的 project presence 與所有 task lock。
+5. 舊 session 在失效後，應先顯示 session 已失效的訊息，再自動導回登入頁。
+6. RonAuth 應提供足以讓 RonFlow 辨識 session 身分或版本的支援能力，但是否為目前有效的 RonFlow session，仍由 RonFlow 判定。
 ```
