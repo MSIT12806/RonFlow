@@ -12,6 +12,8 @@
     - 以前端 RonAuth SDK + 後端 JWT trust 建立跨 bounded context 的協作邊界
 - [x] 實作 Testing-only HTTP fault injection
     - 讓前端 E2E 仍然打真實 API，但可由後端 middleware 受控地回傳指定 status code、message 與 delay
+- [x] 加入多人協作的設計
+    - 多人協作下的 concurrency control、即時協作
 
 ### what?
 這是 AI 認為是特點，但是我不知道裡面實作細節的東西。
@@ -25,8 +27,6 @@
 - [ ] 加入權限，體現 supporting domain 如何互動
     - authorization / RBAC / policy-based access control
 - [ ] 加入報表，實作 projection
-- [ ] 加入多人協作的設計
-    - 多人協作下的 concurrency control、即時協作
 - [ ] observability
     - 結構化 logging、metrics、distributed tracing、健康檢查。
 - [ ] 資料庫遷移與 schema evolution
