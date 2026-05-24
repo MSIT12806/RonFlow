@@ -48,6 +48,14 @@ function getInvitationItem(page: Page, projectName: string) {
   return page.getByTestId('invitation-item').filter({ hasText: projectName }).first()
 }
 
+async function acceptInvitationFromInbox(page: Page, projectName: string) {
+  await getInvitationItem(page, projectName).getByRole('button', { name: '接受邀請', exact: true }).click()
+}
+
+async function rejectInvitationFromInbox(page: Page, projectName: string) {
+  await getInvitationItem(page, projectName).getByRole('button', { name: '拒絕邀請', exact: true }).click()
+}
+
 test.describe('RonFlow UI/UX 驗收規格 - Invitation Inbox Behavior', () => {
   test('使用者接受邀請後，邀請會從清單消失且專案出現在專案列表', async ({ page, request }) => {
     const projectName = `Invited Project ${Date.now()}`
@@ -56,7 +64,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Invitation Inbox Behavior', () => {
     await loginMemberAndOpenInbox(page, memberSession.user)
     await expectInvitationVisible(page, projectName)
 
-    await page.getByRole('button', { name: '接受邀請', exact: true }).click()
+    await acceptInvitationFromInbox(page, projectName)
 
     await expectInvitationRemoved(page, projectName)
     await expect(page.getByRole('button', { name: new RegExp(projectName) })).toBeVisible()
@@ -67,7 +75,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Invitation Inbox Behavior', () => {
     const { memberSession } = await setupPendingInvitation(request, projectName)
 
     await loginMemberAndOpenInbox(page, memberSession.user)
-    await page.getByRole('button', { name: '接受邀請', exact: true }).click()
+    await acceptInvitationFromInbox(page, projectName)
 
     await openProjectFromList(page, projectName)
 
@@ -79,7 +87,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Invitation Inbox Behavior', () => {
     const { memberSession } = await setupPendingInvitation(request, projectName)
 
     await loginMemberAndOpenInbox(page, memberSession.user)
-    await page.getByRole('button', { name: '接受邀請', exact: true }).click()
+    await acceptInvitationFromInbox(page, projectName)
 
     await expect(page.getByRole('button', { name: new RegExp(projectName) })).toBeVisible()
     await expect(page.locator('.project-chip-role').filter({ hasText: '專案成員' })).toBeVisible()
@@ -92,7 +100,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Invitation Inbox Behavior', () => {
     await loginMemberAndOpenInbox(page, memberSession.user)
     await expectInvitationVisible(page, projectName)
 
-    await page.getByRole('button', { name: '拒絕邀請', exact: true }).click()
+    await rejectInvitationFromInbox(page, projectName)
 
     await expectInvitationRemoved(page, projectName)
     await expect(page.getByRole('button', { name: projectName, exact: true })).toHaveCount(0)
@@ -136,7 +144,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Invitation Inbox Behavior', () => {
     }])
 
     await loginMemberAndOpenInbox(page, memberSession.user)
-    await page.getByRole('button', { name: '接受邀請', exact: true }).click()
+    await acceptInvitationFromInbox(page, projectName)
 
     await expectInvitationVisible(page, projectName)
     await expect(page.getByText('接受邀請失敗，請稍後再試。', { exact: true })).toBeVisible()
@@ -168,7 +176,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Invitation Inbox Behavior', () => {
     }])
 
     await loginMemberAndOpenInbox(page, memberSession.user)
-    await page.getByRole('button', { name: '拒絕邀請', exact: true }).click()
+    await rejectInvitationFromInbox(page, projectName)
 
     await expectInvitationVisible(page, projectName)
     await expect(page.getByText('拒絕邀請失敗，請稍後再試。', { exact: true })).toBeVisible()
@@ -181,7 +189,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Invitation Inbox Behavior', () => {
     await loginMemberAndOpenInbox(page, memberSession.user)
     await rejectInvitationThroughApi(request, memberSession, invitation.id)
 
-    await page.getByRole('button', { name: '拒絕邀請', exact: true }).click()
+    await rejectInvitationFromInbox(page, projectName)
 
     await expectInvitationRemoved(page, projectName)
     await expect(page.getByText(staleInvitationMessage, { exact: true })).toBeVisible()
@@ -201,8 +209,9 @@ test.describe('RonFlow UI/UX 驗收規格 - Invitation Inbox Behavior', () => {
 
     await loginMemberAndOpenInbox(page, memberSession.user)
 
-    const acceptButton = page.getByRole('button', { name: '接受邀請', exact: true })
-    const rejectButton = page.getByRole('button', { name: '拒絕邀請', exact: true })
+  const invitationItem = getInvitationItem(page, projectName)
+  const acceptButton = invitationItem.getByRole('button', { name: '接受邀請', exact: true })
+  const rejectButton = invitationItem.getByRole('button', { name: '拒絕邀請', exact: true })
 
     await acceptButton.dblclick()
 
@@ -224,8 +233,9 @@ test.describe('RonFlow UI/UX 驗收規格 - Invitation Inbox Behavior', () => {
 
     await loginMemberAndOpenInbox(page, memberSession.user)
 
-    const acceptButton = page.getByRole('button', { name: '接受邀請', exact: true })
-    const rejectButton = page.getByRole('button', { name: '拒絕邀請', exact: true })
+  const invitationItem = getInvitationItem(page, projectName)
+  const acceptButton = invitationItem.getByRole('button', { name: '接受邀請', exact: true })
+  const rejectButton = invitationItem.getByRole('button', { name: '拒絕邀請', exact: true })
 
     await rejectButton.dblclick()
 
@@ -263,7 +273,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Invitation Inbox Behavior', () => {
       message: 'refresh failed',
     }])
 
-    await page.getByRole('button', { name: '接受邀請', exact: true }).click()
+    await acceptInvitationFromInbox(page, projectName)
 
     await expect(page.getByTestId('base-error-state')).toContainText('無法載入邀請收件匣，請稍後再試。')
     await expect(page.getByTestId('invitation-sync-message')).toHaveCount(0)
@@ -292,7 +302,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Invitation Inbox Behavior', () => {
     await loginAndEnterWorkspace(memberPage, memberSession.user)
     await openInvitationInbox(memberPage)
     await expectInvitationVisible(memberPage, projectName)
-    await memberPage.getByRole('button', { name: '接受邀請', exact: true }).click()
+    await acceptInvitationFromInbox(memberPage, projectName)
 
     await expect(memberPage.locator('.project-chip-role').filter({ hasText: '專案成員' })).toBeVisible()
     await openProjectFromList(memberPage, projectName)

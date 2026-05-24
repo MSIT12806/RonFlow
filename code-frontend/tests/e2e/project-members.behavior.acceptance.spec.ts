@@ -338,7 +338,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Project Members Behavior', () => {
     await acceptInvitationThroughApi(request, memberSession, invitation!.id)
 
     await expect(
-      page.getByRole('listitem').filter({ hasText: memberSession.user.userName }),
+      page.getByTestId('project-members-list').getByRole('listitem').filter({ hasText: memberSession.user.userName }),
     ).toBeVisible({ timeout: 10000 })
     await expect(page.getByText(memberSession.user.email, { exact: true })).toHaveCount(0)
     await expect(page.getByText('目前沒有待處理邀請', { exact: true })).toBeVisible()
