@@ -6,6 +6,7 @@ public sealed class UpdateTaskCommandService(
     IProjectRepository projectRepository,
     ProjectAccessService projectAccessService,
     ITaskRepository taskRepository,
+    TaskContentEditLockService taskContentEditLockService,
     TimeProvider timeProvider)
 {
     public UpdateTaskResult Update(Guid currentUserId, Guid projectId, Guid taskId, string? rawTitle, string? rawDescription, DateOnly? dueDate)
@@ -32,6 +33,11 @@ public sealed class UpdateTaskCommandService(
         if (task is null || task.ProjectId != projectId)
         {
             return UpdateTaskResult.NotFound();
+        }
+
+        if (!taskContentEditLockService.IsHeldBy(currentUserId, taskId))
+        {
+            return UpdateTaskResult.Locked();
         }
 
         var changedAt = timeProvider.GetUtcNow();

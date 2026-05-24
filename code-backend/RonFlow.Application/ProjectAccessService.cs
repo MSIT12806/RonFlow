@@ -4,6 +4,22 @@ namespace RonFlow.Application;
 
 public sealed class ProjectAccessService(IProjectRepository projectRepository)
 {
+    public ProjectAccessResult GetOwnerProject(Guid currentUserId, Guid projectId)
+    {
+        var project = projectRepository.Get(projectId);
+        if (project is null)
+        {
+            return ProjectAccessResult.NotFound();
+        }
+
+        if (!project.IsOwnedBy(currentUserId))
+        {
+            return ProjectAccessResult.Denied();
+        }
+
+        return ProjectAccessResult.Success(project);
+    }
+
     public ProjectAccessResult GetOwnedProject(Guid currentUserId, Guid projectId)
     {
         var project = projectRepository.Get(projectId);
@@ -12,7 +28,7 @@ public sealed class ProjectAccessService(IProjectRepository projectRepository)
             return ProjectAccessResult.NotFound();
         }
 
-        if (project.OwnerId != currentUserId)
+        if (!project.IsAccessibleBy(currentUserId))
         {
             return ProjectAccessResult.Denied();
         }

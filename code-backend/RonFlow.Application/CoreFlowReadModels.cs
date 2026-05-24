@@ -4,7 +4,23 @@ namespace RonFlow.Application;
 
 public sealed record ProjectListView(IReadOnlyList<ProjectListItemView> Items);
 
-public sealed record ProjectListItemView(Guid Id, string Name, DateTimeOffset UpdatedAt);
+public sealed record ProjectListItemView(Guid Id, string Name, DateTimeOffset UpdatedAt, string Role);
+
+public sealed record ProjectMemberListView(
+    IReadOnlyList<ProjectMemberView> Items,
+    IReadOnlyList<ProjectOnlineUserView> OnlineUsers);
+
+public sealed record ProjectMemberView(string UserName, string Role);
+
+public sealed record ProjectOnlineUserView(string UserName);
+
+public sealed record ProjectInvitationListView(IReadOnlyList<ProjectInvitationView> Items);
+
+public sealed record ProjectInvitationView(Guid Id, string Invitee, string Status);
+
+public sealed record InvitationInboxView(IReadOnlyList<InvitationInboxItemView> Items);
+
+public sealed record InvitationInboxItemView(Guid Id, Guid ProjectId, string ProjectName, string InviterName);
 
 public sealed record ProjectView(
     Guid Id,
@@ -35,6 +51,7 @@ public sealed record TaskDetailView(
     string Title,
     string Description,
     WorkflowStateView CurrentState,
+    TaskLifecycleState LifecycleState,
     DateOnly? DueDate,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
@@ -60,6 +77,11 @@ internal static class CoreFlowReadModelFactory
     public static ProjectListView CreateProjectList(IReadOnlyList<ProjectSummaryModel> projects)
     {
         return new ProjectListView(projects.Select(CreateProjectListItem).ToArray());
+    }
+
+    public static ProjectListView CreateProjectList(IReadOnlyList<ProjectListItemView> projects)
+    {
+        return new ProjectListView(projects);
     }
 
     public static ProjectView CreateProject(ProjectModel project)
@@ -98,6 +120,7 @@ internal static class CoreFlowReadModelFactory
             task.Title,
             task.Description,
             CreateWorkflowState(task.CurrentState),
+            task.LifecycleState,
             task.DueDate,
             task.CreatedAt,
             task.CompletedAt,
@@ -123,7 +146,7 @@ internal static class CoreFlowReadModelFactory
 
     private static ProjectListItemView CreateProjectListItem(ProjectSummaryModel project)
     {
-        return new ProjectListItemView(project.Id, project.Name, project.UpdatedAt);
+        return new ProjectListItemView(project.Id, project.Name, project.UpdatedAt, "專案擁有者");
     }
 
     private static BoardTaskCardView CreateBoardTaskCard(TaskModel task)

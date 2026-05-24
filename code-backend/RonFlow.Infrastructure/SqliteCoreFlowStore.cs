@@ -50,6 +50,12 @@ CREATE TABLE IF NOT EXISTS Tasks (
 CREATE TABLE IF NOT EXISTS PushSubscriptions (
     Endpoint TEXT NOT NULL PRIMARY KEY,
     Data TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS KnownUsers (
+    UserId TEXT NOT NULL PRIMARY KEY,
+    UserName TEXT NOT NULL,
+    Email TEXT NOT NULL UNIQUE
 );";
 
         command.ExecuteNonQuery();

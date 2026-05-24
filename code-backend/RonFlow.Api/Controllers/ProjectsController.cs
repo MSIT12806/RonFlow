@@ -40,7 +40,12 @@ public sealed class ProjectsController : AuthenticatedControllerBase
             return Results.Unauthorized();
         }
 
-        var result = commandService.Create(currentUserId, request.Name);
+        if (!TryGetCurrentUserName(out var currentUserName) || !TryGetCurrentUserEmail(out var currentUserEmail))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = commandService.Create(currentUserId, currentUserName, currentUserEmail, request.Name);
 
         if (result.ValidationError is not null)
         {
@@ -57,7 +62,10 @@ public sealed class ProjectsController : AuthenticatedControllerBase
     [HttpGet("{projectId:guid}/board")]
     [ProducesResponseType<ProjectBoardResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IResult GetBoard(Guid projectId, [FromServices] GetProjectBoardQueryService queryService)
+    public IResult GetBoard(
+        Guid projectId,
+        [FromServices] GetProjectBoardQueryService queryService,
+        [FromServices] ProjectPresenceRegistry projectPresenceRegistry)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
@@ -70,8 +78,94 @@ public sealed class ProjectsController : AuthenticatedControllerBase
             return AccessDenied();
         }
 
+        if (!result.NotFound
+            && TryGetCurrentUserName(out var currentUserName)
+            && TryGetRonFlowSessionId(out var sessionId))
+        {
+            projectPresenceRegistry.EnterProject(currentUserId, currentUserName, sessionId, projectId);
+        }
+
         return result.NotFound
             ? Results.NotFound()
             : Results.Ok(ProjectBoardResponse.FromView(result.Resource!));
+    }
+
+    [HttpGet("{projectId:guid}/members")]
+    [ProducesResponseType<ProjectMemberListResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public IResult GetMembers(Guid projectId, [FromServices] ProjectCollaborationQueryService queryService)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = queryService.GetMembers(currentUserId, projectId);
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
+        }
+
+        return result.NotFound
+            ? Results.NotFound()
+            : Results.Ok(ProjectMemberListResponse.FromView(result.Resource!));
+    }
+
+    [HttpGet("{projectId:guid}/invitations")]
+    [ProducesResponseType<ProjectInvitationListResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public IResult GetPendingInvitations(Guid projectId, [FromServices] ProjectCollaborationQueryService queryService)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = queryService.GetPendingInvitations(currentUserId, projectId);
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
+        }
+
+        return result.NotFound
+            ? Results.NotFound()
+            : Results.Ok(ProjectInvitationListResponse.FromView(result.Resource!));
+    }
+
+    [HttpPost("{projectId:guid}/invitations")]
+    [Consumes(MediaTypeNames.Application.Json)]
+    [ProducesResponseType<ProjectInvitationResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public IResult InviteMember(
+        Guid projectId,
+        [FromBody] CreateProjectInvitationRequest request,
+        [FromServices] ProjectInvitationCommandService commandService)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId) || !TryGetCurrentUserName(out var currentUserName))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = commandService.Invite(currentUserId, currentUserName, projectId, request.Invitee);
+
+        if (result.ValidationError is not null)
+        {
+            return ValidationResults.FromError(result.ValidationError);
+        }
+
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
+        }
+
+        if (result.ProjectNotFound)
+        {
+            return Results.NotFound();
+        }
+
+        return Results.Created(
+            $"/api/projects/{projectId}/invitations/{result.Invitation!.Id}",
+            ProjectInvitationResponse.FromView(result.Invitation!));
     }
 }

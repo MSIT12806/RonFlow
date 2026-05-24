@@ -6,6 +6,7 @@ public sealed class DeleteTaskReminderCommandService(
     IProjectRepository projectRepository,
     ProjectAccessService projectAccessService,
     ITaskRepository taskRepository,
+    TaskContentEditLockService taskContentEditLockService,
     TimeProvider timeProvider)
 {
     public DeleteTaskReminderResult Delete(Guid currentUserId, Guid projectId, Guid taskId, Guid reminderId)
@@ -27,6 +28,11 @@ public sealed class DeleteTaskReminderCommandService(
         if (task is null || task.ProjectId != projectId)
         {
             return DeleteTaskReminderResult.TaskMissing();
+        }
+
+        if (!taskContentEditLockService.IsHeldBy(currentUserId, taskId))
+        {
+            return DeleteTaskReminderResult.Locked();
         }
 
         var changedAt = timeProvider.GetUtcNow();

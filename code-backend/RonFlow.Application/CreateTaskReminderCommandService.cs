@@ -6,6 +6,7 @@ public sealed class CreateTaskReminderCommandService(
     IProjectRepository projectRepository,
     ProjectAccessService projectAccessService,
     ITaskRepository taskRepository,
+    TaskContentEditLockService taskContentEditLockService,
     TimeProvider timeProvider)
 {
     public CreateTaskReminderResult Create(Guid currentUserId, Guid projectId, Guid taskId, string? rawReminderDateTime, string? rawDescription)
@@ -32,6 +33,11 @@ public sealed class CreateTaskReminderCommandService(
         if (task is null || task.ProjectId != projectId)
         {
             return CreateTaskReminderResult.NotFound();
+        }
+
+        if (!taskContentEditLockService.IsHeldBy(currentUserId, taskId))
+        {
+            return CreateTaskReminderResult.Locked();
         }
 
         var changedAt = timeProvider.GetUtcNow();

@@ -109,9 +109,85 @@ public sealed class TasksController : AuthenticatedControllerBase
             return AccessDenied();
         }
 
+        if (result.Conflict)
+        {
+            return Results.Conflict();
+        }
+
         return result.TaskNotFound
             ? Results.NotFound()
             : Results.Ok(TaskDetailResponse.FromOutput(result.Task!));
+    }
+
+    [HttpPost("{taskId:guid}/content-edit-lock")]
+    [ProducesResponseType<TaskDetailResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public IResult AcquireContentEditLock(
+        Guid projectId,
+        Guid taskId,
+        [FromServices] GetTaskDetailQueryService queryService,
+        [FromServices] TaskContentEditLockService lockService)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var currentUserName = TryGetCurrentUserName(out var userName)
+            ? userName
+            : currentUserId.ToString();
+
+        var sessionId = TryGetRonFlowSessionId(out var currentSessionId)
+            ? currentSessionId
+            : currentUserId.ToString();
+
+        var result = queryService.Get(currentUserId, projectId, taskId);
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
+        }
+
+        if (result.NotFound)
+        {
+            return Results.NotFound();
+        }
+
+        if (!lockService.TryAcquire(currentUserId, currentUserName, sessionId, taskId))
+        {
+            return Results.Conflict();
+        }
+
+        return Results.Ok(TaskDetailResponse.FromView(result.Resource!, canEnterEdit: true));
+    }
+
+    [HttpDelete("{taskId:guid}/content-edit-lock")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public IResult ReleaseContentEditLock(
+        Guid projectId,
+        Guid taskId,
+        [FromServices] GetTaskDetailQueryService queryService,
+        [FromServices] TaskContentEditLockService lockService)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = queryService.Get(currentUserId, projectId, taskId);
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
+        }
+
+        if (result.NotFound)
+        {
+            return Results.NotFound();
+        }
+
+        lockService.ReleaseIfOwned(currentUserId, taskId);
+        return Results.NoContent();
     }
 
     [HttpPatch("{taskId:guid}/order")]
@@ -158,7 +234,8 @@ public sealed class TasksController : AuthenticatedControllerBase
     public IResult GetTaskDetail(
         Guid projectId,
         Guid taskId,
-        [FromServices] GetTaskDetailQueryService queryService)
+        [FromServices] GetTaskDetailQueryService queryService,
+        [FromServices] TaskContentEditLockService lockService)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
@@ -173,6 +250,6 @@ public sealed class TasksController : AuthenticatedControllerBase
 
         return result.NotFound
             ? Results.NotFound()
-            : Results.Ok(TaskDetailResponse.FromView(result.Resource!));
+            : Results.Ok(TaskDetailResponse.FromView(result.Resource!, lockService.CanEnterEdit(currentUserId, taskId)));
     }
 }

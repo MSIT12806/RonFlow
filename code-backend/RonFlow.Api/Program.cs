@@ -17,6 +17,9 @@ public partial class Program
 
         builder.Services.AddOpenApi();
         builder.Services.AddControllers();
+        builder.Services.AddSingleton<ITestHttpFaultStore>(builder.Environment.IsEnvironment("Testing")
+            ? new InMemoryTestHttpFaultStore()
+            : new NoOpTestHttpFaultStore());
         builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
         builder.Services.AddSingleton(_ => PushNotificationConfiguration.Create(
             builder.Configuration["PushNotifications:Subject"],
@@ -51,6 +54,9 @@ public partial class Program
         builder.Services.AddSingleton<CreateTaskCommandService>();
         builder.Services.AddSingleton<ChangeTaskStateCommandService>();
         builder.Services.AddSingleton<UpdateTaskCommandService>();
+        builder.Services.AddSingleton<TaskContentEditLockService>();
+        builder.Services.AddSingleton<ProjectPresenceRegistry>();
+        builder.Services.AddSingleton<RonFlowActiveSessionRegistry>();
         builder.Services.AddSingleton<ReorderTaskCommandService>();
         builder.Services.AddSingleton<CreateTaskReminderCommandService>();
         builder.Services.AddSingleton<DeleteTaskReminderCommandService>();
@@ -60,9 +66,11 @@ public partial class Program
         builder.Services.AddSingleton<RestoreArchivedTaskCommandService>();
         builder.Services.AddSingleton<MoveTaskToTrashCommandService>();
         builder.Services.AddSingleton<RestoreTrashedTaskCommandService>();
+        builder.Services.AddSingleton<ProjectInvitationCommandService>();
         builder.Services.AddSingleton<IPushNotificationSender, WebPushNotificationSender>();
         builder.Services.AddSingleton<GetProjectsQueryService>();
         builder.Services.AddSingleton<GetProjectBoardQueryService>();
+        builder.Services.AddSingleton<ProjectCollaborationQueryService>();
         builder.Services.AddSingleton<GetTaskDetailQueryService>();
         builder.Services.AddSingleton<GetArchivedTasksQueryService>();
         builder.Services.AddSingleton<GetTrashedTasksQueryService>();
@@ -76,6 +84,9 @@ public partial class Program
         }
 
         app.UseAuthentication();
+        app.UseMiddleware<CurrentUserDirectorySyncMiddleware>();
+        app.UseMiddleware<TestHttpFaultMiddleware>();
+        app.UseMiddleware<RonFlowActiveSessionMiddleware>();
         app.UseAuthorization();
         app.MapControllers();
 
@@ -90,6 +101,7 @@ public partial class Program
             builder.Services.AddSingleton<ITaskRepository, InMemoryTaskRepository>();
             builder.Services.AddSingleton<IPushSubscriptionRepository, InMemoryPushSubscriptionRepository>();
             builder.Services.AddSingleton<ICoreFlowReadStore, InMemoryCoreFlowReadStore>();
+            builder.Services.AddSingleton<IUserDirectory, InMemoryUserDirectory>();
             return;
         }
 
@@ -103,6 +115,7 @@ public partial class Program
         builder.Services.AddSingleton<ITaskRepository, SqliteTaskRepository>();
         builder.Services.AddSingleton<IPushSubscriptionRepository, SqlitePushSubscriptionRepository>();
         builder.Services.AddSingleton<ICoreFlowReadStore, SqliteCoreFlowReadStore>();
+        builder.Services.AddSingleton<IUserDirectory, SqliteUserDirectory>();
     }
 
     private static string ResolveDatabasePath(string contentRootPath, string configuredDatabasePath)

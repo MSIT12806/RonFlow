@@ -1,8 +1,11 @@
 using RonFlow.Application;
+using RonFlow.Domain;
 
 namespace RonFlow.Api.Contracts;
 
 public sealed record CreateProjectRequest(string? Name);
+
+public sealed record CreateProjectInvitationRequest(string? Invitee);
 
 public sealed record CreateTaskRequest(string? Title);
 
@@ -22,11 +25,71 @@ public sealed record PushNotificationPublicKeyResponse(string PublicKey);
 
 public sealed record ProjectListResponse(IReadOnlyList<ProjectListItemResponse> Items);
 
-public sealed record ProjectListItemResponse(Guid Id, string Name, DateTimeOffset UpdatedAt)
+public sealed record ProjectMemberListResponse(
+    IReadOnlyList<ProjectMemberResponse> Items,
+    IReadOnlyList<ProjectOnlineUserResponse> OnlineUsers)
+{
+    public static ProjectMemberListResponse FromView(ProjectMemberListView view)
+    {
+        return new(
+            view.Items.Select(ProjectMemberResponse.FromView).ToArray(),
+            view.OnlineUsers.Select(ProjectOnlineUserResponse.FromView).ToArray());
+    }
+}
+
+public sealed record ProjectMemberResponse(string UserName, string Role)
+{
+    public static ProjectMemberResponse FromView(ProjectMemberView view)
+    {
+        return new(view.UserName, view.Role);
+    }
+}
+
+public sealed record ProjectOnlineUserResponse(string UserName)
+{
+    public static ProjectOnlineUserResponse FromView(ProjectOnlineUserView view)
+    {
+        return new(view.UserName);
+    }
+}
+
+public sealed record ProjectInvitationListResponse(IReadOnlyList<ProjectInvitationResponse> Items)
+{
+    public static ProjectInvitationListResponse FromView(ProjectInvitationListView view)
+    {
+        return new(view.Items.Select(ProjectInvitationResponse.FromView).ToArray());
+    }
+}
+
+public sealed record ProjectInvitationResponse(Guid Id, string Invitee, string Status)
+{
+    public static ProjectInvitationResponse FromView(ProjectInvitationView view)
+    {
+        return new(view.Id, view.Invitee, view.Status);
+    }
+}
+
+public sealed record InvitationInboxResponse(IReadOnlyList<InvitationInboxItemResponse> Items)
+{
+    public static InvitationInboxResponse FromView(InvitationInboxView view)
+    {
+        return new(view.Items.Select(InvitationInboxItemResponse.FromView).ToArray());
+    }
+}
+
+public sealed record InvitationInboxItemResponse(Guid Id, Guid ProjectId, string ProjectName, string InviterName)
+{
+    public static InvitationInboxItemResponse FromView(InvitationInboxItemView view)
+    {
+        return new(view.Id, view.ProjectId, view.ProjectName, view.InviterName);
+    }
+}
+
+public sealed record ProjectListItemResponse(Guid Id, string Name, DateTimeOffset UpdatedAt, string Role)
 {
     public static ProjectListItemResponse FromView(ProjectListItemView view)
     {
-        return new(view.Id, view.Name, view.UpdatedAt);
+        return new(view.Id, view.Name, view.UpdatedAt, view.Role);
     }
 }
 
@@ -115,13 +178,15 @@ public sealed record TaskDetailResponse(
     string Title,
     string Description,
     WorkflowStateResponse CurrentState,
+    string LifecycleState,
     DateOnly? DueDate,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
     IReadOnlyList<TaskReminderResponse> Reminders,
-    IReadOnlyList<ActivityTimelineItemResponse> ActivityTimeline)
+    IReadOnlyList<ActivityTimelineItemResponse> ActivityTimeline,
+    bool CanEnterEdit)
 {
-    public static TaskDetailResponse FromOutput(CreateTaskOutput output)
+    public static TaskDetailResponse FromOutput(CreateTaskOutput output, bool canEnterEdit = true)
     {
         return new(
             output.Id,
@@ -129,14 +194,16 @@ public sealed record TaskDetailResponse(
             output.Title,
             output.Description,
             WorkflowStateResponse.FromOutput(output.CurrentState),
+            ToTaskLifecycleStateResponse(output.LifecycleState),
             output.DueDate,
             output.CreatedAt,
             output.CompletedAt,
-                output.Reminders.Select(TaskReminderResponse.FromOutput).ToArray(),
-            output.ActivityTimeline.Select(ActivityTimelineItemResponse.FromOutput).ToArray());
+            output.Reminders.Select(TaskReminderResponse.FromOutput).ToArray(),
+            output.ActivityTimeline.Select(ActivityTimelineItemResponse.FromOutput).ToArray(),
+            canEnterEdit);
     }
 
-    public static TaskDetailResponse FromView(TaskDetailView view)
+    public static TaskDetailResponse FromView(TaskDetailView view, bool canEnterEdit = true)
     {
         return new(
             view.Id,
@@ -144,11 +211,24 @@ public sealed record TaskDetailResponse(
             view.Title,
             view.Description,
             WorkflowStateResponse.FromView(view.CurrentState),
+            ToTaskLifecycleStateResponse(view.LifecycleState),
             view.DueDate,
             view.CreatedAt,
             view.CompletedAt,
             view.Reminders.Select(TaskReminderResponse.FromView).ToArray(),
-            view.ActivityTimeline.Select(ActivityTimelineItemResponse.FromView).ToArray());
+            view.ActivityTimeline.Select(ActivityTimelineItemResponse.FromView).ToArray(),
+            canEnterEdit);
+    }
+
+    private static string ToTaskLifecycleStateResponse(TaskLifecycleState lifecycleState)
+    {
+        return lifecycleState switch
+        {
+            TaskLifecycleState.ActiveRecord => "activeRecord",
+            TaskLifecycleState.Archived => "archived",
+            TaskLifecycleState.Trashed => "trashed",
+            _ => "activeRecord",
+        };
     }
 }
 

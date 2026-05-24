@@ -39,6 +39,11 @@ public sealed class TaskReminderController : AuthenticatedControllerBase
             return AccessDenied();
         }
 
+        if (result.Conflict)
+        {
+            return Results.Conflict();
+        }
+
         if (result.TaskNotFound)
         {
             return Results.Problem(statusCode: StatusCodes.Status404NotFound, detail: "找不到指定的任務，無法新增提醒。");
@@ -68,6 +73,11 @@ public sealed class TaskReminderController : AuthenticatedControllerBase
         if (result.AccessDenied)
         {
             return AccessDenied();
+        }
+
+        if (result.Conflict)
+        {
+            return Results.Conflict();
         }
 
         if (result.TaskNotFound)

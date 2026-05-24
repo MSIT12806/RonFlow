@@ -11,6 +11,26 @@ public abstract class AuthenticatedControllerBase : ControllerBase
         return Guid.TryParse(rawUserId, out userId);
     }
 
+    protected bool TryGetCurrentUserName(out string userName)
+    {
+        userName = User.FindFirstValue(ClaimTypes.Name) ?? string.Empty;
+        return !string.IsNullOrWhiteSpace(userName);
+    }
+
+    protected bool TryGetCurrentUserEmail(out string email)
+    {
+        email = User.FindFirstValue(ClaimTypes.Email) ?? User.FindFirstValue("email") ?? string.Empty;
+        return !string.IsNullOrWhiteSpace(email);
+    }
+
+    protected bool TryGetRonFlowSessionId(out string sessionId)
+    {
+        sessionId = Request.Headers[RonFlowSessionConstants.SessionIdHeaderName].FirstOrDefault()
+            ?? User.FindFirstValue(RonFlowSessionConstants.SessionIdClaimType)
+            ?? string.Empty;
+        return !string.IsNullOrWhiteSpace(sessionId);
+    }
+
     protected static IResult AccessDenied()
     {
         return Results.Json(new { message = "Access Denied" }, statusCode: StatusCodes.Status403Forbidden);

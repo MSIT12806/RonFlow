@@ -6,6 +6,7 @@ public sealed class MoveTaskToTrashCommandService(
     IProjectRepository projectRepository,
     ProjectAccessService projectAccessService,
     ITaskRepository taskRepository,
+    TaskContentEditLockService taskContentEditLockService,
     TimeProvider timeProvider)
 {
     public TaskLifecycleCommandResult Move(Guid currentUserId, Guid projectId, Guid taskId)
@@ -27,6 +28,11 @@ public sealed class MoveTaskToTrashCommandService(
         if (task is null || task.ProjectId != projectId)
         {
             return TaskLifecycleCommandResult.NotFound();
+        }
+
+        if (taskContentEditLockService.IsLocked(taskId))
+        {
+            return TaskLifecycleCommandResult.Locked();
         }
 
         var changedAt = timeProvider.GetUtcNow();

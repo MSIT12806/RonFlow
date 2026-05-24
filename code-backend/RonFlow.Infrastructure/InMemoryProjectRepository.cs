@@ -18,6 +18,16 @@ public sealed class InMemoryProjectRepository : IProjectRepository
         }
     }
 
+    public IReadOnlyList<Project> GetAll()
+    {
+        lock (syncRoot)
+        {
+            return projects.Values
+                .OrderByDescending(project => project.UpdatedAt)
+                .ToArray();
+        }
+    }
+
     public void Add(Project project)
     {
         lock (syncRoot)

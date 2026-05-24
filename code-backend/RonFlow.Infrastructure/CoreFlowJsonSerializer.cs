@@ -25,6 +25,8 @@ internal static class CoreFlowJsonSerializer
         writer.WriteStartObject();
         writer.WriteString("id", project.Id);
         writer.WriteString("ownerId", project.OwnerId);
+        writer.WriteString("ownerUserName", project.OwnerUserName);
+        writer.WriteString("ownerEmail", project.OwnerEmail);
         writer.WriteString("name", project.Name);
         writer.WriteString("updatedAt", project.UpdatedAt);
         writer.WritePropertyName("workflowStates");
@@ -33,6 +35,45 @@ internal static class CoreFlowJsonSerializer
         foreach (var workflowState in project.WorkflowStates)
         {
             WriteWorkflowState(writer, workflowState);
+        }
+
+        writer.WriteEndArray();
+
+        writer.WritePropertyName("members");
+        writer.WriteStartArray();
+
+        foreach (var member in project.Members)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("userId", member.UserId);
+            writer.WriteString("userName", member.UserName);
+            writer.WriteString("email", member.Email);
+            writer.WriteEndObject();
+        }
+
+        writer.WriteEndArray();
+
+        writer.WritePropertyName("invitations");
+        writer.WriteStartArray();
+
+        foreach (var invitation in project.Invitations)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("id", invitation.Id);
+            writer.WriteString("inviteeEmail", invitation.InviteeEmail);
+            writer.WriteString("inviterUserId", invitation.InviterUserId);
+            writer.WriteString("inviterName", invitation.InviterName);
+            writer.WriteString("createdAt", invitation.CreatedAt);
+            writer.WriteString("status", invitation.Status.ToString());
+            if (invitation.RespondedAt is null)
+            {
+                writer.WriteNull("respondedAt");
+            }
+            else
+            {
+                writer.WriteString("respondedAt", invitation.RespondedAt.Value);
+            }
+            writer.WriteEndObject();
         }
 
         writer.WriteEndArray();
@@ -52,12 +93,49 @@ internal static class CoreFlowJsonSerializer
             root.TryGetProperty("ownerId", out var ownerIdElement) && ownerIdElement.ValueKind != JsonValueKind.Null
                 ? ownerIdElement.GetGuid()
                 : Guid.Empty,
+            root.TryGetProperty("ownerUserName", out var ownerUserNameElement) && ownerUserNameElement.ValueKind != JsonValueKind.Null
+                ? ownerUserNameElement.GetString() ?? string.Empty
+                : string.Empty,
+            root.TryGetProperty("ownerEmail", out var ownerEmailElement) && ownerEmailElement.ValueKind != JsonValueKind.Null
+                ? ownerEmailElement.GetString() ?? string.Empty
+                : string.Empty,
             GetRequiredString(root, "name"),
             root.GetProperty("updatedAt").GetDateTimeOffset(),
             root.GetProperty("workflowStates")
                 .EnumerateArray()
                 .Select(ReadWorkflowState)
-                .ToArray());
+                .ToArray(),
+            root.TryGetProperty("members", out var membersElement) && membersElement.ValueKind != JsonValueKind.Null
+                ? membersElement
+                    .EnumerateArray()
+                    .Select(element => new ProjectMember(
+                        element.GetProperty("userId").GetGuid(),
+                        GetRequiredString(element, "userName"),
+                        GetRequiredString(element, "email")))
+                    .ToArray()
+                : [],
+            root.TryGetProperty("invitations", out var invitationsElement) && invitationsElement.ValueKind != JsonValueKind.Null
+                ? invitationsElement
+                    .EnumerateArray()
+                    .Select(element => ProjectInvitation.Rehydrate(
+                        element.GetProperty("id").GetGuid(),
+                        GetRequiredString(element, "inviteeEmail"),
+                        element.TryGetProperty("inviterUserId", out var inviterUserIdElement) && inviterUserIdElement.ValueKind != JsonValueKind.Null
+                            ? inviterUserIdElement.GetGuid()
+                            : Guid.Empty,
+                        element.TryGetProperty("inviterName", out var inviterNameElement) && inviterNameElement.ValueKind != JsonValueKind.Null
+                            ? inviterNameElement.GetString() ?? string.Empty
+                            : string.Empty,
+                        element.GetProperty("createdAt").GetDateTimeOffset(),
+                        element.TryGetProperty("status", out var statusElement)
+                            && Enum.TryParse<ProjectInvitationStatus>(statusElement.GetString(), ignoreCase: true, out var status)
+                                ? status
+                                : ProjectInvitationStatus.Pending,
+                        element.TryGetProperty("respondedAt", out var respondedAtElement) && respondedAtElement.ValueKind != JsonValueKind.Null
+                            ? respondedAtElement.GetDateTimeOffset()
+                            : (DateTimeOffset?)null))
+                    .ToArray()
+                : []);
     }
 
     public static string Serialize(DomainTask task)

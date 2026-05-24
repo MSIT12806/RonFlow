@@ -6,17 +6,24 @@ public sealed class SqliteProjectRepository(SqliteCoreFlowStore store) : IProjec
 {
     public IReadOnlyList<ProjectSummaryModel> GetProjects()
     {
+        return GetAll()
+            .Select(project => project.ToSummaryModel())
+            .ToArray();
+    }
+
+    public IReadOnlyList<Project> GetAll()
+    {
         using var connection = store.OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT Data FROM Projects";
 
         using var reader = command.ExecuteReader();
-        var projects = new List<ProjectSummaryModel>();
+        var projects = new List<Project>();
 
         while (reader.Read())
         {
             var project = CoreFlowJsonSerializer.DeserializeProject(reader.GetString(0));
-            projects.Add(project.ToSummaryModel());
+            projects.Add(project);
         }
 
         return projects
