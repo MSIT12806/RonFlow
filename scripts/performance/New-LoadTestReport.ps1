@@ -41,6 +41,27 @@ function Get-MetricNumber {
   return [double]$property.Value
 }
 
+function Resolve-MetricPropertyName {
+  param(
+    [pscustomobject]$Metric,
+    [Parameter(Mandatory = $true)][string]$PropertyName
+  )
+
+  if ($PropertyName -eq 'rate') {
+    $rateProperty = $Metric.PSObject.Properties['rate']
+    if ($null -ne $rateProperty) {
+      return 'rate'
+    }
+
+    $valueProperty = $Metric.PSObject.Properties['value']
+    if ($null -ne $valueProperty) {
+      return 'value'
+    }
+  }
+
+  return $PropertyName
+}
+
 function Format-Number {
   param(
     [AllowNull()][object]$Value,
@@ -55,21 +76,70 @@ function Format-Number {
   return ('{0:N' + $Decimals + '}{1}') -f [double]$Value, $Suffix
 }
 
+function Get-ThresholdActualValue {
+  param(
+    [Parameter(Mandatory = $true)][pscustomobject]$Metric,
+    [Parameter(Mandatory = $true)][string]$ThresholdExpression
+  )
+
+  if ($ThresholdExpression -match '^(rate|avg|min|max|med|p\(\d+\))') {
+    $propertyName = Resolve-MetricPropertyName -Metric $Metric -PropertyName $Matches[1]
+    return Get-MetricNumber -Metric $Metric -PropertyName $propertyName
+  }
+
+  return $null
+}
+
+function Test-ThresholdPass {
+  param(
+    [Parameter(Mandatory = $true)][pscustomobject]$Metric,
+    [Parameter(Mandatory = $true)][string]$ThresholdExpression,
+    [AllowNull()][object]$FallbackValue
+  )
+
+  if ($ThresholdExpression -match '^(rate|avg|min|max|med|p\(\d+\))(<=|>=|<|>)(-?\d+(?:\.\d+)?)$') {
+    $propertyName = Resolve-MetricPropertyName -Metric $Metric -PropertyName $Matches[1]
+    $operator = $Matches[2]
+    $targetValue = [double]$Matches[3]
+    $actualValue = Get-MetricNumber -Metric $Metric -PropertyName $propertyName
+
+    if ($null -eq $actualValue) {
+      return $null
+    }
+
+    switch ($operator) {
+      '<' { return $actualValue -lt $targetValue }
+      '<=' { return $actualValue -le $targetValue }
+      '>' { return $actualValue -gt $targetValue }
+      '>=' { return $actualValue -ge $targetValue }
+    }
+  }
+
+  if ($null -ne $FallbackValue) {
+    return [bool]$FallbackValue
+  }
+
+  return $null
+}
+
 function Get-ThresholdRows {
   param([pscustomobject]$Metrics)
 
   $rows = @()
   foreach ($metricProperty in $Metrics.PSObject.Properties) {
+    $metric = $metricProperty.Value
     $thresholdsProperty = $metricProperty.Value.PSObject.Properties['thresholds']
     if ($null -eq $thresholdsProperty) {
       continue
     }
 
     foreach ($thresholdProperty in $thresholdsProperty.Value.PSObject.Properties) {
+      $actualValue = Get-ThresholdActualValue -Metric $metric -ThresholdExpression $thresholdProperty.Name
       $rows += [pscustomobject]@{
         Metric = $metricProperty.Name
         Threshold = $thresholdProperty.Name
-        Passed = [bool]$thresholdProperty.Value
+        ActualValue = $actualValue
+        Passed = Test-ThresholdPass -Metric $metric -ThresholdExpression $thresholdProperty.Name -FallbackValue $thresholdProperty.Value
       }
     }
   }
@@ -157,10 +227,12 @@ function ConvertTo-ThresholdTableHtml {
   $tableRows = foreach ($row in $Rows) {
     $statusClass = if ($row.Passed) { 'status-pass' } else { 'status-fail' }
     $statusLabel = if ($row.Passed) { 'PASS' } else { 'FAIL' }
+    $actualValueLabel = if ($null -eq $row.ActualValue) { 'n/a' } else { Format-Number -Value $row.ActualValue }
     @"
 <tr>
   <td>$([System.Net.WebUtility]::HtmlEncode($row.Metric))</td>
   <td>$([System.Net.WebUtility]::HtmlEncode($row.Threshold))</td>
+  <td>$([System.Net.WebUtility]::HtmlEncode($actualValueLabel))</td>
   <td><span class="status-pill $statusClass">$statusLabel</span></td>
 </tr>
 "@
@@ -172,6 +244,7 @@ function ConvertTo-ThresholdTableHtml {
     <tr>
       <th>Metric</th>
       <th>Threshold</th>
+      <th>Actual</th>
       <th>Status</th>
     </tr>
   </thead>
