@@ -36,6 +36,18 @@ public static class RonFlowObservabilityMetrics
         "ronflow.operation.current_user_directory_sync.duration",
         unit: "ms",
         description: "Elapsed time spent in CurrentUserDirectorySyncMiddleware during observed requests.");
+    private static readonly Histogram<double> BoardCurrentUserDirectorySyncLookupDuration = Meter.CreateHistogram<double>(
+        "ronflow.operation.current_user_directory_sync.lookup.duration",
+        unit: "ms",
+        description: "Elapsed time spent looking up the current user in CurrentUserDirectorySyncMiddleware during observed requests.");
+    private static readonly Histogram<double> BoardCurrentUserDirectorySyncUpsertDuration = Meter.CreateHistogram<double>(
+        "ronflow.operation.current_user_directory_sync.upsert.duration",
+        unit: "ms",
+        description: "Elapsed time spent preparing the current user upsert in CurrentUserDirectorySyncMiddleware during observed requests.");
+    private static readonly Histogram<double> BoardCurrentUserDirectorySyncSaveDuration = Meter.CreateHistogram<double>(
+        "ronflow.operation.current_user_directory_sync.save.duration",
+        unit: "ms",
+        description: "Elapsed time spent saving the current user in CurrentUserDirectorySyncMiddleware during observed requests.");
     private static readonly Histogram<double> BoardActiveSessionDuration = Meter.CreateHistogram<double>(
         "ronflow.operation.active_session.duration",
         unit: "ms",
@@ -104,6 +116,21 @@ public static class RonFlowObservabilityMetrics
     public static void RecordCurrentUserDirectorySyncDuration(string operationName, double durationMs)
     {
         BoardCurrentUserDirectorySyncDuration.Record(durationMs, new TagList { { "operation", operationName } });
+    }
+
+    public static void RecordCurrentUserDirectorySyncLookupDuration(string operationName, double durationMs)
+    {
+        BoardCurrentUserDirectorySyncLookupDuration.Record(durationMs, new TagList { { "operation", operationName } });
+    }
+
+    public static void RecordCurrentUserDirectorySyncUpsertDuration(string operationName, double durationMs)
+    {
+        BoardCurrentUserDirectorySyncUpsertDuration.Record(durationMs, new TagList { { "operation", operationName } });
+    }
+
+    public static void RecordCurrentUserDirectorySyncSaveDuration(string operationName, double durationMs)
+    {
+        BoardCurrentUserDirectorySyncSaveDuration.Record(durationMs, new TagList { { "operation", operationName } });
     }
 
     public static void RecordBoardCurrentUserDirectorySyncDuration(double durationMs)

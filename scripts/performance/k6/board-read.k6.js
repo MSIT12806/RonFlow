@@ -14,6 +14,9 @@ const boardControllerDuration = new Trend('ronflow_board_controller_duration');
 const boardApplicationDuration = new Trend('ronflow_board_application_duration');
 const boardStoreDuration = new Trend('ronflow_board_store_duration');
 const boardCurrentUserSyncDuration = new Trend('ronflow_board_current_user_sync_duration');
+const boardCurrentUserSyncLookupDuration = new Trend('ronflow_board_current_user_sync_lookup_duration');
+const boardCurrentUserSyncUpsertDuration = new Trend('ronflow_board_current_user_sync_upsert_duration');
+const boardCurrentUserSyncSaveDuration = new Trend('ronflow_board_current_user_sync_save_duration');
 const boardActiveSessionDuration = new Trend('ronflow_board_active_session_duration');
 
 export const options = {
@@ -116,6 +119,18 @@ export default function (data) {
 
   if (typeof serverTimings['middleware-current-user-sync'] === 'number') {
     boardCurrentUserSyncDuration.add(serverTimings['middleware-current-user-sync']);
+  }
+
+  if (typeof serverTimings['middleware-current-user-sync-lookup'] === 'number') {
+    boardCurrentUserSyncLookupDuration.add(serverTimings['middleware-current-user-sync-lookup']);
+  }
+
+  if (typeof serverTimings['middleware-current-user-sync-upsert'] === 'number') {
+    boardCurrentUserSyncUpsertDuration.add(serverTimings['middleware-current-user-sync-upsert']);
+  }
+
+  if (typeof serverTimings['middleware-current-user-sync-save'] === 'number') {
+    boardCurrentUserSyncSaveDuration.add(serverTimings['middleware-current-user-sync-save']);
   }
 
   if (typeof serverTimings['middleware-active-session'] === 'number') {

@@ -309,6 +309,9 @@ $boardControllerDuration = Get-Metric -Metrics $metrics -Name 'ronflow_board_con
 $boardApplicationDuration = Get-Metric -Metrics $metrics -Name 'ronflow_board_application_duration'
 $boardStoreDuration = Get-Metric -Metrics $metrics -Name 'ronflow_board_store_duration'
 $boardCurrentUserSyncDuration = Get-Metric -Metrics $metrics -Name 'ronflow_board_current_user_sync_duration'
+$boardCurrentUserSyncLookupDuration = Get-Metric -Metrics $metrics -Name 'ronflow_board_current_user_sync_lookup_duration'
+$boardCurrentUserSyncUpsertDuration = Get-Metric -Metrics $metrics -Name 'ronflow_board_current_user_sync_upsert_duration'
+$boardCurrentUserSyncSaveDuration = Get-Metric -Metrics $metrics -Name 'ronflow_board_current_user_sync_save_duration'
 $boardActiveSessionDuration = Get-Metric -Metrics $metrics -Name 'ronflow_board_active_session_duration'
 $iterationDuration = Get-Metric -Metrics $metrics -Name 'iteration_duration'
 
@@ -334,6 +337,9 @@ $timingBars = @(
   @{ Label = 'Board request p95'; Value = (Get-MetricNumber -Metric $boardDuration -PropertyName 'p(95)'); DisplayValue = (Format-Number -Value (Get-MetricNumber -Metric $boardDuration -PropertyName 'p(95)') -Suffix ' ms') },
   @{ Label = 'Response-start p95'; Value = (Get-MetricNumber -Metric $boardResponseStartDuration -PropertyName 'p(95)'); DisplayValue = (Format-Number -Value (Get-MetricNumber -Metric $boardResponseStartDuration -PropertyName 'p(95)') -Suffix ' ms') },
   @{ Label = 'Current-user-sync p95'; Value = (Get-MetricNumber -Metric $boardCurrentUserSyncDuration -PropertyName 'p(95)'); DisplayValue = (Format-Number -Value (Get-MetricNumber -Metric $boardCurrentUserSyncDuration -PropertyName 'p(95)') -Suffix ' ms') },
+  @{ Label = 'Current-user-sync lookup p95'; Value = (Get-MetricNumber -Metric $boardCurrentUserSyncLookupDuration -PropertyName 'p(95)'); DisplayValue = (Format-Number -Value (Get-MetricNumber -Metric $boardCurrentUserSyncLookupDuration -PropertyName 'p(95)') -Suffix ' ms') },
+  @{ Label = 'Current-user-sync upsert p95'; Value = (Get-MetricNumber -Metric $boardCurrentUserSyncUpsertDuration -PropertyName 'p(95)'); DisplayValue = (Format-Number -Value (Get-MetricNumber -Metric $boardCurrentUserSyncUpsertDuration -PropertyName 'p(95)') -Suffix ' ms') },
+  @{ Label = 'Current-user-sync save p95'; Value = (Get-MetricNumber -Metric $boardCurrentUserSyncSaveDuration -PropertyName 'p(95)'); DisplayValue = (Format-Number -Value (Get-MetricNumber -Metric $boardCurrentUserSyncSaveDuration -PropertyName 'p(95)') -Suffix ' ms') },
   @{ Label = 'Active-session p95'; Value = (Get-MetricNumber -Metric $boardActiveSessionDuration -PropertyName 'p(95)'); DisplayValue = (Format-Number -Value (Get-MetricNumber -Metric $boardActiveSessionDuration -PropertyName 'p(95)') -Suffix ' ms') },
   @{ Label = 'Controller p95'; Value = (Get-MetricNumber -Metric $boardControllerDuration -PropertyName 'p(95)'); DisplayValue = (Format-Number -Value (Get-MetricNumber -Metric $boardControllerDuration -PropertyName 'p(95)') -Suffix ' ms') },
   @{ Label = 'Application p95'; Value = (Get-MetricNumber -Metric $boardApplicationDuration -PropertyName 'p(95)'); DisplayValue = (Format-Number -Value (Get-MetricNumber -Metric $boardApplicationDuration -PropertyName 'p(95)') -Suffix ' ms') },

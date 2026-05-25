@@ -32,6 +32,12 @@ public sealed class ObservedOperationTimingSnapshot
 
     public double? CurrentUserDirectorySyncElapsedMs { get; set; }
 
+    public double? CurrentUserDirectorySyncLookupElapsedMs { get; set; }
+
+    public double? CurrentUserDirectorySyncUpsertElapsedMs { get; set; }
+
+    public double? CurrentUserDirectorySyncSaveElapsedMs { get; set; }
+
     public double? ActiveSessionElapsedMs { get; set; }
 
     public double? ControllerElapsedMs { get; set; }

@@ -24,7 +24,16 @@ internal sealed class CurrentUserDirectorySyncMiddleware(RequestDelegate next)
                 && !string.IsNullOrWhiteSpace(userName)
                 && !string.IsNullOrWhiteSpace(email))
             {
-                userDirectory.Upsert(new KnownUser(userId, userName, email));
+                var syncTimings = userDirectory.SynchronizeCurrentUser(new KnownUser(userId, userName, email));
+                if (ObservedOperationTimingContext.TryGetCurrent(out var timingSnapshot))
+                {
+                    timingSnapshot!.CurrentUserDirectorySyncLookupElapsedMs = syncTimings.LookupElapsedMs;
+                    timingSnapshot.CurrentUserDirectorySyncUpsertElapsedMs = syncTimings.UpsertElapsedMs;
+                    timingSnapshot.CurrentUserDirectorySyncSaveElapsedMs = syncTimings.SaveElapsedMs;
+                    RonFlowObservabilityMetrics.RecordCurrentUserDirectorySyncLookupDuration(timingSnapshot.OperationName, syncTimings.LookupElapsedMs);
+                    RonFlowObservabilityMetrics.RecordCurrentUserDirectorySyncUpsertDuration(timingSnapshot.OperationName, syncTimings.UpsertElapsedMs);
+                    RonFlowObservabilityMetrics.RecordCurrentUserDirectorySyncSaveDuration(timingSnapshot.OperationName, syncTimings.SaveElapsedMs);
+                }
             }
         }
 

@@ -32,6 +32,9 @@ public sealed class ObservedOperationTimingMiddleware(RequestDelegate next)
             var metrics = new List<string>();
             AppendServerTimingMetric(metrics, "response-start", responseStartElapsedMs);
             AppendServerTimingMetric(metrics, "middleware-current-user-sync", timingSnapshot.CurrentUserDirectorySyncElapsedMs);
+            AppendServerTimingMetric(metrics, "middleware-current-user-sync-lookup", timingSnapshot.CurrentUserDirectorySyncLookupElapsedMs);
+            AppendServerTimingMetric(metrics, "middleware-current-user-sync-upsert", timingSnapshot.CurrentUserDirectorySyncUpsertElapsedMs);
+            AppendServerTimingMetric(metrics, "middleware-current-user-sync-save", timingSnapshot.CurrentUserDirectorySyncSaveElapsedMs);
             AppendServerTimingMetric(metrics, "middleware-active-session", timingSnapshot.ActiveSessionElapsedMs);
             AppendServerTimingMetric(metrics, "controller", timingSnapshot.ControllerElapsedMs);
             AppendServerTimingMetric(metrics, "application", timingSnapshot.ApplicationElapsedMs);
