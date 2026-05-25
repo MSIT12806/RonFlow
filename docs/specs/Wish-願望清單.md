@@ -30,6 +30,8 @@
 - [ ] observability
     - 結構化 logging、metrics、distributed tracing、健康檢查。
 - [ ] 資料庫遷移與 schema evolution
+- [ ] 資料切片
+- [ ] 壓力測試
 - [ ] 多租戶 / workspace 邊界
 - [ ] html editor / markdown editor
 - [ ] 檔案附件 / 物件儲存

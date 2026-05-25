@@ -13,6 +13,21 @@
 
 若未來需要描述某一輪 release、milestone 或 vertical slice 的交付範圍，應另外建立對應文件；本文件則維持為 RonFlow 目前行為的單一真實來源。
 
+## Related Acceptance Tests
+
+這份 spec 對應的是目前 RonFlow 的主要 acceptance baseline。做 spec / E2E 差異比對時，可優先從下列 Playwright 檔案開始：
+
+- Project List / Create Project：`../../code-frontend/tests/e2e/project-list.screen.acceptance.spec.ts`、`../../code-frontend/tests/e2e/project-list.behavior.acceptance.spec.ts`
+- Project Board：`../../code-frontend/tests/e2e/project-board.screen.acceptance.spec.ts`、`../../code-frontend/tests/e2e/project-board.behavior.acceptance.spec.ts`
+- Task Detail：`../../code-frontend/tests/e2e/task-detail.screen.acceptance.spec.ts`、`../../code-frontend/tests/e2e/task-detail.behavior.acceptance.spec.ts`
+- Task Workflow / Reorder：`../../code-frontend/tests/e2e/task-workflow.screen.acceptance.spec.ts`、`../../code-frontend/tests/e2e/task-workflow.behavior.acceptance.spec.ts`
+- Task Lifecycle / Archive / Trash / Restore：`../../code-frontend/tests/e2e/task-lifecycle.screen.acceptance.spec.ts`、`../../code-frontend/tests/e2e/task-lifecycle.behavior.acceptance.spec.ts`
+- Task Reminders：`../../code-frontend/tests/e2e/task-reminders.screen.acceptance.spec.ts`、`../../code-frontend/tests/e2e/task-reminders.behavior.acceptance.spec.ts`
+- Project Members / Invitations：`../../code-frontend/tests/e2e/project-members.screen.acceptance.spec.ts`、`../../code-frontend/tests/e2e/project-members.behavior.acceptance.spec.ts`
+- Invitation Inbox：`../../code-frontend/tests/e2e/invitation-inbox.screen.acceptance.spec.ts`、`../../code-frontend/tests/e2e/invitation-inbox.behavior.acceptance.spec.ts`
+
+這份對照是「主要入口」，不是保證 coverage 已完整。實際評估進度時，仍應逐段比對 spec 與 acceptance tests 是否一一承接。
+
 ---
 
 ## 2. 核心產品流程
