@@ -26,19 +26,31 @@ public sealed class InMemoryUserDirectory : IUserDirectory
     public UserDirectorySyncTimings SynchronizeCurrentUser(KnownUser user)
     {
         var lookupStopwatch = System.Diagnostics.Stopwatch.StartNew();
+        KnownUser? existingUser;
         lock (syncRoot)
         {
-            _ = usersByEmail.Values.FirstOrDefault(candidate => candidate.UserId == user.UserId);
+            existingUser = usersByEmail.Values.FirstOrDefault(candidate => candidate.UserId == user.UserId);
         }
         lookupStopwatch.Stop();
 
         var upsertStopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var requiresSave = existingUser is null
+            || existingUser.UserName != user.UserName
+            || existingUser.Email != user.Email;
         upsertStopwatch.Stop();
 
         var saveStopwatch = System.Diagnostics.Stopwatch.StartNew();
-        lock (syncRoot)
+        if (requiresSave)
         {
-            usersByEmail[user.Email] = user;
+            lock (syncRoot)
+            {
+                if (existingUser is not null && !string.Equals(existingUser.Email, user.Email, StringComparison.OrdinalIgnoreCase))
+                {
+                    usersByEmail.Remove(existingUser.Email);
+                }
+
+                usersByEmail[user.Email] = user;
+            }
         }
         saveStopwatch.Stop();
 

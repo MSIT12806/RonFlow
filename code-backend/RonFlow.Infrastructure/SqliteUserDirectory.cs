@@ -46,17 +46,23 @@ ON CONFLICT(UserId) DO UPDATE SET
         using var connection = store.OpenConnection();
 
         var lookupStopwatch = Stopwatch.StartNew();
-        _ = FindByUserId(connection, user.UserId);
+        var existingUser = FindByUserId(connection, user.UserId);
         lookupStopwatch.Stop();
 
         var upsertStopwatch = Stopwatch.StartNew();
-        var command = CreateUpsertCommand(connection, user);
+        var requiresSave = existingUser is null
+            || existingUser.UserName != user.UserName
+            || existingUser.Email != user.Email;
+        var command = requiresSave ? CreateUpsertCommand(connection, user) : null;
         upsertStopwatch.Stop();
 
         var saveStopwatch = Stopwatch.StartNew();
-        using (command)
+        if (command is not null)
         {
-            command.ExecuteNonQuery();
+            using (command)
+            {
+                command.ExecuteNonQuery();
+            }
         }
         saveStopwatch.Stop();
 

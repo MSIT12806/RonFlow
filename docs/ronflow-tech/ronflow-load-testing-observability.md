@@ -27,7 +27,9 @@ RonFlow 現在做的不是 generic 壓測展示，而是一套很明確的效能
 
 如果換成 pattern language 來說，RonFlow 現在這套做法不是單一 pattern，而是一組 pattern 的組合：
 - `ProjectsController` 是 HTTP adapter
-- `BoardReadServerTimingFilter` 是 HTTP boundary 上的 filter
+- `[ObservedOperation(...)]` 是啟用觀測的 metadata anchor
+- `ObservedOperationTimingMiddleware` 是 request outer ring 上的 middleware
+- `ObservedOperationServerTimingFilter` 是 HTTP boundary 上的 filter
 - `ObservedGetProjectBoardQueryService` 是 use case decorator
 - `ObservedCoreFlowReadStore` 是 read store decorator
 - `Program.cs` 是 composition root，負責決定整個包裝順序
@@ -73,18 +75,31 @@ RonFlow 目前把 board read 當第一個壓測場景，並先建立：
 ### 1. 不只看 client 端總耗時，也看 server-side 分層耗時
 壓測一開始只有 `ronflow_board_duration`，也就是從 `k6` 看出去的整體 request duration。
 
-這種數字很重要，但它只能告訴你「request 很慢」，沒辦法回答「慢在 controller、application、store，還是慢在外圍排隊」。
+這種數字很重要，但它只能告訴你「request 很慢」，沒辦法回答「慢在 controller、application、store，還是慢在 request 外圍」。
 
 因此 RonFlow 現在進一步把 board read 的 server-side timing 放進 `Server-Timing` header，然後再由 `k6` 解析回來，形成這些 metrics：
+- `ronflow_board_response_start_duration`
+- `ronflow_board_current_user_sync_duration`
+- `ronflow_board_active_session_duration`
 - `ronflow_board_controller_duration`
 - `ronflow_board_application_duration`
 - `ronflow_board_store_duration`
 
 這樣壓測結果裡就同時有：
 - request 整體耗時
+- request outer ring 到 response-start 的耗時
+- current-user-sync 這類 middleware slice 的耗時
 - controller 層耗時
 - application 層耗時
 - store 層耗時
+
+這一層資訊很重要，因為它把「慢在 query path」和「慢在 outer ring」分開了。這次 `M @ 20 VUs / 1m` 的結果就是一個很明顯的例子：
+- `ronflow_board_duration p95 = 2332.30 ms`
+- `ronflow_board_response_start_duration p95 = 2329.06 ms`
+- `ronflow_board_current_user_sync_duration p95 = 2268.95 ms`
+- `ronflow_board_controller / application / store p95` 都只有大約 `76 ms`
+
+這代表目前最可疑的 bottleneck 已經不是 board query 本身，而是進入 controller 之前的 `CurrentUserDirectorySyncMiddleware` 這一圈。
 
 ### 2. 目前的觀測訊號是 request-scoped，而不是 full observability platform
 RonFlow 現在做的是最小可行 observability，不是一次把整套 metrics / tracing / dashboard 都上齊。
@@ -95,6 +110,8 @@ RonFlow 現在做的是最小可行 observability，不是一次把整套 metric
 - 等問題定位更清楚，再決定是否需要更重的 metrics 或 tracing 基礎建設
 
 如果用更 pattern language 的方式說，這代表 RonFlow 現在優先做的是：
+- metadata-driven request observation
+- request outer ring middleware
 - request-scoped filter
 - use case decorator
 - read store decorator
@@ -185,10 +202,12 @@ store 的觀測責任改由 `RonFlow.Observability` project 裡的 `ObservedCore
 ### 4. HTTP response header 屬於 API concern，交給 filter
 `Server-Timing` 是 HTTP transport concern，不是 application concern。
 
-因此 RonFlow 把它放在 `RonFlow.Observability` project 裡的 `BoardReadServerTimingFilter` 這一層處理：
-- request 進 action 前 reset timing context
-- action 執行後收集 controller / application / store timing
-- 最後寫回 `Server-Timing` header
+因此 RonFlow 現在把它拆成 generic 的 request observation 元件來處理：
+- `ObservedOperationTimingMiddleware` 在 request outer ring 建立 timing context，並補上 `response-start`
+- `ObservedOperationServerTimingFilter` 收集 controller timing
+- `ObservedOperationResultTimingFilter` 收集 result execution timing
+- `CurrentUserDirectorySyncMiddleware` 與 `RonFlowActiveSessionMiddleware` 只在有 active observed operation 時回寫自己的 middleware slice
+- 最後統一寫回 `Server-Timing` header
 
 這個責任放在 API filter，比放在 controller action 本體更合理。
 
@@ -221,36 +240,57 @@ store 的觀測責任改由 `RonFlow.Observability` project 裡的 `ObservedCore
 
 ### Observability 層
 - `RonFlow.Observability.csproj`
-- `BoardReadObservabilityContext.cs`
+- `ObservedOperationAttribute.cs`
+- `ObservedOperationNames.cs`
+- `ObservedOperationTimingContext.cs`
+- `ObservedOperationTimingMiddleware.cs`
+- `ObservedOperationServerTimingFilter.cs`
+- `ObservedOperationResultTimingFilter.cs`
 - `ObservedGetProjectBoardQueryService.cs`
 - `ObservedCoreFlowReadStore.cs`
-- `BoardReadServerTimingFilter.cs`
+- `RonFlowObservabilityMetrics.cs`
 
 這裡的結構重點是：
 - observability 不是 business layer，而是獨立的 cross-cutting project
-- decorator 與 timing context 住在這裡，而不是住在 application / infrastructure project
+- decorator、metadata、timing context、request timing middleware 都住在這裡，而不是住在 application / infrastructure project
 - API-specific 的 `Server-Timing` filter 也放在這裡，由 API composition root 掛上去
 
 如果未來 RonFlow 還要加入更多 cross-cutting concern，這個 project 也提供了一個很自然的放置位置。但不是所有東西都應該放進來，例如 email 通知、外部系統同步這類「用例完成後的副作用」，很多時候更像 event handler concern，而不是 decorator concern。這一點在 [RonFlow 的 cross-cutting pattern language](./ronflow-cross-cutting-pattern-language.md) 有更完整的說明。
 
 ### API 層
 - `ProjectsController.cs`
+- `CurrentUserDirectorySyncMiddleware.cs`
+- `RonFlowActiveSessionMiddleware.cs`
 
 這裡的結構重點是：
 - controller 只做 request orchestration
+- `ProjectsController.GetBoard` 只用 `[ObservedOperation(ObservedOperationNames.BoardRead)]` 宣告這條 route 需要進入觀測
 - 真正的 observability 元件由 composition root 從 `RonFlow.Observability` 接進來
 
 ### k6
 - `scripts/performance/k6/board-read.k6.js`
 
-這支腳本除了量 request duration，也會解析 `Server-Timing` header，把它轉成：
+這支腳本除了量 request duration，也會解析 generic `Server-Timing` key，再把它轉成 board read 報表需要的 metrics：
+- `response-start` -> `ronflow_board_response_start_duration`
+- `middleware-current-user-sync` -> `ronflow_board_current_user_sync_duration`
+- `middleware-active-session` -> `ronflow_board_active_session_duration`
+- `controller` -> `ronflow_board_controller_duration`
+- `application` -> `ronflow_board_application_duration`
+- `store` -> `ronflow_board_store_duration`
+
+也就是說，app 端 observability 已經泛用化，但 load test script 仍然可以保留 scenario-specific 的命名與 threshold：
 - `ronflow_board_controller_duration`
 - `ronflow_board_application_duration`
 - `ronflow_board_store_duration`
 
 ## 這個做法的優點
-### 1. 可以直接在壓測結果裡看分層耗時
-不用另外翻 server log，就可以在 `k6` summary 裡看到 server-side layer timing。
+### 1. 可以直接在壓測結果裡看分層與 outer-ring 耗時
+不用另外翻 server log，就可以在 `k6` summary 裡同時看到：
+- server-side layer timing
+- response-start 這類 outer-ring timing
+- middleware slice timing
+
+也因此，這次 M-scale 報表才能直接把問題收斂到 `Current-user-sync`，而不是讓人繼續在 board query phase 上盲猜。
 
 ### 2. 比把 observability 寫死在 controller / service 本體更乾淨
 現在 timing 與 header formatting 都是抽離的 cross-cutting concern。
@@ -284,8 +324,12 @@ store 的觀測責任改由 `RonFlow.Observability` project 裡的 `ObservedCore
 ### 1. 目前只覆蓋 board read 這條關鍵路徑
 這是一個刻意的選擇，不是平台級 observability 全面完成。
 
-### 2. 目前看到的是 layer-level，不是更細的 query phase
-現在的分層已經足夠回答「慢在 application 還是 store」。
+### 2. 目前看到的已經不只 layer-level，但還不是更細的 query phase
+現在的訊號已經足夠回答兩種不同問題：
+- 慢在 request outer ring，還是慢在 controller / application / store
+- outer ring 裡是不是某個 middleware slice 特別突出
+
+這也是為什麼這次 M-scale 報表能直接把注意力收斂到 `Current-user-sync`，而不是繼續懷疑 board read query 本身。
 
 如果未來還要更細，例如拆到：
 - project lookup
@@ -298,6 +342,7 @@ store 的觀測責任改由 `RonFlow.Observability` project 裡的 `ObservedCore
 ### 3. `Server-Timing` 能幫忙分辨內部慢還是外部慢，但還不是完整 root cause
 如果未來看到：
 - `ronflow_board_duration` 很高
+- `ronflow_board_response_start_duration` 也很高
 - 但 controller / application / store 都不高
 
 那通常表示 bottleneck 比較可能在：
@@ -305,6 +350,12 @@ store 的觀測責任改由 `RonFlow.Observability` project 裡的 `ObservedCore
 - process / host 資源競爭
 - SQLite lock / wait
 - request 進出應用程式前後的外圍成本
+
+而如果像這次一樣，`ronflow_board_current_user_sync_duration` 自己就已經明顯貼近總耗時，那下一步就不該先去拆 board query phase，而是要先往 `CurrentUserDirectorySyncMiddleware` 內部看：
+- directory lookup / upsert 是否有不必要的 I/O
+- 是否每次 board read 都做了可避免的同步
+- 在併發下是否放大了 SQLite lock / wait
+- 是否可以把部分同步改成更延後或更快取的策略
 
 這時候就應該再補 host/process 層級的觀測，而不是只在 use case 裡加更多 stopwatch。
 
@@ -322,8 +373,8 @@ RonFlow 的壓力測試與 observability，不只是把 `k6` 跑起來而已。
 它真正做的是：
 - 用獨立 Performance 環境建立可比較 baseline
 - 用真實 API seed 資料
-- 用 `Server-Timing + k6` 把 server-side 分層耗時帶回壓測結果
-- 再用獨立 `RonFlow.Observability` project + filter / decorator 的方式，盡量保持 controller、application、store 本體的 SRP 與分層語意
+- 用 `Server-Timing + k6` 把 server-side 分層耗時與 outer-ring 耗時帶回壓測結果
+- 再用獨立 `RonFlow.Observability` project + metadata / middleware / filter / decorator 的方式，盡量保持 controller、application、store 本體的 SRP 與分層語意
 
 也就是說，RonFlow 現在的方向不是「哪裡需要觀測就把 log 塞進去」，而是：
 - 先找到最值得觀測的路徑
@@ -332,6 +383,8 @@ RonFlow 的壓力測試與 observability，不只是把 `k6` 跑起來而已。
 
 如果再用 pattern language 濃縮一次，RonFlow 現在採用的是：
 - adapter 承接邊界
+- metadata anchor 決定哪些 endpoint 進入觀測
+- middleware 量 request outer ring
 - decorator 包住 use case 與 read store
 - filter 補強 HTTP response
 - composition root 控制 wiring
