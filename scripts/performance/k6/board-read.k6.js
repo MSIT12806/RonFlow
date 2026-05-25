@@ -9,6 +9,9 @@ const password = __ENV.RONFLOW_LOAD_TEST_PASSWORD || 'Admin123!';
 const pacingSeconds = Number(__ENV.RONFLOW_LOAD_TEST_PACING_SECONDS || '1');
 
 const boardDuration = new Trend('ronflow_board_duration');
+const boardControllerDuration = new Trend('ronflow_board_controller_duration');
+const boardApplicationDuration = new Trend('ronflow_board_application_duration');
+const boardStoreDuration = new Trend('ronflow_board_store_duration');
 
 export const options = {
   thresholds: {
@@ -29,6 +32,31 @@ function createJsonHeaders(accessToken, sessionId) {
     Authorization: `Bearer ${accessToken}`,
     'X-RonFlow-Session-Id': sessionId,
   };
+}
+
+function parseServerTimingHeader(serverTimingHeader) {
+  if (!serverTimingHeader || typeof serverTimingHeader !== 'string') {
+    return {};
+  }
+
+  return serverTimingHeader
+    .split(',')
+    .map((metric) => metric.trim())
+    .reduce((timings, metric) => {
+      const [namePart, ...attributes] = metric.split(';').map((part) => part.trim());
+      const durationAttribute = attributes.find((attribute) => attribute.startsWith('dur='));
+      if (!namePart || !durationAttribute) {
+        return timings;
+      }
+
+      const durationMs = Number(durationAttribute.slice(4));
+      if (Number.isNaN(durationMs)) {
+        return timings;
+      }
+
+      timings[namePart] = durationMs;
+      return timings;
+    }, {});
 }
 
 export function setup() {
@@ -75,6 +103,21 @@ export default function (data) {
   const response = http.get(`${ronFlowApiBaseUrl}/projects/${projectId}/board`, { headers });
 
   boardDuration.add(response.timings.duration);
+
+  const serverTimingHeader = response.headers['Server-Timing'];
+  const serverTimings = parseServerTimingHeader(serverTimingHeader);
+
+  if (typeof serverTimings['board-controller'] === 'number') {
+    boardControllerDuration.add(serverTimings['board-controller']);
+  }
+
+  if (typeof serverTimings['board-application'] === 'number') {
+    boardApplicationDuration.add(serverTimings['board-application']);
+  }
+
+  if (typeof serverTimings['board-store'] === 'number') {
+    boardStoreDuration.add(serverTimings['board-store']);
+  }
 
   check(response, {
     'board response succeeded': (result) => result.status === 200,
