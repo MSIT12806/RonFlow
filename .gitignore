@@ -10,6 +10,7 @@ code-frontend/playwright/.cache/
 code-backend/**/bin/
 code-backend/**/obj/
 code-backend/TestResults/
+code-backend/**/App_Data/
 
 # Logs and local environment files
 *.log

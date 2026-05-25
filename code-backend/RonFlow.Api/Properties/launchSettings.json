@@ -7,6 +7,14 @@
       },
       "dotnetRunMessages": true,
       "applicationUrl": "http://localhost:5078"
+    },
+    "performance": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Performance"
+      },
+      "dotnetRunMessages": true,
+      "applicationUrl": "http://localhost:5088"
     }
   },
   "$schema": "https://json.schemastore.org/launchsettings.json"
