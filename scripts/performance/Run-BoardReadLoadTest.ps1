@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [int]$Vus = 10,
+  [int]$Vus = 20,
   [string]$Duration = '1m',
   [string]$RonAuthApiBaseUrl = 'http://127.0.0.1:5146/api/auth',
   [string]$RonFlowApiBaseUrl = 'http://127.0.0.1:5088/api',

@@ -6,7 +6,7 @@ param(
   [int]$TasksPerProject,
   [int]$MembersPerProject = 0,
   [int]$PendingInvitationsPerProject = 0,
-  [int]$Vus = 10,
+  [int]$Vus = 20,
   [string]$Duration = '1m',
   [double]$PacingSeconds = 1,
   [string]$SummaryExportPath,
