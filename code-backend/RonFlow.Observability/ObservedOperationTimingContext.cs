@@ -2,21 +2,22 @@ using System.Threading;
 
 namespace RonFlow.Observability;
 
-public static class BoardReadObservabilityContext
+public static class ObservedOperationTimingContext
 {
-    private static readonly AsyncLocal<BoardReadTimingSnapshot?> CurrentSnapshot = new();
+    private static readonly AsyncLocal<ObservedOperationTimingSnapshot?> CurrentSnapshot = new();
 
-    public static BoardReadTimingSnapshot Current => CurrentSnapshot.Value ??= new BoardReadTimingSnapshot();
-
-    public static bool TryGetCurrent(out BoardReadTimingSnapshot? snapshot)
+    public static bool TryGetCurrent(out ObservedOperationTimingSnapshot? snapshot)
     {
         snapshot = CurrentSnapshot.Value;
         return snapshot is not null;
     }
 
-    public static void Reset()
+    public static void Reset(string operationName)
     {
-        CurrentSnapshot.Value = new BoardReadTimingSnapshot();
+        CurrentSnapshot.Value = new ObservedOperationTimingSnapshot
+        {
+            OperationName = operationName,
+        };
     }
 
     public static void Clear()
@@ -25,8 +26,10 @@ public static class BoardReadObservabilityContext
     }
 }
 
-public sealed class BoardReadTimingSnapshot
+public sealed class ObservedOperationTimingSnapshot
 {
+    public required string OperationName { get; init; }
+
     public double? CurrentUserDirectorySyncElapsedMs { get; set; }
 
     public double? ActiveSessionElapsedMs { get; set; }

@@ -9,7 +9,7 @@ public sealed class RonFlowActiveSessionMiddleware(RequestDelegate next)
     public async Task InvokeAsync(HttpContext context, RonFlowActiveSessionRegistry activeSessionRegistry)
     {
         System.Diagnostics.Stopwatch? stopwatch = null;
-        if (BoardReadObservabilityContext.TryGetCurrent(out _))
+        if (ObservedOperationTimingContext.TryGetCurrent(out _))
         {
             stopwatch = System.Diagnostics.Stopwatch.StartNew();
         }
@@ -54,12 +54,11 @@ public sealed class RonFlowActiveSessionMiddleware(RequestDelegate next)
 
         stopwatch.Stop();
         var elapsedMs = stopwatch.Elapsed.TotalMilliseconds;
-        if (BoardReadObservabilityContext.TryGetCurrent(out var timingSnapshot))
+        if (ObservedOperationTimingContext.TryGetCurrent(out var timingSnapshot))
         {
             timingSnapshot!.ActiveSessionElapsedMs = elapsedMs;
+            RonFlowObservabilityMetrics.RecordActiveSessionDuration(timingSnapshot.OperationName, elapsedMs);
         }
-
-        RonFlowObservabilityMetrics.RecordBoardActiveSessionDuration(elapsedMs);
     }
 
     private static bool IsSessionActivationRequest(PathString path)

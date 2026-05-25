@@ -110,28 +110,28 @@ export default function (data) {
   const serverTimingHeader = response.headers['Server-Timing'];
   const serverTimings = parseServerTimingHeader(serverTimingHeader);
 
-  if (typeof serverTimings['board-response-start'] === 'number') {
-    boardResponseStartDuration.add(serverTimings['board-response-start']);
+  if (typeof serverTimings['response-start'] === 'number') {
+    boardResponseStartDuration.add(serverTimings['response-start']);
   }
 
-  if (typeof serverTimings['board-current-user-sync'] === 'number') {
-    boardCurrentUserSyncDuration.add(serverTimings['board-current-user-sync']);
+  if (typeof serverTimings['middleware-current-user-sync'] === 'number') {
+    boardCurrentUserSyncDuration.add(serverTimings['middleware-current-user-sync']);
   }
 
-  if (typeof serverTimings['board-active-session'] === 'number') {
-    boardActiveSessionDuration.add(serverTimings['board-active-session']);
+  if (typeof serverTimings['middleware-active-session'] === 'number') {
+    boardActiveSessionDuration.add(serverTimings['middleware-active-session']);
   }
 
-  if (typeof serverTimings['board-controller'] === 'number') {
-    boardControllerDuration.add(serverTimings['board-controller']);
+  if (typeof serverTimings.controller === 'number') {
+    boardControllerDuration.add(serverTimings.controller);
   }
 
-  if (typeof serverTimings['board-application'] === 'number') {
-    boardApplicationDuration.add(serverTimings['board-application']);
+  if (typeof serverTimings.application === 'number') {
+    boardApplicationDuration.add(serverTimings.application);
   }
 
-  if (typeof serverTimings['board-store'] === 'number') {
-    boardStoreDuration.add(serverTimings['board-store']);
+  if (typeof serverTimings.store === 'number') {
+    boardStoreDuration.add(serverTimings.store);
   }
 
   check(response, {

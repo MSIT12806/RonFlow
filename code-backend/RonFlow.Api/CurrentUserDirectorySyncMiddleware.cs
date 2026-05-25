@@ -9,7 +9,7 @@ internal sealed class CurrentUserDirectorySyncMiddleware(RequestDelegate next)
     public async System.Threading.Tasks.Task InvokeAsync(HttpContext context, IUserDirectory userDirectory)
     {
         System.Diagnostics.Stopwatch? stopwatch = null;
-        if (BoardReadObservabilityContext.TryGetCurrent(out _))
+        if (ObservedOperationTimingContext.TryGetCurrent(out _))
         {
             stopwatch = System.Diagnostics.Stopwatch.StartNew();
         }
@@ -32,12 +32,11 @@ internal sealed class CurrentUserDirectorySyncMiddleware(RequestDelegate next)
         {
             stopwatch.Stop();
             var elapsedMs = stopwatch.Elapsed.TotalMilliseconds;
-            if (BoardReadObservabilityContext.TryGetCurrent(out var timingSnapshot))
+            if (ObservedOperationTimingContext.TryGetCurrent(out var timingSnapshot))
             {
                 timingSnapshot!.CurrentUserDirectorySyncElapsedMs = elapsedMs;
+                RonFlowObservabilityMetrics.RecordCurrentUserDirectorySyncDuration(timingSnapshot.OperationName, elapsedMs);
             }
-
-            RonFlowObservabilityMetrics.RecordBoardCurrentUserDirectorySyncDuration(elapsedMs);
         }
 
         await next(context);

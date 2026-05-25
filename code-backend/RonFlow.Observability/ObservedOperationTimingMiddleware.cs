@@ -4,37 +4,38 @@ using Microsoft.AspNetCore.Http;
 
 namespace RonFlow.Observability;
 
-public sealed class BoardReadObservabilityMiddleware(RequestDelegate next)
+public sealed class ObservedOperationTimingMiddleware(RequestDelegate next)
 {
     public async Task InvokeAsync(HttpContext context)
     {
-        if (!IsBoardReadRequest(context.Request))
+        var metadata = context.GetEndpoint()?.Metadata.GetMetadata<ObservedOperationAttribute>();
+        if (metadata is null)
         {
             await next(context);
             return;
         }
 
-        BoardReadObservabilityContext.Reset();
+        ObservedOperationTimingContext.Reset(metadata.OperationName);
         var stopwatch = Stopwatch.StartNew();
 
         context.Response.OnStarting(() =>
         {
-            if (!BoardReadObservabilityContext.TryGetCurrent(out var timingSnapshot))
+            if (!ObservedOperationTimingContext.TryGetCurrent(out var timingSnapshot))
             {
                 return Task.CompletedTask;
             }
 
             var responseStartElapsedMs = stopwatch.Elapsed.TotalMilliseconds;
             timingSnapshot!.ResponseStartElapsedMs = responseStartElapsedMs;
-            RonFlowObservabilityMetrics.RecordBoardResponseStartDuration(responseStartElapsedMs);
+            RonFlowObservabilityMetrics.RecordResponseStartDuration(timingSnapshot.OperationName, responseStartElapsedMs);
 
             var metrics = new List<string>();
-            AppendServerTimingMetric(metrics, "board-response-start", responseStartElapsedMs);
-            AppendServerTimingMetric(metrics, "board-current-user-sync", timingSnapshot.CurrentUserDirectorySyncElapsedMs);
-            AppendServerTimingMetric(metrics, "board-active-session", timingSnapshot.ActiveSessionElapsedMs);
-            AppendServerTimingMetric(metrics, "board-controller", timingSnapshot.ControllerElapsedMs);
-            AppendServerTimingMetric(metrics, "board-application", timingSnapshot.ApplicationElapsedMs);
-            AppendServerTimingMetric(metrics, "board-store", timingSnapshot.StoreElapsedMs);
+            AppendServerTimingMetric(metrics, "response-start", responseStartElapsedMs);
+            AppendServerTimingMetric(metrics, "middleware-current-user-sync", timingSnapshot.CurrentUserDirectorySyncElapsedMs);
+            AppendServerTimingMetric(metrics, "middleware-active-session", timingSnapshot.ActiveSessionElapsedMs);
+            AppendServerTimingMetric(metrics, "controller", timingSnapshot.ControllerElapsedMs);
+            AppendServerTimingMetric(metrics, "application", timingSnapshot.ApplicationElapsedMs);
+            AppendServerTimingMetric(metrics, "store", timingSnapshot.StoreElapsedMs);
 
             if (metrics.Count > 0)
             {
@@ -52,27 +53,14 @@ public sealed class BoardReadObservabilityMiddleware(RequestDelegate next)
         {
             stopwatch.Stop();
             var elapsedMs = stopwatch.Elapsed.TotalMilliseconds;
-            if (BoardReadObservabilityContext.TryGetCurrent(out var timingSnapshot))
+            if (ObservedOperationTimingContext.TryGetCurrent(out var timingSnapshot))
             {
                 timingSnapshot!.RequestElapsedMs = elapsedMs;
+                RonFlowObservabilityMetrics.RecordRequestDuration(timingSnapshot.OperationName, elapsedMs);
             }
 
-            RonFlowObservabilityMetrics.RecordBoardRequestDuration(elapsedMs);
-            BoardReadObservabilityContext.Clear();
+            ObservedOperationTimingContext.Clear();
         }
-    }
-
-    private static bool IsBoardReadRequest(HttpRequest request)
-    {
-        if (!HttpMethods.IsGet(request.Method))
-        {
-            return false;
-        }
-
-        var path = request.Path.Value;
-        return !string.IsNullOrWhiteSpace(path)
-            && path.StartsWith("/api/projects/", StringComparison.OrdinalIgnoreCase)
-            && path.EndsWith("/board", StringComparison.OrdinalIgnoreCase);
     }
 
     private static void AppendServerTimingMetric(List<string> metrics, string metricName, double? durationMs)

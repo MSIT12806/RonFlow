@@ -17,8 +17,14 @@ public sealed class ObservedGetProjectBoardQueryService(IGetProjectBoardQuerySer
         {
             stopwatch.Stop();
             var elapsedMs = stopwatch.Elapsed.TotalMilliseconds;
-            BoardReadObservabilityContext.Current.ApplicationElapsedMs = elapsedMs;
-            RonFlowObservabilityMetrics.RecordBoardApplicationDuration(elapsedMs);
+            var operationName = ObservedOperationNames.BoardRead;
+            if (ObservedOperationTimingContext.TryGetCurrent(out var timingSnapshot))
+            {
+                timingSnapshot!.ApplicationElapsedMs = elapsedMs;
+                operationName = timingSnapshot.OperationName;
+            }
+
+            RonFlowObservabilityMetrics.RecordApplicationDuration(operationName, elapsedMs);
         }
     }
 
@@ -34,8 +40,14 @@ public sealed class ObservedGetProjectBoardQueryService(IGetProjectBoardQuerySer
         {
             stopwatch.Stop();
             var elapsedMs = stopwatch.Elapsed.TotalMilliseconds;
-            BoardReadObservabilityContext.Current.ApplicationElapsedMs = elapsedMs;
-            RonFlowObservabilityMetrics.RecordBoardApplicationDuration(elapsedMs);
+            var operationName = ObservedOperationNames.BoardRead;
+            if (ObservedOperationTimingContext.TryGetCurrent(out var timingSnapshot))
+            {
+                timingSnapshot!.ApplicationElapsedMs = elapsedMs;
+                operationName = timingSnapshot.OperationName;
+            }
+
+            RonFlowObservabilityMetrics.RecordApplicationDuration(operationName, elapsedMs);
         }
     }
 }
