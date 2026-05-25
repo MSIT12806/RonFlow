@@ -11,6 +11,7 @@
 - [梳理業務規則-事件風暴02](#devlog-domain-rules-02)
 - [梳理業務規則-事件風暴03](#devlog-domain-rules-03)
 - [梳理業務規則-事件風暴04](#devlog-domain-rules-04)
+- [壓力測試與可觀測化規劃](#devlog-performance-observability-plan)
 
 ### 專案起跑
 <a id="devlog-project-kickoff"></a>
@@ -7567,4 +7568,196 @@ git-subtree-split: 6cfd4760cb11f4be42d0d3bc24211b251903844d
 我認為相同的事情也很可能發生在軟體工程的世界。
 
 隨著 AI coding 的程度增加，工程師會越來越對 Domain 的一些邏輯細節不清楚，或者是說缺乏洞察，以至於設計出來的系統可能就差強人意。我認為這也是未來世界中，相同的軟體之間誰優誰劣的決定性因素。
+
 2026/05/21。
+
+完成了多人協作的相關功能之後，接下來我打算做壓力測試以及可觀測化系統。
+
+
+
+### 壓力測試與可觀測化規劃
+<a id="devlog-performance-observability-plan"></a>
+
+目前 RonFlow 已經從單人 task flow 走到多人協作，接下來比起再往功能面擴張一大段，我更想先確認：現在的查詢方式與同步方式，到底能不能撐住比較像真的使用情境的讀取壓力。
+
+我目前的判斷是，下一步不應該直接跳去做資料切片或過早優化，而是先建立一個最小但可重複的壓力測試與可觀測化閉環。先量，再改；先找瓶頸，再決定要不要動資料庫設計、projection、索引、資料切片或其他擴充策略。
+
+#### 1. 先把壓測環境與日常開發環境切開
+
+壓力測試一定需要比較多資料，而且這些資料不應該和人工測試、驗收測試的資料混在一起。否則每次量測的母體都在漂移，結果很難解讀。
+
+基於目前 RonFlow 採用 SQLite 作為開發預設資料庫，這件事情其實相對容易：
+
+- 人工開發環境：使用既有 development database
+- 驗收測試環境：維持目前 testing 專用隔離方式
+- 壓力測試環境：新增一個專用的 Performance environment，使用獨立 SQLite 檔案
+
+我希望壓力測試環境具備以下特性：
+
+1. 每次新一輪壓測開始前，都能重建一份全新的資料庫。
+2. seed data 來源固定，可重複生成。
+3. 壓測結束後就算不清除資料，也不會污染人工開發環境。
+4. 若要測包含登入流程的情境，RonAuth 也必須有自己的 performance database。
+
+這裡真正重要的不是「測完清乾淨」，而是「測之前一定能把環境 reset 成已知狀態」。對壓測來說，reset before run 比 cleanup after run 更重要。
+
+#### 2. 第一輪壓測的目標不是估算 production capacity
+
+我現在只有一台開發機，資料庫也大概率會架在同一台機器上。這樣的限制，確實不適合拿來宣告系統正式上線後能扛多少使用者。
+
+但它仍然很適合做幾件非常有價值的事：
+
+- 找出哪一支 API 最先惡化
+- 觀察資料量增加時延遲是否線性上升
+- 確認目前查詢方式是否會因為全表掃描或 payload 過大而快速失控
+- 比較優化前後的相對差異
+
+也就是說，這一輪的目的不是 capacity planning，而是 bottleneck discovery。
+
+#### 3. 第一輪應優先測讀取壓力，而不是先測寫入壓力
+
+RonFlow 現在的多人協作是 polling-first，因此我預期熱點會先出現在查詢面，而不是 command 面。
+
+第一輪我會優先測這幾支 API：
+
+1. `GET /api/projects/{projectId}/board`
+2. `GET /api/projects`
+3. `GET /api/projects/{projectId}/tasks/{taskId}`
+4. `GET /api/invitations`
+5. `GET /api/projects/{projectId}/members`
+
+理由很直接：
+
+- board 是主輪詢核心
+- project list 與 invitation badge 是常駐資訊面
+- task detail 是 drawer 開啟與同步時的重要查詢
+- members/invitations 是協作通知面
+
+等這些讀取熱點測完之後，再補第二輪寫入壓測：
+
+- task state change
+- task detail update
+- content edit lock acquire / release
+
+#### 4. 第一版工具選型：先用 k6，不急著追求完整平台
+
+我目前傾向第一版直接使用 k6 做 API-level 壓測。
+
+理由：
+
+- 單機上手快
+- Windows 可執行
+- HTTP scenario 容易表達
+- 可以直接看 latency percentile、throughput 與 error rate
+- 很適合現在這種先量 API、先找瓶頸的階段
+
+等之後真的有需要把 scenario 與 .NET 測試生態整合得更深，再評估 NBomber 或其他工具。
+
+但第一輪不應把力氣花在工具平台化，而應花在 workload 設計與結果解讀。
+
+#### 5. 第一輪資料量不要太誇張，但要有三個明確級距
+
+我不打算一開始就追求非常大的資料量。現在更重要的是先看趨勢。
+
+我希望至少準備三組 seed data：
+
+- S：10 個 projects，每個 project 50 個 tasks
+- M：50 個 projects，每個 project 100 個 tasks
+- L：100 個 projects，每個 project 200 個 tasks
+
+如果這樣的資料量就已經讓某些查詢明顯惡化，那通常代表目前的查詢實作已有明顯改善空間。
+
+而且這對 RonFlow 現在的狀態非常合理，因為目前很多讀取其實還是經典查詢搭配反序列化與記憶體過濾，這很適合作為第一輪效能練習材料。
+
+#### 6. 壓測腳本也要有 staged 設計，而不是一次把機器打滿
+
+第一輪壓測不應該直接追求最大併發數，而應該先建立穩定的 baseline。
+
+我打算這樣切：
+
+1. 單一 endpoint baseline
+    - 例如只測 `GET /board`
+    - 固定時間，例如 1 分鐘
+    - 固定併發，例如 10 / 20 / 50 三檔
+
+2. 混合讀取情境
+    - 70% board
+    - 15% project list
+    - 10% task detail
+    - 5% invitations / members
+
+3. 寫入補充情境
+    - 少量 state change
+    - 少量 task update
+    - 少量 lock acquire / release
+
+重點不是把機器打爆，而是讓每一輪數字都可以被拿來比較。
+
+#### 7. 可觀測化不先獨立成另一個 application
+
+我目前不打算先把 observability 做成另一個獨立 application。
+
+比較合理的切法是：
+
+- RonFlow / RonAuth 內部先加 instrumentation
+- 外部再接 log、metrics、trace 的收集與展示工具
+
+原因是，如果 RonFlow 自己還沒有輸出足夠訊號，先做一個 observability app 很容易變成先做平台殼，而不是先解決觀測需求本身。
+
+但這不代表它不能復用。比較好的做法是：
+
+1. 先在 RonFlow 裡建立一套穩定的 observability 慣例
+2. RonAuth 若有類似需求，再共用 naming 與 setup pattern
+3. 真正重複到一定程度後，再抽成 shared library
+
+#### 8. 第一版 observability 只做最小必要訊號
+
+第一輪我不追求完整的觀測平台，只追求足以定位瓶頸。
+
+最小必要訊號如下：
+
+1. 每支 API 的 request duration
+2. 關鍵 query 的執行時間
+3. 錯誤率與 timeout
+4. p50 / p95 / p99
+5. 主要回應 payload 大小
+
+若可以再加一些 RonFlow 特有指標，會更有價值：
+
+- board query duration
+- project list query duration
+- task detail query duration
+- invitation polling hit rate
+- content edit lock conflict count
+- session invalidation count
+
+這些訊號會比 generic CPU / memory 更能直接對應到 RonFlow 的產品語意。
+
+#### 9. 目前最務實的實作順序
+
+我希望接下來依照下面順序推進：
+
+1. 為 RonFlow.Api 新增 Performance environment
+2. 為 RonAuth 也提供對應的 performance database 隔離方式
+3. 實作 reset + seed 腳本，固定資料母體
+4. 建立第一支 k6 腳本，先測 `GET /board`
+5. 為 API 補 request duration 與關鍵 query duration
+6. 跑出第一輪 baseline（S / M / L 三組資料）
+7. 找出第一個明確瓶頸
+8. 再決定要不要做索引、query shape 調整、projection、資料切片或其他優化
+
+#### 10. 這一輪結束後，我希望能回答的問題
+
+這一輪如果做完，至少應該要能回答：
+
+1. RonFlow 目前最重的查詢是哪一支 API？
+2. 它慢在資料庫掃描、反序列化、payload，還是 application 端處理？
+3. 資料量增加時，延遲是平穩上升還是突然惡化？
+4. polling-first 的同步架構，目前最需要優化的是哪個讀取面？
+5. 接下來應該優先做索引、projection、資料模型調整，還是資料切片？
+
+只要這幾題可以被回答，這輪壓測與可觀測化就已經非常值得。
+
+
+
+2026/05/25。
