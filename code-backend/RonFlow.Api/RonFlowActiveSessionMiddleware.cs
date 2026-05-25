@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using RonFlow.Application;
+using RonFlow.Observability;
 
 namespace RonFlow.Api;
 
@@ -7,8 +8,15 @@ public sealed class RonFlowActiveSessionMiddleware(RequestDelegate next)
 {
     public async Task InvokeAsync(HttpContext context, RonFlowActiveSessionRegistry activeSessionRegistry)
     {
+        System.Diagnostics.Stopwatch? stopwatch = null;
+        if (BoardReadObservabilityContext.TryGetCurrent(out _))
+        {
+            stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        }
+
         if (context.User.Identity?.IsAuthenticated != true || IsSessionActivationRequest(context.Request.Path))
         {
+            RecordTiming(stopwatch);
             await next(context);
             return;
         }
@@ -19,19 +27,39 @@ public sealed class RonFlowActiveSessionMiddleware(RequestDelegate next)
 
         if (!Guid.TryParse(rawUserId, out var userId) || string.IsNullOrWhiteSpace(sessionId))
         {
+            RecordTiming(stopwatch);
             await next(context);
             return;
         }
 
         if (!activeSessionRegistry.IsActive(userId, sessionId))
         {
+            RecordTiming(stopwatch);
             context.Response.Headers[RonFlowSessionConstants.SessionInvalidatedHeaderName] = "true";
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             await context.Response.WriteAsJsonAsync(new { message = "RonFlow session invalidated" });
             return;
         }
 
+        RecordTiming(stopwatch);
         await next(context);
+    }
+
+    private static void RecordTiming(System.Diagnostics.Stopwatch? stopwatch)
+    {
+        if (stopwatch is null)
+        {
+            return;
+        }
+
+        stopwatch.Stop();
+        var elapsedMs = stopwatch.Elapsed.TotalMilliseconds;
+        if (BoardReadObservabilityContext.TryGetCurrent(out var timingSnapshot))
+        {
+            timingSnapshot!.ActiveSessionElapsedMs = elapsedMs;
+        }
+
+        RonFlowObservabilityMetrics.RecordBoardActiveSessionDuration(elapsedMs);
     }
 
     private static bool IsSessionActivationRequest(PathString path)

@@ -36,6 +36,7 @@ public partial class Program
                 .AddMeter(RonFlowObservabilityMetrics.MeterName)
                 .AddPrometheusExporter());
         builder.Services.AddScoped<BoardReadServerTimingFilter>();
+        builder.Services.AddScoped<BoardReadResultTimingFilter>();
         builder.Services.AddSingleton<ITestHttpFaultStore>(builder.Environment.IsEnvironment("Testing")
             ? new InMemoryTestHttpFaultStore()
             : new NoOpTestHttpFaultStore());
@@ -105,7 +106,8 @@ public partial class Program
         }
 
         app.UseAuthentication();
-    app.UseHttpLogging();
+        app.UseHttpLogging();
+        app.UseMiddleware<BoardReadObservabilityMiddleware>();
         app.UseMiddleware<CurrentUserDirectorySyncMiddleware>();
         app.UseMiddleware<TestHttpFaultMiddleware>();
         app.UseMiddleware<RonFlowActiveSessionMiddleware>();

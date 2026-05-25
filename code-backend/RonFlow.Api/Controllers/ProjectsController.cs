@@ -62,6 +62,7 @@ public sealed class ProjectsController : AuthenticatedControllerBase
 
     [HttpGet("{projectId:guid}/board")]
     [ServiceFilter(typeof(BoardReadServerTimingFilter))]
+    [ServiceFilter(typeof(BoardReadResultTimingFilter))]
     [ProducesResponseType<ProjectBoardResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IResult GetBoard(

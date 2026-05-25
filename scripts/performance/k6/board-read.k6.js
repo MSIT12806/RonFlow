@@ -9,9 +9,12 @@ const password = __ENV.RONFLOW_LOAD_TEST_PASSWORD || 'Admin123!';
 const pacingSeconds = Number(__ENV.RONFLOW_LOAD_TEST_PACING_SECONDS || '1');
 
 const boardDuration = new Trend('ronflow_board_duration');
+const boardResponseStartDuration = new Trend('ronflow_board_response_start_duration');
 const boardControllerDuration = new Trend('ronflow_board_controller_duration');
 const boardApplicationDuration = new Trend('ronflow_board_application_duration');
 const boardStoreDuration = new Trend('ronflow_board_store_duration');
+const boardCurrentUserSyncDuration = new Trend('ronflow_board_current_user_sync_duration');
+const boardActiveSessionDuration = new Trend('ronflow_board_active_session_duration');
 
 export const options = {
   thresholds: {
@@ -106,6 +109,18 @@ export default function (data) {
 
   const serverTimingHeader = response.headers['Server-Timing'];
   const serverTimings = parseServerTimingHeader(serverTimingHeader);
+
+  if (typeof serverTimings['board-response-start'] === 'number') {
+    boardResponseStartDuration.add(serverTimings['board-response-start']);
+  }
+
+  if (typeof serverTimings['board-current-user-sync'] === 'number') {
+    boardCurrentUserSyncDuration.add(serverTimings['board-current-user-sync']);
+  }
+
+  if (typeof serverTimings['board-active-session'] === 'number') {
+    boardActiveSessionDuration.add(serverTimings['board-active-session']);
+  }
 
   if (typeof serverTimings['board-controller'] === 'number') {
     boardControllerDuration.add(serverTimings['board-controller']);

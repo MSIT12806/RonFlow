@@ -304,9 +304,12 @@ $httpReqDuration = Get-Metric -Metrics $metrics -Name 'http_req_duration'
 $httpReqFailed = Get-Metric -Metrics $metrics -Name 'http_req_failed'
 $checksMetric = Get-Metric -Metrics $metrics -Name 'checks'
 $boardDuration = Get-Metric -Metrics $metrics -Name 'ronflow_board_duration'
+$boardResponseStartDuration = Get-Metric -Metrics $metrics -Name 'ronflow_board_response_start_duration'
 $boardControllerDuration = Get-Metric -Metrics $metrics -Name 'ronflow_board_controller_duration'
 $boardApplicationDuration = Get-Metric -Metrics $metrics -Name 'ronflow_board_application_duration'
 $boardStoreDuration = Get-Metric -Metrics $metrics -Name 'ronflow_board_store_duration'
+$boardCurrentUserSyncDuration = Get-Metric -Metrics $metrics -Name 'ronflow_board_current_user_sync_duration'
+$boardActiveSessionDuration = Get-Metric -Metrics $metrics -Name 'ronflow_board_active_session_duration'
 $iterationDuration = Get-Metric -Metrics $metrics -Name 'iteration_duration'
 
 $checkRows = @(Get-CheckRows -Group $summary.root_group)
@@ -329,6 +332,9 @@ $summaryCards = @(
 $timingBars = @(
   @{ Label = 'HTTP request p95'; Value = (Get-MetricNumber -Metric $httpReqDuration -PropertyName 'p(95)'); DisplayValue = (Format-Number -Value (Get-MetricNumber -Metric $httpReqDuration -PropertyName 'p(95)') -Suffix ' ms') },
   @{ Label = 'Board request p95'; Value = (Get-MetricNumber -Metric $boardDuration -PropertyName 'p(95)'); DisplayValue = (Format-Number -Value (Get-MetricNumber -Metric $boardDuration -PropertyName 'p(95)') -Suffix ' ms') },
+  @{ Label = 'Response-start p95'; Value = (Get-MetricNumber -Metric $boardResponseStartDuration -PropertyName 'p(95)'); DisplayValue = (Format-Number -Value (Get-MetricNumber -Metric $boardResponseStartDuration -PropertyName 'p(95)') -Suffix ' ms') },
+  @{ Label = 'Current-user-sync p95'; Value = (Get-MetricNumber -Metric $boardCurrentUserSyncDuration -PropertyName 'p(95)'); DisplayValue = (Format-Number -Value (Get-MetricNumber -Metric $boardCurrentUserSyncDuration -PropertyName 'p(95)') -Suffix ' ms') },
+  @{ Label = 'Active-session p95'; Value = (Get-MetricNumber -Metric $boardActiveSessionDuration -PropertyName 'p(95)'); DisplayValue = (Format-Number -Value (Get-MetricNumber -Metric $boardActiveSessionDuration -PropertyName 'p(95)') -Suffix ' ms') },
   @{ Label = 'Controller p95'; Value = (Get-MetricNumber -Metric $boardControllerDuration -PropertyName 'p(95)'); DisplayValue = (Format-Number -Value (Get-MetricNumber -Metric $boardControllerDuration -PropertyName 'p(95)') -Suffix ' ms') },
   @{ Label = 'Application p95'; Value = (Get-MetricNumber -Metric $boardApplicationDuration -PropertyName 'p(95)'); DisplayValue = (Format-Number -Value (Get-MetricNumber -Metric $boardApplicationDuration -PropertyName 'p(95)') -Suffix ' ms') },
   @{ Label = 'Store p95'; Value = (Get-MetricNumber -Metric $boardStoreDuration -PropertyName 'p(95)'); DisplayValue = (Format-Number -Value (Get-MetricNumber -Metric $boardStoreDuration -PropertyName 'p(95)') -Suffix ' ms') }
