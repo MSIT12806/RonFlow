@@ -14,6 +14,7 @@
     - 讓前端 E2E 仍然打真實 API，但可由後端 middleware 受控地回傳指定 status code、message 與 delay
 - [x] 加入多人協作的設計
     - 多人協作下的 concurrency control、即時協作
+- [x] 壓力測試 & observability
 
 ### what?
 這是 AI 認為是特點，但是我不知道裡面實作細節的東西。
@@ -27,11 +28,9 @@
 - [ ] 加入權限，體現 supporting domain 如何互動
     - authorization / RBAC / policy-based access control
 - [ ] 加入報表，實作 projection
-- [ ] observability
     - 結構化 logging、metrics、distributed tracing、健康檢查。
 - [ ] 資料庫遷移與 schema evolution
 - [ ] 資料切片
-- [ ] 壓力測試
 - [ ] 多租戶 / workspace 邊界
 - [ ] html editor / markdown editor
 - [ ] 檔案附件 / 物件儲存
@@ -41,6 +40,9 @@
 - [ ] 支援 android app
 - [ ] 結合 git
     - Git 整合延伸成 work item 與 code traceability
+- [ ] 抽出共用 execution / pipeline 契約層
+    - 讓 command / query 有共用 handler 契約與 pipeline behavior，可承載 observability、validation、authorization 等 cross-cutting concern
+    - 這一層不預設綁定 DDD，未來需求更成熟時再決定要走 `IExecutor`、`ICommandHandler` / `IQueryHandler`，或其他更合適的抽象
 - [ ] 用 transaction script 重寫一份
 - [ ] 事件驅動整合
 - [ ] 離線優先 / sync
