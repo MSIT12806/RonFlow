@@ -1,7 +1,9 @@
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.IdentityModel.Tokens;
+using OpenTelemetry.Metrics;
 using RonFlow.Application;
 using RonFlow.Api.Contracts;
 using RonFlow.Domain;
@@ -18,6 +20,21 @@ public partial class Program
 
         builder.Services.AddOpenApi();
         builder.Services.AddControllers();
+        builder.Services.AddHttpLogging(options =>
+        {
+            options.LoggingFields = HttpLoggingFields.RequestMethod
+                | HttpLoggingFields.RequestPath
+                | HttpLoggingFields.ResponseStatusCode
+                | HttpLoggingFields.Duration;
+            options.CombineLogs = true;
+        });
+        builder.Services
+            .AddOpenTelemetry()
+            .WithMetrics(metrics => metrics
+                .AddAspNetCoreInstrumentation()
+                .AddRuntimeInstrumentation()
+                .AddMeter(RonFlowObservabilityMetrics.MeterName)
+                .AddPrometheusExporter());
         builder.Services.AddScoped<BoardReadServerTimingFilter>();
         builder.Services.AddSingleton<ITestHttpFaultStore>(builder.Environment.IsEnvironment("Testing")
             ? new InMemoryTestHttpFaultStore()
@@ -88,10 +105,12 @@ public partial class Program
         }
 
         app.UseAuthentication();
+    app.UseHttpLogging();
         app.UseMiddleware<CurrentUserDirectorySyncMiddleware>();
         app.UseMiddleware<TestHttpFaultMiddleware>();
         app.UseMiddleware<RonFlowActiveSessionMiddleware>();
         app.UseAuthorization();
+        app.MapPrometheusScrapingEndpoint("/metrics");
         app.MapControllers();
 
         app.Run();

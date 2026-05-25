@@ -21,7 +21,9 @@ public sealed class ObservedCoreFlowReadStore(ICoreFlowReadStore inner) : ICoreF
         finally
         {
             stopwatch.Stop();
-            BoardReadObservabilityContext.Current.StoreElapsedMs = stopwatch.Elapsed.TotalMilliseconds;
+            var elapsedMs = stopwatch.Elapsed.TotalMilliseconds;
+            BoardReadObservabilityContext.Current.StoreElapsedMs = elapsedMs;
+            RonFlowObservabilityMetrics.RecordBoardStoreDuration(elapsedMs);
         }
     }
 

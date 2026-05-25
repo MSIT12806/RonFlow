@@ -16,7 +16,9 @@ public sealed class ObservedGetProjectBoardQueryService(IGetProjectBoardQuerySer
         finally
         {
             stopwatch.Stop();
-            BoardReadObservabilityContext.Current.ApplicationElapsedMs = stopwatch.Elapsed.TotalMilliseconds;
+            var elapsedMs = stopwatch.Elapsed.TotalMilliseconds;
+            BoardReadObservabilityContext.Current.ApplicationElapsedMs = elapsedMs;
+            RonFlowObservabilityMetrics.RecordBoardApplicationDuration(elapsedMs);
         }
     }
 
@@ -31,7 +33,9 @@ public sealed class ObservedGetProjectBoardQueryService(IGetProjectBoardQuerySer
         finally
         {
             stopwatch.Stop();
-            BoardReadObservabilityContext.Current.ApplicationElapsedMs = stopwatch.Elapsed.TotalMilliseconds;
+            var elapsedMs = stopwatch.Elapsed.TotalMilliseconds;
+            BoardReadObservabilityContext.Current.ApplicationElapsedMs = elapsedMs;
+            RonFlowObservabilityMetrics.RecordBoardApplicationDuration(elapsedMs);
         }
     }
 }

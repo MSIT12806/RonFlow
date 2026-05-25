@@ -7,7 +7,9 @@ param(
   [string]$UserName = 'perf-owner',
   [string]$Password = 'Admin123!',
   [double]$PacingSeconds = 1,
-  [string]$SummaryExportPath
+  [string]$SummaryExportPath,
+  [string]$ReportPath,
+  [string]$ReportTitle = 'RonFlow Load Test Report'
 )
 
 Set-StrictMode -Version Latest
@@ -41,6 +43,14 @@ if (-not (Test-Path -LiteralPath $scriptPath)) {
   throw "Load test script not found: $scriptPath"
 }
 
+if ([string]::IsNullOrWhiteSpace($SummaryExportPath) -and -not [string]::IsNullOrWhiteSpace($ReportPath)) {
+  $SummaryExportPath = [System.IO.Path]::ChangeExtension($ReportPath, '.json')
+}
+
+if ([string]::IsNullOrWhiteSpace($ReportPath) -and -not [string]::IsNullOrWhiteSpace($SummaryExportPath)) {
+  $ReportPath = [System.IO.Path]::ChangeExtension($SummaryExportPath, '.html')
+}
+
 $arguments = @(
   'run',
   '--vus', $Vus,
@@ -59,3 +69,7 @@ if (-not [string]::IsNullOrWhiteSpace($SummaryExportPath)) {
 $arguments += $scriptPath
 
 & $k6Path @arguments
+
+if (-not [string]::IsNullOrWhiteSpace($SummaryExportPath) -and -not [string]::IsNullOrWhiteSpace($ReportPath)) {
+  & (Join-Path $PSScriptRoot 'New-LoadTestReport.ps1') -InputPath $SummaryExportPath -OutputPath $ReportPath -Title $ReportTitle
+}

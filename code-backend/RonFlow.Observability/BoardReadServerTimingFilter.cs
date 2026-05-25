@@ -16,6 +16,7 @@ public sealed class BoardReadServerTimingFilter : IAsyncActionFilter
             await next();
 
             stopwatch.Stop();
+            RonFlowObservabilityMetrics.RecordBoardControllerDuration(stopwatch.Elapsed.TotalMilliseconds);
             var timingSnapshot = BoardReadObservabilityContext.Current;
             var metrics = new List<string>
             {

@@ -23,6 +23,7 @@ $ronAuthRepoRoot = Join-Path $workspaceRoot 'RonAuth'
 $ronFlowApiProjectPath = Join-Path $repoRoot 'code-backend\RonFlow.Api'
 $ronAuthApiProjectPath = Join-Path $ronAuthRepoRoot 'code-backend\RonAuth.Api'
 $performanceLogsPath = Join-Path $PSScriptRoot 'logs'
+$resultsPath = Join-Path $PSScriptRoot 'results'
 $ronFlowStdOutLog = Join-Path $performanceLogsPath 'ronflow.performance.stdout.log'
 $ronFlowStdErrLog = Join-Path $performanceLogsPath 'ronflow.performance.stderr.log'
 $ronAuthStdOutLog = Join-Path $performanceLogsPath 'ronauth.performance.stdout.log'
@@ -38,6 +39,22 @@ function Write-Step {
 
   Write-Host ''
   Write-Host "==> $Message" -ForegroundColor Cyan
+}
+
+function Get-DefaultResultPaths {
+  param(
+    [Parameter(Mandatory = $true)][string]$ScaleName,
+    [Parameter(Mandatory = $true)][int]$VirtualUsers,
+    [Parameter(Mandatory = $true)][string]$RunDuration
+  )
+
+  $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+  $normalizedDuration = ($RunDuration -replace '[^a-zA-Z0-9]', '_')
+  $baseName = "board-read-scale-$($ScaleName.ToLowerInvariant())-vus$VirtualUsers-$normalizedDuration-$timestamp"
+  return @{
+    Summary = Join-Path $resultsPath ($baseName + '.json')
+    Report = Join-Path $resultsPath ($baseName + '.html')
+  }
 }
 
 function Get-PortProcessIds {
@@ -143,6 +160,17 @@ try {
   }
 
   New-Item -ItemType Directory -Path $performanceLogsPath -Force | Out-Null
+  New-Item -ItemType Directory -Path $resultsPath -Force | Out-Null
+
+  $resolvedSummaryExportPath = $SummaryExportPath
+  if ([string]::IsNullOrWhiteSpace($resolvedSummaryExportPath)) {
+    $defaultResultPaths = Get-DefaultResultPaths -ScaleName $Scale -VirtualUsers $Vus -RunDuration $Duration
+    $resolvedSummaryExportPath = $defaultResultPaths.Summary
+    $resolvedReportPath = $defaultResultPaths.Report
+  }
+  else {
+    $resolvedReportPath = [System.IO.Path]::ChangeExtension($resolvedSummaryExportPath, '.html')
+  }
 
   Write-Step 'Stopping existing performance API processes on reserved ports'
   Stop-ProcessesOnPort -Port 5146
@@ -189,13 +217,16 @@ try {
     UserName = 'perf-owner'
     Password = 'Admin123!'
     PacingSeconds = $PacingSeconds
-  }
-
-  if (-not [string]::IsNullOrWhiteSpace($SummaryExportPath)) {
-    $loadTestArguments.SummaryExportPath = $SummaryExportPath
+    SummaryExportPath = $resolvedSummaryExportPath
+    ReportPath = $resolvedReportPath
+    ReportTitle = "RonFlow Board Read Load Test - Scale $Scale - VUs $Vus - Duration $Duration"
   }
 
   & (Join-Path $PSScriptRoot 'Run-BoardReadLoadTest.ps1') @loadTestArguments
+
+  Write-Host ''
+  Write-Host "Summary JSON: $resolvedSummaryExportPath" -ForegroundColor Green
+  Write-Host "HTML report: $resolvedReportPath" -ForegroundColor Green
 }
 finally {
   if ($KeepApiRunning.IsPresent) {
