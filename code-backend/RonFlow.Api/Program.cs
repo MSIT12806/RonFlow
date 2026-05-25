@@ -6,6 +6,7 @@ using RonFlow.Application;
 using RonFlow.Api.Contracts;
 using RonFlow.Domain;
 using RonFlow.Infrastructure;
+using RonFlow.Observability;
 
 namespace RonFlow.Api;
 

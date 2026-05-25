@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.6.11819.183 stable
+VisualStudioVersion = 18.6.11819.183
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RonFlow.Api", "RonFlow.Api\RonFlow.Api.csproj", "{6D14153C-E60A-4BCD-B1C0-6C681A1976DC}"
 EndProject
@@ -12,6 +12,10 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RonFlow.Application", "RonFlow.Application\RonFlow.Application.csproj", "{EA47249E-5D68-41EE-A255-6E308CE3C034}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RonFlow.Infrastructure", "RonFlow.Infrastructure\RonFlow.Infrastructure.csproj", "{094D6264-1D99-47DF-AD5E-970978C1D77B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RonAuth.Api", "..\..\RonAuth\code-backend\RonAuth.Api\RonAuth.Api.csproj", "{132B30D1-666B-C9B3-7A40-70AD0CB772AD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RonFlow.Observability", "RonFlow.Observability\RonFlow.Observability.csproj", "{A2B62387-513D-4514-ABBD-A9CE18D1C13D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -83,6 +87,30 @@ Global
 		{094D6264-1D99-47DF-AD5E-970978C1D77B}.Release|x64.Build.0 = Release|Any CPU
 		{094D6264-1D99-47DF-AD5E-970978C1D77B}.Release|x86.ActiveCfg = Release|Any CPU
 		{094D6264-1D99-47DF-AD5E-970978C1D77B}.Release|x86.Build.0 = Release|Any CPU
+		{132B30D1-666B-C9B3-7A40-70AD0CB772AD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{132B30D1-666B-C9B3-7A40-70AD0CB772AD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{132B30D1-666B-C9B3-7A40-70AD0CB772AD}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{132B30D1-666B-C9B3-7A40-70AD0CB772AD}.Debug|x64.Build.0 = Debug|Any CPU
+		{132B30D1-666B-C9B3-7A40-70AD0CB772AD}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{132B30D1-666B-C9B3-7A40-70AD0CB772AD}.Debug|x86.Build.0 = Debug|Any CPU
+		{132B30D1-666B-C9B3-7A40-70AD0CB772AD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{132B30D1-666B-C9B3-7A40-70AD0CB772AD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{132B30D1-666B-C9B3-7A40-70AD0CB772AD}.Release|x64.ActiveCfg = Release|Any CPU
+		{132B30D1-666B-C9B3-7A40-70AD0CB772AD}.Release|x64.Build.0 = Release|Any CPU
+		{132B30D1-666B-C9B3-7A40-70AD0CB772AD}.Release|x86.ActiveCfg = Release|Any CPU
+		{132B30D1-666B-C9B3-7A40-70AD0CB772AD}.Release|x86.Build.0 = Release|Any CPU
+		{A2B62387-513D-4514-ABBD-A9CE18D1C13D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A2B62387-513D-4514-ABBD-A9CE18D1C13D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A2B62387-513D-4514-ABBD-A9CE18D1C13D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A2B62387-513D-4514-ABBD-A9CE18D1C13D}.Debug|x64.Build.0 = Debug|Any CPU
+		{A2B62387-513D-4514-ABBD-A9CE18D1C13D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A2B62387-513D-4514-ABBD-A9CE18D1C13D}.Debug|x86.Build.0 = Debug|Any CPU
+		{A2B62387-513D-4514-ABBD-A9CE18D1C13D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A2B62387-513D-4514-ABBD-A9CE18D1C13D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A2B62387-513D-4514-ABBD-A9CE18D1C13D}.Release|x64.ActiveCfg = Release|Any CPU
+		{A2B62387-513D-4514-ABBD-A9CE18D1C13D}.Release|x64.Build.0 = Release|Any CPU
+		{A2B62387-513D-4514-ABBD-A9CE18D1C13D}.Release|x86.ActiveCfg = Release|Any CPU
+		{A2B62387-513D-4514-ABBD-A9CE18D1C13D}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

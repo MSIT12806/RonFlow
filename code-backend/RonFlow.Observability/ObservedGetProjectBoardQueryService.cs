@@ -1,6 +1,7 @@
 using System.Diagnostics;
+using RonFlow.Application;
 
-namespace RonFlow.Application;
+namespace RonFlow.Observability;
 
 public sealed class ObservedGetProjectBoardQueryService(IGetProjectBoardQueryService inner) : IGetProjectBoardQueryService
 {

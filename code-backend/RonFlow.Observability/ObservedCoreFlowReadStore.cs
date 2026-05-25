@@ -1,8 +1,7 @@
 using System.Diagnostics;
-using RonFlow.Application;
 using RonFlow.Domain;
 
-namespace RonFlow.Infrastructure;
+namespace RonFlow.Observability;
 
 public sealed class ObservedCoreFlowReadStore(ICoreFlowReadStore inner) : ICoreFlowReadStore
 {

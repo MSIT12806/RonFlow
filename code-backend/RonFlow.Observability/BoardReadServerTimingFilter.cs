@@ -1,9 +1,8 @@
 using System.Diagnostics;
 using System.Globalization;
 using Microsoft.AspNetCore.Mvc.Filters;
-using RonFlow.Application;
 
-namespace RonFlow.Api;
+namespace RonFlow.Observability;
 
 public sealed class BoardReadServerTimingFilter : IAsyncActionFilter
 {

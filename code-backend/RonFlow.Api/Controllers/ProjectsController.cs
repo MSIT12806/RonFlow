@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RonFlow.Application;
 using RonFlow.Api.Contracts;
+using RonFlow.Observability;
 
 namespace RonFlow.Api.Controllers;
 

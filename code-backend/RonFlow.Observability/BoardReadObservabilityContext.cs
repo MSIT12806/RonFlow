@@ -1,6 +1,6 @@
 using System.Threading;
 
-namespace RonFlow.Application;
+namespace RonFlow.Observability;
 
 public static class BoardReadObservabilityContext
 {
