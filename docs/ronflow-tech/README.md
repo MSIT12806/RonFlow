@@ -15,6 +15,7 @@
 - RonFlow 的 workflow state / lifecycle state 雙狀態軸設計：`ronflow-task-state-axes.md`
 - RonFlow 的 CQRS 實踐：`ronflow-cqrs.md`
 - RonFlow 的多人協作 / 即時同步設計：`ronflow-real-time-collaboration.md`
+- RonFlow 的壓力測試與 observability 實踐：`ronflow-load-testing-observability.md`
 - RonFlow 的活動紀錄 / audit trail 雛形：`ronflow-activity-audit-trail.md`
 - RonFlow 的 Testing-only HTTP fault injection 實踐：`ronflow-testing-http-fault-injection.md`
 - RonFlow 的 office system level 通知實踐：`ronflow-office-level-notifications.md`
