@@ -2,6 +2,26 @@
 
 RonFlow 是一個以 C# 與 ASP.NET Core 為核心的小型專案管理工具。
 
+## 第一次進專案先看哪裡
+
+若是第一次進入這個專案，建議固定依照下面順序閱讀：
+
+1. 先看這份 README，理解專案定位、開發流程與啟動方式。
+2. 再看 [docs/specs/ronflow-core-flow-spec.md](docs/specs/ronflow-core-flow-spec.md)，這是目前 RonFlow 行為的 living spec。
+3. 接著看對應的 [code-frontend/tests/e2e](code-frontend/tests/e2e) 驗收測試，確認 spec 哪些已被 acceptance tests 承接、哪些還沒有。
+4. 最後再進入對應的 production code，比對前端畫面、API、application service 與 domain model 是否已經完整落地。
+
+建議工作順序也是同一條鏈：spec -> acceptance tests -> production code，而不是直接從程式碼反推需求。
+
+## 文件定位
+
+以下文件可視為目前較可信的入口與定位方式：
+
+- Canonical product behavior： [docs/specs/ronflow-core-flow-spec.md](docs/specs/ronflow-core-flow-spec.md)
+- Canonical technical explanations： [docs/specs/Wish-願望清單.md](docs/specs/Wish-%E9%A1%98%E6%9C%9B%E6%B8%85%E5%96%AE.md)、[docs/ronflow-tech](docs/ronflow-tech)
+
+若文件之間出現衝突，優先以 active spec 與目前 acceptance tests 為準；devlog 與歷史文件主要用來理解設計思路，不應直接視為目前行為真相。
+
 ## 開發流程
 
 RonFlow 採用 spec-first 的開發流程。
