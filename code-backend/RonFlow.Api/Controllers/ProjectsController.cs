@@ -60,11 +60,12 @@ public sealed class ProjectsController : AuthenticatedControllerBase
     }
 
     [HttpGet("{projectId:guid}/board")]
+    [ServiceFilter(typeof(BoardReadServerTimingFilter))]
     [ProducesResponseType<ProjectBoardResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IResult GetBoard(
         Guid projectId,
-        [FromServices] GetProjectBoardQueryService queryService,
+        [FromServices] IGetProjectBoardQueryService queryService,
         [FromServices] ProjectPresenceRegistry projectPresenceRegistry)
     {
         if (!TryGetCurrentUserId(out var currentUserId))

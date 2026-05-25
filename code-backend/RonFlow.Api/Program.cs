@@ -17,6 +17,7 @@ public partial class Program
 
         builder.Services.AddOpenApi();
         builder.Services.AddControllers();
+        builder.Services.AddScoped<BoardReadServerTimingFilter>();
         builder.Services.AddSingleton<ITestHttpFaultStore>(builder.Environment.IsEnvironment("Testing")
             ? new InMemoryTestHttpFaultStore()
             : new NoOpTestHttpFaultStore());
@@ -70,6 +71,8 @@ public partial class Program
         builder.Services.AddSingleton<IPushNotificationSender, WebPushNotificationSender>();
         builder.Services.AddSingleton<GetProjectsQueryService>();
         builder.Services.AddSingleton<GetProjectBoardQueryService>();
+        builder.Services.AddSingleton<IGetProjectBoardQueryService>(serviceProvider =>
+            new ObservedGetProjectBoardQueryService(serviceProvider.GetRequiredService<GetProjectBoardQueryService>()));
         builder.Services.AddSingleton<ProjectCollaborationQueryService>();
         builder.Services.AddSingleton<GetTaskDetailQueryService>();
         builder.Services.AddSingleton<GetArchivedTasksQueryService>();
@@ -100,7 +103,9 @@ public partial class Program
             builder.Services.AddSingleton<IProjectRepository, InMemoryProjectRepository>();
             builder.Services.AddSingleton<ITaskRepository, InMemoryTaskRepository>();
             builder.Services.AddSingleton<IPushSubscriptionRepository, InMemoryPushSubscriptionRepository>();
-            builder.Services.AddSingleton<ICoreFlowReadStore, InMemoryCoreFlowReadStore>();
+            builder.Services.AddSingleton<InMemoryCoreFlowReadStore>();
+            builder.Services.AddSingleton<ICoreFlowReadStore>(serviceProvider =>
+                new ObservedCoreFlowReadStore(serviceProvider.GetRequiredService<InMemoryCoreFlowReadStore>()));
             builder.Services.AddSingleton<IUserDirectory, InMemoryUserDirectory>();
             return;
         }
@@ -114,7 +119,9 @@ public partial class Program
         builder.Services.AddSingleton<IProjectRepository, SqliteProjectRepository>();
         builder.Services.AddSingleton<ITaskRepository, SqliteTaskRepository>();
         builder.Services.AddSingleton<IPushSubscriptionRepository, SqlitePushSubscriptionRepository>();
-        builder.Services.AddSingleton<ICoreFlowReadStore, SqliteCoreFlowReadStore>();
+        builder.Services.AddSingleton<SqliteCoreFlowReadStore>();
+        builder.Services.AddSingleton<ICoreFlowReadStore>(serviceProvider =>
+            new ObservedCoreFlowReadStore(serviceProvider.GetRequiredService<SqliteCoreFlowReadStore>()));
         builder.Services.AddSingleton<IUserDirectory, SqliteUserDirectory>();
     }
 

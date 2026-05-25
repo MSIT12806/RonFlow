@@ -2,7 +2,9 @@ using RonFlow.Domain;
 
 namespace RonFlow.Application;
 
-public sealed class GetProjectBoardQueryService(ProjectAccessService projectAccessService, ICoreFlowReadStore readStore)
+public sealed class GetProjectBoardQueryService(
+    ProjectAccessService projectAccessService,
+    ICoreFlowReadStore readStore) : IGetProjectBoardQueryService
 {
     public GetProjectBoardQueryService(ICoreFlowReadStore readStore)
         : this(null!, readStore)
