@@ -34,6 +34,14 @@ public sealed record ReorderTaskRequest(Guid? TargetTaskId);
 
 public sealed record PushNotificationPublicKeyResponse(string PublicKey);
 
+public sealed record BuildInfoResponse(
+    string Application,
+    string EnvironmentName,
+    string Version,
+    string InformationalVersion,
+    DateTimeOffset UpdatedAtUtc,
+    string? SourceRevision);
+
 public sealed record ProjectListResponse(IReadOnlyList<ProjectListItemResponse> Items);
 
 public sealed record ProjectMemberListResponse(
