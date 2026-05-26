@@ -277,11 +277,47 @@ flowchart TD
 4. bootstrap 應明確指出 AI 以既有的 read / write contract 工作。
 ```
 
+**Canonical Text Contract**
+
+```text
+RonFlow Bootstrap v1
+
+RonFlow 是一個專案管理工具。
+RonFlow 管理的主要工作物件有：Project、Board、Task、Session、Active Scope。
+
+你現在應先做以下事情：
+1. 讀取 capabilities manifest
+2. 讀取 glossary
+3. 查詢 session / scope summary
+4. 讀取 project list summary
+
+工作原則：
+- 先讀後寫
+- 先摘要後深入
+- 寫入前先確認 target object 與 required fields
+
+需要先問人的情況：
+- 無法判斷目標 Project 或 Task
+- 缺少必要輸入
+- 目前 scope 不正確
+- 權限不足
+```
+
 **State Handling / Feedback**
 
 ```text
 1. 若 bootstrap 版本已過期，系統應能讓 AI 知道還有更新版本可讀。
 2. 若 bootstrap 提到的能力入口目前不可用，系統回傳可理解的 fallback 訊息。
+```
+
+**Definition of Done**
+
+```text
+1. bootstrap 回應第一行必須是 `RonFlow Bootstrap v1`。
+2. bootstrap 必須完整包含 `RonFlow 是一個專案管理工具。` 這句話。
+3. bootstrap 必須完整列出 `Project、Board、Task、Session、Active Scope`。
+4. bootstrap 必須完整列出四個第一步入口：manifest、glossary、session / scope summary、project list summary。
+5. bootstrap 必須完整列出四個需要先問人的情況。
 ```
 
 **Testability**
@@ -303,8 +339,11 @@ Feature: AI bootstrap
 	Scenario: 新的 AI agent 透過 bootstrap 知道如何開始
 		Given 一個新的 AI agent 尚未讀取 RonFlow 的其他規格
 		When AI 讀取 RonFlow bootstrap
-		Then AI 應知道 RonFlow 是可被使用的工作系統
-		And AI 應知道下一步應先查 capabilities manifest 或 summary query
+		Then 回應應包含 `RonFlow Bootstrap v1`
+		And 回應應包含 `RonFlow 是一個專案管理工具。`
+		And 回應應包含 `你現在應先做以下事情：`
+		And 回應應包含 `1. 讀取 capabilities manifest`
+		And 回應應包含 `4. 讀取 project list summary`
 ```
 
 ### 7.2 Capabilities Manifest
@@ -355,11 +394,83 @@ Feature: AI bootstrap
 4. 若某能力暫時停用，manifest 應能明確表達其不可用狀態。
 ```
 
+**Canonical Text Contract**
+
+```text
+RonFlow Capabilities Manifest v1
+
+- capability: read_project_list_summary
+	category: read
+	active_scope_required: no
+	required_inputs: none
+
+- capability: read_project_board_summary
+	category: read
+	active_scope_required: yes
+	required_inputs: projectId
+
+- capability: create_project
+	category: write
+	active_scope_required: no
+	required_inputs: name
+
+- capability: create_task
+	category: write
+	active_scope_required: yes
+	required_inputs: projectId, title
+
+- capability: update_task_detail
+	category: write
+	active_scope_required: yes
+	required_inputs: taskId
+	optional_inputs: title, description, dueDate
+
+- capability: move_task_state
+	category: write
+	active_scope_required: yes
+	required_inputs: taskId, targetStateKey
+
+- capability: reorder_task
+	category: write
+	active_scope_required: yes
+	required_inputs: taskId, targetStateKey, targetIndex
+
+- capability: archive_task
+	category: write
+	active_scope_required: yes
+	required_inputs: taskId
+
+- capability: restore_archived_task
+	category: write
+	active_scope_required: yes
+	required_inputs: taskId
+
+- capability: trash_task
+	category: write
+	active_scope_required: yes
+	required_inputs: taskId
+
+- capability: restore_trashed_task
+	category: write
+	active_scope_required: yes
+	required_inputs: taskId
+```
+
 **State Handling / Feedback**
 
 ```text
 1. 當能力版本變更時，manifest 應能讓 AI 看出目前版本與已廢棄能力。
 2. 若 AI 嘗試使用 manifest 中不存在的 capability，系統回傳明確錯誤。
+```
+
+**Definition of Done**
+
+```text
+1. manifest 回應第一行必須是 `RonFlow Capabilities Manifest v1`。
+2. 每個 capability 區塊必須至少包含 `capability`、`category`、`active_scope_required`、`required_inputs` 四個 label。
+3. manifest 必須完整列出目前支援的 Project / Task read / write capabilities。
+4. `create_task` 的 `required_inputs` 必須至少包含 `projectId, title`。
+5. `update_task_detail` 必須將 `title, description, dueDate` 列為 optional_inputs。
 ```
 
 **Testability**
@@ -381,8 +492,10 @@ Feature: Capabilities manifest
 	Scenario: AI 從 manifest 發現某個寫入能力需要 active scope
 		Given AI 已載入 RonFlow capabilities manifest
 		When AI 查看某個 write capability
-		Then manifest 應標示該能力需要 active scope
-		And manifest 應列出必要前置條件與可能錯誤碼
+		Then 回應應包含 `RonFlow Capabilities Manifest v1`
+		And 回應應包含 `- capability: create_task`
+		And 回應應包含 `active_scope_required: yes`
+		And 回應應包含 `required_inputs: projectId, title`
 ```
 
 ### 7.3 Session / Scope Awareness
@@ -411,12 +524,35 @@ Feature: Capabilities manifest
 4. 當 session 已失效時，系統應阻止後續寫入與需要 scope 的讀取。
 ```
 
+**Canonical Text Contract**
+
+```text
+RonFlow Session Summary v1
+
+session_status: active
+actor_type: ai
+actor_identity: <actor-identity>
+active_scope: none
+available_scopes:
+- <project-scope-id-1>
+- <project-scope-id-2>
+```
+
 **State Handling / Feedback**
 
 ```text
 1. 若 session 已失效，系統回傳 session invalidated 類型訊號。
 2. 若 scope 不存在、不可達或 actor 無權進入，系統應回傳對應錯誤與 recovery hint。
 3. 若 AI 已離開某個 scope，系統應可反映 active scope 已釋放。
+```
+
+**Definition of Done**
+
+```text
+1. session / scope summary 回應第一行必須是 `RonFlow Session Summary v1`。
+2. 回應必須完整包含 `session_status`、`actor_type`、`actor_identity`、`active_scope` 四個 label。
+3. 當沒有 active scope 時，回應必須完整包含 `active_scope: none`。
+4. 若目前存在可切換 scope，回應必須包含 `available_scopes:` 區塊。
 ```
 
 **Testability**
@@ -439,8 +575,10 @@ Feature: Session and scope awareness
 		Given AI 具有有效 session
 		And AI 目前沒有 active scope
 		When AI 查詢 session / scope summary
-		Then 系統應明確回傳目前沒有 active scope
-		And 系統應回傳目前的 scope 狀態
+		Then 回應應包含 `RonFlow Session Summary v1`
+		And 回應應包含 `session_status: active`
+		And 回應應包含 `active_scope: none`
+		And 回應應包含 `available_scopes:`
 ```
 
 ### 7.4 Read-First Summary Query
@@ -469,11 +607,92 @@ Feature: Session and scope awareness
 5. 若查詢需要 active scope，系統會先驗證 scope，再回傳 summary。
 ```
 
+**Canonical Text Contract**
+
+```text
+RonFlow Project List Summary v1
+
+projects_count: <count>
+
+- project_id: <project-id>
+	project_name: <project-name>
+	role: owner
+	open_task_count: <count>
+
+next_actions:
+- read_project_board_summary
+- create_project
+- activate_scope
+```
+
+```text
+RonFlow Project Board Summary v1
+
+project_id: <project-id>
+project_name: <project-name>
+workflow_columns:
+- key: Todo
+	name: 待處理
+	task_count: <count>
+- key: Active
+	name: 進行中
+	task_count: <count>
+- key: Review
+	name: 審查中
+	task_count: <count>
+- key: Done
+	name: 已完成
+	task_count: <count>
+
+recent_activities:
+- <activity-1>
+- <activity-2>
+
+next_actions:
+- read_task_detail_summary
+- create_task
+- move_task_state
+```
+
+```text
+RonFlow Task Detail Summary v1
+
+task_id: <task-id>
+title: <title>
+description: <description>
+due_date: <yyyy-mm-dd or none>
+workflow_state_key: <state-key>
+workflow_state_name: <state-name>
+lifecycle_state: active
+recent_activities:
+- <activity-1>
+- <activity-2>
+
+next_actions:
+- update_task_detail
+- move_task_state
+- reorder_task
+- archive_task
+- trash_task
+```
+
 **State Handling / Feedback**
 
 ```text
 1. 若 summary 的依據資料已過期或 scope 已切換，系統會提供資料新鮮度與適用範圍。
 2. 若目標資源不存在，系統回傳 ResourceNotFound。
+```
+
+**Definition of Done**
+
+```text
+1. Project List summary 回應第一行必須是 `RonFlow Project List Summary v1`。
+2. Project List summary 必須包含 `projects_count:` 與至少一個 `project_id:` 區塊。
+3. Project Board summary 回應第一行必須是 `RonFlow Project Board Summary v1`。
+4. Project Board summary 必須包含 `workflow_columns:` 區塊，且至少列出 `Todo`、`Active`、`Review`、`Done` 四個 key。
+5. Task Detail summary 回應第一行必須是 `RonFlow Task Detail Summary v1`。
+6. Task Detail summary 必須完整包含 `task_id`、`title`、`description`、`due_date`、`workflow_state_key`、`workflow_state_name`、`lifecycle_state`。
+7. Task Detail summary 必須包含 `recent_activities:` 與 `next_actions:` 區塊。
 ```
 
 **Testability**
@@ -496,8 +715,13 @@ Feature: Read-first summary query
 		Given AI 已進入某個有效的 Project scope
 		And 目前存在一筆 Task
 		When AI 先讀取 Project board summary，再讀取該 Task 的 summary
-		Then board summary 應包含目前 workflow 與 task 分布
-		And task summary 應包含目前狀態、最近活動與下一步限制
+		Then board summary 回應應包含 `RonFlow Project Board Summary v1`
+		And board summary 回應應包含 `workflow_columns:`
+		And board summary 回應應包含 `- key: Todo`
+		And task summary 回應應包含 `RonFlow Task Detail Summary v1`
+		And task summary 回應應包含 `task_id:`
+		And task summary 回應應包含 `workflow_state_key:`
+		And task summary 回應應包含 `next_actions:`
 ```
 
 ### 7.5 Write Request Preparation
@@ -540,11 +764,37 @@ Feature: Read-first summary query
 4. 若參數不完整或不合法，系統會在 apply 前後回傳 validation 類型錯誤。
 ```
 
+**Canonical Text Contract**
+
+```text
+RonFlow Write Request v1
+
+operation: update_task_detail
+target_type: task
+target_id: <task-id>
+required_fields:
+- taskId
+optional_fields:
+- title: <new-title>
+- description: <new-description>
+- dueDate: <yyyy-mm-dd>
+note: <note or none>
+```
+
 **State Handling / Feedback**
 
 ```text
 1. 若寫入請求對應的資料已變動，系統回傳 concurrency conflict 或 stale data 類型錯誤。
 2. 若 target object 不存在或目前 scope 不可用，系統回傳對應錯誤與 recovery hint。
+```
+
+**Definition of Done**
+
+```text
+1. write request 第一行必須是 `RonFlow Write Request v1`。
+2. write request 必須包含 `operation`、`target_type`、`target_id`、`required_fields`、`optional_fields` 五個 label。
+3. `update_task_detail` 的 request 必須至少把 `taskId` 列在 `required_fields`。
+4. 若 request 包含 `title`、`description`、`dueDate` 任一欄位，欄位名稱必須與 contract 完全一致。
 ```
 
 **Testability**
@@ -566,8 +816,10 @@ Feature: Write request preparation
 	Scenario: AI 在更新 Task 前整理寫入請求
 		Given AI 已讀取目標 scope 與 task 的摘要
 		When AI 準備更新該 Task 的 title 與 due date
-		Then 寫入請求應包含 target task、title 與 due date
-		And 欄位名稱應對齊既有 write contract
+		Then 寫入請求應包含 `RonFlow Write Request v1`
+		And 寫入請求應包含 `operation: update_task_detail`
+		And 寫入請求應包含 `target_type: task`
+		And 寫入請求應包含 `- dueDate: <yyyy-mm-dd>`
 ```
 
 ### 7.6 Apply Operation
@@ -585,11 +837,34 @@ Feature: Write request preparation
 4. 若 apply 失敗，系統回傳結構化錯誤與 recovery hint。
 ```
 
+**Canonical Text Contract**
+
+```text
+RonFlow Apply Result v1
+
+status: success
+operation: update_task_detail
+target_type: task
+target_id: <task-id>
+changed_fields:
+- title
+- dueDate
+audit_entry_id: <audit-entry-id>
+```
+
 **State Handling / Feedback**
 
 ```text
 1. 若 apply 時資料已變更，系統回傳 stale / conflict 類型錯誤。
 2. 若 apply 成功，但部分副作用仍待後續處理，系統應區分主要變更成功與後續處理狀態。
+```
+
+**Definition of Done**
+
+```text
+1. apply 成功回應第一行必須是 `RonFlow Apply Result v1`。
+2. 成功回應必須包含 `status`、`operation`、`target_type`、`target_id`、`changed_fields`、`audit_entry_id`。
+3. 若 operation 為 `update_task_detail`，`changed_fields` 應只列出實際變更的欄位。
 ```
 
 **Testability**
@@ -611,8 +886,10 @@ Feature: Apply operation
 	Scenario: AI 套用一筆 Task 更新
 		Given AI 已取得一筆有效的 Task 寫入請求
 		When AI 執行 apply
-		Then 系統應正式寫入變更
-		And 系統應回傳變更結果與 audit entry
+		Then 回應應包含 `RonFlow Apply Result v1`
+		And 回應應包含 `status: success`
+		And 回應應包含 `operation: update_task_detail`
+		And 回應應包含 `audit_entry_id:`
 ```
 
 ### 7.7 Structured Errors and Recovery
@@ -644,11 +921,30 @@ Feature: Apply operation
 4. 系統以各自的錯誤類型回傳不同失敗情境。
 ```
 
+**Canonical Text Contract**
+
+```text
+RonFlow Error v1
+
+error_code: ValidationFailed
+message: Required field `title` is missing.
+recovery_hint: Provide `title` and submit the write request again.
+```
+
 **State Handling / Feedback**
 
 ```text
 1. 若錯誤與權限或 scope 有關，recovery hint 會導向正式規則內的下一步。
 2. 若錯誤與 stale data 有關，recovery hint 會導向重新讀 summary 或重新送出寫入請求。
+```
+
+**Definition of Done**
+
+```text
+1. 錯誤回應第一行必須是 `RonFlow Error v1`。
+2. 錯誤回應必須包含 `error_code`、`message`、`recovery_hint` 三個 label。
+3. `message` 必須指出當前失敗原因。
+4. `recovery_hint` 必須提供下一步動作，而不是只重複錯誤。
 ```
 
 **Testability**
@@ -670,8 +966,9 @@ Feature: Structured errors and recovery
 	Scenario: AI 在資料已變動後套用舊請求
 		Given AI 持有一筆依舊 summary 組出的 Task 更新請求
 		When AI 執行 apply
-		Then 系統應回傳 ConcurrencyConflict
-		And 回應應包含 recovery hint，提示 AI 重新讀取 summary
+		Then 回應應包含 `RonFlow Error v1`
+		And 回應應包含 `error_code: ConcurrencyConflict`
+		And 回應應包含 `recovery_hint:`
 ```
 
 ### 7.8 Audit Trail and Explainability
@@ -703,11 +1000,36 @@ Feature: Structured errors and recovery
 4. audit entry 會記錄「成功 / 失敗」之外的必要上下文。
 ```
 
+**Canonical Text Contract**
+
+```text
+RonFlow Audit Entry v1
+
+audit_entry_id: <audit-entry-id>
+actor_type: ai
+actor_identity: <actor-identity>
+target_type: task
+target_id: <task-id>
+requested_change: update_task_detail
+result_status: success
+actual_diff:
+- title: <old-title> -> <new-title>
+- dueDate: <old-date> -> <new-date>
+```
+
 **State Handling / Feedback**
 
 ```text
 1. 若某次操作失敗，audit entry 仍應保留失敗原因與 recovery note。
 2. 若某次 apply 對應的是更新、移動或 lifecycle 操作，audit entry 應標示目標 object 與實際 diff。
+```
+
+**Definition of Done**
+
+```text
+1. audit entry 第一行必須是 `RonFlow Audit Entry v1`。
+2. audit entry 必須包含 `audit_entry_id`、`actor_type`、`actor_identity`、`target_type`、`target_id`、`requested_change`、`result_status`、`actual_diff`。
+3. 若 result_status 為 `success`，`actual_diff` 必須至少列出一項實際差異。
 ```
 
 **Testability**
@@ -728,8 +1050,10 @@ Feature: Audit trail for AI actions
 
 	Scenario: AI 完成一筆 Task 更新
 		Given AI 已成功套用一筆 Task 更新請求
-		Then 系統應建立 audit entry
-		And audit entry 應包含 actor identity、target object 與 actual diff
+		Then audit entry 應包含 `RonFlow Audit Entry v1`
+		And audit entry 應包含 `actor_identity:`
+		And audit entry 應包含 `requested_change: update_task_detail`
+		And audit entry 應包含 `actual_diff:`
 ```
 
 ### 7.9 Workflow Guidance
@@ -755,11 +1079,39 @@ Feature: Audit trail for AI actions
 3. AI 應能從 guidance 理解何時該先整理 spec、何時該先讀摘要、何時該先補齊缺少的輸入。
 ```
 
+**Canonical Text Contract**
+
+```text
+RonFlow Workflow Guidance v1
+
+recommended_order:
+1. read summary
+2. confirm target object
+3. confirm required fields
+4. prepare write request
+5. apply
+6. inspect result
+
+ask_human_when:
+- target object is ambiguous
+- required input is missing
+- current scope is not correct
+- returned error is not understood
+```
+
 **State Handling / Feedback**
 
 ```text
 1. 若 guidance 與正式 contract 發生衝突，應以正式 contract 為準。
 2. 若 guidance 已過期，系統會區分它的版本與適用範圍。
+```
+
+**Definition of Done**
+
+```text
+1. workflow guidance 第一行必須是 `RonFlow Workflow Guidance v1`。
+2. guidance 必須包含 `recommended_order:` 與 `ask_human_when:` 兩個區塊。
+3. `recommended_order` 必須完整列出 read summary、confirm target object、confirm required fields、prepare write request、apply、inspect result。
 ```
 
 **Testability**
@@ -781,8 +1133,10 @@ Feature: Workflow guidance
 	Scenario: AI 透過 workflow guidance 知道先讀後寫
 		Given AI 已進入 RonFlow 的 AI interaction surface
 		When AI 讀取 workflow guidance
-		Then guidance 應告知 AI 先讀摘要、再確認目標與參數後 apply
-		And guidance 會把 AI 導向正式 write contract
+		Then 回應應包含 `RonFlow Workflow Guidance v1`
+		And 回應應包含 `1. read summary`
+		And 回應應包含 `4. prepare write request`
+		And 回應應包含 `6. inspect result`
 ```
 
 ---
