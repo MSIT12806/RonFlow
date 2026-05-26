@@ -183,6 +183,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         [FromServices] CreateTaskCommandService createTaskCommandService,
         [FromServices] UpdateTaskCommandService updateTaskCommandService,
         [FromServices] ChangeTaskStateCommandService changeTaskStateCommandService,
+        [FromServices] ReorderTaskCommandService reorderTaskCommandService,
         [FromServices] ArchiveTaskCommandService archiveTaskCommandService,
         [FromServices] RestoreArchivedTaskCommandService restoreArchivedTaskCommandService,
         [FromServices] MoveTaskToTrashCommandService moveTaskToTrashCommandService,
@@ -223,6 +224,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
             "create_task" => ApplyCreateTask(createTaskCommandService, aiAuditRegistry, currentUserName, sessionId, targetType, requiredFields, projectPresenceRegistry, currentUserId),
             "update_task_detail" => ApplyUpdateTaskDetail(updateTaskCommandService, aiAuditRegistry, taskRepository, taskContentEditLockService, currentUserId, currentUserName, sessionId, targetType, requiredFields, optionalFields, projectPresenceRegistry),
             "move_task_state" => ApplyMoveTaskState(changeTaskStateCommandService, aiAuditRegistry, taskRepository, currentUserId, currentUserName, sessionId, targetType, requiredFields, projectPresenceRegistry),
+            "reorder_task" => ApplyReorderTask(reorderTaskCommandService, aiAuditRegistry, taskRepository, currentUserName, sessionId, currentUserId, targetType, requiredFields, projectPresenceRegistry),
             "archive_task" => ApplyTaskLifecycle(archiveTaskCommandService.Archive, aiAuditRegistry, taskRepository, currentUserName, sessionId, currentUserId, targetType, requiredFields, projectPresenceRegistry, operation, "lifecycle_state", "archived"),
             "restore_archived_task" => ApplyTaskLifecycle(restoreArchivedTaskCommandService.Restore, aiAuditRegistry, taskRepository, currentUserName, sessionId, currentUserId, targetType, requiredFields, projectPresenceRegistry, operation, "lifecycle_state", "active"),
             "trash_task" => ApplyTaskLifecycle(moveTaskToTrashCommandService.Move, aiAuditRegistry, taskRepository, currentUserName, sessionId, currentUserId, targetType, requiredFields, projectPresenceRegistry, operation, "lifecycle_state", "trashed"),
@@ -444,7 +446,8 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         }
 
         var beforeStateKey = task.CurrentState.Key;
-        var result = changeTaskStateCommandService.Change(currentUserId, task.ProjectId, taskId.Value, targetStateKey);
+        var normalizedTargetStateKey = NormalizeWorkflowStateKeyForCommand(targetStateKey);
+        var result = changeTaskStateCommandService.Change(currentUserId, task.ProjectId, taskId.Value, normalizedTargetStateKey);
         if (result.ValidationError is not null)
         {
             return ValidationFailed(result.ValidationError.Field, result.ValidationError.Message);
@@ -465,6 +468,105 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         var auditEntryId = aiAuditRegistry.Record(currentUserName, targetType, changedTask.Id.ToString(), "move_task_state", "success", actualDiff);
 
         return PlainText(AiTextContractFormatter.ApplyResult("move_task_state", targetType, changedTask.Id.ToString(), ["workflow_state_key"], auditEntryId));
+    }
+
+    private IResult ApplyReorderTask(
+        ReorderTaskCommandService reorderTaskCommandService,
+        AiAuditRegistry aiAuditRegistry,
+        ITaskRepository taskRepository,
+        string currentUserName,
+        string sessionId,
+        Guid currentUserId,
+        string targetType,
+        IReadOnlyDictionary<string, JsonElement> requiredFields,
+        ProjectPresenceRegistry projectPresenceRegistry)
+    {
+        var taskId = GetRequiredGuid(requiredFields, "taskId");
+        if (!taskId.HasValue)
+        {
+            return MissingRequiredField("taskId");
+        }
+
+        var targetStateKey = GetRequiredString(requiredFields, "targetStateKey");
+        if (targetStateKey is null)
+        {
+            return MissingRequiredField("targetStateKey");
+        }
+
+        var targetIndex = GetRequiredInt32(requiredFields, "targetIndex");
+        if (!targetIndex.HasValue)
+        {
+            return MissingRequiredField("targetIndex");
+        }
+
+        if (targetIndex.Value < 0)
+        {
+            return ValidationFailed("targetIndex", "目標排序位置不可為負數");
+        }
+
+        var task = taskRepository.Get(taskId.Value);
+        if (task is null)
+        {
+            return ErrorText(StatusCodes.Status404NotFound, "ResourceNotFound", "Read project board summary again and pick an existing task.");
+        }
+
+        var scopeError = EnsureScope(projectPresenceRegistry, sessionId, task.ProjectId);
+        if (scopeError is not null)
+        {
+            return scopeError;
+        }
+
+        if (!string.Equals(task.CurrentState.Key, targetStateKey, StringComparison.OrdinalIgnoreCase))
+        {
+            return ValidationFailed("targetStateKey", "任務目前不在指定的 workflow column，請先移動狀態再重新排序");
+        }
+
+        var orderedTasks = taskRepository.GetByProjectId(task.ProjectId)
+            .Where(projectTask => string.Equals(projectTask.CurrentState.Key, targetStateKey, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(projectTask => projectTask.SortOrder)
+            .ToList();
+
+        var originalIndex = orderedTasks.FindIndex(projectTask => projectTask.Id == taskId.Value);
+        if (originalIndex < 0)
+        {
+            return ErrorText(StatusCodes.Status404NotFound, "ResourceNotFound", "Read project board summary again and pick an existing task.");
+        }
+
+        orderedTasks.RemoveAll(projectTask => projectTask.Id == taskId.Value);
+
+        if (orderedTasks.Count == 0)
+        {
+            var auditEntryId = aiAuditRegistry.Record(currentUserName, targetType, task.Id.ToString(), "reorder_task", "success", [$"sort_order: {originalIndex} -> 0"]);
+            return PlainText(AiTextContractFormatter.ApplyResult("reorder_task", targetType, task.Id.ToString(), ["sort_order"], auditEntryId));
+        }
+
+        if (targetIndex.Value >= orderedTasks.Count)
+        {
+            return ValidationFailed("targetIndex", "目標排序位置超出目前 workflow column 範圍");
+        }
+
+        var targetTaskId = orderedTasks[targetIndex.Value].Id;
+        var result = reorderTaskCommandService.Reorder(currentUserId, task.ProjectId, taskId.Value, targetTaskId);
+
+        if (result.ValidationError is not null)
+        {
+            return ValidationFailed(result.ValidationError.Field, result.ValidationError.Message);
+        }
+
+        if (result.TaskNotFound)
+        {
+            return ErrorText(StatusCodes.Status404NotFound, "ResourceNotFound", "Read project board summary again and pick existing tasks before reordering.");
+        }
+
+        if (result.AccessDenied)
+        {
+            return ErrorText(StatusCodes.Status403Forbidden, "Forbidden", "Activate a scope you can access or ask the project owner for access.");
+        }
+
+        var changedTask = result.Task!;
+        var auditEntryIdForReorder = aiAuditRegistry.Record(currentUserName, targetType, changedTask.Id.ToString(), "reorder_task", "success", [$"sort_order: {originalIndex} -> {targetIndex.Value}"]);
+
+        return PlainText(AiTextContractFormatter.ApplyResult("reorder_task", targetType, changedTask.Id.ToString(), ["sort_order"], auditEntryIdForReorder));
     }
 
     private IResult ApplyTaskLifecycle(
@@ -582,6 +684,23 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
             : null;
     }
 
+    private static int? GetRequiredInt32(IReadOnlyDictionary<string, JsonElement> fields, string fieldName)
+    {
+        if (!fields.TryGetValue(fieldName, out var value))
+        {
+            return null;
+        }
+
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var numericValue))
+        {
+            return numericValue;
+        }
+
+        return int.TryParse(GetOptionalString(fields, fieldName), out var parsedValue)
+            ? parsedValue
+            : null;
+    }
+
     private static IReadOnlyList<string> GetChangedFields(RonFlow.Domain.Task task, IReadOnlyDictionary<string, JsonElement> optionalFields)
     {
         var changedFields = new List<string>();
@@ -630,6 +749,18 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
     private static string NormalizeText(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? "none" : value;
+    }
+
+    private static string NormalizeWorkflowStateKeyForCommand(string workflowStateKey)
+    {
+        return workflowStateKey.Trim().ToLowerInvariant() switch
+        {
+            "todo" => "todo",
+            "active" => "active",
+            "review" => "review",
+            "done" => "done",
+            _ => workflowStateKey,
+        };
     }
 
     private static int CountOpenTasks(ProjectBoardView? board)

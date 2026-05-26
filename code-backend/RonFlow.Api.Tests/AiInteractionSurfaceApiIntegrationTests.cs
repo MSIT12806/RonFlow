@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using RonFlow.Api.Contracts;
 
 namespace RonFlow.Api.Tests;
 
@@ -331,5 +332,59 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(auditPayload, Does.Contain("requested_change: update_task_detail"));
         Assert.That(auditPayload, Does.Contain($"target_id: {task.Id}"));
         Assert.That(auditPayload, Does.Contain("actual_diff:"));
+    }
+
+    [Test]
+    public async Task ApplyReorderTask_WhenTargetIndexIsValid_ReordersTasksWithinWorkflowColumn()
+    {
+        using var sessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-ai-apply-reorder-task");
+
+        await EnsureKnownUserAsync(sessionClient);
+        await ActivateSessionAsync(sessionClient);
+
+        var project = await CreateProjectAsync(sessionClient, "AI Reorder Project");
+        var firstTask = await CreateTaskAsync(sessionClient, project.Id, "Task A");
+        var secondTask = await CreateTaskAsync(sessionClient, project.Id, "Task B");
+
+        var activateResponse = await sessionClient.PostAsJsonAsync("/api/ai/active-scope", new { projectId = project.Id });
+        Assert.That(activateResponse.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
+
+        var reorderResponse = await sessionClient.PostAsJsonAsync("/api/ai/apply", new
+        {
+            operation = "reorder_task",
+            targetType = "task",
+            targetId = secondTask.Id,
+            requiredFields = new
+            {
+                taskId = secondTask.Id,
+                targetStateKey = "Todo",
+                targetIndex = 0,
+            },
+            optionalFields = new { },
+            note = "move task B before task A",
+        });
+
+        Assert.That(reorderResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var payload = await reorderResponse.Content.ReadAsStringAsync();
+
+        Assert.That(payload, Does.Contain("RonFlow Apply Result v1"));
+        Assert.That(payload, Does.Contain("operation: reorder_task"));
+        Assert.That(payload, Does.Contain($"target_id: {secondTask.Id}"));
+        Assert.That(payload, Does.Contain("- sort_order"));
+
+        var boardResponse = await sessionClient.GetAsync($"/api/projects/{project.Id}/board");
+        Assert.That(boardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var board = await boardResponse.Content.ReadFromJsonAsync<ProjectBoardResponse>();
+        Assert.That(board, Is.Not.Null);
+
+        var todoTaskIds = board!.Columns
+            .Single(column => column.StateKey == "todo")
+            .Tasks
+            .Select(task => task.Id)
+            .ToArray();
+
+        Assert.That(todoTaskIds, Is.EqualTo(new[] { secondTask.Id, firstTask.Id }));
     }
 }

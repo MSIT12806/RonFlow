@@ -357,10 +357,9 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
     ])
   })
 
-  test('apply 端點可以承接 move_task_state 與 reorder_task 契約', async ({ request }, testInfo) => {
-    test.fail(true, 'AI task move and reorder flows are not implemented yet.')
-
-    const { session, task } = await seedProjectWithTask(request, testInfo)
+  test('apply 端點可以承接 move_task_state 契約', async ({ request }, testInfo) => {
+    const { session, project, task } = await seedProjectWithTask(request, testInfo)
+    await activateAiScope(request, session.accessToken, session.ronFlowSessionId, project.id)
 
     const moveResponse = await request.post(aiRoutes.apply, {
       headers: {
@@ -386,6 +385,15 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
       `target_id: ${task.id}`,
       'changed_fields:',
     ])
+  })
+
+  test('apply 端點可以承接 reorder_task 契約', async ({ request }, testInfo) => {
+    const session = await registerRonFlowAiSession(request)
+    const { projectName, taskTitle } = createScenarioData(testInfo)
+    const project = await createProjectThroughApi(request, session, projectName)
+    await createTaskThroughApi(request, session, project.id, `${taskTitle} A`)
+    const secondTask = await createTaskThroughApi(request, session, project.id, `${taskTitle} B`)
+    await activateAiScope(request, session.accessToken, session.ronFlowSessionId, project.id)
 
     const reorderResponse = await request.post(aiRoutes.apply, {
       headers: {
@@ -395,9 +403,9 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
       data: {
         operation: 'reorder_task',
         targetType: 'task',
-        targetId: task.id,
+        targetId: secondTask.id,
         requiredFields: {
-          taskId: task.id,
+          taskId: secondTask.id,
           targetStateKey: 'Todo',
           targetIndex: 0,
         },
@@ -409,9 +417,21 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
     await expectSuccessfulTextContract(reorderResponse, [
       'RonFlow Apply Result v1',
       'operation: reorder_task',
-      `target_id: ${task.id}`,
+      `target_id: ${secondTask.id}`,
+      'changed_fields:',
       'audit_entry_id:',
     ])
+
+    const boardResponse = await request.get(aiRoutes.projectBoardSummary(project.id), {
+      headers: authHeaders(session.accessToken, session.ronFlowSessionId),
+    })
+
+    const boardText = await expectSuccessfulTextContract(boardResponse, [
+      'RonFlow Project Board Summary v1',
+      `project_id: ${project.id}`,
+    ])
+
+    expect(boardText.indexOf(`Task visible on board: ${taskTitle} B`)).toBeLessThan(boardText.indexOf(`Task visible on board: ${taskTitle} A`))
   })
 
   test('apply 端點可以承接 archive、restore、trash、restore_trashed 契約', async ({ request }, testInfo) => {
