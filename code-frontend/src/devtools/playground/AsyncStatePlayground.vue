@@ -393,9 +393,11 @@ const playgroundTaskDetail: TaskDetailResponse = {
     isInitialState: false,
     isCompletedState: false,
   },
+  lifecycleState: 'activeRecord',
   dueDate: '2026-05-20',
   createdAt: '2026-05-12T08:00:00.000Z',
   completedAt: null,
+  canEnterEdit: true,
   activityTimeline: [
     {
       type: 'TaskCreated',
