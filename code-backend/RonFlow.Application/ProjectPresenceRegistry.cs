@@ -22,6 +22,13 @@ public sealed class ProjectPresenceRegistry
             .ToArray();
     }
 
+    public Guid? GetActiveProjectScope(string sessionId)
+    {
+        return presencesBySession.TryGetValue(sessionId, out var entry)
+            ? entry.ProjectId
+            : null;
+    }
+
     public void ReleaseAllOwnedBySession(string sessionId)
     {
         presencesBySession.TryRemove(sessionId, out _);
