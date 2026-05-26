@@ -13,6 +13,8 @@
 
 若未來需要描述某一輪 release、milestone 或 vertical slice 的交付範圍，應另外建立對應文件；本文件則維持為 RonFlow 目前行為的單一真實來源。
 
+本文件目前聚焦於所有人類使用者 actor 的產品規格。即使未來人類側出現更多角色、權限或操作差異，只要它們仍屬於人類使用者透過產品介面完成的 flow，都應集中維護在本文件中。若某一條 interaction surface 屬於 AI agent 的專屬操作模式，則應改由 AI 專屬 spec 承接。
+
 ## Related Acceptance Tests
 
 這份 spec 對應的是目前 RonFlow 的主要 acceptance baseline。做 spec / E2E 差異比對時，可優先從下列 Playwright 檔案開始：
