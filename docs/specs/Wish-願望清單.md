@@ -22,6 +22,13 @@
 - [x] workflow state 與 lifecycle state 雙狀態軸設計
 - [x] 活動紀錄 / audit trail 雛形
 
+## Doing
+- [ ] 讓 AI 可以順利使用 RonFlow（RonFlow v0.3）
+    - spec: [RonFlow v0.3：讓 AI 可以順暢使用系統](./ronflow-v0.3-ai-usable-system.md)
+    - 提供 AI bootstrap、領域名詞表、capabilities manifest，讓 AI 能逐步理解系統與可用操作
+    - 提供 read-first 的摘要查詢、proposal / preview、approval、audit trail，降低 AI 誤操作風險
+
+
 ## wish
 
 ### 一定要做
