@@ -34,10 +34,51 @@ const aiRoutes = {
   apply: `${backendApiBaseUrl}/ai/apply`,
 } as const
 
-function authHeaders(accessToken: string) {
+type RonFlowAiSession = Awaited<ReturnType<typeof registerRonFlowApiUser>> & {
+  ronFlowSessionId: string
+}
+
+function authHeaders(accessToken: string, ronFlowSessionId?: string) {
   return {
     Authorization: `Bearer ${accessToken}`,
+    ...(ronFlowSessionId ? { 'X-RonFlow-Session-Id': ronFlowSessionId } : {}),
   }
+}
+
+async function registerRonFlowAiSession(
+  request: Parameters<typeof test>[0]['request'],
+): Promise<RonFlowAiSession> {
+  const session = await registerRonFlowApiUser(request)
+  const ronFlowSessionId = crypto.randomUUID()
+  const response = await request.post(`${backendApiBaseUrl}/session/activate`, {
+    headers: authHeaders(session.accessToken, ronFlowSessionId),
+  })
+
+  expect(response.status(), await response.text()).toBe(204)
+
+  return {
+    ...session,
+    ronFlowSessionId,
+  }
+}
+
+async function activateAiScope(
+  request: Parameters<typeof test>[0]['request'],
+  accessToken: string,
+  ronFlowSessionId: string,
+  projectId: string,
+) {
+  const response = await request.post(aiRoutes.activateScope, {
+    headers: {
+      ...authHeaders(accessToken, ronFlowSessionId),
+      'Content-Type': 'application/json',
+    },
+    data: {
+      projectId,
+    },
+  })
+
+  expect(response.status(), await response.text()).toBe(204)
 }
 
 async function expectSuccessfulTextContract(response: APIResponse, expectedLines: string[]) {
@@ -65,7 +106,7 @@ async function expectErrorTextContract(response: APIResponse, expectedLines: str
 }
 
 async function seedProjectWithTask(request: Parameters<typeof test>[0]['request'], testInfo: TestInfo) {
-  const session = await registerRonFlowApiUser(request)
+  const session = await registerRonFlowAiSession(request)
   const { projectName, taskTitle } = createScenarioData(testInfo)
   const project = await createProjectThroughApi(request, session, projectName)
   const task = await createTaskThroughApi(request, session, project.id, taskTitle)
@@ -80,9 +121,9 @@ async function seedProjectWithTask(request: Parameters<typeof test>[0]['request'
 
 test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
   test('bootstrap 端點回傳固定的啟動文字契約', async ({ request }) => {
-    const session = await registerRonFlowApiUser(request)
+    const session = await registerRonFlowAiSession(request)
     const response = await request.get(aiRoutes.bootstrap, {
-      headers: authHeaders(session.accessToken),
+      headers: authHeaders(session.accessToken, session.ronFlowSessionId),
     })
 
     await expectSuccessfulTextContract(response, [
@@ -95,9 +136,9 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
   })
 
   test('manifest 端點回傳目前支援的 read / write capability 清單', async ({ request }) => {
-    const session = await registerRonFlowApiUser(request)
+    const session = await registerRonFlowAiSession(request)
     const response = await request.get(aiRoutes.capabilities, {
-      headers: authHeaders(session.accessToken),
+      headers: authHeaders(session.accessToken, session.ronFlowSessionId),
     })
 
     await expectSuccessfulTextContract(response, [
@@ -110,9 +151,9 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
   })
 
   test('session summary 端點在尚未選定 scope 時回傳 active_scope: none', async ({ request }) => {
-    const session = await registerRonFlowApiUser(request)
+    const session = await registerRonFlowAiSession(request)
     const response = await request.get(aiRoutes.sessionSummary, {
-      headers: authHeaders(session.accessToken),
+      headers: authHeaders(session.accessToken, session.ronFlowSessionId),
     })
 
     await expectSuccessfulTextContract(response, [
@@ -125,12 +166,12 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
   })
 
   test('project list summary 端點回傳 project 清單與 next actions', async ({ request }, testInfo) => {
-    const session = await registerRonFlowApiUser(request)
+    const session = await registerRonFlowAiSession(request)
     const { projectName } = createScenarioData(testInfo)
     const project = await createProjectThroughApi(request, session, projectName)
 
     const response = await request.get(aiRoutes.projectListSummary, {
-      headers: authHeaders(session.accessToken),
+      headers: authHeaders(session.accessToken, session.ronFlowSessionId),
     })
 
     await expectSuccessfulTextContract(response, [
@@ -147,7 +188,7 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
     const { session, project, task } = await seedProjectWithTask(request, testInfo)
 
     const boardResponse = await request.get(aiRoutes.projectBoardSummary(project.id), {
-      headers: authHeaders(session.accessToken),
+      headers: authHeaders(session.accessToken, session.ronFlowSessionId),
     })
 
     await expectSuccessfulTextContract(boardResponse, [
@@ -163,7 +204,7 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
     ])
 
     const detailResponse = await request.get(aiRoutes.taskDetailSummary(project.id, task.id), {
-      headers: authHeaders(session.accessToken),
+      headers: authHeaders(session.accessToken, session.ronFlowSessionId),
     })
 
     await expectSuccessfulTextContract(detailResponse, [
@@ -177,9 +218,9 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
   })
 
   test('workflow guidance 端點回傳固定的建議順序與 ask_human_when 區塊', async ({ request }) => {
-    const session = await registerRonFlowApiUser(request)
+    const session = await registerRonFlowAiSession(request)
     const response = await request.get(aiRoutes.workflowGuidance, {
-      headers: authHeaders(session.accessToken),
+      headers: authHeaders(session.accessToken, session.ronFlowSessionId),
     })
 
     await expectSuccessfulTextContract(response, [
@@ -193,12 +234,12 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
   })
 
   test('apply 端點在 Task 更新成功時回傳固定 apply result 契約', async ({ request }, testInfo) => {
-    test.fail(true, 'AI apply surface is not implemented yet.')
+    const { session, project, task } = await seedProjectWithTask(request, testInfo)
+    await activateAiScope(request, session.accessToken, session.ronFlowSessionId, project.id)
 
-    const { session, task } = await seedProjectWithTask(request, testInfo)
     const response = await request.post(aiRoutes.apply, {
       headers: {
-        ...authHeaders(session.accessToken),
+        ...authHeaders(session.accessToken, session.ronFlowSessionId),
         'Content-Type': 'application/json',
       },
       data: {
@@ -227,12 +268,12 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
   })
 
   test('apply 端點在缺少必要欄位時回傳固定 error 契約', async ({ request }, testInfo) => {
-    test.fail(true, 'AI structured error surface is not implemented yet.')
-
     const { session, project } = await seedProjectWithTask(request, testInfo)
+    await activateAiScope(request, session.accessToken, session.ronFlowSessionId, project.id)
+
     const response = await request.post(aiRoutes.apply, {
       headers: {
-        ...authHeaders(session.accessToken),
+        ...authHeaders(session.accessToken, session.ronFlowSessionId),
         'Content-Type': 'application/json',
       },
       data: {
@@ -256,12 +297,10 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
   })
 
   test('apply 端點可以建立 Project 並回傳 create_project 結果契約', async ({ request }, testInfo) => {
-    test.fail(true, 'AI create project flow is not implemented yet.')
-
-    const session = await registerRonFlowApiUser(request)
+    const session = await registerRonFlowAiSession(request)
     const response = await request.post(aiRoutes.apply, {
       headers: {
-        ...authHeaders(session.accessToken),
+        ...authHeaders(session.accessToken, session.ronFlowSessionId),
         'Content-Type': 'application/json',
       },
       data: {
@@ -286,14 +325,14 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
   })
 
   test('apply 端點可以在有效 scope 下建立 Task 並回傳 create_task 結果契約', async ({ request }, testInfo) => {
-    test.fail(true, 'AI create task flow is not implemented yet.')
-
-    const session = await registerRonFlowApiUser(request)
+    const session = await registerRonFlowAiSession(request)
     const { projectName } = createScenarioData(testInfo)
     const project = await createProjectThroughApi(request, session, projectName)
+    await activateAiScope(request, session.accessToken, session.ronFlowSessionId, project.id)
+
     const response = await request.post(aiRoutes.apply, {
       headers: {
-        ...authHeaders(session.accessToken),
+        ...authHeaders(session.accessToken, session.ronFlowSessionId),
         'Content-Type': 'application/json',
       },
       data: {
@@ -325,7 +364,7 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
 
     const moveResponse = await request.post(aiRoutes.apply, {
       headers: {
-        ...authHeaders(session.accessToken),
+        ...authHeaders(session.accessToken, session.ronFlowSessionId),
         'Content-Type': 'application/json',
       },
       data: {
@@ -350,7 +389,7 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
 
     const reorderResponse = await request.post(aiRoutes.apply, {
       headers: {
-        ...authHeaders(session.accessToken),
+        ...authHeaders(session.accessToken, session.ronFlowSessionId),
         'Content-Type': 'application/json',
       },
       data: {
@@ -376,14 +415,13 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
   })
 
   test('apply 端點可以承接 archive、restore、trash、restore_trashed 契約', async ({ request }, testInfo) => {
-    test.fail(true, 'AI task lifecycle flows are not implemented yet.')
-
-    const { session, task } = await seedProjectWithTask(request, testInfo)
+    const { session, project, task } = await seedProjectWithTask(request, testInfo)
+    await activateAiScope(request, session.accessToken, session.ronFlowSessionId, project.id)
 
     for (const operation of ['archive_task', 'restore_archived_task', 'trash_task', 'restore_trashed_task'] as const) {
       const response = await request.post(aiRoutes.apply, {
         headers: {
-          ...authHeaders(session.accessToken),
+          ...authHeaders(session.accessToken, session.ronFlowSessionId),
           'Content-Type': 'application/json',
         },
         data: {
@@ -408,13 +446,13 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
   })
 
   test('board summary 端點在無權存取他人 Project 時回傳 Forbidden error 契約', async ({ request }, testInfo) => {
-    const owner = await registerRonFlowApiUser(request)
-    const otherUser = await registerRonFlowApiUser(request)
+    const owner = await registerRonFlowAiSession(request)
+    const otherUser = await registerRonFlowAiSession(request)
     const { projectName } = createScenarioData(testInfo)
     const project = await createProjectThroughApi(request, owner, projectName)
 
     const response = await request.get(aiRoutes.projectBoardSummary(project.id), {
-      headers: authHeaders(otherUser.accessToken),
+      headers: authHeaders(otherUser.accessToken, otherUser.ronFlowSessionId),
     })
 
     await expectErrorTextContract(response, [
@@ -425,12 +463,10 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
   })
 
   test('apply 端點在 scope 不正確或未啟用時回傳 ScopeRequired error 契約', async ({ request }, testInfo) => {
-    test.fail(true, 'AI scope-required error contract is not implemented yet.')
-
     const { session, task } = await seedProjectWithTask(request, testInfo)
     const response = await request.post(aiRoutes.apply, {
       headers: {
-        ...authHeaders(session.accessToken),
+        ...authHeaders(session.accessToken, session.ronFlowSessionId),
         'Content-Type': 'application/json',
       },
       data: {
@@ -455,12 +491,12 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
   })
 
   test('audit entry 端點可以查回 apply 成功後的固定 audit 契約', async ({ request }, testInfo) => {
-    test.fail(true, 'AI audit query surface is not implemented yet.')
+    const { session, project, task } = await seedProjectWithTask(request, testInfo)
+    await activateAiScope(request, session.accessToken, session.ronFlowSessionId, project.id)
 
-    const { session, task } = await seedProjectWithTask(request, testInfo)
     const applyResponse = await request.post(aiRoutes.apply, {
       headers: {
-        ...authHeaders(session.accessToken),
+        ...authHeaders(session.accessToken, session.ronFlowSessionId),
         'Content-Type': 'application/json',
       },
       data: {
@@ -490,7 +526,7 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
 
     const auditEntryId = auditEntryIdLine!.slice('audit_entry_id:'.length).trim()
     const auditResponse = await request.get(aiRoutes.auditEntry(auditEntryId), {
-      headers: authHeaders(session.accessToken),
+      headers: authHeaders(session.accessToken, session.ronFlowSessionId),
     })
 
     await expectSuccessfulTextContract(auditResponse, [

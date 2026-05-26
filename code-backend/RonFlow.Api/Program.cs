@@ -76,6 +76,7 @@ public partial class Program
         builder.Services.AddSingleton<UpdateTaskCommandService>();
         builder.Services.AddSingleton<TaskContentEditLockService>();
         builder.Services.AddSingleton<ProjectPresenceRegistry>();
+        builder.Services.AddSingleton<AiAuditRegistry>();
         builder.Services.AddSingleton<RonFlowActiveSessionRegistry>();
         builder.Services.AddSingleton<ReorderTaskCommandService>();
         builder.Services.AddSingleton<CreateTaskReminderCommandService>();

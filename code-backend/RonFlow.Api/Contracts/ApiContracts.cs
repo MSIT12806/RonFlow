@@ -1,9 +1,20 @@
 using RonFlow.Application;
 using RonFlow.Domain;
+using System.Text.Json;
 
 namespace RonFlow.Api.Contracts;
 
 public sealed record CreateProjectRequest(string? Name);
+
+public sealed record AiActiveScopeRequest(Guid? ProjectId);
+
+public sealed record AiApplyRequest(
+    string? Operation,
+    string? TargetType,
+    string? TargetId,
+    Dictionary<string, JsonElement>? RequiredFields,
+    Dictionary<string, JsonElement>? OptionalFields,
+    string? Note);
 
 public sealed record CreateProjectInvitationRequest(string? Invitee);
 

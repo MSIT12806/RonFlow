@@ -242,6 +242,49 @@ internal static class AiTextContractFormatter
         ]);
     }
 
+    public static string ApplyResult(string operation, string targetType, string targetId, IReadOnlyList<string> changedFields, Guid auditEntryId)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("RonFlow Apply Result v1");
+        builder.AppendLine();
+        builder.AppendLine("status: success");
+        builder.AppendLine($"operation: {operation}");
+        builder.AppendLine($"target_type: {targetType}");
+        builder.AppendLine($"target_id: {targetId}");
+        builder.AppendLine("changed_fields:");
+
+        foreach (var changedField in changedFields)
+        {
+            builder.AppendLine($"- {changedField}");
+        }
+
+        builder.AppendLine($"audit_entry_id: {auditEntryId}");
+
+        return builder.ToString().TrimEnd();
+    }
+
+    public static string AuditEntry(AiAuditEntry auditEntry)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("RonFlow Audit Entry v1");
+        builder.AppendLine();
+        builder.AppendLine($"audit_entry_id: {auditEntry.Id}");
+        builder.AppendLine($"actor_type: {auditEntry.ActorType}");
+        builder.AppendLine($"actor_identity: {auditEntry.ActorIdentity}");
+        builder.AppendLine($"target_type: {auditEntry.TargetType}");
+        builder.AppendLine($"target_id: {auditEntry.TargetId}");
+        builder.AppendLine($"requested_change: {auditEntry.RequestedChange}");
+        builder.AppendLine($"result_status: {auditEntry.ResultStatus}");
+        builder.AppendLine("actual_diff:");
+
+        foreach (var diff in auditEntry.ActualDiff)
+        {
+            builder.AppendLine($"- {diff}");
+        }
+
+        return builder.ToString().TrimEnd();
+    }
+
     private static string NormalizeRole(string role)
     {
         return role == "專案擁有者" ? "owner" : "member";
