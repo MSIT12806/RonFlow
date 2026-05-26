@@ -80,8 +80,6 @@ async function seedProjectWithTask(request: Parameters<typeof test>[0]['request'
 
 test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
   test('bootstrap 端點回傳固定的啟動文字契約', async ({ request }) => {
-    test.fail(true, 'AI bootstrap surface is not implemented yet.')
-
     const session = await registerRonFlowApiUser(request)
     const response = await request.get(aiRoutes.bootstrap, {
       headers: authHeaders(session.accessToken),
@@ -97,8 +95,6 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
   })
 
   test('manifest 端點回傳目前支援的 read / write capability 清單', async ({ request }) => {
-    test.fail(true, 'AI capabilities manifest surface is not implemented yet.')
-
     const session = await registerRonFlowApiUser(request)
     const response = await request.get(aiRoutes.capabilities, {
       headers: authHeaders(session.accessToken),
@@ -114,8 +110,6 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
   })
 
   test('session summary 端點在尚未選定 scope 時回傳 active_scope: none', async ({ request }) => {
-    test.fail(true, 'AI session summary surface is not implemented yet.')
-
     const session = await registerRonFlowApiUser(request)
     const response = await request.get(aiRoutes.sessionSummary, {
       headers: authHeaders(session.accessToken),
@@ -131,8 +125,6 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
   })
 
   test('project list summary 端點回傳 project 清單與 next actions', async ({ request }, testInfo) => {
-    test.fail(true, 'AI project list summary surface is not implemented yet.')
-
     const session = await registerRonFlowApiUser(request)
     const { projectName } = createScenarioData(testInfo)
     const project = await createProjectThroughApi(request, session, projectName)
@@ -152,8 +144,6 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
   })
 
   test('board summary 與 task detail summary 端點回傳固定欄位與 next actions', async ({ request }, testInfo) => {
-    test.fail(true, 'AI board/task summary surfaces are not implemented yet.')
-
     const { session, project, task } = await seedProjectWithTask(request, testInfo)
 
     const boardResponse = await request.get(aiRoutes.projectBoardSummary(project.id), {
@@ -187,8 +177,6 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
   })
 
   test('workflow guidance 端點回傳固定的建議順序與 ask_human_when 區塊', async ({ request }) => {
-    test.fail(true, 'AI workflow guidance surface is not implemented yet.')
-
     const session = await registerRonFlowApiUser(request)
     const response = await request.get(aiRoutes.workflowGuidance, {
       headers: authHeaders(session.accessToken),
@@ -420,8 +408,6 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
   })
 
   test('board summary 端點在無權存取他人 Project 時回傳 Forbidden error 契約', async ({ request }, testInfo) => {
-    test.fail(true, 'AI authorization error contract is not implemented yet.')
-
     const owner = await registerRonFlowApiUser(request)
     const otherUser = await registerRonFlowApiUser(request)
     const { projectName } = createScenarioData(testInfo)
