@@ -185,7 +185,7 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
   })
 
   test('board summary 與 task detail summary 端點回傳固定欄位與 next actions', async ({ request }, testInfo) => {
-    const { session, project, task } = await seedProjectWithTask(request, testInfo)
+    const { session, project, task, taskTitle } = await seedProjectWithTask(request, testInfo)
 
     const boardResponse = await request.get(aiRoutes.projectBoardSummary(project.id), {
       headers: authHeaders(session.accessToken, session.ronFlowSessionId),

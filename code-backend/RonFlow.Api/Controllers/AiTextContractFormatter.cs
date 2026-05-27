@@ -181,6 +181,21 @@ internal static class AiTextContractFormatter
         }
 
         builder.AppendLine();
+        builder.AppendLine("visible_tasks:");
+
+        foreach (var task in board.Columns
+                     .SelectMany(column => column.Tasks.Select(task => new
+                     {
+                         Task = task,
+                         WorkflowStateKey = NormalizeWorkflowKey(column.StateKey),
+                     })))
+        {
+            builder.AppendLine($"- task_id: {task.Task.Id}");
+            builder.AppendLine($"  title: {task.Task.Title}");
+            builder.AppendLine($"  workflow_state_key: {task.WorkflowStateKey}");
+        }
+
+        builder.AppendLine();
         builder.AppendLine("recent_activities:");
 
         foreach (var activity in board.Columns
