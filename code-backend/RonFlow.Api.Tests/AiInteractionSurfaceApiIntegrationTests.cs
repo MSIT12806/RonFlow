@@ -92,7 +92,7 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
     {
         await EnsureKnownUserAsync(Client);
         var project = await CreateProjectAsync("AI Board Project");
-        await CreateTaskAsync(project.Id, "Build AI Board");
+        var task = await CreateTaskAsync(project.Id, "Build AI Board");
 
         var response = await Client.GetAsync($"/api/ai/projects/{project.Id}/board-summary");
 
@@ -105,6 +105,10 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("workflow_columns:"));
         Assert.That(payload, Does.Contain("- key: Todo"));
         Assert.That(payload, Does.Contain("- key: Active"));
+        Assert.That(payload, Does.Contain("visible_tasks:"));
+        Assert.That(payload, Does.Contain($"task_id: {task.Id}"));
+        Assert.That(payload, Does.Contain("title: Build AI Board"));
+        Assert.That(payload, Does.Contain("workflow_state_key: Todo"));
         Assert.That(payload, Does.Contain("next_actions:"));
     }
 

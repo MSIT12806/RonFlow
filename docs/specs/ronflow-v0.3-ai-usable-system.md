@@ -644,6 +644,11 @@ workflow_columns:
 	name: 已完成
 	task_count: <count>
 
+visible_tasks:
+- task_id: <task-id>
+	title: <task-title>
+	workflow_state_key: <state-key>
+
 recent_activities:
 - <activity-1>
 - <activity-2>
@@ -690,9 +695,10 @@ next_actions:
 2. Project List summary 必須包含 `projects_count:` 與至少一個 `project_id:` 區塊。
 3. Project Board summary 回應第一行必須是 `RonFlow Project Board Summary v1`。
 4. Project Board summary 必須包含 `workflow_columns:` 區塊，且至少列出 `Todo`、`Active`、`Review`、`Done` 四個 key。
-5. Task Detail summary 回應第一行必須是 `RonFlow Task Detail Summary v1`。
-6. Task Detail summary 必須完整包含 `task_id`、`title`、`description`、`due_date`、`workflow_state_key`、`workflow_state_name`、`lifecycle_state`。
-7. Task Detail summary 必須包含 `recent_activities:` 與 `next_actions:` 區塊。
+5. Project Board summary 必須包含 `visible_tasks:` 區塊；若 board 上有 Task，至少要列出一筆 `task_id`、`title`、`workflow_state_key`。
+6. Task Detail summary 回應第一行必須是 `RonFlow Task Detail Summary v1`。
+7. Task Detail summary 必須完整包含 `task_id`、`title`、`description`、`due_date`、`workflow_state_key`、`workflow_state_name`、`lifecycle_state`。
+8. Task Detail summary 必須包含 `recent_activities:` 與 `next_actions:` 區塊。
 ```
 
 **Testability**
@@ -718,6 +724,8 @@ Feature: Read-first summary query
 		Then board summary 回應應包含 `RonFlow Project Board Summary v1`
 		And board summary 回應應包含 `workflow_columns:`
 		And board summary 回應應包含 `- key: Todo`
+		And board summary 回應應包含 `visible_tasks:`
+		And board summary 回應應包含 `task_id:`
 		And task summary 回應應包含 `RonFlow Task Detail Summary v1`
 		And task summary 回應應包含 `task_id:`
 		And task summary 回應應包含 `workflow_state_key:`

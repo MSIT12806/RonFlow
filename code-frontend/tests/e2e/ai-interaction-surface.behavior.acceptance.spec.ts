@@ -199,6 +199,10 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
       '- key: Active',
       '- key: Review',
       '- key: Done',
+      'visible_tasks:',
+      `task_id: ${task.id}`,
+      `title: ${taskTitle}`,
+      'workflow_state_key: Todo',
       'next_actions:',
       '- create_task',
     ])
