@@ -76,7 +76,7 @@
           </div>
 
           <div class="detail-card detail-card-full">
-            <div class="detail-field detail-field-inline">
+            <div class="detail-field">
               <label class="detail-label" for="task-detail-description-input">任務描述</label>
 
               <div class="detail-field-control">

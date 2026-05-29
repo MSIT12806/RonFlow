@@ -149,6 +149,15 @@ describe('TaskDetailModal', () => {
     })
 
     expect(wrapper.text()).toContain('儲存變更')
-    expect(wrapper.text()).not.toContain('編輯')
+    expect(wrapper.findAll('button').some((button) => button.text() === '編輯')).toBe(false)
+  })
+
+  it('stacks the task description label above the input area', () => {
+    const wrapper = mountTaskDetail(createTask())
+    const descriptionField = wrapper.find('label[for="task-detail-description-input"]').element.parentElement
+
+    expect(descriptionField).not.toBeNull()
+    expect(descriptionField?.classList.contains('detail-field-inline')).toBe(false)
+    expect(descriptionField?.classList.contains('detail-field')).toBe(true)
   })
 })
