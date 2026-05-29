@@ -163,6 +163,271 @@ domain layer 的核心 task / project 規則：
 - [Task.cs](../../code-backend/RonFlow.Domain/Task.cs)：lifecycle state、reminders、activity timeline、state transition、detail update，以及直接回傳包含 `Locked` 的 mutation result
 - [Project.cs](../../code-backend/RonFlow.Domain/Project.cs)：members、invitations、workflow states、project access 前提
 
+### 4.1 如果只看 task mutation 這條線，domain 裡有哪些物件
+若把範圍收斂到這次 lock / execution result 設計，最重要的 domain 物件是這幾個：
+
+- `Task`
+   - 核心 aggregate
+   - 持有 title、description、due date、workflow state、lifecycle state、subtasks、reminders、activity timeline
+   - `UpdateDetails(...)`、`ReplaceSubtasks(...)`、`ChangeState(...)`、`AddReminder(...)` 都在這裡
+- `Project`
+   - 上游 aggregate
+   - 提供 workflow states、subtask templates、membership / access 前提
+   - task mutation 完成後，application 常常還要 `project.Touch(...)`
+- `WorkflowState`
+   - task state transition 的依據
+   - `Task.ChangeState(...)` 與 checklist 自動進 review 都依賴它
+- `TaskSubtask`
+   - task checklist item
+   - 被 `Task.ReplaceSubtasks(...)` 使用
+- `ProjectSubtaskTemplate`
+   - project 層級的 checklist template
+   - 建立新 task 時可轉成 `TaskSubtask`
+- `TaskReminder`
+   - task reminder value object
+   - 被 `Task.AddReminder(...)`、`Task.DeleteReminder(...)`、dispatch flow 使用
+- `ActivityTimelineItem`
+   - task 業務活動紀錄
+   - 幾乎所有 task mutation 都會附帶新增 timeline item
+- `TaskMutationKind`
+   - 描述正在執行哪一種 task mutation
+- `TaskMutationLockPolicy`
+   - 把 `TaskMutationKind` 映射成 lock requirement
+- `TaskMutationAuthorization`
+   - application 傳給 aggregate 的授權結果
+   - 不是 lock state 本身，而是「這次 mutation 可不可以執行」
+- `TaskMutationExecutionResult` / `TaskDeleteReminderExecutionResult`
+   - aggregate mutation method 的回傳結果
+   - 直接包含 `Locked`
+
+可以把它們的關係整理成下面這張圖：
+
+```mermaid
+classDiagram
+      class Project {
+            +Id
+            +WorkflowStates
+            +SubtaskTemplates
+            +FindWorkflowState()
+            +CreateSubtasksFromTemplates()
+            +Touch()
+      }
+
+      class Task {
+            +Id
+            +ProjectId
+            +Title
+            +Description
+            +CurrentState
+            +LifecycleState
+            +Subtasks
+            +Reminders
+            +ActivityTimeline
+            +UpdateDetails(authorization,...)
+            +ReplaceSubtasks(authorization,...)
+            +ChangeState(authorization,...)
+            +AddReminder(authorization,...)
+            +DeleteReminder(authorization,...)
+      }
+
+      class WorkflowState {
+            +Key
+            +Label
+            +IsInitialState
+            +IsCompletedState
+      }
+
+      class TaskSubtask {
+            +Id
+            +Title
+            +IsChecked
+            +Order
+      }
+
+      class ProjectSubtaskTemplate {
+         +Id
+         +Title
+         +Order
+      }
+
+      class TaskReminder {
+            +Id
+            +ReminderDateTime
+            +Description
+            +NotificationDispatchedAt
+      }
+
+      class ActivityTimelineItem {
+            +Type
+            +Message
+            +OccurredAt
+      }
+
+      class TaskMutationKind {
+            <<enum>>
+            UpdateDetails
+            ReplaceSubtasks
+            CreateReminder
+            DeleteReminder
+            Archive
+            MoveToTrash
+            RestoreFromArchive
+            RestoreFromTrash
+            ChangeWorkflowState
+      }
+
+      class TaskMutationLockPolicy {
+            <<static>>
+            +Resolve(kind)
+      }
+
+      class TaskMutationAuthorization {
+            +Kind
+            +Status
+            +IsGranted
+            +IsLocked
+      }
+
+      class TaskMutationExecutionResult {
+            +Succeeded
+            +Changed
+            +Locked
+      }
+
+      class TaskDeleteReminderExecutionResult {
+            +Succeeded
+            +Changed
+            +Locked
+            +ReminderNotFound
+      }
+
+      Project "1" --> "many" WorkflowState
+      Project "1" --> "many" ProjectSubtaskTemplate
+      ProjectSubtaskTemplate --> TaskSubtask : create from template
+      Task --> WorkflowState : CurrentState
+      Task --> TaskSubtask : owns
+      Task --> TaskReminder : owns
+      Task --> ActivityTimelineItem : records
+      Task --> TaskMutationAuthorization : receives
+      Task --> TaskMutationExecutionResult : returns
+      Task --> TaskDeleteReminderExecutionResult : returns
+      TaskMutationAuthorization --> TaskMutationKind
+      TaskMutationLockPolicy --> TaskMutationKind : resolves
+```
+
+### 4.2 這些物件在語意上怎麼分工
+如果只看責任切分，可以把它們分成四類：
+
+- 共享業務狀態
+   - `Task`
+   - `Project`
+   - `WorkflowState`
+   - `TaskSubtask`
+   - `TaskReminder`
+   - `ActivityTimelineItem`
+- mutation 類型定義
+   - `TaskMutationKind`
+- mutation 的 lock 規則
+   - `TaskMutationLockPolicy`
+- mutation 的輸入 / 輸出 contract
+   - `TaskMutationAuthorization`
+   - `TaskMutationExecutionResult`
+   - `TaskDeleteReminderExecutionResult`
+
+這裡最重要的改變是：
+- 以前 aggregate method 比較像「純執行邏輯」
+- 現在 aggregate method 已經同時表達「這個 mutation 的執行結果是什麼」
+
+所以 `Task.UpdateDetails(...)` 不再只是改欄位，而是正式宣告：
+- 有可能成功且有變更
+- 有可能成功但沒有變更
+- 有可能因為 locked 而不能執行
+
+### 4.3 application 怎麼使用這些 domain 物件
+application 這一層不是直接把 lock state 塞進 `Task`，而是做三件事：
+
+1. 先確認 project access 與 aggregate 是否存在
+    - `ProjectAccessService`
+    - `IProjectRepository`
+    - `ITaskRepository`
+
+2. 把 runtime collaboration state 轉成 domain 可理解的 authorization
+    - `TaskContentEditLockService` 提供 lock state authority
+    - `TaskMutationGuard` 根據 `TaskMutationLockPolicy` 產生 `TaskMutationAuthorization`
+
+3. 呼叫 aggregate mutation method，並解讀 execution result
+    - 若 `result.Locked`，回 application result conflict
+    - 若 `result.Changed`，通常還要 `project.Touch(...)`
+    - 最後再把 aggregate model 轉成 command output
+
+### 4.4 以 UpdateTask 為例，application 到 domain 的實際調用順序
+下面這張圖，是目前 `UpdateTaskCommandService` 的實際關係：
+
+```mermaid
+sequenceDiagram
+      participant Controller as TasksController
+      participant App as UpdateTaskCommandService
+      participant Access as ProjectAccessService
+      participant ProjectRepo as IProjectRepository
+      participant TaskRepo as ITaskRepository
+      participant Guard as TaskMutationGuard
+      participant Lock as TaskContentEditLockService
+      participant Task as Task aggregate
+      participant Project as Project aggregate
+      participant Output as CoreFlowCommandOutputFactory
+
+      Controller->>App: Update(currentUserId, projectId, taskId, ...)
+      App->>Access: GetOwnedProject(currentUserId, projectId)
+      Access->>ProjectRepo: Get(projectId)
+      ProjectRepo-->>Access: Project
+      Access-->>App: ProjectAccessResult
+      App->>TaskRepo: Get(taskId)
+      TaskRepo-->>App: Task
+      App->>Guard: Authorize(currentUserId, taskId, UpdateDetails)
+      Guard->>Lock: IsHeldBy(currentUserId, taskId)
+      Lock-->>Guard: bool
+      Guard-->>App: TaskMutationAuthorization
+      App->>Task: UpdateDetails(authorization, title, description, dueDate, changedAt)
+      Task-->>App: TaskMutationExecutionResult
+
+      alt result.Locked
+            App-->>Controller: UpdateTaskResult.Locked()
+      else result not locked
+            App->>TaskRepo: Update(task)
+            alt result.Changed
+                  App->>Project: Touch(changedAt)
+                  App->>ProjectRepo: Update(project)
+            end
+            App->>Output: CreateTask(task.ToModel())
+            Output-->>App: CreateTaskOutput
+            App-->>Controller: UpdateTaskResult.Success(...)
+      end
+```
+
+同樣的 pattern 也會出現在：
+- `ReplaceTaskSubtasksCommandService`
+- `ChangeTaskStateCommandService`
+- `CreateTaskReminderCommandService`
+- `DeleteTaskReminderCommandService`
+- `ArchiveTaskCommandService`
+- `MoveTaskToTrashCommandService`
+
+### 4.5 這個設計到底把什麼聚合進 Task
+這裡很容易誤解成「lock 已經搬進 Task 了」，但其實不是。
+
+真正被聚合進 `Task` 的，是下面這件事：
+- `Task` 現在理解某個 mutation 在收到 locked authorization 時，應該回什麼 execution result
+
+仍然沒有搬進 `Task` 的東西是：
+- lock store
+- session id
+- 哪個 user 正持有 lock
+- lock acquire / release 的生命週期
+
+所以比較準確的說法是：
+- lock 的 runtime state 仍在 application
+- lock 對 mutation 的語意與結果，已進到 aggregate contract
+
 ### 5. 多人協作概念是否有體現在 application layer？答案是有，而且很明確
 如果只看目前的程式碼分層，RonFlow 的多人協作概念最明顯地落在 application layer。
 
