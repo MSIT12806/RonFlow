@@ -998,6 +998,64 @@ button {
   grid-column: 1 / -1;
 }
 
+.detail-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.detail-supporting-copy {
+  margin: 6px 0 0;
+  color: var(--text-soft);
+  line-height: 1.6;
+}
+
+.detail-checklist-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.detail-checklist-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.detail-checklist-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.detail-reminder-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.detail-reminder-actions,
+.detail-reminder-list {
+  margin-top: 16px;
+}
+
+.detail-reminder-item-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
 .detail-toolbar {
   position: relative;
 }
@@ -1106,6 +1164,20 @@ button {
 
   .detail-field-inline .detail-label {
     padding-top: 0;
+  }
+
+  .detail-section-header {
+    flex-direction: column;
+  }
+
+  .detail-checklist-row,
+  .detail-reminder-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-toolbar-actions,
+  .detail-checklist-actions {
+    justify-content: stretch;
   }
 
   .project-panel,

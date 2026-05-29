@@ -128,6 +128,54 @@
             <strong>{{ formatTimelineTime(task.completedAt) }}</strong>
           </div>
 
+          <div class="detail-card detail-card-full" data-testid="task-checklist-section">
+            <div class="detail-section-header">
+              <div>
+                <p class="detail-label">完成條件</p>
+                <p class="detail-supporting-copy">用結構化 checklist 追蹤這個任務是否已進入 review-ready。</p>
+              </div>
+
+              <button
+                v-if="!isReadOnly"
+                type="button"
+                class="secondary-button"
+                :disabled="isSaving"
+                @click="addSubtask"
+              >
+                新增完成條件
+              </button>
+            </div>
+
+            <p v-if="draftSubtasks.length === 0" class="detail-supporting-copy">目前沒有完成條件</p>
+
+            <ul v-else class="history-list">
+              <li v-for="(subtask, index) in draftSubtasks" :key="subtask.id ?? `draft-${index}`" data-testid="task-subtask-item">
+                <div class="detail-checklist-row">
+                  <input
+                    :id="`task-subtask-${index}`"
+                    :checked="subtask.isChecked"
+                    type="checkbox"
+                    :disabled="isSaving || !canToggleSubtaskCheckbox"
+                    @change="onSubtaskCheckedChanged(index, $event)"
+                  >
+
+                  <InputText
+                    :model-value="subtask.title"
+                    fluid
+                    :disabled="isSaving || isChecklistTextReadOnly"
+                    @update:model-value="updateSubtaskTitle(index, $event)"
+                  />
+
+                  <div v-if="!isReadOnly" class="detail-checklist-actions">
+                    <button type="button" class="secondary-button" :disabled="isSaving || index === 0" @click="moveSubtask(index, -1)">上移</button>
+                    <button type="button" class="secondary-button" :disabled="isSaving || index === draftSubtasks.length - 1" @click="moveSubtask(index, 1)">下移</button>
+                    <button type="button" class="detail-actions-menu-item" :disabled="isSaving" @click="removeSubtask(index)">刪除</button>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+
           <div class="detail-card detail-card-full" data-testid="task-reminders-section">
             <div class="detail-section-header">
               <div>
@@ -245,6 +293,12 @@ import BaseModalShell from './bases/BaseModalShell.vue'
 import type { TaskDetailResponse, TaskReminderResponse } from '../api/ronflowApi'
 import type { TaskDetailMode } from '../composables/useRonFlowBoard'
 
+type DraftTaskSubtask = {
+  id: string | null
+  title: string
+  isChecked: boolean
+}
+
 const props = withDefaults(defineProps<{
   isOpen: boolean
   isLoading: boolean
@@ -271,7 +325,17 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   (event: 'close'): void
   (event: 'enter-edit'): void
-  (event: 'save', payload: { taskId: string; title: string; description: string; dueDate: string | null }): void
+  (event: 'save', payload: {
+    taskId: string
+    title: string
+    description: string
+    dueDate: string | null
+    subtasks: Array<{ id: string | null; title: string; isChecked: boolean; order: number }>
+  }): void
+  (event: 'replace-subtasks', payload: {
+    taskId: string
+    subtasks: Array<{ id: string | null; title: string; isChecked: boolean; order: number }>
+  }): void
   (event: 'add-reminder', payload: { taskId: string; reminderDateTime: string; description: string }): void
   (event: 'delete-reminder', payload: { taskId: string; reminderId: string }): void
   (event: 'enable-reminder-delivery'): void
@@ -285,12 +349,15 @@ const draftDescription = ref('')
 const draftDueDate = ref('')
 const draftReminderDateTime = ref('')
 const draftReminderDescription = ref('')
+const draftSubtasks = ref<DraftTaskSubtask[]>([])
 const isActionsOpen = ref(false)
 
 const isLifecycleReadOnly = computed(() => props.mode !== 'active')
 const canEnterEdit = computed(() => !isLifecycleReadOnly.value && (props.canEnterEdit ?? true))
 const isEditing = computed(() => !isLifecycleReadOnly.value && Boolean(props.isEditing))
 const isReadOnly = computed(() => isLifecycleReadOnly.value || !isEditing.value)
+const canToggleSubtaskCheckbox = computed(() => !isLifecycleReadOnly.value && canEnterEdit.value)
+const isChecklistTextReadOnly = computed(() => isLifecycleReadOnly.value || !isEditing.value)
 const taskReminders = computed(() => props.task?.reminders ?? [])
 const reminderValidationError = computed(() =>
   props.reminderDatetimeValidationError
@@ -395,7 +462,73 @@ function submit() {
     title: draftTitle.value,
     description: draftDescription.value,
     dueDate: draftDueDate.value || null,
+    subtasks: draftSubtasks.value.map((subtask, index) => ({
+      id: subtask.id,
+      title: subtask.title,
+      isChecked: subtask.isChecked,
+      order: index,
+    })),
   })
+}
+
+function addSubtask() {
+  draftSubtasks.value = [
+    ...draftSubtasks.value,
+    {
+      id: null,
+      title: '',
+      isChecked: false,
+    },
+  ]
+}
+
+function updateSubtaskTitle(index: number, value: string | undefined) {
+  draftSubtasks.value = draftSubtasks.value.map((subtask, currentIndex) =>
+    currentIndex === index
+      ? { ...subtask, title: value ?? '' }
+      : subtask,
+  )
+}
+
+function onSubtaskCheckedChanged(index: number, event: Event) {
+  const checkbox = event.target as HTMLInputElement | null
+  const isChecked = checkbox?.checked ?? false
+
+  draftSubtasks.value = draftSubtasks.value.map((subtask, currentIndex) =>
+    currentIndex === index
+      ? { ...subtask, isChecked }
+      : subtask,
+  )
+
+  if (!props.task || props.isSaving || isLifecycleReadOnly.value || isEditing.value) {
+    return
+  }
+
+  emit('replace-subtasks', {
+    taskId: props.task.id,
+    subtasks: draftSubtasks.value.map((subtask, currentIndex) => ({
+      id: subtask.id,
+      title: subtask.title,
+      isChecked: subtask.isChecked,
+      order: currentIndex,
+    })),
+  })
+}
+
+function moveSubtask(index: number, direction: -1 | 1) {
+  const targetIndex = index + direction
+  if (targetIndex < 0 || targetIndex >= draftSubtasks.value.length) {
+    return
+  }
+
+  const nextSubtasks = [...draftSubtasks.value]
+  const [current] = nextSubtasks.splice(index, 1)
+  nextSubtasks.splice(targetIndex, 0, current)
+  draftSubtasks.value = nextSubtasks
+}
+
+function removeSubtask(index: number) {
+  draftSubtasks.value = draftSubtasks.value.filter((_, currentIndex) => currentIndex !== index)
 }
 
 function submitReminder() {
@@ -481,6 +614,7 @@ watch(
     props.task?.title,
     props.task?.description,
     props.task?.dueDate,
+    props.task?.subtasks?.length ?? 0,
     props.task?.reminders?.length ?? 0,
     props.mode,
   ] as const,
@@ -496,6 +630,11 @@ watch(
     draftDueDate.value = props.task.dueDate ?? ''
     draftReminderDateTime.value = ''
     draftReminderDescription.value = ''
+    draftSubtasks.value = props.task.subtasks.map((subtask) => ({
+      id: subtask.id,
+      title: subtask.title,
+      isChecked: subtask.isChecked,
+    }))
   },
   { immediate: true },
 )
