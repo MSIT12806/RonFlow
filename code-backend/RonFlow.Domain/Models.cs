@@ -13,6 +13,10 @@ public sealed record ActivityTimelineItemModel(string Type, string Message, Date
 
 public sealed record TaskReminderModel(Guid Id, string ReminderDateTime, string Description);
 
+public sealed record ProjectSubtaskTemplateModel(Guid Id, string Title, int Order);
+
+public sealed record TaskSubtaskModel(Guid Id, string Title, bool IsChecked, int Order);
+
 public sealed record TaskModel(
     Guid Id,
     Guid ProjectId,
@@ -26,6 +30,7 @@ public sealed record TaskModel(
     DateTimeOffset? ArchivedAt,
     DateTimeOffset? TrashedAt,
     int SortOrder,
+    IReadOnlyList<TaskSubtaskModel> Subtasks,
     IReadOnlyList<TaskReminderModel> Reminders,
     IReadOnlyList<ActivityTimelineItemModel> ActivityTimeline);
 
@@ -34,6 +39,7 @@ public sealed record ProjectModel(
     Guid OwnerId,
     string Name,
     DateTimeOffset UpdatedAt,
+    IReadOnlyList<ProjectSubtaskTemplateModel> SubtaskTemplates,
     IReadOnlyList<WorkflowStateModel> WorkflowStates);
 
 public sealed record ProjectSummaryModel(Guid Id, Guid OwnerId, string Name, DateTimeOffset UpdatedAt);

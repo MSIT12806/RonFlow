@@ -30,6 +30,14 @@ public sealed record RegisterPushSubscriptionRequest(string? Endpoint, PushSubsc
 
 public sealed record UpdateTaskRequest(string? Title, string? Description, DateOnly? DueDate);
 
+public sealed record ReplaceProjectSubtaskTemplatesRequest(IReadOnlyList<ProjectSubtaskTemplateItemRequest>? Items);
+
+public sealed record ProjectSubtaskTemplateItemRequest(Guid? Id, string? Title, int? Order);
+
+public sealed record ReplaceTaskSubtasksRequest(IReadOnlyList<TaskSubtaskItemRequest>? Items);
+
+public sealed record TaskSubtaskItemRequest(Guid? Id, string? Title, bool IsChecked, int? Order);
+
 public sealed record ReorderTaskRequest(Guid? TargetTaskId);
 
 public sealed record PushNotificationPublicKeyResponse(string PublicKey);
@@ -191,6 +199,45 @@ public sealed record WorkflowStateResponse(string Key, string Label, bool IsInit
     }
 }
 
+public sealed record ProjectSubtaskTemplateListResponse(IReadOnlyList<ProjectSubtaskTemplateResponse> Items)
+{
+    public static ProjectSubtaskTemplateListResponse FromView(ProjectSubtaskTemplateListView view)
+    {
+        return new(view.Items.Select(ProjectSubtaskTemplateResponse.FromView).ToArray());
+    }
+
+    public static ProjectSubtaskTemplateListResponse FromOutput(IReadOnlyList<ProjectSubtaskTemplateOutput> outputs)
+    {
+        return new(outputs.Select(ProjectSubtaskTemplateResponse.FromOutput).ToArray());
+    }
+}
+
+public sealed record ProjectSubtaskTemplateResponse(Guid Id, string Title, int Order)
+{
+    public static ProjectSubtaskTemplateResponse FromView(ProjectSubtaskTemplateView view)
+    {
+        return new(view.Id, view.Title, view.Order);
+    }
+
+    public static ProjectSubtaskTemplateResponse FromOutput(ProjectSubtaskTemplateOutput output)
+    {
+        return new(output.Id, output.Title, output.Order);
+    }
+}
+
+public sealed record TaskSubtaskResponse(Guid Id, string Title, bool IsChecked, int Order)
+{
+    public static TaskSubtaskResponse FromView(TaskSubtaskView view)
+    {
+        return new(view.Id, view.Title, view.IsChecked, view.Order);
+    }
+
+    public static TaskSubtaskResponse FromOutput(TaskSubtaskOutput output)
+    {
+        return new(output.Id, output.Title, output.IsChecked, output.Order);
+    }
+}
+
 public sealed record TaskDetailResponse(
     Guid Id,
     Guid ProjectId,
@@ -201,6 +248,7 @@ public sealed record TaskDetailResponse(
     DateOnly? DueDate,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
+    IReadOnlyList<TaskSubtaskResponse> Subtasks,
     IReadOnlyList<TaskReminderResponse> Reminders,
     IReadOnlyList<ActivityTimelineItemResponse> ActivityTimeline,
     bool CanEnterEdit)
@@ -217,6 +265,7 @@ public sealed record TaskDetailResponse(
             output.DueDate,
             output.CreatedAt,
             output.CompletedAt,
+            output.Subtasks.Select(TaskSubtaskResponse.FromOutput).ToArray(),
             output.Reminders.Select(TaskReminderResponse.FromOutput).ToArray(),
             output.ActivityTimeline.Select(ActivityTimelineItemResponse.FromOutput).ToArray(),
             canEnterEdit);
@@ -234,6 +283,7 @@ public sealed record TaskDetailResponse(
             view.DueDate,
             view.CreatedAt,
             view.CompletedAt,
+            view.Subtasks.Select(TaskSubtaskResponse.FromView).ToArray(),
             view.Reminders.Select(TaskReminderResponse.FromView).ToArray(),
             view.ActivityTimeline.Select(ActivityTimelineItemResponse.FromView).ToArray(),
             canEnterEdit);

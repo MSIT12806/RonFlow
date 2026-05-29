@@ -20,10 +20,15 @@ public sealed record CreateTaskOutput(
     DateOnly? DueDate,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
+    IReadOnlyList<TaskSubtaskOutput> Subtasks,
     IReadOnlyList<CreatedTaskReminderOutput> Reminders,
     IReadOnlyList<CreatedActivityTimelineItemOutput> ActivityTimeline);
 
 public sealed record CreatedTaskReminderOutput(Guid Id, string ReminderDateTime, string Description);
+
+public sealed record ProjectSubtaskTemplateOutput(Guid Id, string Title, int Order);
+
+public sealed record TaskSubtaskOutput(Guid Id, string Title, bool IsChecked, int Order);
 
 public sealed record CreatedActivityTimelineItemOutput(string Type, string Message, DateTimeOffset OccurredAt);
 
@@ -50,13 +55,24 @@ internal static class CoreFlowCommandOutputFactory
             task.DueDate,
             task.CreatedAt,
             task.CompletedAt,
+            task.Subtasks.Select(CreateTaskSubtask).ToArray(),
             task.Reminders.Select(CreateTaskReminder).ToArray(),
             task.ActivityTimeline.Select(CreateActivityTimelineItem).ToArray());
+    }
+
+    public static IReadOnlyList<ProjectSubtaskTemplateOutput> CreateProjectSubtaskTemplates(ProjectModel project)
+    {
+        return project.SubtaskTemplates.Select(template => new ProjectSubtaskTemplateOutput(template.Id, template.Title, template.Order)).ToArray();
     }
 
     private static CreatedTaskReminderOutput CreateTaskReminder(TaskReminderModel reminder)
     {
         return new CreatedTaskReminderOutput(reminder.Id, reminder.ReminderDateTime, reminder.Description);
+    }
+
+    private static TaskSubtaskOutput CreateTaskSubtask(TaskSubtaskModel subtask)
+    {
+        return new TaskSubtaskOutput(subtask.Id, subtask.Title, subtask.IsChecked, subtask.Order);
     }
 
     private static CreatedWorkflowStateOutput CreateWorkflowState(WorkflowStateModel workflowState)

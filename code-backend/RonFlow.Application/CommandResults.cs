@@ -38,6 +38,33 @@ public sealed record CreateTaskResult(CreateTaskOutput? Task, ValidationError? V
     }
 }
 
+public sealed record ReplaceProjectSubtaskTemplatesResult(
+    IReadOnlyList<ProjectSubtaskTemplateOutput>? Templates,
+    ValidationError? ValidationError,
+    bool ProjectNotFound,
+    bool AccessDenied)
+{
+    public static ReplaceProjectSubtaskTemplatesResult Success(IReadOnlyList<ProjectSubtaskTemplateOutput> templates)
+    {
+        return new(templates, null, false, false);
+    }
+
+    public static ReplaceProjectSubtaskTemplatesResult Invalid(string field, string message)
+    {
+        return new(null, new ValidationError(field, message), false, false);
+    }
+
+    public static ReplaceProjectSubtaskTemplatesResult NotFound()
+    {
+        return new(null, null, true, false);
+    }
+
+    public static ReplaceProjectSubtaskTemplatesResult Denied()
+    {
+        return new(null, null, false, true);
+    }
+}
+
 public sealed record ChangeTaskStateResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound, bool AccessDenied)
 {
     public static ChangeTaskStateResult Success(CreateTaskOutput task)
@@ -86,6 +113,29 @@ public sealed record UpdateTaskResult(CreateTaskOutput? Task, ValidationError? V
     public static UpdateTaskResult Locked()
     {
         return new(null, null, false, false, true);
+    }
+}
+
+public sealed record ReplaceTaskSubtasksResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound, bool AccessDenied)
+{
+    public static ReplaceTaskSubtasksResult Success(CreateTaskOutput task)
+    {
+        return new(task, null, false, false);
+    }
+
+    public static ReplaceTaskSubtasksResult Invalid(string field, string message)
+    {
+        return new(null, new ValidationError(field, message), false, false);
+    }
+
+    public static ReplaceTaskSubtasksResult NotFound()
+    {
+        return new(null, null, true, false);
+    }
+
+    public static ReplaceTaskSubtasksResult Denied()
+    {
+        return new(null, null, false, true);
     }
 }
 

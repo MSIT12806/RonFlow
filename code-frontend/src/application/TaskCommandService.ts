@@ -6,6 +6,7 @@ import {
   createTaskReminder,
   deleteTaskReminder,
   moveTaskToTrash,
+  replaceTaskSubtasks,
   reorderTask,
   releaseTaskContentEditLock,
   restoreArchivedTask,
@@ -36,6 +37,14 @@ export class TaskCommandService {
 
   async reorder(projectId: string, taskId: string, targetTaskId: string): Promise<TaskDetailResponse> {
     return reorderTask(projectId, taskId, targetTaskId)
+  }
+
+  async replaceSubtasks(
+    projectId: string,
+    taskId: string,
+    items: Array<{ id?: string | null; title: string; isChecked: boolean; order?: number | null }>,
+  ): Promise<TaskDetailResponse> {
+    return replaceTaskSubtasks(projectId, taskId, { items })
   }
 
   async acquireContentEditLock(projectId: string, taskId: string): Promise<TaskDetailResponse> {

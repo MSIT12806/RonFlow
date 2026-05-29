@@ -397,6 +397,20 @@ const playgroundTaskDetail: TaskDetailResponse = {
   dueDate: '2026-05-20',
   createdAt: '2026-05-12T08:00:00.000Z',
   completedAt: null,
+  subtasks: [
+    {
+      id: 'subtask-1',
+      title: '補上驗收測試',
+      isChecked: true,
+      order: 0,
+    },
+    {
+      id: 'subtask-2',
+      title: '確認 Drawer 編輯流程',
+      isChecked: false,
+      order: 1,
+    },
+  ],
   canEnterEdit: true,
   activityTimeline: [
     {

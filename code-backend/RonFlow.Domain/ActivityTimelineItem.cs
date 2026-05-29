@@ -76,6 +76,11 @@ public sealed record ActivityTimelineItem(string Type, string Message, DateTimeO
         return new("TaskReminderDeleted", "已刪除提醒", occurredAt);
     }
 
+    public static ActivityTimelineItem TaskChecklistChanged(DateTimeOffset occurredAt)
+    {
+        return new("TaskChecklistChanged", "已更新完成條件清單", occurredAt);
+    }
+
     public ActivityTimelineItemModel ToModel()
     {
         return new(Type, Message, OccurredAt);

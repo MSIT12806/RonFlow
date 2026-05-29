@@ -21,6 +21,13 @@ const taskCommandService = new TaskCommandService()
 
 export type TaskDetailMode = 'active' | 'archived' | 'trashed'
 
+export type EditableTaskSubtask = {
+  id: string | null
+  title: string
+  isChecked: boolean
+  order: number
+}
+
 const CONTENT_EDIT_LOCK_INACTIVITY_MS = 30_000
 const contentEditActivityEvents = ['pointerdown', 'keydown', 'scroll'] as const
 
@@ -97,6 +104,27 @@ export function useRonFlowBoard() {
     },
   )
 
+  const replaceTaskSubtasksResource = useApiResource(
+    (
+      projectId: string,
+      taskId: string,
+      subtasks: Array<{ id?: string | null; title: string; isChecked: boolean; order?: number | null }>,
+    ) => taskCommandService.replaceSubtasks(projectId, taskId, subtasks),
+    {
+      mapErrorMessage: (error) => {
+        if (error instanceof ApiValidationError) {
+          return error.errors.items?.[0] ?? '完成條件標題為必填欄位'
+        }
+
+        if (error instanceof ApiRequestError && error.status === 404) {
+          return '找不到指定的任務，請重新整理專案看板。'
+        }
+
+        return '更新完成條件失敗，請稍後再試。'
+      },
+    },
+  )
+
   const reorderTaskResource = useApiResource(
     (projectId: string, taskId: string, targetTaskId: string) =>
       taskCommandService.reorder(projectId, taskId, targetTaskId),
@@ -141,6 +169,7 @@ export function useRonFlowBoard() {
   const taskDetailError = computed(() => taskDetailResource.errorMessage.value)
   const taskDetailCommandError = computed(() =>
     updateTaskDetailResource.errorMessage.value
+    || replaceTaskSubtasksResource.errorMessage.value
     || createTaskReminderResource.errorMessage.value
     || deleteTaskReminderResource.errorMessage.value
     || taskLifecycleCommandError.value,
@@ -150,6 +179,7 @@ export function useRonFlowBoard() {
   const isLoadingTaskDetail = computed(() => taskDetailResource.isLoading.value)
   const isUpdatingTaskDetail = computed(() =>
     updateTaskDetailResource.isLoading.value
+    || replaceTaskSubtasksResource.isLoading.value
     || createTaskReminderResource.isLoading.value
     || deleteTaskReminderResource.isLoading.value
     || archiveTaskResource.isLoading.value
@@ -276,6 +306,7 @@ export function useRonFlowBoard() {
 
     taskDetailResource.reset()
     updateTaskDetailResource.reset()
+    replaceTaskSubtasksResource.reset()
     createTaskReminderResource.reset()
     deleteTaskReminderResource.reset()
     taskLifecycleCommandError.value = ''
@@ -296,6 +327,7 @@ export function useRonFlowBoard() {
     activeProjectId.value = projectId
     taskDetailResource.reset()
     updateTaskDetailResource.reset()
+    replaceTaskSubtasksResource.reset()
     createTaskReminderResource.reset()
     deleteTaskReminderResource.reset()
     archivedTasksResource.reset()
@@ -318,6 +350,7 @@ export function useRonFlowBoard() {
     isTaskDetailOpen.value = false
     taskDetailResource.reset()
     updateTaskDetailResource.reset()
+    replaceTaskSubtasksResource.reset()
     createTaskReminderResource.reset()
     deleteTaskReminderResource.reset()
     taskLifecycleCommandError.value = ''
@@ -370,17 +403,35 @@ export function useRonFlowBoard() {
     }
   }
 
-  async function updateTaskDetail(taskId: string, title: string, description: string, dueDate: string | null) {
+  async function updateTaskDetail(
+    taskId: string,
+    title: string,
+    description: string,
+    dueDate: string | null,
+    subtasks: EditableTaskSubtask[],
+  ) {
     if (!activeProjectId.value) {
       return
     }
 
     taskTitleValidationError.value = ''
     updateTaskDetailResource.reset()
+    replaceTaskSubtasksResource.reset()
     taskLifecycleCommandError.value = ''
 
     try {
-      const updatedTask = await updateTaskDetailResource.execute(activeProjectId.value, taskId, title, description, dueDate)
+      let updatedTask = await updateTaskDetailResource.execute(activeProjectId.value, taskId, title, description, dueDate)
+      updatedTask = await replaceTaskSubtasksResource.execute(
+        activeProjectId.value,
+        taskId,
+        subtasks.map((subtask, index) => ({
+          id: subtask.id,
+          title: subtask.title,
+          isChecked: subtask.isChecked,
+          order: index,
+        })),
+      )
+
       if (isEditingTaskDetail.value) {
         try {
           await taskCommandService.releaseContentEditLock(activeProjectId.value, taskId)

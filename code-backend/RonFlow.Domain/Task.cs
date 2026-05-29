@@ -4,6 +4,7 @@ public sealed class Task
 {
     private readonly List<ActivityTimelineItem> activityTimeline;
     private readonly List<TaskReminder> reminders;
+    private readonly List<TaskSubtask> subtasks;
 
     private Task(
         Guid id,
@@ -18,6 +19,7 @@ public sealed class Task
         DateTimeOffset? archivedAt,
         DateTimeOffset? trashedAt,
         int sortOrder,
+        IEnumerable<TaskSubtask> subtasks,
         IEnumerable<TaskReminder> reminders,
         IEnumerable<ActivityTimelineItem> activityTimeline)
     {
@@ -33,6 +35,7 @@ public sealed class Task
         ArchivedAt = archivedAt;
         TrashedAt = trashedAt;
         SortOrder = sortOrder;
+        this.subtasks = subtasks.OrderBy(subtask => subtask.Order).ToList();
         this.reminders = reminders.ToList();
         this.activityTimeline = activityTimeline.ToList();
     }
@@ -60,11 +63,19 @@ public sealed class Task
 
     public int SortOrder { get; private set; }
 
+    public IReadOnlyList<TaskSubtask> Subtasks => subtasks;
+
     public IReadOnlyList<TaskReminder> Reminders => reminders;
 
     public IReadOnlyList<ActivityTimelineItem> ActivityTimeline => activityTimeline;
 
-    public static Task Create(Guid projectId, TaskTitle title, WorkflowState initialState, DateTimeOffset createdAt, int sortOrder)
+    public static Task Create(
+        Guid projectId,
+        TaskTitle title,
+        WorkflowState initialState,
+        DateTimeOffset createdAt,
+        int sortOrder,
+        IEnumerable<TaskSubtask>? subtasks = null)
     {
         return new Task(
             Guid.NewGuid(),
@@ -72,13 +83,14 @@ public sealed class Task
             title.Value,
             string.Empty,
             initialState,
-                TaskLifecycleState.ActiveRecord,
+            TaskLifecycleState.ActiveRecord,
             null,
             createdAt,
             null,
-                null,
-                null,
+            null,
+            null,
             sortOrder,
+            subtasks ?? [],
             [],
             [ActivityTimelineItem.TaskCreated(createdAt)]);
     }
@@ -96,10 +108,11 @@ public sealed class Task
         DateTimeOffset? archivedAt,
         DateTimeOffset? trashedAt,
         int sortOrder,
+        IEnumerable<TaskSubtask> subtasks,
         IEnumerable<TaskReminder> reminders,
         IEnumerable<ActivityTimelineItem> activityTimeline)
     {
-        return new Task(id, projectId, title, description, currentState, lifecycleState, dueDate, createdAt, completedAt, archivedAt, trashedAt, sortOrder, reminders, activityTimeline);
+        return new Task(id, projectId, title, description, currentState, lifecycleState, dueDate, createdAt, completedAt, archivedAt, trashedAt, sortOrder, subtasks, reminders, activityTimeline);
     }
 
     public bool AddReminder(string reminderDateTime, string description, DateTimeOffset changedAt)
@@ -280,6 +293,38 @@ public sealed class Task
         return true;
     }
 
+    public bool ReplaceSubtasks(IEnumerable<TaskSubtask> updatedSubtasks, WorkflowState? reviewState, DateTimeOffset changedAt)
+    {
+        var normalizedSubtasks = updatedSubtasks
+            .OrderBy(subtask => subtask.Order)
+            .Select((subtask, index) => new TaskSubtask(subtask.Id, subtask.Title, subtask.IsChecked, index))
+            .ToArray();
+
+        var hasChanged = subtasks.Count != normalizedSubtasks.Length
+            || subtasks.Zip(normalizedSubtasks, (current, updated) => current != updated).Any(changed => changed);
+
+        subtasks.Clear();
+        subtasks.AddRange(normalizedSubtasks);
+
+        if (hasChanged)
+        {
+            activityTimeline.Add(ActivityTimelineItem.TaskChecklistChanged(changedAt));
+        }
+
+        if (LifecycleState == TaskLifecycleState.ActiveRecord
+            && CurrentState.IsCompletedState is false
+            && reviewState is not null
+            && subtasks.Count > 0
+            && subtasks.All(subtask => subtask.IsChecked)
+            && CurrentState.Key != reviewState.Key)
+        {
+            ChangeState(reviewState, changedAt);
+            return true;
+        }
+
+        return hasChanged;
+    }
+
     public TaskModel ToModel()
     {
         return new TaskModel(
@@ -295,6 +340,7 @@ public sealed class Task
             ArchivedAt,
             TrashedAt,
             SortOrder,
+            subtasks.OrderBy(subtask => subtask.Order).Select(subtask => subtask.ToModel()).ToArray(),
             reminders.Select(reminder => reminder.ToModel()).ToArray(),
             activityTimeline.Select(item => item.ToModel()).ToArray());
     }

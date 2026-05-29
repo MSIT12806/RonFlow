@@ -5,6 +5,7 @@ import type {
   ProjectInvitationResponse,
   ProjectListResponse,
   ProjectMembersResponse,
+  ProjectSubtaskTemplateListResponse,
   ProjectResponse,
 } from './types'
 
@@ -21,6 +22,19 @@ export async function createProject(name: string) {
 
 export async function getProjectBoard(projectId: string) {
   return request<ProjectBoardResponse>(apiPath(`/projects/${projectId}/board`))
+}
+
+export async function getProjectSubtaskTemplates(projectId: string) {
+  return request<ProjectSubtaskTemplateListResponse>(apiPath(`/projects/${projectId}/subtask-templates`))
+}
+
+export async function replaceProjectSubtaskTemplates(projectId: string, payload: {
+  items: Array<{ id?: string | null; title: string; order?: number | null }>
+}) {
+  return request<ProjectSubtaskTemplateListResponse>(apiPath(`/projects/${projectId}/subtask-templates`), {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
 }
 
 export async function getProjectMembers(projectId: string) {

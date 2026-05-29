@@ -17,9 +17,20 @@ public partial class Program
     public static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
+        var corsOrigins = GetAllowedCorsOrigins(builder.Configuration);
 
         builder.Services.AddOpenApi();
         builder.Services.AddControllers();
+        builder.Services.AddCors(options =>
+        {
+            options.AddPolicy("Frontend", policy =>
+            {
+                policy.WithOrigins(corsOrigins)
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .AllowCredentials();
+            });
+        });
         builder.Services.AddHttpLogging(options =>
         {
             options.LoggingFields = HttpLoggingFields.RequestMethod
@@ -72,6 +83,8 @@ public partial class Program
         builder.Services.AddSingleton<ProjectAccessService>();
         builder.Services.AddSingleton<CreateProjectCommandService>();
         builder.Services.AddSingleton<CreateTaskCommandService>();
+        builder.Services.AddSingleton<ReplaceProjectSubtaskTemplatesCommandService>();
+        builder.Services.AddSingleton<ReplaceTaskSubtasksCommandService>();
         builder.Services.AddSingleton<ChangeTaskStateCommandService>();
         builder.Services.AddSingleton<UpdateTaskCommandService>();
         builder.Services.AddSingleton<TaskContentEditLockService>();
@@ -91,6 +104,7 @@ public partial class Program
         builder.Services.AddSingleton<IPushNotificationSender, WebPushNotificationSender>();
         builder.Services.AddSingleton<GetProjectsQueryService>();
         builder.Services.AddSingleton<GetProjectBoardQueryService>();
+        builder.Services.AddSingleton<GetProjectSubtaskTemplatesQueryService>();
         builder.Services.AddSingleton<IGetProjectBoardQueryService>(serviceProvider =>
             new ObservedGetProjectBoardQueryService(serviceProvider.GetRequiredService<GetProjectBoardQueryService>()));
         builder.Services.AddSingleton<ProjectCollaborationQueryService>();
@@ -106,6 +120,7 @@ public partial class Program
             app.MapOpenApi();
         }
 
+        app.UseCors("Frontend");
         app.UseAuthentication();
         app.UseHttpLogging();
         app.UseMiddleware<ObservedOperationTimingMiddleware>();
@@ -146,6 +161,20 @@ public partial class Program
         builder.Services.AddSingleton<ICoreFlowReadStore>(serviceProvider =>
             new ObservedCoreFlowReadStore(serviceProvider.GetRequiredService<SqliteCoreFlowReadStore>()));
         builder.Services.AddSingleton<IUserDirectory, SqliteUserDirectory>();
+    }
+
+    private static string[] GetAllowedCorsOrigins(ConfigurationManager configuration)
+    {
+        var configuredOrigins = configuration["Cors:AllowedOrigins"];
+        if (string.IsNullOrWhiteSpace(configuredOrigins))
+        {
+            return ["http://localhost", "http://127.0.0.1", "http://localhost:80", "http://127.0.0.1:80"];
+        }
+
+        return configuredOrigins
+            .Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     private static string ResolveDatabasePath(string contentRootPath, string configuredDatabasePath)

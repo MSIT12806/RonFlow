@@ -94,6 +94,69 @@ public sealed class ProjectsController : AuthenticatedControllerBase
             : Results.Ok(ProjectBoardResponse.FromView(result.Resource!));
     }
 
+    [HttpGet("{projectId:guid}/subtask-templates")]
+    [ProducesResponseType<ProjectSubtaskTemplateListResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public IResult GetSubtaskTemplates(
+        Guid projectId,
+        [FromServices] GetProjectSubtaskTemplatesQueryService queryService)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = queryService.Get(currentUserId, projectId);
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
+        }
+
+        return result.NotFound
+            ? Results.NotFound()
+            : Results.Ok(ProjectSubtaskTemplateListResponse.FromView(result.Resource!));
+    }
+
+    [HttpPut("{projectId:guid}/subtask-templates")]
+    [Consumes(MediaTypeNames.Application.Json)]
+    [ProducesResponseType<ProjectSubtaskTemplateListResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public IResult ReplaceSubtaskTemplates(
+        Guid projectId,
+        [FromBody] ReplaceProjectSubtaskTemplatesRequest request,
+        [FromServices] ReplaceProjectSubtaskTemplatesCommandService commandService)
+    {
+        if (request.Items is null)
+        {
+            return ValidationResults.FromError(new ValidationError("items", "完成條件清單為必填欄位"));
+        }
+
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = commandService.Replace(
+            currentUserId,
+            projectId,
+            request.Items.Select(item => new ProjectSubtaskTemplateInput(item.Id, item.Title?.Trim() ?? string.Empty, item.Order)).ToArray());
+
+        if (result.ValidationError is not null)
+        {
+            return ValidationResults.FromError(result.ValidationError);
+        }
+
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
+        }
+
+        return result.ProjectNotFound
+            ? Results.NotFound()
+            : Results.Ok(ProjectSubtaskTemplateListResponse.FromOutput(result.Templates!));
+    }
+
     [HttpGet("{projectId:guid}/members")]
     [ProducesResponseType<ProjectMemberListResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

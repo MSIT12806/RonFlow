@@ -5,6 +5,7 @@ public sealed class Project
     private readonly IReadOnlyList<WorkflowState> workflowStates;
     private readonly List<ProjectMember> members;
     private readonly List<ProjectInvitation> invitations;
+    private readonly List<ProjectSubtaskTemplate> subtaskTemplates;
 
     private Project(
         Guid id,
@@ -14,6 +15,7 @@ public sealed class Project
         string name,
         DateTimeOffset updatedAt,
         IEnumerable<WorkflowState> workflowStates,
+        IEnumerable<ProjectSubtaskTemplate> subtaskTemplates,
         IEnumerable<ProjectMember> members,
         IEnumerable<ProjectInvitation> invitations)
     {
@@ -26,6 +28,10 @@ public sealed class Project
         this.workflowStates = workflowStates
             .Select(state => new WorkflowState(state.Key, state.Label, state.IsInitialState, state.IsCompletedState))
             .ToArray();
+        this.subtaskTemplates = subtaskTemplates
+            .OrderBy(template => template.Order)
+            .Select(template => new ProjectSubtaskTemplate(template.Id, template.Title, template.Order))
+            .ToList();
         this.members = members.ToList();
         this.invitations = invitations.ToList();
     }
@@ -44,6 +50,8 @@ public sealed class Project
 
     public IReadOnlyList<WorkflowState> WorkflowStates => workflowStates;
 
+    public IReadOnlyList<ProjectSubtaskTemplate> SubtaskTemplates => subtaskTemplates;
+
     public IReadOnlyList<ProjectMember> Members => members;
 
     public IReadOnlyList<ProjectInvitation> Invitations => invitations;
@@ -61,7 +69,7 @@ public sealed class Project
         DateTimeOffset createdAt,
         IEnumerable<WorkflowState> workflowStates)
     {
-        return new Project(Guid.NewGuid(), ownerId, ownerUserName, ownerEmail, name.Value, createdAt, workflowStates, [], []);
+        return new Project(Guid.NewGuid(), ownerId, ownerUserName, ownerEmail, name.Value, createdAt, workflowStates, [], [], []);
     }
 
     public static Project Create(ProjectName name, DateTimeOffset createdAt, IEnumerable<WorkflowState> workflowStates)
@@ -71,7 +79,7 @@ public sealed class Project
 
     public static Project Rehydrate(Guid id, Guid ownerId, string name, DateTimeOffset updatedAt, IEnumerable<WorkflowState> workflowStates)
     {
-        return Rehydrate(id, ownerId, string.Empty, string.Empty, name, updatedAt, workflowStates, [], []);
+        return Rehydrate(id, ownerId, string.Empty, string.Empty, name, updatedAt, workflowStates, [], [], []);
     }
 
     public static Project Rehydrate(
@@ -82,15 +90,22 @@ public sealed class Project
         string name,
         DateTimeOffset updatedAt,
         IEnumerable<WorkflowState> workflowStates,
+        IEnumerable<ProjectSubtaskTemplate> subtaskTemplates,
         IEnumerable<ProjectMember> members,
         IEnumerable<ProjectInvitation> invitations)
     {
-        return new Project(id, ownerId, ownerUserName, ownerEmail, name, updatedAt, workflowStates, members, invitations);
+        return new Project(id, ownerId, ownerUserName, ownerEmail, name, updatedAt, workflowStates, subtaskTemplates, members, invitations);
     }
 
     public ProjectModel ToModel()
     {
-        return new ProjectModel(Id, OwnerId, Name, UpdatedAt, workflowStates.Select(state => state.ToModel()).ToArray());
+        return new ProjectModel(
+            Id,
+            OwnerId,
+            Name,
+            UpdatedAt,
+            subtaskTemplates.OrderBy(template => template.Order).Select(template => template.ToModel()).ToArray(),
+            workflowStates.Select(state => state.ToModel()).ToArray());
     }
 
     public ProjectSummaryModel ToSummaryModel()
@@ -199,6 +214,27 @@ public sealed class Project
     public WorkflowState? FindWorkflowState(string stateKey)
     {
         return workflowStates.FirstOrDefault(state => state.Key == stateKey);
+    }
+
+    public void ReplaceSubtaskTemplates(IEnumerable<(Guid? Id, string Title, int Order)> templates, DateTimeOffset updatedAt)
+    {
+        subtaskTemplates.Clear();
+        subtaskTemplates.AddRange(
+            templates
+                .OrderBy(template => template.Order)
+                .Select(template => new ProjectSubtaskTemplate(
+                    template.Id.GetValueOrDefault(Guid.NewGuid()),
+                    template.Title,
+                    template.Order)));
+        Touch(updatedAt);
+    }
+
+    public IReadOnlyList<TaskSubtask> CreateSubtasksFromTemplates()
+    {
+        return subtaskTemplates
+            .OrderBy(template => template.Order)
+            .Select(template => new TaskSubtask(Guid.NewGuid(), template.Title, false, template.Order))
+            .ToArray();
     }
 
     public void Touch(DateTimeOffset updatedAt)

@@ -39,6 +39,16 @@ internal static class CoreFlowJsonSerializer
 
         writer.WriteEndArray();
 
+        writer.WritePropertyName("subtaskTemplates");
+        writer.WriteStartArray();
+
+        foreach (var template in project.SubtaskTemplates)
+        {
+            WriteProjectSubtaskTemplate(writer, template);
+        }
+
+        writer.WriteEndArray();
+
         writer.WritePropertyName("members");
         writer.WriteStartArray();
 
@@ -105,6 +115,12 @@ internal static class CoreFlowJsonSerializer
                 .EnumerateArray()
                 .Select(ReadWorkflowState)
                 .ToArray(),
+            root.TryGetProperty("subtaskTemplates", out var subtaskTemplatesElement) && subtaskTemplatesElement.ValueKind != JsonValueKind.Null
+                ? subtaskTemplatesElement
+                    .EnumerateArray()
+                    .Select(ReadProjectSubtaskTemplate)
+                    .ToArray()
+                : [],
             root.TryGetProperty("members", out var membersElement) && membersElement.ValueKind != JsonValueKind.Null
                 ? membersElement
                     .EnumerateArray()
@@ -190,6 +206,16 @@ internal static class CoreFlowJsonSerializer
 
         writer.WriteNumber("sortOrder", task.SortOrder);
 
+        writer.WritePropertyName("subtasks");
+        writer.WriteStartArray();
+
+        foreach (var subtask in task.Subtasks)
+        {
+            WriteTaskSubtask(writer, subtask);
+        }
+
+        writer.WriteEndArray();
+
         writer.WritePropertyName("reminders");
         writer.WriteStartArray();
 
@@ -253,6 +279,12 @@ internal static class CoreFlowJsonSerializer
         var sortOrder = root.TryGetProperty("sortOrder", out var sortOrderElement)
             ? sortOrderElement.GetInt32()
             : 0;
+        var subtasks = root.TryGetProperty("subtasks", out var subtasksElement) && subtasksElement.ValueKind != JsonValueKind.Null
+            ? subtasksElement
+                .EnumerateArray()
+                .Select(ReadTaskSubtask)
+                .ToArray()
+            : [];
         var reminders = root.TryGetProperty("reminders", out var remindersElement) && remindersElement.ValueKind != JsonValueKind.Null
             ? remindersElement
                 .EnumerateArray()
@@ -282,6 +314,7 @@ internal static class CoreFlowJsonSerializer
             archivedAt,
             trashedAt,
             sortOrder,
+            subtasks,
             reminders,
             root.GetProperty("activityTimeline")
                 .EnumerateArray()
@@ -316,6 +349,23 @@ internal static class CoreFlowJsonSerializer
             element.GetProperty("occurredAt").GetDateTimeOffset());
     }
 
+    private static ProjectSubtaskTemplate ReadProjectSubtaskTemplate(JsonElement element)
+    {
+        return new ProjectSubtaskTemplate(
+            element.GetProperty("id").GetGuid(),
+            GetRequiredString(element, "title"),
+            element.TryGetProperty("order", out var orderElement) ? orderElement.GetInt32() : 0);
+    }
+
+    private static TaskSubtask ReadTaskSubtask(JsonElement element)
+    {
+        return new TaskSubtask(
+            element.GetProperty("id").GetGuid(),
+            GetRequiredString(element, "title"),
+            element.TryGetProperty("isChecked", out var isCheckedElement) && isCheckedElement.GetBoolean(),
+            element.TryGetProperty("order", out var orderElement) ? orderElement.GetInt32() : 0);
+    }
+
     private static void WriteWorkflowState(Utf8JsonWriter writer, WorkflowState workflowState)
     {
         writer.WriteStartObject();
@@ -323,6 +373,25 @@ internal static class CoreFlowJsonSerializer
         writer.WriteString("label", workflowState.Label);
         writer.WriteBoolean("isInitialState", workflowState.IsInitialState);
         writer.WriteBoolean("isCompletedState", workflowState.IsCompletedState);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteProjectSubtaskTemplate(Utf8JsonWriter writer, ProjectSubtaskTemplate template)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("id", template.Id);
+        writer.WriteString("title", template.Title);
+        writer.WriteNumber("order", template.Order);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteTaskSubtask(Utf8JsonWriter writer, TaskSubtask subtask)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("id", subtask.Id);
+        writer.WriteString("title", subtask.Title);
+        writer.WriteBoolean("isChecked", subtask.IsChecked);
+        writer.WriteNumber("order", subtask.Order);
         writer.WriteEndObject();
     }
 

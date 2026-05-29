@@ -119,6 +119,48 @@ public sealed class TasksController : AuthenticatedControllerBase
             : Results.Ok(TaskDetailResponse.FromOutput(result.Task!));
     }
 
+    [HttpPut("{taskId:guid}/subtasks")]
+    [Consumes(MediaTypeNames.Application.Json)]
+    [ProducesResponseType<TaskDetailResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public IResult ReplaceSubtasks(
+        Guid projectId,
+        Guid taskId,
+        [FromBody] ReplaceTaskSubtasksRequest request,
+        [FromServices] ReplaceTaskSubtasksCommandService commandService)
+    {
+        if (request.Items is null)
+        {
+            return ValidationResults.FromError(new ValidationError("items", "完成條件清單為必填欄位"));
+        }
+
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = commandService.Replace(
+            currentUserId,
+            projectId,
+            taskId,
+            request.Items.Select(item => new TaskSubtaskInput(item.Id, item.Title?.Trim() ?? string.Empty, item.IsChecked, item.Order)).ToArray());
+
+        if (result.ValidationError is not null)
+        {
+            return ValidationResults.FromError(result.ValidationError);
+        }
+
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
+        }
+
+        return result.TaskNotFound
+            ? Results.NotFound()
+            : Results.Ok(TaskDetailResponse.FromOutput(result.Task!));
+    }
+
     [HttpPost("{taskId:guid}/content-edit-lock")]
     [ProducesResponseType<TaskDetailResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

@@ -12,6 +12,15 @@
             v-if="canManageMembers"
             type="button"
             class="secondary-button"
+            @click="$emit('open-project-subtask-templates')"
+          >
+            完成條件模板
+          </button>
+
+          <button
+            v-if="canManageMembers"
+            type="button"
+            class="secondary-button"
             @click="$emit('open-project-members')"
           >
             專案成員
@@ -117,6 +126,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (event: 'open-create-task'): void
+  (event: 'open-project-subtask-templates'): void
   (event: 'open-project-members'): void
   (event: 'open-archived-tasks'): void
   (event: 'open-trash-view'): void

@@ -38,6 +38,15 @@ export async function updateTask(projectId: string, taskId: string, payload: {
   })
 }
 
+export async function replaceTaskSubtasks(projectId: string, taskId: string, payload: {
+  items: Array<{ id?: string | null; title: string; isChecked: boolean; order?: number | null }>
+}) {
+  return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}/subtasks`), {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+
 export async function reorderTask(projectId: string, taskId: string, targetTaskId: string) {
   return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}/order`), {
     method: 'PATCH',

@@ -19,6 +19,23 @@ export type TaskReminderResponse = {
   description: string
 }
 
+export type ProjectSubtaskTemplateResponse = {
+  id: string
+  title: string
+  order: number
+}
+
+export type ProjectSubtaskTemplateListResponse = {
+  items: ProjectSubtaskTemplateResponse[]
+}
+
+export type TaskSubtaskResponse = {
+  id: string
+  title: string
+  isChecked: boolean
+  order: number
+}
+
 export type TaskDetailResponse = {
   id: string
   projectId: string
@@ -29,6 +46,7 @@ export type TaskDetailResponse = {
   dueDate: string | null
   createdAt: string
   completedAt: string | null
+  subtasks: TaskSubtaskResponse[]
   reminders?: TaskReminderResponse[]
   activityTimeline: ActivityTimelineItemResponse[]
   canEnterEdit: boolean

@@ -45,6 +45,10 @@ public sealed record BoardTaskCardView(Guid Id, string Title);
 
 public sealed record WorkflowStateView(string Key, string Label, bool IsInitialState, bool IsCompletedState);
 
+public sealed record ProjectSubtaskTemplateView(Guid Id, string Title, int Order);
+
+public sealed record TaskSubtaskView(Guid Id, string Title, bool IsChecked, int Order);
+
 public sealed record TaskDetailView(
     Guid Id,
     Guid ProjectId,
@@ -55,8 +59,11 @@ public sealed record TaskDetailView(
     DateOnly? DueDate,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
+    IReadOnlyList<TaskSubtaskView> Subtasks,
     IReadOnlyList<TaskReminderView> Reminders,
     IReadOnlyList<ActivityTimelineItemView> ActivityTimeline);
+
+public sealed record ProjectSubtaskTemplateListView(IReadOnlyList<ProjectSubtaskTemplateView> Items);
 
 public sealed record LifecycleTaskListView(IReadOnlyList<LifecycleTaskListItemView> Items);
 
@@ -93,6 +100,11 @@ internal static class CoreFlowReadModelFactory
             project.WorkflowStates.Select(CreateWorkflowState).ToArray());
     }
 
+    public static ProjectSubtaskTemplateListView CreateProjectSubtaskTemplates(ProjectModel project)
+    {
+        return new ProjectSubtaskTemplateListView(project.SubtaskTemplates.Select(CreateProjectSubtaskTemplate).ToArray());
+    }
+
     public static ProjectBoardView CreateProjectBoard(ProjectBoardModel board)
     {
         var columns = board.WorkflowStates
@@ -124,6 +136,7 @@ internal static class CoreFlowReadModelFactory
             task.DueDate,
             task.CreatedAt,
             task.CompletedAt,
+            task.Subtasks.Select(CreateTaskSubtask).ToArray(),
             task.Reminders.Select(CreateTaskReminder).ToArray(),
             task.ActivityTimeline.Select(CreateActivityTimelineItem).ToArray());
     }
@@ -162,6 +175,16 @@ internal static class CoreFlowReadModelFactory
     private static ActivityTimelineItemView CreateActivityTimelineItem(ActivityTimelineItemModel activityTimelineItem)
     {
         return new ActivityTimelineItemView(activityTimelineItem.Type, activityTimelineItem.Message, activityTimelineItem.OccurredAt);
+    }
+
+    private static ProjectSubtaskTemplateView CreateProjectSubtaskTemplate(ProjectSubtaskTemplateModel template)
+    {
+        return new ProjectSubtaskTemplateView(template.Id, template.Title, template.Order);
+    }
+
+    private static TaskSubtaskView CreateTaskSubtask(TaskSubtaskModel subtask)
+    {
+        return new TaskSubtaskView(subtask.Id, subtask.Title, subtask.IsChecked, subtask.Order);
     }
 
     private static TaskReminderView CreateTaskReminder(TaskReminderModel reminder)

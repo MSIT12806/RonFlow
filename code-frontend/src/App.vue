@@ -61,6 +61,7 @@
             :command-error-message="boardCommandError"
             :can-manage-members="activeProject?.role !== '專案成員'"
             @open-create-task="onOpenCreateTask"
+            @open-project-subtask-templates="openProjectSubtaskTemplatesModal"
             @open-project-members="openProjectMembersPanel"
             @open-archived-tasks="openArchivedTasksView"
             @open-trash-view="openTrashView"
@@ -160,6 +161,19 @@
       @restore="onRestoreTask"
     />
 
+    <ProjectSubtaskTemplatesModal
+      v-if="isAuthenticated"
+      :is-open="isProjectSubtaskTemplatesOpen"
+      :is-loading="isLoadingProjectSubtaskTemplates"
+      :is-saving="isSavingProjectSubtaskTemplates"
+      :error-message="projectSubtaskTemplatesError"
+      :save-error-message="projectSubtaskTemplatesCommandError"
+      :project-name="activeProject?.name ?? null"
+      :items="projectSubtaskTemplates"
+      @close="closeProjectSubtaskTemplatesModal"
+      @save="onSaveProjectSubtaskTemplates"
+    />
+
     <section v-if="!isAuthenticated" class="workspace-shell auth-shell">
       <RonAuthEntryPanel
         :is-initializing="isInitializingAuth"
@@ -184,14 +198,16 @@ import LifecycleTaskListView from './components/LifecycleTaskListView.vue'
 import ProjectBoard from './components/ProjectBoard.vue'
 import ProjectMembersPanel from './components/ProjectMembersPanel.vue'
 import ProjectSidebar from './components/ProjectSidebar.vue'
+import ProjectSubtaskTemplatesModal from './components/ProjectSubtaskTemplatesModal.vue'
 import RonAuthEntryPanel from './components/RonAuthEntryPanel.vue'
 import TaskDetailModal from './components/TaskDetailModal.vue'
 import type { PasswordLoginInput, RegisterUserInput } from './api/ronauth'
-import { activateRonFlowSession, releaseRonFlowProjectScope } from './api/ronflowApi'
-import { ProjectQueryService } from './application'
+import type { ProjectSubtaskTemplateResponse } from './api/ronflowApi'
+import { ApiValidationError, activateRonFlowSession, releaseRonFlowProjectScope } from './api/ronflowApi'
+import { ProjectCommandService, ProjectQueryService } from './application'
 import { usePushNotifications } from './composables/usePushNotifications'
 import { useRonFlowAuth } from './composables/useRonFlowAuth'
-import { useRonFlowBoard, type TaskDetailMode } from './composables/useRonFlowBoard'
+import { useRonFlowBoard, type EditableTaskSubtask, type TaskDetailMode } from './composables/useRonFlowBoard'
 import { onRonFlowSessionInvalidated } from './ronflowSession'
 
 type WorkspaceView = 'board' | 'members' | 'invitations' | 'archived' | 'trash'
@@ -203,8 +219,15 @@ const createProjectModalRef = ref<InstanceType<typeof CreateProjectModal> | null
 const createTaskModalRef = ref<InstanceType<typeof CreateTaskModal> | null>(null)
 const currentWorkspaceView = ref<WorkspaceView>('board')
 const invitationInboxCount = ref(0)
+const isProjectSubtaskTemplatesOpen = ref(false)
+const isLoadingProjectSubtaskTemplates = ref(false)
+const isSavingProjectSubtaskTemplates = ref(false)
+const projectSubtaskTemplates = ref<ProjectSubtaskTemplateResponse[]>([])
+const projectSubtaskTemplatesError = ref('')
+const projectSubtaskTemplatesCommandError = ref('')
 
 const projectQueryService = new ProjectQueryService()
+const projectCommandService = new ProjectCommandService()
 let workspacePollTimer: ReturnType<typeof window.setInterval> | null = null
 let isPollingWorkspace = false
 let removeSessionInvalidatedListener: (() => void) | null = null
@@ -457,8 +480,14 @@ async function onTaskCreated() {
   }
 }
 
-async function onTaskDetailSave(payload: { taskId: string; title: string; description: string; dueDate: string | null }) {
-  await updateTaskDetail(payload.taskId, payload.title, payload.description, payload.dueDate)
+async function onTaskDetailSave(payload: {
+  taskId: string
+  title: string
+  description: string
+  dueDate: string | null
+  subtasks: EditableTaskSubtask[]
+}) {
+  await updateTaskDetail(payload.taskId, payload.title, payload.description, payload.dueDate, payload.subtasks)
 }
 
 async function onAddReminder(payload: { taskId: string; reminderDateTime: string; description: string }) {
@@ -495,6 +524,63 @@ function openProjectMembersPanel() {
   }
 
   currentWorkspaceView.value = 'members'
+}
+
+async function loadProjectSubtaskTemplates(projectId: string) {
+  isLoadingProjectSubtaskTemplates.value = true
+  projectSubtaskTemplatesError.value = ''
+
+  try {
+    const response = await projectQueryService.getSubtaskTemplates(projectId)
+    projectSubtaskTemplates.value = response.items
+  } catch {
+    projectSubtaskTemplatesError.value = '無法載入完成條件模板，請稍後再試。'
+  } finally {
+    isLoadingProjectSubtaskTemplates.value = false
+  }
+}
+
+async function openProjectSubtaskTemplatesModal() {
+  if (!activeProjectId.value || activeProject.value?.role === '專案成員') {
+    return
+  }
+
+  isProjectSubtaskTemplatesOpen.value = true
+  projectSubtaskTemplatesCommandError.value = ''
+  await loadProjectSubtaskTemplates(activeProjectId.value)
+}
+
+function closeProjectSubtaskTemplatesModal() {
+  if (isSavingProjectSubtaskTemplates.value) {
+    return
+  }
+
+  isProjectSubtaskTemplatesOpen.value = false
+  projectSubtaskTemplatesError.value = ''
+  projectSubtaskTemplatesCommandError.value = ''
+}
+
+async function onSaveProjectSubtaskTemplates(payload: Array<{ id: string | null; title: string; order: number }>) {
+  if (!activeProjectId.value) {
+    return
+  }
+
+  isSavingProjectSubtaskTemplates.value = true
+  projectSubtaskTemplatesCommandError.value = ''
+
+  try {
+    const response = await projectCommandService.replaceSubtaskTemplates(activeProjectId.value, payload)
+    projectSubtaskTemplates.value = response.items
+    isProjectSubtaskTemplatesOpen.value = false
+  } catch (error) {
+    if (error instanceof ApiValidationError) {
+      projectSubtaskTemplatesCommandError.value = error.errors.items?.[0] ?? '完成條件標題為必填欄位'
+    } else {
+      projectSubtaskTemplatesCommandError.value = '儲存完成條件模板失敗，請稍後再試。'
+    }
+  } finally {
+    isSavingProjectSubtaskTemplates.value = false
+  }
 }
 
 async function openInvitationInbox() {
