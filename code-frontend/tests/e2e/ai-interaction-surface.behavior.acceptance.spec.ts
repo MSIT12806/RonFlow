@@ -13,7 +13,7 @@ type ProcessEnvironment = typeof globalThis & {
 }
 
 const backendApiBaseUrl = (globalThis as ProcessEnvironment).process?.env?.RONFLOW_E2E_BACKEND_API_BASE_URL
-  ?? 'http://127.0.0.1:5079/api'
+  ?? 'http://127.0.0.1:8507/api'
 
 const aiRoutes = {
   bootstrap: `${backendApiBaseUrl}/ai/bootstrap`,

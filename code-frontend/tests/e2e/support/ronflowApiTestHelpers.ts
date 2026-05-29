@@ -60,10 +60,10 @@ export type TestHttpFault = {
 }
 
 const ronAuthApiBaseUrl = (globalThis as ProcessEnvironment).process?.env?.RONFLOW_E2E_RONAUTH_API_BASE_URL
-  ?? 'http://127.0.0.1:5136/api/auth'
+  ?? 'http://127.0.0.1:8513/api/auth'
 
 const backendApiBaseUrl = (globalThis as ProcessEnvironment).process?.env?.RONFLOW_E2E_BACKEND_API_BASE_URL
-  ?? 'http://127.0.0.1:5079/api'
+  ?? 'http://127.0.0.1:8507/api'
 
 function authHeaders(accessToken: string) {
   return {
