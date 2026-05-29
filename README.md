@@ -63,6 +63,19 @@ RonFlow 採用 spec-first 的開發流程。
 
 ## 建置說明
 
+## Localhost 自動部署
+
+若要把 RonFlow / RonAuth API 與 RonFlow frontend 一次部署到 `http://localhost`，請使用 [scripts/deployment/Deploy-LocalhostSites.ps1](scripts/deployment/Deploy-LocalhostSites.ps1)。
+
+正式要求：
+
+- 這支腳本請用 PowerShell 7 (`pwsh`) 執行。
+- Windows PowerShell 5.1 不再視為支援的執行環境。
+
+原因是 localhost 部署流程會啟動多個原生程序並執行 frontend production build；這條路徑已在 PowerShell 7 驗證可正常完成，但在 Windows PowerShell 5.1 下曾出現 host 與原生程序互動異常，導致腳本無法穩定跑完。
+
+使用方式與參數說明請看 [scripts/deployment/README.md](scripts/deployment/README.md)。
+
 ### 前端建置
 
 code-frontend 已初始化完成，可使用以下流程：
