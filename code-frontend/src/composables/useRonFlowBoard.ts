@@ -116,6 +116,10 @@ export function useRonFlowBoard() {
           return error.errors.items?.[0] ?? '完成條件標題為必填欄位'
         }
 
+        if (error instanceof ApiRequestError && error.status === 409) {
+          return '目前有其他使用者正在編輯此任務，暫時無法更新完成條件。'
+        }
+
         if (error instanceof ApiRequestError && error.status === 404) {
           return '找不到指定的任務，請重新整理專案看板。'
         }
@@ -448,6 +452,46 @@ export function useRonFlowBoard() {
       if (error instanceof ApiValidationError) {
         taskTitleValidationError.value = error.errors.title?.[0] ?? '任務標題為必填欄位'
       }
+    }
+  }
+
+  async function replaceTaskSubtasks(taskId: string, subtasks: EditableTaskSubtask[]) {
+    if (!activeProjectId.value) {
+      return false
+    }
+
+    replaceTaskSubtasksResource.reset()
+
+    try {
+      const updatedTask = await replaceTaskSubtasksResource.execute(
+        activeProjectId.value,
+        taskId,
+        subtasks.map((subtask, index) => ({
+          id: subtask.id,
+          title: subtask.title,
+          isChecked: subtask.isChecked,
+          order: index,
+        })),
+      )
+
+      taskDetailResource.setData({
+        ...updatedTask,
+        canEnterEdit: true,
+      })
+      await loadBoard(activeProjectId.value)
+      return true
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 409) {
+        setSelectedTaskCanEnterEdit(false)
+      }
+
+      try {
+        const task = await taskQueryService.getDetail(activeProjectId.value, taskId)
+        taskDetailResource.setData(task)
+        taskDetailMode.value = resolveTaskDetailMode(task.lifecycleState)
+      } catch {}
+
+      return false
     }
   }
 
@@ -795,6 +839,7 @@ export function useRonFlowBoard() {
     closeTaskDetail,
     moveTaskToState,
     updateTaskDetail,
+    replaceTaskSubtasks,
     createReminder,
     deleteReminder,
     reorderTaskWithinColumn,

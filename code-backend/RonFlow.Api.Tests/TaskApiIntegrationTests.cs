@@ -575,6 +575,53 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
     }
 
     [Test]
+    public async Task ReplaceTaskSubtasks_WhenAnotherUserHoldsContentEditLock_ReturnsConflict()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var createdTask = await CreateTaskAsync(project.Id, "Build Kanban Board");
+        using var memberClient = CreateAuthenticatedClient(TestUser.OwnerB);
+
+        await EnsureKnownUserAsync(Client);
+        await EnsureKnownUserAsync(memberClient);
+
+        var invitationResponse = await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/invitations",
+            new CreateProjectInvitationRequest(TestUser.OwnerB.Email));
+
+        Assert.That(invitationResponse.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+
+        var invitation = await invitationResponse.Content.ReadFromJsonAsync<ProjectInvitationResponse>();
+        Assert.That(invitation, Is.Not.Null);
+
+        var acceptResponse = await memberClient.PostAsync($"/api/invitations/{invitation!.Id}/accept", content: null);
+        Assert.That(acceptResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var ownerAcquireResponse = await Client.PostAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}/content-edit-lock", content: null);
+        Assert.That(ownerAcquireResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var detailResponse = await memberClient.GetAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}");
+        var detail = await detailResponse.Content.ReadFromJsonAsync<ChecklistTaskDetailResponse>();
+
+        Assert.That(detailResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(detail, Is.Not.Null);
+
+        var replaceResponse = await memberClient.PutAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{createdTask.Id}/subtasks",
+            new
+            {
+                items = detail!.Subtasks.Select(item => new
+                {
+                    id = item.Id,
+                    title = item.Title,
+                    isChecked = !item.IsChecked,
+                    order = item.Order,
+                }).ToArray(),
+            });
+
+        Assert.That(replaceResponse.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+    }
+
+    [Test]
     public async Task ChangeTaskState_ToDoneFromActive_UpdatesBoardAndTaskDetail()
     {
         var project = await CreateProjectAsync("RonFlow Project");

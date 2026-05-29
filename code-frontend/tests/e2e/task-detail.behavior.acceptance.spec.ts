@@ -144,7 +144,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Detail Behavior', () => {
     await expect(page.getByTestId('workflow-column-todo')).not.toContainText(taskTitle)
   })
 
-  test('project template 建立後，新 task 應繼承 checklist，全部勾選後自動進入 review', async ({ page }, testInfo) => {
+  test('project template 建立後，新 task 應繼承 checklist，view mode 全部勾選後自動進入 review', async ({ page }, testInfo) => {
     const { projectName, taskTitle } = createScenarioData(testInfo)
     const user = createRonFlowAuthUser('owner')
 
@@ -170,12 +170,10 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Detail Behavior', () => {
     await expect(detailDialog.getByTestId('task-subtask-item').nth(0).getByRole('textbox')).toHaveValue('需求已釐清')
     await expect(detailDialog.getByTestId('task-subtask-item').nth(1).getByRole('textbox')).toHaveValue('驗收測試已撰寫')
 
-    await detailDialog.getByRole('button', { name: '編輯', exact: true }).click()
     await detailDialog.getByTestId('task-subtask-item').nth(0).getByRole('checkbox').check()
     await detailDialog.getByTestId('task-subtask-item').nth(1).getByRole('checkbox').check()
-    await detailDialog.getByRole('button', { name: '儲存變更', exact: true }).click()
 
-    await expect(page.getByTestId('workflow-column-review')).toContainText(taskTitle)
+    await expect(page.getByTestId('workflow-column-review')).toContainText(taskTitle, { timeout: 10000 })
     await expect(page.getByTestId('workflow-column-done')).not.toContainText(taskTitle)
   })
 

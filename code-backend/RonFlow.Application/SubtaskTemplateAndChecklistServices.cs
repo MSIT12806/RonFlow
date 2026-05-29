@@ -74,6 +74,7 @@ public sealed class ReplaceTaskSubtasksCommandService(
     IProjectRepository projectRepository,
     ProjectAccessService projectAccessService,
     ITaskRepository taskRepository,
+    TaskContentEditLockService taskContentEditLockService,
     TimeProvider timeProvider)
 {
     public ReplaceTaskSubtasksResult Replace(Guid currentUserId, Guid projectId, Guid taskId, IReadOnlyList<TaskSubtaskInput> inputs)
@@ -110,6 +111,11 @@ public sealed class ReplaceTaskSubtasksCommandService(
         if (task is null || task.ProjectId != projectId)
         {
             return ReplaceTaskSubtasksResult.NotFound();
+        }
+
+        if (taskContentEditLockService.IsHeldByAnotherUser(currentUserId, taskId))
+        {
+            return ReplaceTaskSubtasksResult.Locked();
         }
 
         var reviewState = project.FindWorkflowState("review");

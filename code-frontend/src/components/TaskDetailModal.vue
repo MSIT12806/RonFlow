@@ -153,15 +153,16 @@
                 <div class="detail-checklist-row">
                   <input
                     :id="`task-subtask-${index}`"
-                    v-model="subtask.isChecked"
+                    :checked="subtask.isChecked"
                     type="checkbox"
-                    :disabled="isSaving || isReadOnly"
+                    :disabled="isSaving || !canToggleSubtaskCheckbox"
+                    @change="onSubtaskCheckedChanged(index, $event)"
                   >
 
                   <InputText
                     :model-value="subtask.title"
                     fluid
-                    :disabled="isSaving || isReadOnly"
+                    :disabled="isSaving || isChecklistTextReadOnly"
                     @update:model-value="updateSubtaskTitle(index, $event)"
                   />
 
@@ -331,6 +332,10 @@ const emit = defineEmits<{
     dueDate: string | null
     subtasks: Array<{ id: string | null; title: string; isChecked: boolean; order: number }>
   }): void
+  (event: 'replace-subtasks', payload: {
+    taskId: string
+    subtasks: Array<{ id: string | null; title: string; isChecked: boolean; order: number }>
+  }): void
   (event: 'add-reminder', payload: { taskId: string; reminderDateTime: string; description: string }): void
   (event: 'delete-reminder', payload: { taskId: string; reminderId: string }): void
   (event: 'enable-reminder-delivery'): void
@@ -351,6 +356,8 @@ const isLifecycleReadOnly = computed(() => props.mode !== 'active')
 const canEnterEdit = computed(() => !isLifecycleReadOnly.value && (props.canEnterEdit ?? true))
 const isEditing = computed(() => !isLifecycleReadOnly.value && Boolean(props.isEditing))
 const isReadOnly = computed(() => isLifecycleReadOnly.value || !isEditing.value)
+const canToggleSubtaskCheckbox = computed(() => !isLifecycleReadOnly.value && canEnterEdit.value)
+const isChecklistTextReadOnly = computed(() => isLifecycleReadOnly.value || !isEditing.value)
 const taskReminders = computed(() => props.task?.reminders ?? [])
 const reminderValidationError = computed(() =>
   props.reminderDatetimeValidationError
@@ -481,6 +488,31 @@ function updateSubtaskTitle(index: number, value: string | undefined) {
       ? { ...subtask, title: value ?? '' }
       : subtask,
   )
+}
+
+function onSubtaskCheckedChanged(index: number, event: Event) {
+  const checkbox = event.target as HTMLInputElement | null
+  const isChecked = checkbox?.checked ?? false
+
+  draftSubtasks.value = draftSubtasks.value.map((subtask, currentIndex) =>
+    currentIndex === index
+      ? { ...subtask, isChecked }
+      : subtask,
+  )
+
+  if (!props.task || props.isSaving || isLifecycleReadOnly.value || isEditing.value) {
+    return
+  }
+
+  emit('replace-subtasks', {
+    taskId: props.task.id,
+    subtasks: draftSubtasks.value.map((subtask, currentIndex) => ({
+      id: subtask.id,
+      title: subtask.title,
+      isChecked: subtask.isChecked,
+      order: currentIndex,
+    })),
+  })
 }
 
 function moveSubtask(index: number, direction: -1 | 1) {

@@ -116,26 +116,31 @@ public sealed record UpdateTaskResult(CreateTaskOutput? Task, ValidationError? V
     }
 }
 
-public sealed record ReplaceTaskSubtasksResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound, bool AccessDenied)
+public sealed record ReplaceTaskSubtasksResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound, bool AccessDenied, bool Conflict)
 {
     public static ReplaceTaskSubtasksResult Success(CreateTaskOutput task)
     {
-        return new(task, null, false, false);
+        return new(task, null, false, false, false);
     }
 
     public static ReplaceTaskSubtasksResult Invalid(string field, string message)
     {
-        return new(null, new ValidationError(field, message), false, false);
+        return new(null, new ValidationError(field, message), false, false, false);
     }
 
     public static ReplaceTaskSubtasksResult NotFound()
     {
-        return new(null, null, true, false);
+        return new(null, null, true, false, false);
     }
 
     public static ReplaceTaskSubtasksResult Denied()
     {
-        return new(null, null, false, true);
+        return new(null, null, false, true, false);
+    }
+
+    public static ReplaceTaskSubtasksResult Locked()
+    {
+        return new(null, null, false, false, true);
     }
 }
 
