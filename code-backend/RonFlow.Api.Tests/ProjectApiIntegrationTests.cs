@@ -6,6 +6,10 @@ namespace RonFlow.Api.Tests;
 
 public sealed class ProjectApiIntegrationTests : ApiIntegrationTestBase
 {
+    public sealed record ProjectSubtaskTemplateResponse(Guid Id, string Title, int Order);
+
+    public sealed record ProjectSubtaskTemplateListResponse(IReadOnlyList<ProjectSubtaskTemplateResponse> Items);
+
     [Test]
     public async Task GetProjects_WhenAuthenticatedUserHasNoProjects_ReturnsEmptyList()
     {
@@ -180,5 +184,51 @@ public sealed class ProjectApiIntegrationTests : ApiIntegrationTestBase
         var response = await outsiderClient.GetAsync($"/api/projects/{project.Id}/board");
 
         await AssertAccessDeniedAsync(response);
+    }
+
+    [Test]
+    public async Task ReplaceProjectSubtaskTemplates_WithValidPayload_PersistsOrderedTemplates()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+
+        var replaceResponse = await Client.PutAsJsonAsync(
+            $"/api/projects/{project.Id}/subtask-templates",
+            new
+            {
+                items = new[]
+                {
+                    new { title = "需求已釐清" },
+                    new { title = "spec 文件已寫入" },
+                    new { title = "已部署到 localhost" },
+                },
+            });
+
+        Assert.That(replaceResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var replacedTemplates = await replaceResponse.Content.ReadFromJsonAsync<ProjectSubtaskTemplateListResponse>();
+
+        Assert.That(replacedTemplates, Is.Not.Null);
+        Assert.That(replacedTemplates!.Items.Select(item => item.Title), Is.EqualTo(new[]
+        {
+            "需求已釐清",
+            "spec 文件已寫入",
+            "已部署到 localhost",
+        }));
+        Assert.That(replacedTemplates.Items.Select(item => item.Order), Is.EqualTo(new[] { 0, 1, 2 }));
+        Assert.That(replacedTemplates.Items.All(item => item.Id != Guid.Empty), Is.True);
+
+        var getResponse = await Client.GetAsync($"/api/projects/{project.Id}/subtask-templates");
+
+        Assert.That(getResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var fetchedTemplates = await getResponse.Content.ReadFromJsonAsync<ProjectSubtaskTemplateListResponse>();
+
+        Assert.That(fetchedTemplates, Is.Not.Null);
+        Assert.That(fetchedTemplates!.Items.Select(item => item.Title), Is.EqualTo(new[]
+        {
+            "需求已釐清",
+            "spec 文件已寫入",
+            "已部署到 localhost",
+        }));
     }
 }

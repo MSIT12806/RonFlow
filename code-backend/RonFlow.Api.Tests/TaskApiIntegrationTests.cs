@@ -9,6 +9,16 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
 {
     public sealed record ProjectInvitationResponse(Guid Id, string Invitee, string Status);
 
+    public sealed record TaskSubtaskResponse(Guid Id, string Title, bool IsChecked, int Order);
+
+    public sealed record ChecklistTaskDetailResponse(
+        Guid Id,
+        Guid ProjectId,
+        string Title,
+        WorkflowStateResponse CurrentState,
+        DateTimeOffset? CompletedAt,
+        IReadOnlyList<TaskSubtaskResponse> Subtasks);
+
     public sealed record LifecycleTaskListResponse(IReadOnlyList<LifecycleTaskListItemResponse> Items);
 
     public sealed record LifecycleTaskListItemResponse(
@@ -77,6 +87,39 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
 
         Assert.That(todoColumn.Tasks.Select(card => card.Title), Does.Contain("Build Kanban Board"));
         Assert.That(board.Columns.Where(column => column.StateKey != "todo").All(column => column.Tasks.Count == 0), Is.True);
+    }
+
+    [Test]
+    public async Task CreateTask_WhenProjectHasSubtaskTemplates_InheritsUncheckedSubtasks()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+
+        var templateResponse = await Client.PutAsJsonAsync(
+            $"/api/projects/{project.Id}/subtask-templates",
+            new
+            {
+                items = new[]
+                {
+                    new { title = "需求已釐清" },
+                    new { title = "驗收測試已撰寫" },
+                },
+            });
+
+        Assert.That(templateResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var createResponse = await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks",
+            new CreateTaskRequest("Build Kanban Board"));
+
+        Assert.That(createResponse.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+
+        var task = await createResponse.Content.ReadFromJsonAsync<ChecklistTaskDetailResponse>();
+
+        Assert.That(task, Is.Not.Null);
+        Assert.That(task!.CurrentState.Key, Is.EqualTo("todo"));
+        Assert.That(task.Subtasks.Select(item => item.Title), Is.EqualTo(new[] { "需求已釐清", "驗收測試已撰寫" }));
+        Assert.That(task.Subtasks.Select(item => item.Order), Is.EqualTo(new[] { 0, 1 }));
+        Assert.That(task.Subtasks.All(item => item.IsChecked is false), Is.True);
     }
 
     [Test]
@@ -472,6 +515,63 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
         Assert.That(detail.CompletedAt, Is.Null);
         Assert.That(detail.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskStateChanged"));
         Assert.That(detail.ActivityTimeline.Select(item => item.Type), Does.Not.Contain("TaskCompleted"));
+    }
+
+    [Test]
+    public async Task ReplaceTaskSubtasks_WhenAllItemsAreChecked_AutoMovesTaskToReviewButNotDone()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+
+        var templateResponse = await Client.PutAsJsonAsync(
+            $"/api/projects/{project.Id}/subtask-templates",
+            new
+            {
+                items = new[]
+                {
+                    new { title = "需求已釐清" },
+                    new { title = "已部署到 localhost" },
+                },
+            });
+
+        Assert.That(templateResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var createdTask = await CreateTaskAsync(project.Id, "Build Kanban Board");
+
+        var detailResponse = await Client.GetAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}");
+        var detail = await detailResponse.Content.ReadFromJsonAsync<ChecklistTaskDetailResponse>();
+
+        Assert.That(detailResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(detail, Is.Not.Null);
+
+        var replaceResponse = await Client.PutAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{createdTask.Id}/subtasks",
+            new
+            {
+                items = detail!.Subtasks.Select(item => new
+                {
+                    id = item.Id,
+                    title = item.Title,
+                    isChecked = true,
+                    order = item.Order,
+                }).ToArray(),
+            });
+
+        Assert.That(replaceResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var updatedTask = await replaceResponse.Content.ReadFromJsonAsync<ChecklistTaskDetailResponse>();
+
+        Assert.That(updatedTask, Is.Not.Null);
+        Assert.That(updatedTask!.CurrentState.Key, Is.EqualTo("review"));
+        Assert.That(updatedTask.CompletedAt, Is.Null);
+        Assert.That(updatedTask.Subtasks.All(item => item.IsChecked), Is.True);
+
+        var boardResponse = await Client.GetAsync($"/api/projects/{project.Id}/board");
+        var board = await boardResponse.Content.ReadFromJsonAsync<ProjectBoardResponse>();
+
+        Assert.That(boardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(board, Is.Not.Null);
+        Assert.That(board!.Columns.Single(column => column.StateKey == "review").Tasks.Select(task => task.Id), Does.Contain(createdTask.Id));
+        Assert.That(board.Columns.Single(column => column.StateKey == "done").Tasks.Select(task => task.Id), Does.Not.Contain(createdTask.Id));
     }
 
     [Test]

@@ -144,6 +144,41 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Detail Behavior', () => {
     await expect(page.getByTestId('workflow-column-todo')).not.toContainText(taskTitle)
   })
 
+  test('project template 建立後，新 task 應繼承 checklist，全部勾選後自動進入 review', async ({ page }, testInfo) => {
+    const { projectName, taskTitle } = createScenarioData(testInfo)
+    const user = createRonFlowAuthUser('owner')
+
+    await registerAndEnterWorkspace(page, user)
+    await openCreateProjectModal(page)
+    await createProject(page, projectName)
+
+    await page.getByRole('button', { name: '完成條件模板' }).click()
+
+    const templatesDialog = page.getByRole('dialog', { name: '完成條件模板' })
+    await templatesDialog.getByRole('button', { name: '新增模板' }).click()
+    await templatesDialog.getByRole('button', { name: '新增模板' }).click()
+    await templatesDialog.getByRole('textbox').nth(0).fill('需求已釐清')
+    await templatesDialog.getByRole('textbox').nth(1).fill('驗收測試已撰寫')
+    await templatesDialog.getByRole('button', { name: '儲存模板' }).click()
+    await expect(templatesDialog).toHaveCount(0)
+
+    await openCreateTaskModal(page)
+    await createTask(page, taskTitle)
+    await openTaskDetail(page, 'todo', taskTitle)
+
+    const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
+    await expect(detailDialog.getByTestId('task-subtask-item').nth(0).getByRole('textbox')).toHaveValue('需求已釐清')
+    await expect(detailDialog.getByTestId('task-subtask-item').nth(1).getByRole('textbox')).toHaveValue('驗收測試已撰寫')
+
+    await detailDialog.getByRole('button', { name: '編輯', exact: true }).click()
+    await detailDialog.getByTestId('task-subtask-item').nth(0).getByRole('checkbox').check()
+    await detailDialog.getByTestId('task-subtask-item').nth(1).getByRole('checkbox').check()
+    await detailDialog.getByRole('button', { name: '儲存變更', exact: true }).click()
+
+    await expect(page.getByTestId('workflow-column-review')).toContainText(taskTitle)
+    await expect(page.getByTestId('workflow-column-done')).not.toContainText(taskTitle)
+  })
+
   test('A 進入 edit mode 後，B 仍可查看同一個 Task，但編輯按鈕應 disabled', async ({ browser, request }, testInfo) => {
     const { projectName, taskTitle } = createScenarioData(testInfo)
     const ownerSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
