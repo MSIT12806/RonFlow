@@ -15,6 +15,8 @@
 
 本文件目前聚焦於所有人類使用者 actor 的產品規格。即使未來人類側出現更多角色、權限或操作差異，只要它們仍屬於人類使用者透過產品介面完成的 flow，都應集中維護在本文件中。若某一條 interaction surface 屬於 AI agent 的專屬操作模式，則應改由 AI 專屬 spec 承接。
 
+RonFlow 的 AI companion spec 為 [ronflow-ai-interaction-surface-spec.md](./ronflow-ai-interaction-surface-spec.md)。若本文件新增共享的 Project / Task 欄位、狀態規則、操作或摘要需求，且可能影響 AI actor 的 summary、manifest、write request 或 apply contract，應同批更新 companion spec，或在 companion spec 明確標示尚未承接，避免 human flow 與 AI flow 規格漂移。
+
 ## Related Acceptance Tests
 
 這份 spec 對應的是目前 RonFlow 的主要 acceptance baseline。做 spec / E2E 差異比對時，可優先從下列 Playwright 檔案開始：
@@ -1593,6 +1595,7 @@ Feature: Invitation inbox
 5. Task 建立成功後，建立任務 Modal 應立即關閉。
 6. Task 建立後，應顯示在 Kanban Board 的「待處理」（Todo）欄位。
 7. 若 Task Title 為空，系統應拒絕建立並顯示「任務標題為必填欄位」。
+8. 若 Project 已定義預設 subtask templates，新建立的 Task 應自動帶入對應的 subtasks。
 ```
 
 ### 9.3 Open Task Detail
@@ -1605,6 +1608,8 @@ Feature: Invitation inbox
 5. Task Detail Drawer 應顯示建立時間與基本活動紀錄。
 6. Task 若已設定 Due Date，Task Detail Drawer 應顯示到期日。
 7. Task Detail Drawer 的可見名稱應為「任務詳細資訊」。
+8. Task Detail Drawer 應顯示該 Task 的 subtask checklist。
+9. 每個 subtask 至少應顯示 title 與完成狀態。
 ```
 
 ### 9.4 Edit Task Detail In Drawer
@@ -1615,6 +1620,19 @@ Feature: Invitation inbox
 3. 修改成功後，Activity Timeline 應新增對應紀錄。
 4. Activity Timeline 應標示執行該操作的 Project Member。
 5. 修改失敗時，畫面應顯示錯誤訊息，且不應錯誤覆蓋原資料。
+6. 使用者可以在 Task Detail Drawer 管理 Task 的 subtasks，包含新增、修改、刪除、排序與勾選完成。
+7. Subtask 應作為 Task 底下的結構化子實體，而不是一段自由文字描述。
+8. 當所有 subtasks 都已完成，Task 應自動進入「審查中」（Review），除非 Task 已位於 Done。
+9. 「已完成」（Done）不應因 subtasks 全勾而自動觸發，仍需由人類顯式確認。
+```
+
+### 9.4.1 Manage Project Subtask Templates
+
+```text
+1. Project 可以定義預設的 subtask templates，作為工程任務的標準完成條件。
+2. Project Owner 可以新增、修改、刪除與排序 project-level subtask templates。
+3. Project-level subtask templates 應可被新建立的 Task 繼承。
+4. Task 建立後，仍可依自身情境覆寫或調整 subtasks，不受 template 綁死。
 ```
 
 ### 9.5 Move Task State To Another Workflow State
