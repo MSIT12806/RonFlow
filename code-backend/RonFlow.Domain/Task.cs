@@ -115,29 +115,39 @@ public sealed class Task
         return new Task(id, projectId, title, description, currentState, lifecycleState, dueDate, createdAt, completedAt, archivedAt, trashedAt, sortOrder, subtasks, reminders, activityTimeline);
     }
 
-    public bool AddReminder(string reminderDateTime, string description, DateTimeOffset changedAt)
+    public TaskMutationExecutionResult AddReminder(TaskMutationAuthorization authorization, string reminderDateTime, string description, DateTimeOffset changedAt)
     {
+        if (TryRejectLockedMutation(authorization, TaskMutationKind.CreateReminder, out var lockedResult))
+        {
+            return lockedResult;
+        }
+
         var normalizedDateTime = reminderDateTime.Trim();
         if (string.IsNullOrWhiteSpace(normalizedDateTime))
         {
-            return false;
+            return TaskMutationExecutionResult.NoChanges();
         }
 
         reminders.Add(new TaskReminder(Guid.NewGuid(), normalizedDateTime, description.Trim()));
         activityTimeline.Add(ActivityTimelineItem.TaskReminderAdded(changedAt));
-        return true;
+        return TaskMutationExecutionResult.ChangedResult();
     }
 
-    public bool DeleteReminder(Guid reminderId, DateTimeOffset changedAt)
+    public TaskDeleteReminderExecutionResult DeleteReminder(TaskMutationAuthorization authorization, Guid reminderId, DateTimeOffset changedAt)
     {
+        if (TryRejectLockedMutation(authorization, TaskMutationKind.DeleteReminder, out _))
+        {
+            return TaskDeleteReminderExecutionResult.LockedResult();
+        }
+
         var removedCount = reminders.RemoveAll(reminder => reminder.Id == reminderId);
         if (removedCount == 0)
         {
-            return false;
+            return TaskDeleteReminderExecutionResult.ReminderMissing();
         }
 
         activityTimeline.Add(ActivityTimelineItem.TaskReminderDeleted(changedAt));
-        return true;
+        return TaskDeleteReminderExecutionResult.ChangedResult();
     }
 
     public IReadOnlyList<TaskReminder> GetDueUndispatchedReminders(DateTimeOffset currentTime)
@@ -168,67 +178,92 @@ public sealed class Task
         return false;
     }
 
-    public bool Archive(DateTimeOffset changedAt)
+    public TaskMutationExecutionResult Archive(TaskMutationAuthorization authorization, DateTimeOffset changedAt)
     {
+        if (TryRejectLockedMutation(authorization, TaskMutationKind.Archive, out var lockedResult))
+        {
+            return lockedResult;
+        }
+
         if (LifecycleState == TaskLifecycleState.Archived)
         {
-            return false;
+            return TaskMutationExecutionResult.NoChanges();
         }
 
         LifecycleState = TaskLifecycleState.Archived;
         ArchivedAt = changedAt;
         TrashedAt = null;
         activityTimeline.Add(ActivityTimelineItem.TaskArchived(changedAt));
-        return true;
+        return TaskMutationExecutionResult.ChangedResult();
     }
 
-    public bool MoveToTrash(DateTimeOffset changedAt)
+    public TaskMutationExecutionResult MoveToTrash(TaskMutationAuthorization authorization, DateTimeOffset changedAt)
     {
+        if (TryRejectLockedMutation(authorization, TaskMutationKind.MoveToTrash, out var lockedResult))
+        {
+            return lockedResult;
+        }
+
         if (LifecycleState == TaskLifecycleState.Trashed)
         {
-            return false;
+            return TaskMutationExecutionResult.NoChanges();
         }
 
         LifecycleState = TaskLifecycleState.Trashed;
         TrashedAt = changedAt;
         ArchivedAt = null;
         activityTimeline.Add(ActivityTimelineItem.TaskMovedToTrash(changedAt));
-        return true;
+        return TaskMutationExecutionResult.ChangedResult();
     }
 
-    public bool RestoreFromArchive(int sortOrder, DateTimeOffset changedAt)
+    public TaskMutationExecutionResult RestoreFromArchive(TaskMutationAuthorization authorization, int sortOrder, DateTimeOffset changedAt)
     {
+        if (TryRejectLockedMutation(authorization, TaskMutationKind.RestoreFromArchive, out var lockedResult))
+        {
+            return lockedResult;
+        }
+
         if (LifecycleState != TaskLifecycleState.Archived)
         {
-            return false;
+            return TaskMutationExecutionResult.NoChanges();
         }
 
         LifecycleState = TaskLifecycleState.ActiveRecord;
         ArchivedAt = null;
         SortOrder = sortOrder;
         activityTimeline.Add(ActivityTimelineItem.TaskRestoredFromArchive(changedAt));
-        return true;
+        return TaskMutationExecutionResult.ChangedResult();
     }
 
-    public bool RestoreFromTrash(int sortOrder, DateTimeOffset changedAt)
+    public TaskMutationExecutionResult RestoreFromTrash(TaskMutationAuthorization authorization, int sortOrder, DateTimeOffset changedAt)
     {
+        if (TryRejectLockedMutation(authorization, TaskMutationKind.RestoreFromTrash, out var lockedResult))
+        {
+            return lockedResult;
+        }
+
         if (LifecycleState != TaskLifecycleState.Trashed)
         {
-            return false;
+            return TaskMutationExecutionResult.NoChanges();
         }
 
         LifecycleState = TaskLifecycleState.ActiveRecord;
         TrashedAt = null;
         SortOrder = sortOrder;
         activityTimeline.Add(ActivityTimelineItem.TaskRestoredFromTrash(changedAt));
-        return true;
+        return TaskMutationExecutionResult.ChangedResult();
     }
 
-    public bool ChangeState(WorkflowState targetState, DateTimeOffset changedAt)
+    public TaskMutationExecutionResult ChangeState(TaskMutationAuthorization authorization, WorkflowState targetState, DateTimeOffset changedAt)
     {
+        if (TryRejectLockedMutation(authorization, TaskMutationKind.ChangeWorkflowState, out var lockedResult))
+        {
+            return lockedResult;
+        }
+
         if (CurrentState.Key == targetState.Key)
         {
-            return false;
+            return TaskMutationExecutionResult.NoChanges();
         }
 
         var wasDone = CurrentState.IsCompletedState;
@@ -249,11 +284,16 @@ public sealed class Task
             activityTimeline.Add(ActivityTimelineItem.TaskReopened(changedAt));
         }
 
-        return true;
+        return TaskMutationExecutionResult.ChangedResult();
     }
 
-    public bool UpdateDetails(TaskTitle title, string description, DateOnly? dueDate, DateTimeOffset changedAt)
+    public TaskMutationExecutionResult UpdateDetails(TaskMutationAuthorization authorization, TaskTitle title, string description, DateOnly? dueDate, DateTimeOffset changedAt)
     {
+        if (TryRejectLockedMutation(authorization, TaskMutationKind.UpdateDetails, out var lockedResult))
+        {
+            return lockedResult;
+        }
+
         var hasChanged = false;
 
         if (Title != title.Value)
@@ -277,7 +317,9 @@ public sealed class Task
             hasChanged = true;
         }
 
-        return hasChanged;
+        return hasChanged
+            ? TaskMutationExecutionResult.ChangedResult()
+            : TaskMutationExecutionResult.NoChanges();
     }
 
     public bool UpdateSortOrder(int sortOrder, DateTimeOffset changedAt, bool recordActivity)
@@ -293,8 +335,13 @@ public sealed class Task
         return true;
     }
 
-    public bool ReplaceSubtasks(IEnumerable<TaskSubtask> updatedSubtasks, WorkflowState? reviewState, DateTimeOffset changedAt)
+    public TaskMutationExecutionResult ReplaceSubtasks(TaskMutationAuthorization authorization, IEnumerable<TaskSubtask> updatedSubtasks, WorkflowState? reviewState, DateTimeOffset changedAt)
     {
+        if (TryRejectLockedMutation(authorization, TaskMutationKind.ReplaceSubtasks, out var lockedResult))
+        {
+            return lockedResult;
+        }
+
         var normalizedSubtasks = updatedSubtasks
             .OrderBy(subtask => subtask.Order)
             .Select((subtask, index) => new TaskSubtask(subtask.Id, subtask.Title, subtask.IsChecked, index))
@@ -318,11 +365,24 @@ public sealed class Task
             && subtasks.All(subtask => subtask.IsChecked)
             && CurrentState.Key != reviewState.Key)
         {
-            ChangeState(reviewState, changedAt);
-            return true;
+            ChangeState(TaskMutationAuthorization.Granted(TaskMutationKind.ChangeWorkflowState), reviewState, changedAt);
+            return TaskMutationExecutionResult.ChangedResult();
         }
 
-        return hasChanged;
+        return hasChanged
+            ? TaskMutationExecutionResult.ChangedResult()
+            : TaskMutationExecutionResult.NoChanges();
+    }
+
+    private static bool TryRejectLockedMutation(TaskMutationAuthorization authorization, TaskMutationKind expectedKind, out TaskMutationExecutionResult lockedResult)
+    {
+        if (authorization.Kind != expectedKind)
+        {
+            throw new ArgumentException($"Mutation authorization kind mismatch. Expected {expectedKind} but received {authorization.Kind}.", nameof(authorization));
+        }
+
+        lockedResult = TaskMutationExecutionResult.LockedResult();
+        return authorization.IsLocked;
     }
 
     public TaskModel ToModel()

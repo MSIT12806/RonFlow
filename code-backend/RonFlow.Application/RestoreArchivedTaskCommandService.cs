@@ -6,6 +6,7 @@ public sealed class RestoreArchivedTaskCommandService(
     IProjectRepository projectRepository,
     ProjectAccessService projectAccessService,
     ITaskRepository taskRepository,
+    TaskMutationGuard taskMutationGuard,
     TimeProvider timeProvider)
 {
     public TaskLifecycleCommandResult Restore(Guid currentUserId, Guid projectId, Guid taskId)
@@ -37,7 +38,16 @@ public sealed class RestoreArchivedTaskCommandService(
             .DefaultIfEmpty(-1)
             .Max() + 1;
 
-        task.RestoreFromArchive(nextSortOrder, changedAt);
+        var mutationResult = task.RestoreFromArchive(
+            taskMutationGuard.Authorize(currentUserId, taskId, TaskMutationKind.RestoreFromArchive),
+            nextSortOrder,
+            changedAt);
+
+        if (mutationResult.Locked)
+        {
+            return TaskLifecycleCommandResult.Locked();
+        }
+
         taskRepository.Update(task);
 
         project.Touch(changedAt);

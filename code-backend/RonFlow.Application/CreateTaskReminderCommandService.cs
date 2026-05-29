@@ -6,7 +6,7 @@ public sealed class CreateTaskReminderCommandService(
     IProjectRepository projectRepository,
     ProjectAccessService projectAccessService,
     ITaskRepository taskRepository,
-    TaskContentEditLockService taskContentEditLockService,
+    TaskMutationGuard taskMutationGuard,
     TimeProvider timeProvider)
 {
     public CreateTaskReminderResult Create(Guid currentUserId, Guid projectId, Guid taskId, string? rawReminderDateTime, string? rawDescription)
@@ -35,13 +35,18 @@ public sealed class CreateTaskReminderCommandService(
             return CreateTaskReminderResult.NotFound();
         }
 
-        if (!taskContentEditLockService.IsHeldBy(currentUserId, taskId))
+        var changedAt = timeProvider.GetUtcNow();
+        var mutationResult = task.AddReminder(
+            taskMutationGuard.Authorize(currentUserId, taskId, TaskMutationKind.CreateReminder),
+            rawReminderDateTime,
+            rawDescription?.Trim() ?? string.Empty,
+            changedAt);
+
+        if (mutationResult.Locked)
         {
             return CreateTaskReminderResult.Locked();
         }
 
-        var changedAt = timeProvider.GetUtcNow();
-        task.AddReminder(rawReminderDateTime, rawDescription?.Trim() ?? string.Empty, changedAt);
         taskRepository.Update(task);
 
         project.Touch(changedAt);

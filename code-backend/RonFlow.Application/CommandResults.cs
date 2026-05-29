@@ -65,26 +65,31 @@ public sealed record ReplaceProjectSubtaskTemplatesResult(
     }
 }
 
-public sealed record ChangeTaskStateResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound, bool AccessDenied)
+public sealed record ChangeTaskStateResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound, bool AccessDenied, bool Conflict)
 {
     public static ChangeTaskStateResult Success(CreateTaskOutput task)
     {
-        return new(task, null, false, false);
+        return new(task, null, false, false, false);
     }
 
     public static ChangeTaskStateResult Invalid(string field, string message)
     {
-        return new(null, new ValidationError(field, message), false, false);
+        return new(null, new ValidationError(field, message), false, false, false);
     }
 
     public static ChangeTaskStateResult NotFound()
     {
-        return new(null, null, true, false);
+        return new(null, null, true, false, false);
     }
 
     public static ChangeTaskStateResult Denied()
     {
-        return new(null, null, false, true);
+        return new(null, null, false, true, false);
+    }
+
+    public static ChangeTaskStateResult Locked()
+    {
+        return new(null, null, false, false, true);
     }
 }
 

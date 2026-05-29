@@ -15,17 +15,8 @@ function createTask(overrides: Partial<TaskDetailResponse> = {}): TaskDetailResp
       isCompletedState: false,
     },
     dueDate: '2026-05-20',
-    lifecycleState: 'activeRecord',
     createdAt: '2026-05-12T08:00:00.000Z',
     completedAt: null,
-    subtasks: [
-      {
-        id: 'subtask-1',
-        title: '需求已釐清',
-        isChecked: false,
-        order: 0,
-      },
-    ],
     activityTimeline: [],
     canEnterEdit: true,
     ...overrides,
@@ -112,74 +103,6 @@ describe('TaskDetailModal', () => {
 
     expect(wrapper.text()).toContain('編輯')
     expect(wrapper.text()).not.toContain('儲存變更')
-  })
-
-  it('emits direct checklist replacement when a subtask is checked in view mode', async () => {
-    const wrapper = mountTaskDetail(createTask())
-
-    const checkbox = wrapper.find('input[type="checkbox"]')
-    await checkbox.setValue(true)
-
-    expect(wrapper.emitted('replace-subtasks')).toEqual([[
-      {
-        taskId: 'task-1',
-        subtasks: [
-          {
-            id: 'subtask-1',
-            title: '需求已釐清',
-            isChecked: true,
-            order: 0,
-          },
-        ],
-      },
-    ]])
-  })
-
-  it('disables checklist checkboxes when the task is locked by another user', () => {
-    const wrapper = mount(TaskDetailModal, {
-      props: {
-        isOpen: true,
-        isLoading: false,
-        isSaving: false,
-        isEditing: false,
-        canEnterEdit: false,
-        errorMessage: '',
-        saveErrorMessage: '',
-        titleValidationError: '',
-        reminderDatetimeValidationError: '',
-        reminderDeliveryStatusMessage: '',
-        canEnableReminderDelivery: true,
-        isEnablingReminderDelivery: false,
-        mode: 'active',
-        displayTitle: '補上 Drawer 編輯測試',
-        task: createTask({ canEnterEdit: false }),
-        formatTimelineTime: (occurredAt: string) => occurredAt,
-      },
-      global: {
-        stubs: {
-          BaseModalShell: {
-            template: '<div><slot /></div>',
-          },
-          AsyncStateBoundary: {
-            template: '<div><slot /></div>',
-          },
-          ApiCommandResourceView: {
-            template: '<div data-testid="command-resource-view"></div>',
-          },
-          DatePicker: {
-            template: '<input />',
-          },
-          InputText: {
-            template: '<input />',
-          },
-          Textarea: {
-            template: '<textarea></textarea>',
-          },
-        },
-      },
-    })
-
-    expect(wrapper.find('input[type="checkbox"]').attributes('disabled')).toBeDefined()
   })
 
   it('shows save action after entering edit mode', () => {

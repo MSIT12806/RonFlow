@@ -88,6 +88,7 @@ public partial class Program
         builder.Services.AddSingleton<ChangeTaskStateCommandService>();
         builder.Services.AddSingleton<UpdateTaskCommandService>();
         builder.Services.AddSingleton<TaskContentEditLockService>();
+        builder.Services.AddSingleton<TaskMutationGuard>();
         builder.Services.AddSingleton<ProjectPresenceRegistry>();
         builder.Services.AddSingleton<AiAuditRegistry>();
         builder.Services.AddSingleton<RonFlowActiveSessionRegistry>();

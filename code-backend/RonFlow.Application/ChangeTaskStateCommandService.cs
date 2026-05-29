@@ -6,13 +6,14 @@ public sealed class ChangeTaskStateCommandService(
     IProjectRepository projectRepository,
     ProjectAccessService projectAccessService,
     ITaskRepository taskRepository,
+    TaskMutationGuard taskMutationGuard,
     TimeProvider timeProvider)
 {
     public ChangeTaskStateCommandService(
         IProjectRepository projectRepository,
         ITaskRepository taskRepository,
         TimeProvider timeProvider)
-        : this(projectRepository, new ProjectAccessService(projectRepository), taskRepository, timeProvider)
+        : this(projectRepository, new ProjectAccessService(projectRepository), taskRepository, new TaskMutationGuard(new TaskContentEditLockService()), timeProvider)
     {
     }
 
@@ -49,7 +50,16 @@ public sealed class ChangeTaskStateCommandService(
         }
 
         var changedAt = timeProvider.GetUtcNow();
-        task.ChangeState(targetState, changedAt);
+        var mutationResult = task.ChangeState(
+            taskMutationGuard.Authorize(currentUserId, taskId, TaskMutationKind.ChangeWorkflowState),
+            targetState,
+            changedAt);
+
+        if (mutationResult.Locked)
+        {
+            return ChangeTaskStateResult.Locked();
+        }
+
         taskRepository.Update(task);
 
         project.Touch(changedAt);

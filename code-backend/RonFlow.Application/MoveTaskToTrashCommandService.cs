@@ -6,7 +6,7 @@ public sealed class MoveTaskToTrashCommandService(
     IProjectRepository projectRepository,
     ProjectAccessService projectAccessService,
     ITaskRepository taskRepository,
-    TaskContentEditLockService taskContentEditLockService,
+    TaskMutationGuard taskMutationGuard,
     TimeProvider timeProvider)
 {
     public TaskLifecycleCommandResult Move(Guid currentUserId, Guid projectId, Guid taskId)
@@ -30,13 +30,16 @@ public sealed class MoveTaskToTrashCommandService(
             return TaskLifecycleCommandResult.NotFound();
         }
 
-        if (taskContentEditLockService.IsLocked(taskId))
+        var changedAt = timeProvider.GetUtcNow();
+        var mutationResult = task.MoveToTrash(
+            taskMutationGuard.Authorize(currentUserId, taskId, TaskMutationKind.MoveToTrash),
+            changedAt);
+
+        if (mutationResult.Locked)
         {
             return TaskLifecycleCommandResult.Locked();
         }
 
-        var changedAt = timeProvider.GetUtcNow();
-        task.MoveToTrash(changedAt);
         taskRepository.Update(task);
 
         project.Touch(changedAt);

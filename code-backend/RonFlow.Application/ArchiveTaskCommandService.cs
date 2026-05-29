@@ -6,7 +6,7 @@ public sealed class ArchiveTaskCommandService(
     IProjectRepository projectRepository,
     ProjectAccessService projectAccessService,
     ITaskRepository taskRepository,
-    TaskContentEditLockService taskContentEditLockService,
+    TaskMutationGuard taskMutationGuard,
     TimeProvider timeProvider)
 {
     public TaskLifecycleCommandResult Archive(Guid currentUserId, Guid projectId, Guid taskId)
@@ -30,13 +30,16 @@ public sealed class ArchiveTaskCommandService(
             return TaskLifecycleCommandResult.NotFound();
         }
 
-        if (taskContentEditLockService.IsLocked(taskId))
+        var changedAt = timeProvider.GetUtcNow();
+        var mutationResult = task.Archive(
+            taskMutationGuard.Authorize(currentUserId, taskId, TaskMutationKind.Archive),
+            changedAt);
+
+        if (mutationResult.Locked)
         {
             return TaskLifecycleCommandResult.Locked();
         }
 
-        var changedAt = timeProvider.GetUtcNow();
-        task.Archive(changedAt);
         taskRepository.Update(task);
 
         project.Touch(changedAt);

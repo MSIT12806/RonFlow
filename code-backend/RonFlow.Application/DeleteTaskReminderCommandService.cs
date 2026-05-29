@@ -6,7 +6,7 @@ public sealed class DeleteTaskReminderCommandService(
     IProjectRepository projectRepository,
     ProjectAccessService projectAccessService,
     ITaskRepository taskRepository,
-    TaskContentEditLockService taskContentEditLockService,
+    TaskMutationGuard taskMutationGuard,
     TimeProvider timeProvider)
 {
     public DeleteTaskReminderResult Delete(Guid currentUserId, Guid projectId, Guid taskId, Guid reminderId)
@@ -30,14 +30,18 @@ public sealed class DeleteTaskReminderCommandService(
             return DeleteTaskReminderResult.TaskMissing();
         }
 
-        if (!taskContentEditLockService.IsHeldBy(currentUserId, taskId))
+        var changedAt = timeProvider.GetUtcNow();
+        var mutationResult = task.DeleteReminder(
+            taskMutationGuard.Authorize(currentUserId, taskId, TaskMutationKind.DeleteReminder),
+            reminderId,
+            changedAt);
+
+        if (mutationResult.Locked)
         {
             return DeleteTaskReminderResult.Locked();
         }
 
-        var changedAt = timeProvider.GetUtcNow();
-        var deleted = task.DeleteReminder(reminderId, changedAt);
-        if (!deleted)
+        if (mutationResult.ReminderNotFound)
         {
             return DeleteTaskReminderResult.ReminderMissing();
         }

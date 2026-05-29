@@ -74,7 +74,7 @@ public sealed class ReplaceTaskSubtasksCommandService(
     IProjectRepository projectRepository,
     ProjectAccessService projectAccessService,
     ITaskRepository taskRepository,
-    TaskContentEditLockService taskContentEditLockService,
+    TaskMutationGuard taskMutationGuard,
     TimeProvider timeProvider)
 {
     public ReplaceTaskSubtasksResult Replace(Guid currentUserId, Guid projectId, Guid taskId, IReadOnlyList<TaskSubtaskInput> inputs)
@@ -113,17 +113,19 @@ public sealed class ReplaceTaskSubtasksCommandService(
             return ReplaceTaskSubtasksResult.NotFound();
         }
 
-        if (taskContentEditLockService.IsHeldByAnotherUser(currentUserId, taskId))
+        var reviewState = project.FindWorkflowState("review");
+        var changedAt = timeProvider.GetUtcNow();
+        var mutationResult = task.ReplaceSubtasks(
+            taskMutationGuard.Authorize(currentUserId, taskId, TaskMutationKind.ReplaceSubtasks),
+            normalizedInputs.Select(item => new TaskSubtask(item.Id.GetValueOrDefault(Guid.NewGuid()), item.Title, item.IsChecked, item.Order ?? 0)),
+            reviewState,
+            changedAt);
+
+        if (mutationResult.Locked)
         {
             return ReplaceTaskSubtasksResult.Locked();
         }
 
-        var reviewState = project.FindWorkflowState("review");
-        var changedAt = timeProvider.GetUtcNow();
-        task.ReplaceSubtasks(
-            normalizedInputs.Select(item => new TaskSubtask(item.Id.GetValueOrDefault(Guid.NewGuid()), item.Title, item.IsChecked, item.Order ?? 0)),
-            reviewState,
-            changedAt);
         taskRepository.Update(task);
         project.Touch(changedAt);
         projectRepository.Update(project);

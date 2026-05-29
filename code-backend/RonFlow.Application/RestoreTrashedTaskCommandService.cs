@@ -6,6 +6,7 @@ public sealed class RestoreTrashedTaskCommandService(
     IProjectRepository projectRepository,
     ProjectAccessService projectAccessService,
     ITaskRepository taskRepository,
+    TaskMutationGuard taskMutationGuard,
     TimeProvider timeProvider)
 {
     public TaskLifecycleCommandResult Restore(Guid currentUserId, Guid projectId, Guid taskId)
@@ -37,7 +38,16 @@ public sealed class RestoreTrashedTaskCommandService(
             .DefaultIfEmpty(-1)
             .Max() + 1;
 
-        task.RestoreFromTrash(nextSortOrder, changedAt);
+        var mutationResult = task.RestoreFromTrash(
+            taskMutationGuard.Authorize(currentUserId, taskId, TaskMutationKind.RestoreFromTrash),
+            nextSortOrder,
+            changedAt);
+
+        if (mutationResult.Locked)
+        {
+            return TaskLifecycleCommandResult.Locked();
+        }
+
         taskRepository.Update(task);
 
         project.Touch(changedAt);

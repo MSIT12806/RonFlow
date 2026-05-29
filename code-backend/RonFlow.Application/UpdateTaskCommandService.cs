@@ -6,7 +6,7 @@ public sealed class UpdateTaskCommandService(
     IProjectRepository projectRepository,
     ProjectAccessService projectAccessService,
     ITaskRepository taskRepository,
-    TaskContentEditLockService taskContentEditLockService,
+    TaskMutationGuard taskMutationGuard,
     TimeProvider timeProvider)
 {
     public UpdateTaskResult Update(Guid currentUserId, Guid projectId, Guid taskId, string? rawTitle, string? rawDescription, DateOnly? dueDate)
@@ -35,16 +35,22 @@ public sealed class UpdateTaskCommandService(
             return UpdateTaskResult.NotFound();
         }
 
-        if (!taskContentEditLockService.IsHeldBy(currentUserId, taskId))
+        var changedAt = timeProvider.GetUtcNow();
+        var mutationResult = task.UpdateDetails(
+            taskMutationGuard.Authorize(currentUserId, taskId, TaskMutationKind.UpdateDetails),
+            taskTitle!,
+            rawDescription?.Trim() ?? string.Empty,
+            dueDate,
+            changedAt);
+
+        if (mutationResult.Locked)
         {
             return UpdateTaskResult.Locked();
         }
 
-        var changedAt = timeProvider.GetUtcNow();
-        var hasChanged = task.UpdateDetails(taskTitle!, rawDescription?.Trim() ?? string.Empty, dueDate, changedAt);
         taskRepository.Update(task);
 
-        if (hasChanged)
+        if (mutationResult.Changed)
         {
             project.Touch(changedAt);
             projectRepository.Update(project);

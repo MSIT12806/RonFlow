@@ -52,9 +52,10 @@ public sealed class ProjectDomainTests
             taskCreatedAt,
             0);
 
-        task.ChangeState(workflowStates.Single(state => state.Key == "active"), changedAt);
+        var result = task.ChangeState(TaskMutationAuthorization.Granted(TaskMutationKind.ChangeWorkflowState), workflowStates.Single(state => state.Key == "active"), changedAt);
         var taskModel = task.ToModel();
 
+        Assert.That(result.Locked, Is.False);
         Assert.That(taskModel.CurrentState.Key, Is.EqualTo("active"));
         Assert.That(taskModel.CurrentState.Label, Is.EqualTo("進行中"));
         Assert.That(taskModel.CompletedAt, Is.Null);
@@ -77,8 +78,8 @@ public sealed class ProjectDomainTests
             taskCreatedAt,
             0);
 
-        task.ChangeState(workflowStates.Single(state => state.Key == "active"), movedToActiveAt);
-        task.ChangeState(workflowStates.Single(state => state.Key == "done"), completedAt);
+        task.ChangeState(TaskMutationAuthorization.Granted(TaskMutationKind.ChangeWorkflowState), workflowStates.Single(state => state.Key == "active"), movedToActiveAt);
+        task.ChangeState(TaskMutationAuthorization.Granted(TaskMutationKind.ChangeWorkflowState), workflowStates.Single(state => state.Key == "done"), completedAt);
         var taskModel = task.ToModel();
 
         Assert.That(taskModel.CurrentState.Key, Is.EqualTo("done"));
@@ -106,7 +107,7 @@ public sealed class ProjectDomainTests
             taskCreatedAt,
             0);
 
-        task.ChangeState(workflowStates.Single(state => state.IsCompletedState), completedAt);
+        task.ChangeState(TaskMutationAuthorization.Granted(TaskMutationKind.ChangeWorkflowState), workflowStates.Single(state => state.IsCompletedState), completedAt);
         var taskModel = task.ToModel();
 
         Assert.That(taskModel.CurrentState.Key, Is.EqualTo("shipping"));
@@ -127,12 +128,39 @@ public sealed class ProjectDomainTests
             taskCreatedAt,
             0);
 
-        task.ChangeState(initialState, taskCreatedAt.AddMinutes(30));
+        task.ChangeState(TaskMutationAuthorization.Granted(TaskMutationKind.ChangeWorkflowState), initialState, taskCreatedAt.AddMinutes(30));
         var taskModel = task.ToModel();
 
         Assert.That(taskModel.CurrentState.Key, Is.EqualTo("todo"));
         Assert.That(taskModel.CompletedAt, Is.Null);
         Assert.That(taskModel.ActivityTimeline.Select(item => item.Type), Is.EqualTo(new[] { "TaskCreated" }));
+    }
+
+    [Test]
+    public void UpdateDetails_WhenAuthorizationIsLocked_ReturnsLockedWithoutChangingTask()
+    {
+        var taskCreatedAt = new DateTimeOffset(2026, 5, 3, 9, 15, 0, TimeSpan.Zero);
+        var changedAt = taskCreatedAt.AddMinutes(30);
+        var workflowStates = DefaultWorkflow.CreateStates();
+        var task = RonFlow.Domain.Task.Create(
+            Guid.NewGuid(),
+            CreateTaskTitle("Build Kanban Board"),
+            workflowStates.Single(state => state.IsInitialState),
+            taskCreatedAt,
+            0);
+
+        var result = task.UpdateDetails(
+            TaskMutationAuthorization.Locked(TaskMutationKind.UpdateDetails),
+            CreateTaskTitle("Updated Kanban Board"),
+            "新的描述",
+            DateOnly.FromDateTime(changedAt.DateTime),
+            changedAt);
+
+        Assert.That(result.Locked, Is.True);
+        Assert.That(task.Title, Is.EqualTo("Build Kanban Board"));
+        Assert.That(task.Description, Is.EqualTo(string.Empty));
+        Assert.That(task.DueDate, Is.Null);
+        Assert.That(task.ActivityTimeline.Select(item => item.Type), Is.EqualTo(new[] { "TaskCreated" }));
     }
 
     private static ProjectName CreateProjectName(string value)

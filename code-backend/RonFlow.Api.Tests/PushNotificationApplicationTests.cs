@@ -78,7 +78,11 @@ public sealed class DeliverDueReminderNotificationsCommandServiceTests
             project.GetDefaultWorkflowState(),
             createdAt,
             0);
-        task.AddReminder("2026-05-20T09:00", "提醒確認欄位狀態", createdAt.AddMinutes(5));
+        task.AddReminder(
+            TaskMutationAuthorization.Granted(TaskMutationKind.CreateReminder),
+            "2026-05-20T09:00",
+            "提醒確認欄位狀態",
+            createdAt.AddMinutes(5));
         taskRepository.Add(task);
 
         subscriptionRepository.Upsert(new PushSubscription(
@@ -131,7 +135,11 @@ public sealed class DeliverDueReminderNotificationsCommandServiceTests
             project.GetDefaultWorkflowState(),
             createdAt,
             0);
-        task.AddReminder("2026-05-20T09:00", string.Empty, createdAt.AddMinutes(5));
+        task.AddReminder(
+            TaskMutationAuthorization.Granted(TaskMutationKind.CreateReminder),
+            "2026-05-20T09:00",
+            string.Empty,
+            createdAt.AddMinutes(5));
         taskRepository.Add(task);
 
         subscriptionRepository.Upsert(new PushSubscription(
