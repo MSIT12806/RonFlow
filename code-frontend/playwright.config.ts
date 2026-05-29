@@ -2,9 +2,9 @@
 
 import { defineConfig, devices } from '@playwright/test'
 
-const e2eFrontendPort = 4174
-const e2eBackendPort = 5079
-const e2eRonAuthPort = 5136
+const e2eFrontendPort = 8417
+const e2eBackendPort = 8507
+const e2eRonAuthPort = 8513
 const e2eBackendApiBaseUrl = `http://127.0.0.1:${e2eBackendPort}/api`
 const e2eRonAuthApiBaseUrl = `http://127.0.0.1:${e2eRonAuthPort}/api/auth`
 
