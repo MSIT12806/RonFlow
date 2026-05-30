@@ -34,11 +34,44 @@ internal static class AiTextContractFormatter
         ]);
     }
 
+    public static string Glossary()
+    {
+        return string.Join('\n',
+        [
+            "RonFlow AI Glossary v1",
+            string.Empty,
+            "- term: bootstrap",
+            "  meaning: AI 進入 RonFlow 時的最小必要說明",
+            "- term: capabilities manifest",
+            "  meaning: 描述 AI 可用 read / write 能力與前置條件的契約",
+            "- term: summary",
+            "  meaning: 讓 AI 低成本理解上下文的查詢結果",
+            "- term: active scope",
+            "  meaning: AI 目前聚焦的 Project 或其他工作範圍",
+            "- term: apply",
+            "  meaning: 把已確認的變更正式寫入系統",
+            "- term: audit entry",
+            "  meaning: 記錄 AI 行為、理由與結果的紀錄單位",
+            "- term: workflow guidance",
+            "  meaning: 告訴 AI 在 RonFlow 中應如何遵循既有工作方式",
+        ]);
+    }
+
     public static string CapabilitiesManifest()
     {
         return string.Join('\n',
         [
             "RonFlow Capabilities Manifest v1",
+            string.Empty,
+            "- capability: read_task_detail_summary",
+            "  category: read",
+            "  active_scope_required: yes",
+            "  required_inputs: projectId, taskId",
+            string.Empty,
+            "- capability: read_current_work_summary",
+            "  category: read",
+            "  active_scope_required: yes",
+            "  required_inputs: projectId",
             string.Empty,
             "- capability: read_project_list_summary",
             "  category: read",
@@ -210,6 +243,42 @@ internal static class AiTextContractFormatter
         builder.AppendLine("next_actions:");
         builder.AppendLine("- read_task_detail_summary");
         builder.AppendLine("- create_task");
+        builder.AppendLine("- move_task_state");
+
+        return builder.ToString().TrimEnd();
+    }
+
+    public static string CurrentWorkSummary(ProjectBoardView board)
+    {
+        var builder = new StringBuilder();
+        var openTasks = board.Columns
+            .Where(column => !column.IsCompletedState)
+            .SelectMany(column => column.Tasks.Select(task => new
+            {
+                Task = task,
+                WorkflowStateKey = NormalizeWorkflowKey(column.StateKey),
+            }))
+            .ToArray();
+
+        builder.AppendLine("RonFlow Current Work Summary v1");
+        builder.AppendLine();
+        builder.AppendLine($"project_id: {board.ProjectId}");
+        builder.AppendLine($"project_name: {board.ProjectName}");
+        builder.AppendLine($"open_task_count: {openTasks.Length}");
+        builder.AppendLine();
+        builder.AppendLine("open_tasks:");
+
+        foreach (var task in openTasks)
+        {
+            builder.AppendLine($"- task_id: {task.Task.Id}");
+            builder.AppendLine($"  title: {task.Task.Title}");
+            builder.AppendLine($"  workflow_state_key: {task.WorkflowStateKey}");
+        }
+
+        builder.AppendLine();
+        builder.AppendLine("next_actions:");
+        builder.AppendLine("- read_task_detail_summary");
+        builder.AppendLine("- update_task_detail");
         builder.AppendLine("- move_task_state");
 
         return builder.ToString().TrimEnd();

@@ -38,6 +38,7 @@
 - [ ] 讓 AI 可以順利使用 RonFlow（RonFlow v0.3）
     - spec: [RonFlow AI Interaction Surface Spec](./ronflow-ai-interaction-surface-spec.md)
     - 提供 AI bootstrap、領域名詞表、capabilities manifest，讓 AI 能逐步理解系統與可用操作
+    - 已補上 AI discovery surface 的 glossary 與 current work summary，讓 AI 能先縮小任務集合，再進入單一 task detail；實踐細節見 [RonFlow 的 AI discovery surface](../ronflow-tech/ronflow-ai-discovery-surface.md)
     - 提供 read-first 的摘要查詢、proposal / preview、approval、audit trail，降低 AI 誤操作風險
     - 結構化 DoD：project subtask templates 與 task checklist review gating
 

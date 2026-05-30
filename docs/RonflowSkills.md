@@ -64,6 +64,7 @@ Step 3. 讀取 RonFlow AI bootstrap 與 capability 資訊
 
 - 先讀下列端點：
   - `GET http://localhost/ronflow-api/api/ai/bootstrap`
+  - `GET http://localhost/ronflow-api/api/ai/glossary`
   - `GET http://localhost/ronflow-api/api/ai/capabilities`
   - `GET http://localhost/ronflow-api/api/ai/workflow-guidance`
   - `GET http://localhost/ronflow-api/api/ai/session-summary`
@@ -75,7 +76,7 @@ Step 3.1. 先做最小健康檢查，確認系統目前可正常運作
 
 - 把 `GET http://localhost/ronflow-api/api/ai/bootstrap` 視為最小健康檢查。
 - 如果連 bootstrap 都無法成功取得預期回應，代表 RonFlow 目前很可能不在正常可用狀態；此時不要繼續做 capabilities、summary、apply 或任何寫入操作。
-- 若 bootstrap 成功，再繼續讀 `capabilities`、`workflow-guidance`、`session-summary`、`projects/summary`。
+- 若 bootstrap 成功，再繼續讀 `glossary`、`capabilities`、`workflow-guidance`、`session-summary`、`projects/summary`。
 - 若上述任何一個初始化讀取端點持續失敗，也應視為系統目前可能有異常；先停止，回報人類，等待錯誤排除完成後再繼續。
 
 若健康檢查失敗，你必須固定回報：
@@ -112,7 +113,9 @@ Step 6. 在寫入前先讀 summary
 
 - 若是 project 級任務，先讀：
   - `GET http://localhost/ronflow-api/api/ai/projects/<project-id>/board-summary`
+  - `GET http://localhost/ronflow-api/api/ai/projects/<project-id>/current-work-summary`
 - 若是 task 級任務，先讀：
+  - `GET http://localhost/ronflow-api/api/ai/projects/<project-id>/current-work-summary`
   - `GET http://localhost/ronflow-api/api/ai/projects/<project-id>/tasks/<task-id>/detail-summary`
 
 - 只有在 summary 已足夠辨識目標 object 與 required fields 時，才可以進行 apply。

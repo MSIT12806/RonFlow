@@ -358,6 +358,56 @@ Feature: AI bootstrap
 		And 回應應包含 `4. 讀取 project list summary`
 ```
 
+### 7.1.1 AI Glossary
+
+**Purpose**
+
+讓 AI 以低成本讀到 RonFlow 的 AI-facing ubiquitous language，而不必先翻完整 spec。
+
+**Content Requirements**
+
+```text
+1. glossary 必須對齊本文件第 5 章的核心用語
+2. glossary 至少要說明 bootstrap、capabilities manifest、summary、active scope、apply、audit entry、workflow guidance
+3. glossary 應以穩定 label 呈現，讓 AI 可以引用既有名詞而不是自造詞
+```
+
+**Canonical Text Contract**
+
+```text
+RonFlow AI Glossary v1
+
+- term: bootstrap
+  meaning: AI 進入 RonFlow 時的最小必要說明
+- term: capabilities manifest
+  meaning: 描述 AI 可用 read / write 能力與前置條件的契約
+- term: summary
+  meaning: 讓 AI 低成本理解上下文的查詢結果
+- term: active scope
+  meaning: AI 目前聚焦的 Project 或其他工作範圍
+- term: apply
+  meaning: 把已確認的變更正式寫入系統
+- term: audit entry
+  meaning: 記錄 AI 行為、理由與結果的紀錄單位
+- term: workflow guidance
+  meaning: 告訴 AI 在 RonFlow 中應如何遵循既有工作方式
+```
+
+**Definition of Done**
+
+```text
+1. glossary 回應第一行必須是 `RonFlow AI Glossary v1`。
+2. glossary 必須至少列出 bootstrap、capabilities manifest、summary、active scope、apply、audit entry、workflow guidance。
+3. glossary 不得定義與第 5 章互相衝突的術語。
+```
+
+**Testability**
+
+```text
+1. 測試應能驗證 AI 僅靠 glossary 即可找到 interaction surface 的核心名詞。
+2. 測試應能驗證 glossary 與 bootstrap、manifest 中使用的名詞一致。
+```
+
 ### 7.2 Capabilities Manifest
 
 **Purpose**
@@ -383,8 +433,8 @@ Feature: AI bootstrap
 ```text
 1. read project list summary
 2. read project board summary
-3. read task summary
-4. read task detail summary
+3. read task detail summary
+4. read current work summary
 5. create project
 6. create task
 7. update task detail
@@ -394,7 +444,7 @@ Feature: AI bootstrap
 11. restore archived task
 12. move task to trash
 13. restore trashed task
-14. read recent activity summary
+14. read audit entry
 ```
 
 **Expected Behavior**
@@ -410,6 +460,16 @@ Feature: AI bootstrap
 
 ```text
 RonFlow Capabilities Manifest v1
+
+- capability: read_task_detail_summary
+	category: read
+	active_scope_required: yes
+	required_inputs: projectId, taskId
+
+- capability: read_current_work_summary
+	category: read
+	active_scope_required: yes
+	required_inputs: projectId
 
 - capability: read_project_list_summary
 	category: read
@@ -672,6 +732,24 @@ next_actions:
 ```
 
 ```text
+RonFlow Current Work Summary v1
+
+project_id: <project-id>
+project_name: <project-name>
+open_task_count: <count>
+
+open_tasks:
+- task_id: <task-id>
+	title: <task-title>
+	workflow_state_key: <state-key>
+
+next_actions:
+- read_task_detail_summary
+- update_task_detail
+- move_task_state
+```
+
+```text
 RonFlow Task Detail Summary v1
 
 task_id: <task-id>
@@ -708,16 +786,18 @@ next_actions:
 3. Project Board summary 回應第一行必須是 `RonFlow Project Board Summary v1`。
 4. Project Board summary 必須包含 `workflow_columns:` 區塊，且至少列出 `Todo`、`Active`、`Review`、`Done` 四個 key。
 5. Project Board summary 必須包含 `visible_tasks:` 區塊；若 board 上有 Task，至少要列出一筆 `task_id`、`title`、`workflow_state_key`。
-6. Task Detail summary 回應第一行必須是 `RonFlow Task Detail Summary v1`。
-7. Task Detail summary 必須完整包含 `task_id`、`title`、`description`、`due_date`、`workflow_state_key`、`workflow_state_name`、`lifecycle_state`。
-8. Task Detail summary 必須包含 `recent_activities:` 與 `next_actions:` 區塊。
+6. Current Work summary 回應第一行必須是 `RonFlow Current Work Summary v1`。
+7. Current Work summary 必須包含 `open_task_count:` 與 `open_tasks:` 區塊；若仍有未完成 Task，至少要列出一筆 `task_id`、`title`、`workflow_state_key`。
+8. Task Detail summary 回應第一行必須是 `RonFlow Task Detail Summary v1`。
+9. Task Detail summary 必須完整包含 `task_id`、`title`、`description`、`due_date`、`workflow_state_key`、`workflow_state_name`、`lifecycle_state`。
+10. Task Detail summary 必須包含 `recent_activities:` 與 `next_actions:` 區塊。
 ```
 
 **Testability**
 
 ```text
 1. 測試應能驗證 AI 在寫入前，能只靠 summary 理解上下文。
-2. 測試應能驗證 Project List、board、task 三類 summary 足以支撐建立、更新、移動、封存與還原等操作判斷。
+2. 測試應能驗證 Project List、board、current work、task 四類 summary 足以支撐建立、更新、移動、封存與還原等操作判斷。
 ```
 
 **Related Rules**

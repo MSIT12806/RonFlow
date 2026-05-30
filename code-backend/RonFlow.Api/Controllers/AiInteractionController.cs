@@ -25,6 +25,18 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         return PlainText(AiTextContractFormatter.Bootstrap());
     }
 
+    [HttpGet("glossary")]
+    [Produces("text/plain")]
+    public IResult GetGlossary()
+    {
+        if (!TryGetCurrentUserId(out _))
+        {
+            return Results.Unauthorized();
+        }
+
+        return PlainText(AiTextContractFormatter.Glossary());
+    }
+
     [HttpGet("capabilities")]
     [Produces("text/plain")]
     public IResult GetCapabilities()
@@ -111,6 +123,31 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         }
 
         return PlainText(AiTextContractFormatter.ProjectBoardSummary(result.Resource!));
+    }
+
+    [HttpGet("projects/{projectId:guid}/current-work-summary")]
+    [Produces("text/plain")]
+    public IResult GetCurrentWorkSummary(
+        Guid projectId,
+        [FromServices] IGetProjectBoardQueryService getProjectBoardQueryService)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = getProjectBoardQueryService.Get(currentUserId, projectId);
+        if (result.AccessDenied)
+        {
+            return ErrorText(StatusCodes.Status403Forbidden, "Forbidden", "Activate a scope you can access or ask the project owner for access.");
+        }
+
+        if (result.NotFound)
+        {
+            return ErrorText(StatusCodes.Status404NotFound, "ResourceNotFound", "Read project list summary again and pick an existing project.");
+        }
+
+        return PlainText(AiTextContractFormatter.CurrentWorkSummary(result.Resource!));
     }
 
     [HttpGet("projects/{projectId:guid}/tasks/{taskId:guid}/detail-summary")]
@@ -765,7 +802,9 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
 
     private static int CountOpenTasks(ProjectBoardView? board)
     {
-        return board?.Columns.Sum(column => column.Tasks.Count) ?? 0;
+        return board?.Columns
+            .Where(column => !column.IsCompletedState)
+            .Sum(column => column.Tasks.Count) ?? 0;
     }
 
     private static IResult PlainText(string content)

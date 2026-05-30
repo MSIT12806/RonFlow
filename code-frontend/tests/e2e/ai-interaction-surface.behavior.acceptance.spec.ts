@@ -17,6 +17,7 @@ const backendApiBaseUrl = (globalThis as ProcessEnvironment).process?.env?.RONFL
 
 const aiRoutes = {
   bootstrap: `${backendApiBaseUrl}/ai/bootstrap`,
+  glossary: `${backendApiBaseUrl}/ai/glossary`,
   capabilities: `${backendApiBaseUrl}/ai/capabilities`,
   sessionSummary: `${backendApiBaseUrl}/ai/session-summary`,
   projectListSummary: `${backendApiBaseUrl}/ai/projects/summary`,
@@ -27,6 +28,9 @@ const aiRoutes = {
   },
   projectBoardSummary(projectId: string) {
     return `${backendApiBaseUrl}/ai/projects/${projectId}/board-summary`
+  },
+  currentWorkSummary(projectId: string) {
+    return `${backendApiBaseUrl}/ai/projects/${projectId}/current-work-summary`
   },
   taskDetailSummary(projectId: string, taskId: string) {
     return `${backendApiBaseUrl}/ai/projects/${projectId}/tasks/${taskId}/detail-summary`
@@ -135,6 +139,20 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
     ])
   })
 
+  test('glossary 端點回傳固定的名詞契約', async ({ request }) => {
+    const session = await registerRonFlowAiSession(request)
+    const response = await request.get(aiRoutes.glossary, {
+      headers: authHeaders(session.accessToken, session.ronFlowSessionId),
+    })
+
+    await expectSuccessfulTextContract(response, [
+      'RonFlow AI Glossary v1',
+      'term: bootstrap',
+      'term: active scope',
+      'term: workflow guidance',
+    ])
+  })
+
   test('manifest 端點回傳目前支援的 read / write capability 清單', async ({ request }) => {
     const session = await registerRonFlowAiSession(request)
     const response = await request.get(aiRoutes.capabilities, {
@@ -143,6 +161,7 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
 
     await expectSuccessfulTextContract(response, [
       'RonFlow Capabilities Manifest v1',
+      '- capability: read_current_work_summary',
       '- capability: create_task',
       'active_scope_required: yes',
       'required_inputs: projectId, title',
@@ -205,6 +224,20 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
       'workflow_state_key: Todo',
       'next_actions:',
       '- create_task',
+    ])
+
+    const currentWorkResponse = await request.get(aiRoutes.currentWorkSummary(project.id), {
+      headers: authHeaders(session.accessToken, session.ronFlowSessionId),
+    })
+
+    await expectSuccessfulTextContract(currentWorkResponse, [
+      'RonFlow Current Work Summary v1',
+      `project_id: ${project.id}`,
+      'open_task_count: 1',
+      'open_tasks:',
+      `task_id: ${task.id}`,
+      `title: ${taskTitle}`,
+      'workflow_state_key: Todo',
     ])
 
     const detailResponse = await request.get(aiRoutes.taskDetailSummary(project.id, task.id), {

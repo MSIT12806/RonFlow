@@ -22,6 +22,21 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
     }
 
     [Test]
+    public async Task GetGlossary_WhenAuthenticated_ReturnsCanonicalGlossaryText()
+    {
+        var response = await Client.GetAsync("/api/ai/glossary");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var payload = await response.Content.ReadAsStringAsync();
+
+        Assert.That(payload, Does.Contain("RonFlow AI Glossary v1"));
+        Assert.That(payload, Does.Contain("term: bootstrap"));
+        Assert.That(payload, Does.Contain("term: active scope"));
+        Assert.That(payload, Does.Contain("term: workflow guidance"));
+    }
+
+    [Test]
     public async Task GetCapabilities_WhenAuthenticated_ReturnsCanonicalManifestText()
     {
         var response = await Client.GetAsync("/api/ai/capabilities");
@@ -31,6 +46,7 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         var payload = await response.Content.ReadAsStringAsync();
 
         Assert.That(payload, Does.Contain("RonFlow Capabilities Manifest v1"));
+        Assert.That(payload, Does.Contain("- capability: read_current_work_summary"));
         Assert.That(payload, Does.Contain("- capability: create_task"));
         Assert.That(payload, Does.Contain("active_scope_required: yes"));
         Assert.That(payload, Does.Contain("required_inputs: projectId, title"));
@@ -110,6 +126,28 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("title: Build AI Board"));
         Assert.That(payload, Does.Contain("workflow_state_key: Todo"));
         Assert.That(payload, Does.Contain("next_actions:"));
+    }
+
+    [Test]
+    public async Task GetCurrentWorkSummary_WhenProjectExists_ReturnsOpenTasksText()
+    {
+        await EnsureKnownUserAsync(Client);
+        var project = await CreateProjectAsync("AI Current Work Project");
+        var task = await CreateTaskAsync(project.Id, "Build AI Discovery Surface");
+
+        var response = await Client.GetAsync($"/api/ai/projects/{project.Id}/current-work-summary");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var payload = await response.Content.ReadAsStringAsync();
+
+        Assert.That(payload, Does.Contain("RonFlow Current Work Summary v1"));
+        Assert.That(payload, Does.Contain($"project_id: {project.Id}"));
+        Assert.That(payload, Does.Contain("open_task_count: 1"));
+        Assert.That(payload, Does.Contain("open_tasks:"));
+        Assert.That(payload, Does.Contain($"task_id: {task.Id}"));
+        Assert.That(payload, Does.Contain("title: Build AI Discovery Surface"));
+        Assert.That(payload, Does.Contain("workflow_state_key: Todo"));
     }
 
     [Test]
