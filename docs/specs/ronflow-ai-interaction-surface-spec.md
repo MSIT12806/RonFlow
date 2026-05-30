@@ -331,7 +331,7 @@ RonFlow 管理的主要工作物件有：Project、Board、Task、Session、Acti
 1. bootstrap 回應第一行必須是 `RonFlow Bootstrap v1`。
 2. bootstrap 必須完整包含 `RonFlow 是一個專案管理工具。` 這句話。
 3. bootstrap 必須完整列出 `Project、Board、Task、Session、Active Scope`。
-4. bootstrap 必須完整列出四個第一步入口：manifest、glossary、session / scope summary、project list summary。
+4. bootstrap 必須完整列出五個第一步入口：manifest、glossary、workflow guidance、session / scope summary、project list summary。
 5. bootstrap 必須完整列出四個需要先問人的情況。
 ```
 
@@ -358,7 +358,8 @@ Feature: AI bootstrap
 		And 回應應包含 `RonFlow 是一個專案管理工具。`
 		And 回應應包含 `你現在應先做以下事情：`
 		And 回應應包含 `1. 讀取 capabilities manifest`
-		And 回應應包含 `4. 讀取 project list summary`
+		And 回應應包含 `3. 讀取 workflow guidance`
+		And 回應應包含 `5. 讀取 project list summary`
 ```
 
 ### 7.1.1 AI Glossary
@@ -483,6 +484,11 @@ RonFlow Capabilities Manifest v1
 	category: read
 	active_scope_required: yes
 	required_inputs: projectId
+
+- capability: read_audit_entry
+	category: read
+	active_scope_required: yes
+	required_inputs: auditEntryId
 
 - capability: create_project
 	category: write

@@ -18,7 +18,8 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("RonFlow Bootstrap v1"));
         Assert.That(payload, Does.Contain("RonFlow 是一個專案管理工具。"));
         Assert.That(payload, Does.Contain("1. 讀取 capabilities manifest"));
-        Assert.That(payload, Does.Contain("4. 讀取 project list summary"));
+        Assert.That(payload, Does.Contain("3. 讀取 workflow guidance"));
+        Assert.That(payload, Does.Contain("5. 讀取 project list summary"));
     }
 
     [Test]
@@ -47,6 +48,7 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
 
         Assert.That(payload, Does.Contain("RonFlow Capabilities Manifest v1"));
         Assert.That(payload, Does.Contain("- capability: read_current_work_summary"));
+        Assert.That(payload, Does.Contain("- capability: read_audit_entry"));
         Assert.That(payload, Does.Contain("- capability: create_task"));
         Assert.That(payload, Does.Contain("- capability: check_task_subtask"));
         Assert.That(payload, Does.Contain("- capability: uncheck_task_subtask"));
