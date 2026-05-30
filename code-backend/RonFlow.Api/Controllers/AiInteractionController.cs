@@ -221,6 +221,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         [FromServices] UpdateTaskCommandService updateTaskCommandService,
         [FromServices] ChangeTaskStateCommandService changeTaskStateCommandService,
         [FromServices] ReorderTaskCommandService reorderTaskCommandService,
+        [FromServices] ReplaceTaskSubtasksCommandService replaceTaskSubtasksCommandService,
         [FromServices] ArchiveTaskCommandService archiveTaskCommandService,
         [FromServices] RestoreArchivedTaskCommandService restoreArchivedTaskCommandService,
         [FromServices] MoveTaskToTrashCommandService moveTaskToTrashCommandService,
@@ -260,6 +261,8 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
             "create_project" => ApplyCreateProject(createProjectCommandService, aiAuditRegistry, currentUserId, currentUserName, targetType, requiredFields),
             "create_task" => ApplyCreateTask(createTaskCommandService, aiAuditRegistry, currentUserName, sessionId, targetType, requiredFields, projectPresenceRegistry, currentUserId),
             "update_task_detail" => ApplyUpdateTaskDetail(updateTaskCommandService, aiAuditRegistry, taskRepository, taskContentEditLockService, currentUserId, currentUserName, sessionId, targetType, requiredFields, optionalFields, projectPresenceRegistry),
+            "check_task_subtask" => ApplyToggleTaskSubtask(replaceTaskSubtasksCommandService, aiAuditRegistry, taskRepository, currentUserId, currentUserName, sessionId, targetType, requiredFields, projectPresenceRegistry, operation, true),
+            "uncheck_task_subtask" => ApplyToggleTaskSubtask(replaceTaskSubtasksCommandService, aiAuditRegistry, taskRepository, currentUserId, currentUserName, sessionId, targetType, requiredFields, projectPresenceRegistry, operation, false),
             "move_task_state" => ApplyMoveTaskState(changeTaskStateCommandService, aiAuditRegistry, taskRepository, currentUserId, currentUserName, sessionId, targetType, requiredFields, projectPresenceRegistry),
             "reorder_task" => ApplyReorderTask(reorderTaskCommandService, aiAuditRegistry, taskRepository, currentUserName, sessionId, currentUserId, targetType, requiredFields, projectPresenceRegistry),
             "archive_task" => ApplyTaskLifecycle(archiveTaskCommandService.Archive, aiAuditRegistry, taskRepository, currentUserName, sessionId, currentUserId, targetType, requiredFields, projectPresenceRegistry, operation, "lifecycle_state", "archived"),
@@ -505,6 +508,89 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         var auditEntryId = aiAuditRegistry.Record(currentUserName, targetType, changedTask.Id.ToString(), "move_task_state", "success", actualDiff);
 
         return PlainText(AiTextContractFormatter.ApplyResult("move_task_state", targetType, changedTask.Id.ToString(), ["workflow_state_key"], auditEntryId));
+    }
+
+    private IResult ApplyToggleTaskSubtask(
+        ReplaceTaskSubtasksCommandService replaceTaskSubtasksCommandService,
+        AiAuditRegistry aiAuditRegistry,
+        ITaskRepository taskRepository,
+        Guid currentUserId,
+        string currentUserName,
+        string sessionId,
+        string targetType,
+        IReadOnlyDictionary<string, JsonElement> requiredFields,
+        ProjectPresenceRegistry projectPresenceRegistry,
+        string operation,
+        bool isChecked)
+    {
+        var taskId = GetRequiredGuid(requiredFields, "taskId");
+        if (!taskId.HasValue)
+        {
+            return MissingRequiredField("taskId");
+        }
+
+        var subtaskId = GetRequiredGuid(requiredFields, "subtaskId");
+        if (!subtaskId.HasValue)
+        {
+            return MissingRequiredField("subtaskId");
+        }
+
+        var task = taskRepository.Get(taskId.Value);
+        if (task is null)
+        {
+            return ErrorText(StatusCodes.Status404NotFound, "ResourceNotFound", "Read project board summary again and pick an existing task.");
+        }
+
+        var scopeError = EnsureScope(projectPresenceRegistry, sessionId, task.ProjectId);
+        if (scopeError is not null)
+        {
+            return scopeError;
+        }
+
+        var targetSubtask = task.Subtasks
+            .OrderBy(subtask => subtask.Order)
+            .SingleOrDefault(subtask => subtask.Id == subtaskId.Value);
+        if (targetSubtask is null)
+        {
+            return ErrorText(StatusCodes.Status404NotFound, "ResourceNotFound", "Read task detail summary again and pick an existing subtask.", "The requested subtask does not exist.");
+        }
+
+        var updatedInputs = task.Subtasks
+            .OrderBy(subtask => subtask.Order)
+            .Select(subtask => new TaskSubtaskInput(
+                subtask.Id,
+                subtask.Title,
+                subtask.Id == subtaskId.Value ? isChecked : subtask.IsChecked,
+                subtask.Order))
+            .ToArray();
+
+        var result = replaceTaskSubtasksCommandService.Replace(currentUserId, task.ProjectId, taskId.Value, updatedInputs);
+        if (result.ValidationError is not null)
+        {
+            return ValidationFailed(result.ValidationError.Field, result.ValidationError.Message);
+        }
+
+        if (result.TaskNotFound)
+        {
+            return ErrorText(StatusCodes.Status404NotFound, "ResourceNotFound", "Read project board summary again and pick an existing task.");
+        }
+
+        if (result.AccessDenied)
+        {
+            return ErrorText(StatusCodes.Status403Forbidden, "Forbidden", "Activate a scope you can access or ask the project owner for access.");
+        }
+
+        if (result.Conflict)
+        {
+            return ErrorText(StatusCodes.Status409Conflict, "ConcurrencyConflict", "Read task detail summary again and retry after the edit lock is released.", "The task could not be updated because the edit lock is not available.");
+        }
+
+        var changedTask = result.Task!;
+        var changedFields = GetTaskSubtaskChangedFields(task, changedTask, subtaskId.Value);
+        var actualDiff = BuildTaskSubtaskDiff(task, changedTask, subtaskId.Value);
+        var auditEntryId = aiAuditRegistry.Record(currentUserName, targetType, changedTask.Id.ToString(), operation, "success", actualDiff);
+
+        return PlainText(AiTextContractFormatter.ApplyResult(operation, targetType, changedTask.Id.ToString(), changedFields, auditEntryId));
     }
 
     private IResult ApplyReorderTask(
@@ -778,6 +864,34 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
                     diff.Add($"dueDate: {(task.DueDate.HasValue ? task.DueDate.Value.ToString("yyyy-MM-dd") : "none")} -> {(updatedTask.DueDate.HasValue ? updatedTask.DueDate.Value.ToString("yyyy-MM-dd") : "none")}");
                     break;
             }
+        }
+
+        return diff;
+    }
+
+    private static IReadOnlyList<string> GetTaskSubtaskChangedFields(RonFlow.Domain.Task task, CreateTaskOutput updatedTask, Guid subtaskId)
+    {
+        var changedFields = new List<string> { "subtasks" };
+
+        if (!string.Equals(task.CurrentState.Key, updatedTask.CurrentState.Key, StringComparison.OrdinalIgnoreCase))
+        {
+            changedFields.Add("workflow_state_key");
+        }
+
+        return changedFields;
+    }
+
+    private static IReadOnlyList<string> BuildTaskSubtaskDiff(RonFlow.Domain.Task task, CreateTaskOutput updatedTask, Guid subtaskId)
+    {
+        var diff = new List<string>();
+        var originalSubtask = task.Subtasks.Single(subtask => subtask.Id == subtaskId);
+        var updatedSubtask = updatedTask.Subtasks.Single(subtask => subtask.Id == subtaskId);
+
+        diff.Add($"subtask:{updatedSubtask.Title}: {(originalSubtask.IsChecked ? "checked" : "unchecked")} -> {(updatedSubtask.IsChecked ? "checked" : "unchecked")}");
+
+        if (!string.Equals(task.CurrentState.Key, updatedTask.CurrentState.Key, StringComparison.OrdinalIgnoreCase))
+        {
+            diff.Add($"workflow_state_key: {NormalizeText(task.CurrentState.Key)} -> {NormalizeText(updatedTask.CurrentState.Key)}");
         }
 
         return diff;

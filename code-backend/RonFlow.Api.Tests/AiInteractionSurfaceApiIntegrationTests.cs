@@ -48,6 +48,8 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("RonFlow Capabilities Manifest v1"));
         Assert.That(payload, Does.Contain("- capability: read_current_work_summary"));
         Assert.That(payload, Does.Contain("- capability: create_task"));
+        Assert.That(payload, Does.Contain("- capability: check_task_subtask"));
+        Assert.That(payload, Does.Contain("- capability: uncheck_task_subtask"));
         Assert.That(payload, Does.Contain("active_scope_required: yes"));
         Assert.That(payload, Does.Contain("required_inputs: projectId, title"));
     }
@@ -65,6 +67,8 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("1. read summary"));
         Assert.That(payload, Does.Contain("4. prepare write request"));
         Assert.That(payload, Does.Contain("6. inspect result"));
+        Assert.That(payload, Does.Contain("checklist_rules:"));
+        Assert.That(payload, Does.Contain("- use check_task_subtask when one checklist item is finished"));
     }
 
     [Test]
@@ -169,6 +173,40 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("workflow_state_key: Todo"));
         Assert.That(payload, Does.Contain("next_actions:"));
         Assert.That(payload, Does.Contain("- update_task_detail"));
+    }
+
+    [Test]
+    public async Task GetTaskDetailSummary_WhenTaskHasChecklist_IncludesSubtasksAndAiFriendlyNextActions()
+    {
+        await EnsureKnownUserAsync(Client);
+        var project = await CreateProjectAsync("AI Checklist Summary Project");
+
+        var templateResponse = await Client.PutAsJsonAsync(
+            $"/api/projects/{project.Id}/subtask-templates",
+            new
+            {
+                items = new[]
+                {
+                    new { title = "需求已釐清" },
+                    new { title = "驗收案例已確認" },
+                },
+            });
+
+        Assert.That(templateResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var task = await CreateTaskAsync(project.Id, "Build AI Checklist Summary");
+
+        var response = await Client.GetAsync($"/api/ai/projects/{project.Id}/tasks/{task.Id}/detail-summary");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var payload = await response.Content.ReadAsStringAsync();
+
+        Assert.That(payload, Does.Contain("subtasks:"));
+        Assert.That(payload, Does.Contain("title: 需求已釐清"));
+        Assert.That(payload, Does.Contain("is_checked: no"));
+        Assert.That(payload, Does.Contain("- check_task_subtask"));
+        Assert.That(payload, Does.Contain("- uncheck_task_subtask"));
     }
 
     [Test]
@@ -374,6 +412,92 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(auditPayload, Does.Contain("requested_change: update_task_detail"));
         Assert.That(auditPayload, Does.Contain($"target_id: {task.Id}"));
         Assert.That(auditPayload, Does.Contain("actual_diff:"));
+    }
+
+    [Test]
+    public async Task ApplyCheckAndUncheckTaskSubtask_WhenScopeIsActive_TogglesChecklistItem()
+    {
+        using var sessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-ai-apply-toggle-subtask");
+
+        await EnsureKnownUserAsync(sessionClient);
+        await ActivateSessionAsync(sessionClient);
+
+        var project = await CreateProjectAsync(sessionClient, "AI Toggle Checklist Project");
+        var templateResponse = await sessionClient.PutAsJsonAsync(
+            $"/api/projects/{project.Id}/subtask-templates",
+            new
+            {
+                items = new[]
+                {
+                    new { title = "完成 discovery" },
+                    new { title = "更新 contract" },
+                },
+            });
+
+        Assert.That(templateResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var task = await CreateTaskAsync(sessionClient, project.Id, "Implement AI checklist contract");
+
+        var activateResponse = await sessionClient.PostAsJsonAsync("/api/ai/active-scope", new { projectId = project.Id });
+        Assert.That(activateResponse.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
+
+        var targetSubtaskId = task.Subtasks.First().Id;
+
+        var checkResponse = await sessionClient.PostAsJsonAsync("/api/ai/apply", new
+        {
+            operation = "check_task_subtask",
+            targetType = "task",
+            targetId = task.Id,
+            requiredFields = new
+            {
+                taskId = task.Id,
+                subtaskId = targetSubtaskId,
+            },
+            optionalFields = new { },
+            note = "mark one checklist item complete",
+        });
+
+        Assert.That(checkResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var checkPayload = await checkResponse.Content.ReadAsStringAsync();
+
+        Assert.That(checkPayload, Does.Contain("operation: check_task_subtask"));
+        Assert.That(checkPayload, Does.Contain("- subtasks"));
+
+        var checkedDetailResponse = await sessionClient.GetAsync($"/api/projects/{project.Id}/tasks/{task.Id}");
+        Assert.That(checkedDetailResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var checkedDetail = await checkedDetailResponse.Content.ReadFromJsonAsync<TaskDetailResponse>();
+        Assert.That(checkedDetail, Is.Not.Null);
+        Assert.That(checkedDetail!.Subtasks.Single(item => item.Id == targetSubtaskId).IsChecked, Is.True);
+
+        var uncheckResponse = await sessionClient.PostAsJsonAsync("/api/ai/apply", new
+        {
+            operation = "uncheck_task_subtask",
+            targetType = "task",
+            targetId = task.Id,
+            requiredFields = new
+            {
+                taskId = task.Id,
+                subtaskId = targetSubtaskId,
+            },
+            optionalFields = new { },
+            note = "reopen one checklist item",
+        });
+
+        Assert.That(uncheckResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var uncheckPayload = await uncheckResponse.Content.ReadAsStringAsync();
+
+        Assert.That(uncheckPayload, Does.Contain("operation: uncheck_task_subtask"));
+        Assert.That(uncheckPayload, Does.Contain("- subtasks"));
+
+        var uncheckedDetailResponse = await sessionClient.GetAsync($"/api/projects/{project.Id}/tasks/{task.Id}");
+        Assert.That(uncheckedDetailResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var uncheckedDetail = await uncheckedDetailResponse.Content.ReadFromJsonAsync<TaskDetailResponse>();
+        Assert.That(uncheckedDetail, Is.Not.Null);
+        Assert.That(uncheckedDetail!.Subtasks.Single(item => item.Id == targetSubtaskId).IsChecked, Is.False);
     }
 
     [Test]

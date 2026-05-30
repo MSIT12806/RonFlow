@@ -159,20 +159,23 @@ RonFlow v0.3 是否完成，應以以下問題判斷：
 4. 建立 Project
 5. 建立 Task
 6. 更新 Task title、description、due date
-7. 推進 Task workflow state
-8. 調整 Task 在同欄位中的順序
-9. 封存 Task 與還原已封存 Task
-10. 將 Task 移到垃圾桶與還原垃圾桶中的 Task
-11. 查詢操作結果與相關 activity 資訊
+7. 勾選單一 task checklist item
+8. 取消勾選單一 task checklist item
+9. 推進 Task workflow state
+10. 調整 Task 在同欄位中的順序
+11. 封存 Task 與還原已封存 Task
+12. 將 Task 移到垃圾桶與還原垃圾桶中的 Task
+13. 查詢操作結果與相關 activity 資訊
 ```
 
 ### 4.5 Shared-Domain 變更追蹤
 
 ```text
 1. `ronflow-core-flow-spec.md` 已承接結構化 DoD：project subtask templates、task checklist，以及「全部勾選後自動進入 Review」的 shared-domain 規則。
-2. 目前本 AI interaction surface spec 尚未定義對應的 manifest capability、task detail summary contract、write request contract 或 apply contract。
-3. 在上述 AI contract 明確承接之前，AI agent 不得假設自己已可透過 AI interaction surface 管理 project subtask templates 或 task checklist。
-4. 後續若要讓 AI 正式讀寫 structured DoD，至少需同步更新 manifest、Read-First Summary Query、Write Request Preparation、Apply Operation 與 Acceptance Criteria。
+2. 目前本 AI interaction surface 已承接 task checklist 的 detail summary contract，以及 `check_task_subtask` / `uncheck_task_subtask` 兩個 apply operation。
+3. workflow guidance 現在會明確要求：若 task detail summary 含有 subtasks，AI 應先依 checklist 執行，再宣告 task 完成。
+4. project subtask templates 的 AI 專用管理 contract 仍未納入；AI agent 目前不得假設自己可透過 AI interaction surface 管理 project subtask templates。
+5. 後續若要讓 AI 正式讀寫其餘 structured DoD 能力，至少需同步更新 manifest、Read-First Summary Query、Write Request Preparation、Apply Operation 與 Acceptance Criteria。
 ```
 
 ---
@@ -675,7 +678,7 @@ Feature: Session and scope awareness
 1. Project List summary 會提供目前 actor 可存取的 Project 與其基本狀態。
 2. Project board summary 會提供 workflow columns、open tasks、in-progress tasks、blocked tasks 與最近活動摘要。
 3. task summary 會提供目前狀態、最近活動與目前可承接的下一步操作。
-4. task detail summary 會提供 title、description、due date、current state、lifecycle state、recent activities 與 reminder 摘要。
+4. task detail summary 會提供 title、description、due date、current state、lifecycle state、subtasks、recent activities 與 reminder 摘要。
 5. 若查詢需要 active scope，系統會先驗證 scope，再回傳 summary。
 ```
 
@@ -759,12 +762,19 @@ due_date: <yyyy-mm-dd or none>
 workflow_state_key: <state-key>
 workflow_state_name: <state-name>
 lifecycle_state: active
+subtasks:
+- subtask_id: <subtask-id>
+	title: <subtask-title>
+	is_checked: yes|no
+	order: <order>
 recent_activities:
 - <activity-1>
 - <activity-2>
 
 next_actions:
 - update_task_detail
+- check_task_subtask
+- uncheck_task_subtask
 - move_task_state
 - reorder_task
 - archive_task
@@ -790,7 +800,8 @@ next_actions:
 7. Current Work summary 必須包含 `open_task_count:` 與 `open_tasks:` 區塊；若仍有未完成 Task，至少要列出一筆 `task_id`、`title`、`workflow_state_key`。
 8. Task Detail summary 回應第一行必須是 `RonFlow Task Detail Summary v1`。
 9. Task Detail summary 必須完整包含 `task_id`、`title`、`description`、`due_date`、`workflow_state_key`、`workflow_state_name`、`lifecycle_state`。
-10. Task Detail summary 必須包含 `recent_activities:` 與 `next_actions:` 區塊。
+10. 若 task 有 checklist，Task Detail summary 必須包含 `subtasks:` 區塊，且每個 subtask 至少列出 `subtask_id`、`title`、`is_checked`、`order`。
+11. Task Detail summary 必須包含 `recent_activities:` 與 `next_actions:` 區塊。
 ```
 
 **Testability**
@@ -1169,6 +1180,7 @@ Feature: Audit trail for AI actions
 2. 在 RonFlow 中該先讀什麼、先確認什麼、先驗證什麼
 3. 需求不完整或資訊不足時的 escalation 原則
 4. 與 spec-first / acceptance-first workflow 對齊的建議
+5. 當 task 含有 checklist/subtasks 時，AI 應如何逐項勾選與回報
 ```
 
 **Expected Behavior**
@@ -1177,6 +1189,7 @@ Feature: Audit trail for AI actions
 1. workflow guidance 幫助 AI 遵循 RonFlow 的工作文化。
 2. guidance 提供工作順序與判斷原則，並與正式權限與 contract 對齊。
 3. AI 應能從 guidance 理解何時該先整理 spec、何時該先讀摘要、何時該先補齊缺少的輸入。
+4. 若 task detail summary 含有 subtasks，AI 應把 checklist 視為 execution plan，而不是直接以 task level 宣告完成。
 ```
 
 **Canonical Text Contract**
@@ -1191,6 +1204,12 @@ recommended_order:
 4. prepare write request
 5. apply
 6. inspect result
+
+checklist_rules:
+- if task detail summary contains subtasks, treat them as the execution plan before declaring the task complete
+- use check_task_subtask when one checklist item is finished
+- use uncheck_task_subtask when a previously checked checklist item is no longer satisfied
+- do not report the task as fully complete while required subtasks remain unchecked
 
 ask_human_when:
 - target object is ambiguous
@@ -1210,8 +1229,9 @@ ask_human_when:
 
 ```text
 1. workflow guidance 第一行必須是 `RonFlow Workflow Guidance v1`。
-2. guidance 必須包含 `recommended_order:` 與 `ask_human_when:` 兩個區塊。
+2. guidance 必須包含 `recommended_order:`、`checklist_rules:` 與 `ask_human_when:` 三個區塊。
 3. `recommended_order` 必須完整列出 read summary、confirm target object、confirm required fields、prepare write request、apply、inspect result。
+4. `checklist_rules` 必須明確說明 AI 應逐項勾選 checklist，且在未完成前不得直接宣告 task 完成。
 ```
 
 **Testability**
@@ -1401,7 +1421,7 @@ Feature: Workflow guidance
 ```text
 1. AI 可以讀取單一 Task 的 task summary。
 2. AI 可以讀取單一 Task 的 detail summary。
-3. detail summary 會包含 title、description、due date、current state、lifecycle state、recent activities 與 reminder 摘要。
+3. detail summary 會包含 title、description、due date、current state、lifecycle state、subtasks、recent activities 與 reminder 摘要。
 ```
 
 ### 9.6 Create Project And Create Task Through AI Flow
@@ -1421,7 +1441,16 @@ Feature: Workflow guidance
 3. 更新成功後，系統回傳變更結果、差異與 audit entry。
 ```
 
-### 9.8 Move, Reorder, Archive, Trash And Restore Task Through AI Flow
+### 9.8 Check And Uncheck Task Checklist Through AI Flow
+
+```text
+1. AI 可以透過 `check_task_subtask` 勾選單一 task checklist item。
+2. AI 可以透過 `uncheck_task_subtask` 取消勾選單一 task checklist item。
+3. 這兩個操作都以 `taskId` 與 `subtaskId` 為必要輸入，並沿用既有的 scope、authorization 與 concurrency 規則。
+4. 若最後一個必要 checklist item 被勾選完成，Task 仍沿用 shared-domain 規則自動進入 Review。
+```
+
+### 9.9 Move, Reorder, Archive, Trash And Restore Task Through AI Flow
 
 ```text
 1. AI 可以移動 Task 到另一個 workflow state。
@@ -1431,7 +1460,7 @@ Feature: Workflow guidance
 5. 這些操作透過既有的 write contract 與 apply flow 承接。
 ```
 
-### 9.9 Prepare Direct Change Request
+### 9.10 Prepare Direct Change Request
 
 ```text
 1. AI 可以根據最新 summary 整理出對應的 direct write request。
@@ -1439,7 +1468,7 @@ Feature: Workflow guidance
 3. 若 write request 與當前資料狀態不一致，系統以 concurrency conflict 或 validation error 回應。
 ```
 
-### 9.10 Apply Change With Current Authorization
+### 9.11 Apply Change With Current Authorization
 
 ```text
 1. apply 依目前 session、scope 與權限狀態執行。
@@ -1447,16 +1476,16 @@ Feature: Workflow guidance
 3. 當資料已變動時，系統回傳 stale data 或 concurrency conflict。
 ```
 
-### 9.11 Apply Existing RonFlow Changes Safely
+### 9.12 Apply Existing RonFlow Changes Safely
 
 ```text
-1. AI 可以以既有操作完成建立、更新、移動、排序、封存、還原與垃圾桶相關寫入。
+1. AI 可以以既有操作完成建立、更新、勾選/取消勾選 checklist、移動、排序、封存、還原與垃圾桶相關寫入。
 2. apply 前後的回應足以讓 AI 確認實際變更結果。
 3. apply 成功後，系統應回傳實際結果、差異與 audit entry。
 4. apply 以明確的 stale data 或 concurrency conflict 回應資料變更情境。
 ```
 
-### 9.12 Recover From Structured Errors
+### 9.13 Recover From Structured Errors
 
 ```text
 1. AI 操作失敗時，系統應回傳 machine-readable error code。
@@ -1464,7 +1493,7 @@ Feature: Workflow guidance
 3. AI 可以根據不同錯誤型別，決定補參數、重讀 summary、重新送出 request、切換 scope，或回頭詢問人類。
 ```
 
-### 9.13 Audit AI Actions End-To-End
+### 9.14 Audit AI Actions End-To-End
 
 ```text
 1. AI 的每次寫入都會產生可查詢的 audit entry。
@@ -1472,12 +1501,13 @@ Feature: Workflow guidance
 3. 人類可以只讀 audit entry，就理解這次 AI 行動做了什麼與為什麼做。
 ```
 
-### 9.14 Follow Workflow Guidance
+### 9.15 Follow Workflow Guidance
 
 ```text
 1. AI 可以透過 workflow guidance 理解 RonFlow 期待的工作順序。
 2. workflow guidance 會強化先讀後寫、先確認目標與參數再寫入的工作方式。
-3. workflow guidance 不會讓 AI 繞過正式規則。
+3. 若 task 含有 checklist，workflow guidance 會要求 AI 逐項勾選，而不是直接以 task-level 宣告完成。
+4. workflow guidance 不會讓 AI 繞過正式規則。
 ```
 
 ---

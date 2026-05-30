@@ -99,6 +99,16 @@ internal static class AiTextContractFormatter
             "  required_inputs: taskId",
             "  optional_inputs: title, description, dueDate",
             string.Empty,
+            "- capability: check_task_subtask",
+            "  category: write",
+            "  active_scope_required: yes",
+            "  required_inputs: taskId, subtaskId",
+            string.Empty,
+            "- capability: uncheck_task_subtask",
+            "  category: write",
+            "  active_scope_required: yes",
+            "  required_inputs: taskId, subtaskId",
+            string.Empty,
             "- capability: move_task_state",
             "  category: write",
             "  active_scope_required: yes",
@@ -144,6 +154,12 @@ internal static class AiTextContractFormatter
             "4. prepare write request",
             "5. apply",
             "6. inspect result",
+            string.Empty,
+            "checklist_rules:",
+            "- if task detail summary contains subtasks, treat them as the execution plan before declaring the task complete",
+            "- use check_task_subtask when one checklist item is finished",
+            "- use uncheck_task_subtask when a previously checked checklist item is no longer satisfied",
+            "- do not report the task as fully complete while required subtasks remain unchecked",
             string.Empty,
             "ask_human_when:",
             "- target object is ambiguous",
@@ -296,6 +312,16 @@ internal static class AiTextContractFormatter
         builder.AppendLine($"workflow_state_key: {NormalizeWorkflowKey(task.CurrentState.Key)}");
         builder.AppendLine($"workflow_state_name: {task.CurrentState.Label}");
         builder.AppendLine($"lifecycle_state: {NormalizeLifecycleState(task.LifecycleState)}");
+        builder.AppendLine("subtasks:");
+
+        foreach (var subtask in task.Subtasks.OrderBy(subtask => subtask.Order))
+        {
+            builder.AppendLine($"- subtask_id: {subtask.Id}");
+            builder.AppendLine($"  title: {subtask.Title}");
+            builder.AppendLine($"  is_checked: {(subtask.IsChecked ? "yes" : "no")}");
+            builder.AppendLine($"  order: {subtask.Order}");
+        }
+
         builder.AppendLine("recent_activities:");
 
         foreach (var activity in task.ActivityTimeline.Take(2))
@@ -306,6 +332,11 @@ internal static class AiTextContractFormatter
         builder.AppendLine();
         builder.AppendLine("next_actions:");
         builder.AppendLine("- update_task_detail");
+        if (task.Subtasks.Count > 0)
+        {
+            builder.AppendLine("- check_task_subtask");
+            builder.AppendLine("- uncheck_task_subtask");
+        }
         builder.AppendLine("- move_task_state");
         builder.AppendLine("- reorder_task");
         builder.AppendLine("- archive_task");
