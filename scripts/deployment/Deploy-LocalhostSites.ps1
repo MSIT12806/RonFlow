@@ -8,6 +8,9 @@ param(
   [ValidateSet('IisApplications', 'DirectPorts')]
   [string]$ApiAccessMode = 'IisApplications',
   [string]$IisSiteName = 'Default Web Site',
+  [string]$IisAppPoolName = 'DefaultAppPool',
+  [string]$RonAuthAppPoolName,
+  [string]$RonFlowApiAppPoolName,
   [string]$RonAuthAppPath = '/ronauth-api',
   [string]$RonFlowApiAppPath = '/ronflow-api',
   [switch]$EnsureIisApplications,
@@ -70,6 +73,14 @@ $DeploymentRoot = Get-AbsolutePath -Path $DeploymentRoot
 $RonAuthTargetPath = Get-AbsolutePath -Path $RonAuthTargetPath
 $RonFlowApiTargetPath = Get-AbsolutePath -Path $RonFlowApiTargetPath
 $RonFlowWebTargetPath = Get-AbsolutePath -Path $RonFlowWebTargetPath
+
+if ([string]::IsNullOrWhiteSpace($RonAuthAppPoolName)) {
+  $RonAuthAppPoolName = $IisAppPoolName
+}
+
+if ([string]::IsNullOrWhiteSpace($RonFlowApiAppPoolName)) {
+  $RonFlowApiAppPoolName = $IisAppPoolName
+}
 
 $frontendApiBaseUrl = if ($ApiAccessMode -eq 'IisApplications') {
   "$RonFlowApiAppPath/api"
@@ -505,6 +516,53 @@ function Start-IisHosting {
   }
 }
 
+function Test-HttpStatusCode {
+  param(
+    [Parameter(Mandatory = $true)][string]$Uri,
+    [string]$Method = 'GET'
+  )
+
+  try {
+    $response = Invoke-WebRequest -Uri $Uri -Method $Method -UseBasicParsing -TimeoutSec 20
+    return [int]$response.StatusCode
+  }
+  catch {
+    if ($null -ne $_.Exception.Response) {
+      return [int]$_.Exception.Response.StatusCode
+    }
+
+    throw
+  }
+}
+
+function Assert-IisApplicationHealth {
+  param(
+    [Parameter(Mandatory = $true)][string]$RonAuthHealthUri,
+    [Parameter(Mandatory = $true)][string]$RonFlowHealthUri
+  )
+
+  $ronAuthStatusCode = Test-HttpStatusCode -Uri $RonAuthHealthUri -Method 'OPTIONS'
+  $ronFlowStatusCode = Test-HttpStatusCode -Uri $RonFlowHealthUri
+
+  $ronAuthHealthy = $ronAuthStatusCode -in @(200, 204, 400, 401, 405, 415)
+  $ronFlowHealthy = $ronFlowStatusCode -in @(200, 401)
+
+  if ($ronAuthHealthy -and $ronFlowHealthy) {
+    return
+  }
+
+  $repairCommand = 'pwsh -NoLogo -NoProfile -File .\scripts\deployment\Deploy-LocalhostSites.ps1 -EnsureIisApplications -StopIisHosting -SkipFrontendInstall'
+  throw @"
+Localhost IIS health checks failed after deployment.
+RonAuth endpoint: $RonAuthHealthUri -> HTTP $ronAuthStatusCode
+RonFlow endpoint: $RonFlowHealthUri -> HTTP $ronFlowStatusCode
+
+If these endpoints are still returning 503, the IIS application bindings may need to be reapplied or the IIS app pool may need an elevated recycle.
+Re-run the deployment from an elevated PowerShell 7 session with:
+$repairCommand
+"@
+}
+
 function Ensure-IisApplication {
   param(
     [Parameter(Mandatory = $true)][string]$SiteName,
@@ -522,8 +580,10 @@ function Ensure-IisApplication {
     throw "IIS application mode requires an elevated PowerShell session. Re-run the script as Administrator."
   }
 
-  & $appCmdPath add apppool /name:$AppPoolName /managedRuntimeVersion:"" /managedPipelineMode:Integrated | Out-Null
-  & $appCmdPath set apppool /apppool.name:$AppPoolName /processModel.identityType:ApplicationPoolIdentity | Out-Null
+  if (-not (Test-IisAppPoolExists -AppPoolName $AppPoolName)) {
+    & $appCmdPath add apppool /name:$AppPoolName /managedRuntimeVersion:"" /managedPipelineMode:Integrated | Out-Null
+    & $appCmdPath set apppool /apppool.name:$AppPoolName /processModel.identityType:ApplicationPoolIdentity | Out-Null
+  }
 
   $existingApp = & $appCmdPath list app "$SiteName$ApplicationPath" 2>$null
   if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($existingApp)) {
@@ -570,7 +630,7 @@ $npmPath = Get-RequiredCommand -Name 'npm'
 $gitPath = Get-Command git -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -ErrorAction SilentlyContinue
 $ronFlowSourceRevision = Try-ResolveGitRevision -RepositoryPath $repoRoot
 $ronAuthSourceRevision = Try-ResolveGitRevision -RepositoryPath $ronAuthRepoRoot
-$managedIisAppPools = @('RonAuth.Api', 'RonFlow.Api')
+$managedIisAppPools = @($RonAuthAppPoolName, $RonFlowApiAppPoolName) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
 $iisHostingStopped = $false
 
 if (-not $SkipApiStart.IsPresent) {
@@ -598,8 +658,8 @@ Write-BuildInfoFile -TargetPath $RonFlowApiTargetPath -Application 'RonFlow.Api'
 
 if ($ApiAccessMode -eq 'IisApplications' -and $EnsureIisApplications.IsPresent) {
   Write-Step 'Configuring IIS applications for path-based API access'
-  Ensure-IisApplication -SiteName $IisSiteName -ApplicationPath $RonAuthAppPath -PhysicalPath $RonAuthTargetPath -AppPoolName 'RonAuth.Api'
-  Ensure-IisApplication -SiteName $IisSiteName -ApplicationPath $RonFlowApiAppPath -PhysicalPath $RonFlowApiTargetPath -AppPoolName 'RonFlow.Api'
+  Ensure-IisApplication -SiteName $IisSiteName -ApplicationPath $RonAuthAppPath -PhysicalPath $RonAuthTargetPath -AppPoolName $RonAuthAppPoolName
+  Ensure-IisApplication -SiteName $IisSiteName -ApplicationPath $RonFlowApiAppPath -PhysicalPath $RonFlowApiTargetPath -AppPoolName $RonFlowApiAppPoolName
 }
 elseif (-not $SkipApiStart.IsPresent) {
   Write-Step 'Starting published API processes'
@@ -612,6 +672,13 @@ Deploy-FrontendSite
 if ($ApiAccessMode -eq 'IisApplications' -and $iisHostingStopped) {
   Write-Step 'Starting IIS site and app pools after deploy'
   Start-IisHosting -SiteName $IisSiteName -AppPoolNames $managedIisAppPools
+}
+
+if ($ApiAccessMode -eq 'IisApplications') {
+  Write-Step 'Verifying IIS-hosted localhost API health'
+  Assert-IisApplicationHealth `
+    -RonAuthHealthUri ($RonFlowWebOrigin.TrimEnd('/') + $RonAuthAppPath + '/api/auth/login') `
+    -RonFlowHealthUri ($RonFlowWebOrigin.TrimEnd('/') + $RonFlowApiAppPath + '/api/ai/bootstrap')
 }
 
 Write-Host ''
