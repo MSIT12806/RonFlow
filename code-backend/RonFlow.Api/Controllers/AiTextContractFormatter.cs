@@ -21,11 +21,13 @@ internal static class AiTextContractFormatter
             "3. 讀取 workflow guidance",
             "4. 查詢 session / scope summary",
             "5. 讀取 project list summary",
+            "6. 視需要讀取 invitation inbox summary",
             string.Empty,
             "工作原則：",
             "- 先讀後寫",
             "- 先摘要後深入",
             "- 寫入前先確認 target object 與 required fields",
+            "- 後續細節以系統回傳的 contract 為準",
             string.Empty,
             "需要先問人的情況：",
             "- 無法判斷目標 Project 或 Task",
@@ -89,6 +91,11 @@ internal static class AiTextContractFormatter
             "  active_scope_required: yes",
             "  required_inputs: auditEntryId",
             string.Empty,
+            "- capability: read_invitation_inbox_summary",
+            "  category: read",
+            "  active_scope_required: no",
+            "  required_inputs: none",
+            string.Empty,
             "- capability: create_project",
             "  category: write",
             "  active_scope_required: no",
@@ -98,6 +105,21 @@ internal static class AiTextContractFormatter
             "  category: write",
             "  active_scope_required: yes",
             "  required_inputs: projectId, title",
+            string.Empty,
+            "- capability: invite_project_member",
+            "  category: write",
+            "  active_scope_required: yes",
+            "  required_inputs: projectId, invitee",
+            string.Empty,
+            "- capability: accept_project_invitation",
+            "  category: write",
+            "  active_scope_required: no",
+            "  required_inputs: invitationId",
+            string.Empty,
+            "- capability: reject_project_invitation",
+            "  category: write",
+            "  active_scope_required: no",
+            "  required_inputs: invitationId",
             string.Empty,
             "- capability: update_task_detail",
             "  category: write",
@@ -166,6 +188,11 @@ internal static class AiTextContractFormatter
             "- use check_task_subtask when one checklist item is finished",
             "- use uncheck_task_subtask when a previously checked checklist item is no longer satisfied",
             "- do not report the task as fully complete while required subtasks remain unchecked",
+            string.Empty,
+            "invitation_rules:",
+            "- if project list summary does not contain the expected project, read_invitation_inbox_summary before asking the human for access",
+            "- use accept_project_invitation only when the invitation inbox summary contains the target invitation",
+            "- use reject_project_invitation only when the human intent is to decline that invitation",
             string.Empty,
             "ask_human_when:",
             "- target object is ambiguous",
@@ -266,6 +293,30 @@ internal static class AiTextContractFormatter
         builder.AppendLine("- read_task_detail_summary");
         builder.AppendLine("- create_task");
         builder.AppendLine("- move_task_state");
+
+        return builder.ToString().TrimEnd();
+    }
+
+    public static string InvitationInboxSummary(InvitationInboxView inbox)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("RonFlow Invitation Inbox Summary v1");
+        builder.AppendLine();
+        builder.AppendLine($"pending_invitation_count: {inbox.Items.Count}");
+        builder.AppendLine("invitations:");
+
+        foreach (var invitation in inbox.Items)
+        {
+            builder.AppendLine($"- invitation_id: {invitation.Id}");
+            builder.AppendLine($"  project_id: {invitation.ProjectId}");
+            builder.AppendLine($"  project_name: {invitation.ProjectName}");
+            builder.AppendLine($"  inviter_name: {invitation.InviterName}");
+        }
+
+        builder.AppendLine("next_actions:");
+        builder.AppendLine("- accept_project_invitation");
+        builder.AppendLine("- reject_project_invitation");
+        builder.AppendLine("- read_project_list_summary");
 
         return builder.ToString().TrimEnd();
     }

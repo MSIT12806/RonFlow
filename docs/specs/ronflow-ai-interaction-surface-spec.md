@@ -228,13 +228,14 @@ RonFlow v0.3 是否完成，應以以下問題判斷：
 3. AI 讀取 capabilities manifest 與 AI glossary
 4. AI 查詢目前 session / active scope 摘要
 5. AI 讀取 Project List summary，確認目前可存取的 Project
-6. AI 讀取目標 Project 的 board summary 與 open tasks summary
-7. AI 讀取單一 Task summary 或 detail summary，理解目前狀態與最近活動
-8. AI 判斷下一步是建立 Project、建立 Task、更新 Task、移動 Task 狀態、調整排序，或執行 lifecycle 操作
-9. AI 依既有操作 contract 組出目標 object、欄位與參數
-10. AI 執行 apply
-11. 系統回傳結果、差異、activity 資訊與必要的 recovery hint
-12. 若操作失敗，AI 依錯誤碼決定補參數、重讀 summary、調整操作，或回頭詢問人類
+6. 若 Project List summary 找不到目標 Project，AI 讀取 Invitation Inbox summary 判斷是否有 pending invitation
+7. AI 讀取目標 Project 的 board summary 與 open tasks summary
+8. AI 讀取單一 Task summary 或 detail summary，理解目前狀態與最近活動
+9. AI 判斷下一步是建立 Project、建立 Task、更新 Task、移動 Task 狀態、調整排序，或執行 lifecycle 操作
+10. AI 依既有操作 contract 組出目標 object、欄位與參數
+11. AI 執行 apply
+12. 系統回傳結果、差異、activity 資訊與必要的 recovery hint
+13. 若操作失敗，AI 依錯誤碼決定補參數、重讀 summary、調整操作，或回頭詢問人類
 ```
 
 ### 6.2 Flow Map
@@ -303,13 +304,16 @@ RonFlow 管理的主要工作物件有：Project、Board、Task、Session、Acti
 你現在應先做以下事情：
 1. 讀取 capabilities manifest
 2. 讀取 glossary
-3. 查詢 session / scope summary
-4. 讀取 project list summary
+3. 讀取 workflow guidance
+4. 查詢 session / scope summary
+5. 讀取 project list summary
+6. 視需要讀取 invitation inbox summary
 
 工作原則：
 - 先讀後寫
 - 先摘要後深入
 - 寫入前先確認 target object 與 required fields
+- 後續細節以系統回傳的 contract 為準
 
 需要先問人的情況：
 - 無法判斷目標 Project 或 Task
@@ -331,7 +335,7 @@ RonFlow 管理的主要工作物件有：Project、Board、Task、Session、Acti
 1. bootstrap 回應第一行必須是 `RonFlow Bootstrap v1`。
 2. bootstrap 必須完整包含 `RonFlow 是一個專案管理工具。` 這句話。
 3. bootstrap 必須完整列出 `Project、Board、Task、Session、Active Scope`。
-4. bootstrap 必須完整列出五個第一步入口：manifest、glossary、workflow guidance、session / scope summary、project list summary。
+4. bootstrap 必須完整列出六個第一步入口：manifest、glossary、workflow guidance、session / scope summary、project list summary、invitation inbox summary。
 5. bootstrap 必須完整列出四個需要先問人的情況。
 ```
 
@@ -360,6 +364,7 @@ Feature: AI bootstrap
 		And 回應應包含 `1. 讀取 capabilities manifest`
 		And 回應應包含 `3. 讀取 workflow guidance`
 		And 回應應包含 `5. 讀取 project list summary`
+		And 回應應包含 `6. 視需要讀取 invitation inbox summary`
 ```
 
 ### 7.1.1 AI Glossary
@@ -449,6 +454,10 @@ RonFlow AI Glossary v1
 12. move task to trash
 13. restore trashed task
 14. read audit entry
+15. read invitation inbox summary
+16. invite project member
+17. accept project invitation
+18. reject project invitation
 ```
 
 **Expected Behavior**
@@ -490,6 +499,11 @@ RonFlow Capabilities Manifest v1
 	active_scope_required: yes
 	required_inputs: auditEntryId
 
+- capability: read_invitation_inbox_summary
+	category: read
+	active_scope_required: no
+	required_inputs: none
+
 - capability: create_project
 	category: write
 	active_scope_required: no
@@ -499,6 +513,21 @@ RonFlow Capabilities Manifest v1
 	category: write
 	active_scope_required: yes
 	required_inputs: projectId, title
+
+- capability: invite_project_member
+	category: write
+	active_scope_required: yes
+	required_inputs: projectId, invitee
+
+- capability: accept_project_invitation
+	category: write
+	active_scope_required: no
+	required_inputs: invitationId
+
+- capability: reject_project_invitation
+	category: write
+	active_scope_required: no
+	required_inputs: invitationId
 
 - capability: update_task_detail
 	category: write
@@ -943,13 +972,13 @@ Feature: Write request preparation
 
 **Purpose**
 
-讓 AI 以 RonFlow 既有的 Project / Task 操作正式套用變更。
+讓 AI 以 RonFlow 既有的 Project / Task / Invitation 操作正式套用變更。
 
 **Expected Behavior**
 
 ```text
 1. apply 前，系統應再次驗證 session、scope、權限與資料新鮮度。
-2. apply 可以承接 create project、create task、update task、move state、reorder、archive、restore、trash、restore from trash 等操作。
+2. apply 可以承接 create project、create task、update task、move state、reorder、archive、restore、trash、restore from trash、invite project member、accept invitation、reject invitation 等操作。
 3. apply 成功後，系統回傳實際變更結果、差異摘要與對應 audit entry。
 4. 若 apply 失敗，系統回傳結構化錯誤與 recovery hint。
 ```
@@ -1217,6 +1246,11 @@ checklist_rules:
 - use uncheck_task_subtask when a previously checked checklist item is no longer satisfied
 - do not report the task as fully complete while required subtasks remain unchecked
 
+invitation_rules:
+- if project list summary does not contain the expected project, read_invitation_inbox_summary before asking the human for access
+- use accept_project_invitation only when the invitation inbox summary contains the target invitation
+- use reject_project_invitation only when the human intent is to decline that invitation
+
 ask_human_when:
 - target object is ambiguous
 - required input is missing
@@ -1437,6 +1471,18 @@ Feature: Workflow guidance
 2. AI 可以在有效 Project scope 下建立 Task。
 3. create project 與 create task 會透過 manifest、summary 與 apply flow 承接。
 4. 建立成功後，系統回傳新的 Project 或 Task 結果與 audit entry。
+```
+
+### 9.6.1 Read And Respond To Project Invitations Through AI Flow
+
+```text
+1. AI 可以在沒有 active scope 的狀態下讀取自己的 invitation inbox summary。
+2. invitation inbox summary 應列出 pending invitation 的 invitation id、project id、project name 與 inviter name。
+3. 當 projects summary 看不到目標 project 時，AI 可以透過 invitation inbox summary 判斷是否有可接受的 pending invitation。
+4. AI 可以透過 `accept_project_invitation` 接受 invitation，成功後 projects summary 應能看見該 project。
+5. AI 可以透過 `reject_project_invitation` 拒絕 invitation。
+6. project owner 可以透過 `invite_project_member` 對已知使用者發出 project invitation。
+7. invitation 相關寫入成功後，仍回傳 apply result 與 audit entry。
 ```
 
 ### 9.7 Update Task Detail Through AI Flow

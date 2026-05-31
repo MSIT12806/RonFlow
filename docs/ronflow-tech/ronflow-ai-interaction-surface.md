@@ -26,6 +26,7 @@ RonFlow 已經提供下列 AI-facing endpoints：
 - `GET /api/ai/workflow-guidance`
 - `GET /api/ai/session-summary`
 - `GET /api/ai/projects/summary`
+- `GET /api/ai/invitations/summary`
 - `GET /api/ai/projects/{projectId}/board-summary`
 - `GET /api/ai/projects/{projectId}/current-work-summary`
 - `GET /api/ai/projects/{projectId}/tasks/{taskId}/detail-summary`
@@ -37,6 +38,9 @@ RonFlow 已經提供下列 AI-facing endpoints：
 
 - `create_project`
 - `create_task`
+- `invite_project_member`
+- `accept_project_invitation`
+- `reject_project_invitation`
 - `update_task_detail`
 - `check_task_subtask`
 - `uncheck_task_subtask`
@@ -47,7 +51,7 @@ RonFlow 已經提供下列 AI-facing endpoints：
 - `trash_task`
 - `restore_trashed_task`
 
-這些 operation 讓 AI 可以用同一種 write contract 完成 Project / Task 的主要操作，而不是直接散打各個人類 UI 使用的 API。
+這些 operation 讓 AI 可以用同一種 write contract 完成 Project / Task / Invitation 的主要操作，而不是直接散打各個人類 UI 使用的 API。
 
 ## 設計重點
 ### 1. Read-first，而不是 write-first
@@ -60,17 +64,29 @@ AI 不需要猜目前支援哪些操作，而是透過 capabilities manifest 讀
 
 這使得 interaction surface 可以演進：新增能力時更新 manifest 與測試，AI 就能依 contract 發現新能力。
 
-### 3. Workflow guidance 把工作方式也做成 contract
+### 3. Bootstrap 做漸進式揭露，不做離線手冊
+RonFlow 的外部 skill 只需要提供登入、session activation 與 bootstrap 入口。
+
+AI 登入後應由 `GET /api/ai/bootstrap` 取得下一步入口，再逐步查詢 capabilities、glossary、workflow guidance、summary 與 apply contract。這讓操作規則回到系統內版本化與測試，避免 prompt 文件複製一份容易過期的流程說明。
+
+### 4. Workflow guidance 把工作方式也做成 contract
 RonFlow 不只告訴 AI 有哪些 endpoint，還透過 workflow guidance 說明 expected workflow：read summary、確認 target、準備 write request、inspect result。
 
 這讓「AI 應該如何工作」不只存在 prompt 裡，而是系統可回傳、可測試、可版本化的內容。
 
-### 4. 結構化 DoD 讓 AI 逐項完成 task
+### 5. 結構化 DoD 讓 AI 逐項完成 task
 RonFlow 的 task detail summary 會列出 subtasks，workflow guidance 也要求 AI 遇到 checklist 時逐項處理。
 
 因此 AI 不應只宣告「我完成了」，而是用 `check_task_subtask` / `uncheck_task_subtask` 對每個完成條件做出可追蹤的狀態變更。這讓 DoD 從文字提醒變成正式 workflow contract。
 
-### 5. Audit entry 是 apply 的一部分
+### 6. Project access 也可以走 read-first contract
+以前 AI 若在 projects summary 看不到目標 project，只能停下來請人類確認 access。
+
+現在 RonFlow 補上 `read_invitation_inbox_summary`，讓 AI 可以先確認自己是否有 pending invitation；若有明確目標，就能用 `accept_project_invitation` 接受邀請，再重新讀取 projects summary。
+
+這讓「取得 project access」也維持同一套 read-first、apply、audit 流程，而不是要求 AI 猜一般 REST API 或完全依賴人類手動操作。
+
+### 7. Audit entry 是 apply 的一部分
 每次成功 apply 都會回傳 `audit_entry_id`。
 
 人類可以透過 audit entry 追查：

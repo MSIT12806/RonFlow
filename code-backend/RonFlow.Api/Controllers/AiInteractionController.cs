@@ -100,6 +100,18 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
             projectId => CountOpenTasks(getProjectBoardQueryService.Get(projectId))));
     }
 
+    [HttpGet("invitations/summary")]
+    [Produces("text/plain")]
+    public IResult GetInvitationInboxSummary([FromServices] ProjectCollaborationQueryService queryService)
+    {
+        if (!TryGetCurrentUserEmail(out var currentUserEmail))
+        {
+            return Results.Unauthorized();
+        }
+
+        return PlainText(AiTextContractFormatter.InvitationInboxSummary(queryService.GetInvitationInbox(currentUserEmail)));
+    }
+
     [HttpGet("projects/{projectId:guid}/board-summary")]
     [Produces("text/plain")]
     public IResult GetProjectBoardSummary(
@@ -226,6 +238,8 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         [FromServices] RestoreArchivedTaskCommandService restoreArchivedTaskCommandService,
         [FromServices] MoveTaskToTrashCommandService moveTaskToTrashCommandService,
         [FromServices] RestoreTrashedTaskCommandService restoreTrashedTaskCommandService,
+        [FromServices] ProjectInvitationCommandService projectInvitationCommandService,
+        [FromServices] ProjectCollaborationQueryService projectCollaborationQueryService,
         [FromServices] ITaskRepository taskRepository,
         [FromServices] TaskContentEditLockService taskContentEditLockService,
         [FromServices] ProjectPresenceRegistry projectPresenceRegistry,
@@ -260,6 +274,9 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         {
             "create_project" => ApplyCreateProject(createProjectCommandService, aiAuditRegistry, currentUserId, currentUserName, targetType, requiredFields),
             "create_task" => ApplyCreateTask(createTaskCommandService, aiAuditRegistry, currentUserName, sessionId, targetType, requiredFields, projectPresenceRegistry, currentUserId),
+            "invite_project_member" => ApplyInviteProjectMember(projectInvitationCommandService, aiAuditRegistry, currentUserName, sessionId, targetType, requiredFields, projectPresenceRegistry),
+            "accept_project_invitation" => ApplyAcceptProjectInvitation(projectInvitationCommandService, projectCollaborationQueryService, aiAuditRegistry, currentUserId, currentUserName, targetType, requiredFields),
+            "reject_project_invitation" => ApplyRejectProjectInvitation(projectInvitationCommandService, projectCollaborationQueryService, aiAuditRegistry, currentUserId, currentUserName, targetType, requiredFields),
             "update_task_detail" => ApplyUpdateTaskDetail(updateTaskCommandService, aiAuditRegistry, taskRepository, taskContentEditLockService, currentUserId, currentUserName, sessionId, targetType, requiredFields, optionalFields, projectPresenceRegistry),
             "check_task_subtask" => ApplyToggleTaskSubtask(replaceTaskSubtasksCommandService, aiAuditRegistry, taskRepository, currentUserId, currentUserName, sessionId, targetType, requiredFields, projectPresenceRegistry, operation, true),
             "uncheck_task_subtask" => ApplyToggleTaskSubtask(replaceTaskSubtasksCommandService, aiAuditRegistry, taskRepository, currentUserId, currentUserName, sessionId, targetType, requiredFields, projectPresenceRegistry, operation, false),
@@ -372,6 +389,154 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         var auditEntryId = aiAuditRegistry.Record(currentUserName, targetType, task.Id.ToString(), "create_task", "success", actualDiff);
 
         return PlainText(AiTextContractFormatter.ApplyResult("create_task", targetType, task.Id.ToString(), ["title"], auditEntryId));
+    }
+
+    private IResult ApplyInviteProjectMember(
+        ProjectInvitationCommandService projectInvitationCommandService,
+        AiAuditRegistry aiAuditRegistry,
+        string currentUserName,
+        string sessionId,
+        string targetType,
+        IReadOnlyDictionary<string, JsonElement> requiredFields,
+        ProjectPresenceRegistry projectPresenceRegistry)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var projectId = GetRequiredGuid(requiredFields, "projectId");
+        if (!projectId.HasValue)
+        {
+            return MissingRequiredField("projectId");
+        }
+
+        var scopeError = EnsureScope(projectPresenceRegistry, sessionId, projectId.Value);
+        if (scopeError is not null)
+        {
+            return scopeError;
+        }
+
+        var invitee = GetRequiredString(requiredFields, "invitee");
+        if (invitee is null)
+        {
+            return MissingRequiredField("invitee");
+        }
+
+        var result = projectInvitationCommandService.Invite(currentUserId, currentUserName, projectId.Value, invitee);
+        if (result.ValidationError is not null)
+        {
+            return ValidationFailed(result.ValidationError.Field, result.ValidationError.Message);
+        }
+
+        if (result.ProjectNotFound)
+        {
+            return ErrorText(StatusCodes.Status404NotFound, "ResourceNotFound", "Read project list summary again and pick an existing project.");
+        }
+
+        if (result.AccessDenied)
+        {
+            return ErrorText(StatusCodes.Status403Forbidden, "Forbidden", "Activate a scope you can access or ask the project owner for access.");
+        }
+
+        var invitation = result.Invitation!;
+        var actualDiff = new[] { $"invitation:{invitation.Invitee}: none -> {invitation.Status}" };
+        var auditEntryId = aiAuditRegistry.Record(currentUserName, targetType, projectId.Value.ToString(), "invite_project_member", "success", actualDiff);
+
+        return PlainText(AiTextContractFormatter.ApplyResult("invite_project_member", targetType, projectId.Value.ToString(), ["invitations"], auditEntryId));
+    }
+
+    private IResult ApplyAcceptProjectInvitation(
+        ProjectInvitationCommandService projectInvitationCommandService,
+        ProjectCollaborationQueryService projectCollaborationQueryService,
+        AiAuditRegistry aiAuditRegistry,
+        Guid currentUserId,
+        string currentUserName,
+        string targetType,
+        IReadOnlyDictionary<string, JsonElement> requiredFields)
+    {
+        if (!TryGetCurrentUserEmail(out var currentUserEmail))
+        {
+            return Results.Unauthorized();
+        }
+
+        var invitationId = GetRequiredGuid(requiredFields, "invitationId");
+        if (!invitationId.HasValue)
+        {
+            return MissingRequiredField("invitationId");
+        }
+
+        var pendingInvitation = projectCollaborationQueryService.GetInvitationInbox(currentUserEmail)
+            .Items
+            .SingleOrDefault(item => item.Id == invitationId.Value);
+        var result = projectInvitationCommandService.Accept(currentUserId, currentUserName, currentUserEmail, invitationId.Value);
+        if (result.AccessDenied)
+        {
+            return ErrorText(StatusCodes.Status403Forbidden, "Forbidden", "Read invitation inbox summary again and pick an invitation addressed to the current actor.");
+        }
+
+        if (result.InvitationNotFound)
+        {
+            return ErrorText(StatusCodes.Status404NotFound, "ResourceNotFound", "Read invitation inbox summary again and pick an existing invitation.");
+        }
+
+        if (result.AlreadyHandled)
+        {
+            return ErrorText(StatusCodes.Status409Conflict, "ConcurrencyConflict", "Read invitation inbox summary again and pick a pending invitation.", "The invitation has already been handled.");
+        }
+
+        var membershipTarget = pendingInvitation is null
+            ? "project member"
+            : $"member of {pendingInvitation.ProjectName} ({pendingInvitation.ProjectId})";
+        var actualDiff = new[]
+        {
+            $"membership: none -> {membershipTarget}",
+            "invitation_status: Pending -> Accepted",
+        };
+        var auditEntryId = aiAuditRegistry.Record(currentUserName, targetType, invitationId.Value.ToString(), "accept_project_invitation", "success", actualDiff);
+
+        return PlainText(AiTextContractFormatter.ApplyResult("accept_project_invitation", targetType, invitationId.Value.ToString(), ["membership", "invitation_status"], auditEntryId));
+    }
+
+    private IResult ApplyRejectProjectInvitation(
+        ProjectInvitationCommandService projectInvitationCommandService,
+        ProjectCollaborationQueryService projectCollaborationQueryService,
+        AiAuditRegistry aiAuditRegistry,
+        Guid currentUserId,
+        string currentUserName,
+        string targetType,
+        IReadOnlyDictionary<string, JsonElement> requiredFields)
+    {
+        if (!TryGetCurrentUserEmail(out var currentUserEmail))
+        {
+            return Results.Unauthorized();
+        }
+
+        var invitationId = GetRequiredGuid(requiredFields, "invitationId");
+        if (!invitationId.HasValue)
+        {
+            return MissingRequiredField("invitationId");
+        }
+
+        var pendingInvitation = projectCollaborationQueryService.GetInvitationInbox(currentUserEmail)
+            .Items
+            .SingleOrDefault(item => item.Id == invitationId.Value);
+        var result = projectInvitationCommandService.Reject(currentUserId, currentUserName, currentUserEmail, invitationId.Value);
+        if (result.AccessDenied)
+        {
+            return ErrorText(StatusCodes.Status403Forbidden, "Forbidden", "Read invitation inbox summary again and pick an invitation addressed to the current actor.");
+        }
+
+        if (result.InvitationNotFound)
+        {
+            return ErrorText(StatusCodes.Status404NotFound, "ResourceNotFound", "Read invitation inbox summary again and pick a pending invitation.");
+        }
+
+        var projectName = pendingInvitation?.ProjectName ?? "project";
+        var actualDiff = new[] { $"invitation_status:{projectName}: Pending -> Rejected" };
+        var auditEntryId = aiAuditRegistry.Record(currentUserName, targetType, invitationId.Value.ToString(), "reject_project_invitation", "success", actualDiff);
+
+        return PlainText(AiTextContractFormatter.ApplyResult("reject_project_invitation", targetType, invitationId.Value.ToString(), ["invitation_status"], auditEntryId));
     }
 
     private IResult ApplyUpdateTaskDetail(

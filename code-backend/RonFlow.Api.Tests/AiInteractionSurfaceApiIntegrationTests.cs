@@ -20,6 +20,8 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("1. 讀取 capabilities manifest"));
         Assert.That(payload, Does.Contain("3. 讀取 workflow guidance"));
         Assert.That(payload, Does.Contain("5. 讀取 project list summary"));
+        Assert.That(payload, Does.Contain("6. 視需要讀取 invitation inbox summary"));
+        Assert.That(payload, Does.Contain("後續細節以系統回傳的 contract 為準"));
     }
 
     [Test]
@@ -49,7 +51,11 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("RonFlow Capabilities Manifest v1"));
         Assert.That(payload, Does.Contain("- capability: read_current_work_summary"));
         Assert.That(payload, Does.Contain("- capability: read_audit_entry"));
+        Assert.That(payload, Does.Contain("- capability: read_invitation_inbox_summary"));
         Assert.That(payload, Does.Contain("- capability: create_task"));
+        Assert.That(payload, Does.Contain("- capability: invite_project_member"));
+        Assert.That(payload, Does.Contain("- capability: accept_project_invitation"));
+        Assert.That(payload, Does.Contain("- capability: reject_project_invitation"));
         Assert.That(payload, Does.Contain("- capability: check_task_subtask"));
         Assert.That(payload, Does.Contain("- capability: uncheck_task_subtask"));
         Assert.That(payload, Does.Contain("active_scope_required: yes"));
@@ -71,6 +77,8 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("6. inspect result"));
         Assert.That(payload, Does.Contain("checklist_rules:"));
         Assert.That(payload, Does.Contain("- use check_task_subtask when one checklist item is finished"));
+        Assert.That(payload, Does.Contain("invitation_rules:"));
+        Assert.That(payload, Does.Contain("read_invitation_inbox_summary"));
     }
 
     [Test]
@@ -107,6 +115,38 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("project_name: AI Project Summary"));
         Assert.That(payload, Does.Contain("next_actions:"));
         Assert.That(payload, Does.Contain("- read_project_board_summary"));
+    }
+
+    [Test]
+    public async Task GetInvitationInboxSummary_WhenPendingInvitationExists_ReturnsCanonicalSummaryText()
+    {
+        await EnsureKnownUserAsync(Client);
+        using var knownInviteeClient = CreateAuthenticatedClient(TestUser.OwnerB);
+        await EnsureKnownUserAsync(knownInviteeClient);
+        var project = await CreateProjectAsync("AI Invitation Inbox Project");
+        var invitationResponse = await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/invitations",
+            new CreateProjectInvitationRequest(TestUser.OwnerB.Email));
+
+        Assert.That(invitationResponse.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+
+        using var inviteeClient = CreateSessionAuthenticatedClient(TestUser.OwnerB, "owner-b-ai-invitation-inbox");
+        await ActivateSessionAsync(inviteeClient);
+
+        var response = await inviteeClient.GetAsync("/api/ai/invitations/summary");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var payload = await response.Content.ReadAsStringAsync();
+
+        Assert.That(payload, Does.Contain("RonFlow Invitation Inbox Summary v1"));
+        Assert.That(payload, Does.Contain("pending_invitation_count: 1"));
+        Assert.That(payload, Does.Contain($"project_id: {project.Id}"));
+        Assert.That(payload, Does.Contain("project_name: AI Invitation Inbox Project"));
+        Assert.That(payload, Does.Contain("inviter_name: owner-a"));
+        Assert.That(payload, Does.Contain("next_actions:"));
+        Assert.That(payload, Does.Contain("- accept_project_invitation"));
+        Assert.That(payload, Does.Contain("- reject_project_invitation"));
     }
 
     [Test]
@@ -283,6 +323,149 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("target_type: project"));
         Assert.That(payload, Does.Contain("changed_fields:"));
         Assert.That(payload, Does.Contain("audit_entry_id:"));
+    }
+
+    [Test]
+    public async Task ApplyInviteProjectMember_WhenScopeIsActive_CreatesPendingInvitationWithAuditEntry()
+    {
+        using var sessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-ai-apply-invite-member");
+
+        await EnsureKnownUserAsync(sessionClient);
+        using var knownInviteeClient = CreateAuthenticatedClient(TestUser.OwnerB);
+        await EnsureKnownUserAsync(knownInviteeClient);
+        await ActivateSessionAsync(sessionClient);
+
+        var project = await CreateProjectAsync(sessionClient, "AI Apply Invite Project");
+        var activateResponse = await sessionClient.PostAsJsonAsync("/api/ai/active-scope", new { projectId = project.Id });
+        Assert.That(activateResponse.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
+
+        var response = await sessionClient.PostAsJsonAsync("/api/ai/apply", new
+        {
+            operation = "invite_project_member",
+            targetType = "project",
+            targetId = project.Id,
+            requiredFields = new
+            {
+                projectId = project.Id,
+                invitee = TestUser.OwnerB.Email,
+            },
+            optionalFields = new { },
+            note = "invite member from ai apply",
+        });
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var payload = await response.Content.ReadAsStringAsync();
+
+        Assert.That(payload, Does.Contain("RonFlow Apply Result v1"));
+        Assert.That(payload, Does.Contain("operation: invite_project_member"));
+        Assert.That(payload, Does.Contain($"target_id: {project.Id}"));
+        Assert.That(payload, Does.Contain("- invitations"));
+        Assert.That(payload, Does.Contain("audit_entry_id:"));
+
+        var invitationsResponse = await sessionClient.GetAsync($"/api/projects/{project.Id}/invitations");
+        Assert.That(invitationsResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var invitations = await invitationsResponse.Content.ReadFromJsonAsync<ProjectInvitationListResponse>();
+        Assert.That(invitations, Is.Not.Null);
+        Assert.That(invitations!.Items.Single().Invitee, Is.EqualTo(TestUser.OwnerB.Email));
+        Assert.That(invitations.Items.Single().Status, Is.EqualTo("Pending"));
+    }
+
+    [Test]
+    public async Task ApplyAcceptProjectInvitation_WhenInvitationIsPending_AddsProjectScopeWithAuditEntry()
+    {
+        await EnsureKnownUserAsync(Client);
+        using var knownInviteeClient = CreateAuthenticatedClient(TestUser.OwnerB);
+        await EnsureKnownUserAsync(knownInviteeClient);
+        var project = await CreateProjectAsync("AI Accept Invitation Project");
+        var invitationResponse = await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/invitations",
+            new CreateProjectInvitationRequest(TestUser.OwnerB.Email));
+
+        Assert.That(invitationResponse.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+
+        var invitation = await invitationResponse.Content.ReadFromJsonAsync<ProjectInvitationResponse>();
+        Assert.That(invitation, Is.Not.Null);
+
+        using var inviteeClient = CreateSessionAuthenticatedClient(TestUser.OwnerB, "owner-b-ai-apply-accept-invitation");
+        await ActivateSessionAsync(inviteeClient);
+
+        var response = await inviteeClient.PostAsJsonAsync("/api/ai/apply", new
+        {
+            operation = "accept_project_invitation",
+            targetType = "invitation",
+            targetId = invitation!.Id,
+            requiredFields = new
+            {
+                invitationId = invitation.Id,
+            },
+            optionalFields = new { },
+            note = "accept invitation from ai apply",
+        });
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var payload = await response.Content.ReadAsStringAsync();
+
+        Assert.That(payload, Does.Contain("RonFlow Apply Result v1"));
+        Assert.That(payload, Does.Contain("operation: accept_project_invitation"));
+        Assert.That(payload, Does.Contain($"target_id: {invitation.Id}"));
+        Assert.That(payload, Does.Contain("- membership"));
+        Assert.That(payload, Does.Contain("audit_entry_id:"));
+
+        var projectsSummaryResponse = await inviteeClient.GetAsync("/api/ai/projects/summary");
+        Assert.That(projectsSummaryResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var projectsSummary = await projectsSummaryResponse.Content.ReadAsStringAsync();
+        Assert.That(projectsSummary, Does.Contain($"project_id: {project.Id}"));
+        Assert.That(projectsSummary, Does.Contain("project_name: AI Accept Invitation Project"));
+    }
+
+    [Test]
+    public async Task ApplyRejectProjectInvitation_WhenInvitationIsPending_RemovesItFromInbox()
+    {
+        await EnsureKnownUserAsync(Client);
+        using var knownInviteeClient = CreateAuthenticatedClient(TestUser.OwnerB);
+        await EnsureKnownUserAsync(knownInviteeClient);
+        var project = await CreateProjectAsync("AI Reject Invitation Project");
+        var invitationResponse = await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/invitations",
+            new CreateProjectInvitationRequest(TestUser.OwnerB.Email));
+
+        Assert.That(invitationResponse.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+
+        var invitation = await invitationResponse.Content.ReadFromJsonAsync<ProjectInvitationResponse>();
+        Assert.That(invitation, Is.Not.Null);
+
+        using var inviteeClient = CreateSessionAuthenticatedClient(TestUser.OwnerB, "owner-b-ai-apply-reject-invitation");
+        await ActivateSessionAsync(inviteeClient);
+
+        var response = await inviteeClient.PostAsJsonAsync("/api/ai/apply", new
+        {
+            operation = "reject_project_invitation",
+            targetType = "invitation",
+            targetId = invitation!.Id,
+            requiredFields = new
+            {
+                invitationId = invitation.Id,
+            },
+            optionalFields = new { },
+            note = "reject invitation from ai apply",
+        });
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var payload = await response.Content.ReadAsStringAsync();
+
+        Assert.That(payload, Does.Contain("operation: reject_project_invitation"));
+        Assert.That(payload, Does.Contain("- invitation_status"));
+
+        var inboxResponse = await inviteeClient.GetAsync("/api/ai/invitations/summary");
+        Assert.That(inboxResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var inboxPayload = await inboxResponse.Content.ReadAsStringAsync();
+        Assert.That(inboxPayload, Does.Contain("pending_invitation_count: 0"));
     }
 
     [Test]
