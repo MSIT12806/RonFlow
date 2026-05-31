@@ -32,30 +32,38 @@
     - application 層的 `TaskMutationGuard` 將 runtime lock 狀態轉成 `TaskMutationAuthorization`
     - `task.UpdateDetails(...)`、`task.ReplaceSubtasks(...)`、`task.ChangeState(...)` 等 aggregate mutation method 直接回傳 execution result，其中包含 `Locked`，讓 lock 成為 mutation contract 的一部分，而不是額外記得補的 cross-check
     - 實踐細節見 [RonFlow 的多人協作 / 即時同步設計](../ronflow-tech/ronflow-real-time-collaboration.md)
-
-## 進行中
-
-- [ ] 讓 AI 可以順利使用 RonFlow（RonFlow v0.3）
+- [x] AI interaction surface（RonFlow v0.3 baseline）
     - spec: [RonFlow AI Interaction Surface Spec](./ronflow-ai-interaction-surface-spec.md)
-    - 提供 AI bootstrap、領域名詞表、capabilities manifest，讓 AI 能逐步理解系統與可用操作
-    - 已補上 AI discovery surface 的 glossary 與 current work summary，讓 AI 能先縮小任務集合，再進入單一 task detail；實踐細節見 [RonFlow 的 AI discovery surface](../ronflow-tech/ronflow-ai-discovery-surface.md)
-    - 提供 read-first 的摘要查詢、proposal / preview、approval、audit trail，降低 AI 誤操作風險
-    - 結構化 DoD：project subtask templates 與 task checklist review gating
+    - 已提供 AI bootstrap、glossary、capabilities manifest、workflow guidance，讓 AI 能先理解系統、名詞與可用操作
+    - 已提供 read-first summary：session summary、project summary、board summary、current work summary、task detail summary，讓 AI 先縮小 scope 與 target 再寫入
+    - 已提供 AI apply contract：create / update / move / reorder / lifecycle / checklist 等 Project / Task 操作可經由正式 contract 寫入，並回傳可追溯的 apply result
+    - 已提供 AI audit entry，讓人類可追查 AI actor、target、requested change 與 actual diff
+    - 結構化 DoD 已承接到 AI 工作流程：task detail summary 會列出 checklist，`check_task_subtask` / `uncheck_task_subtask` 讓 AI 逐項完成，而不是只宣告 task 完成
+    - 實踐細節見 [RonFlow 的 AI discovery surface](../ronflow-tech/ronflow-ai-discovery-surface.md) 與 [RonFlow 的 AI interaction surface](../ronflow-tech/ronflow-ai-interaction-surface.md)
+
+## 可視需求深化
+
+- [ ] AI audit trail 持久化與查詢化
+    - 目前 AI apply 已會產生 audit entry，足以回報單次 AI 操作做了什麼、改了哪些欄位
+    - 這裡的「深化」指的是：若未來需要跨 session、跨版本、跨部署長期查詢 AI 操作紀錄，可把目前 runtime-level 的 AI audit registry 推進成正式儲存的 audit read model
 
 ## 下一批值得展現
 
 ### 一定要做
 
-- [ ] 加入權限，體現 supporting domain 如何互動
-    - authorization / RBAC / policy-based access control
-- [ ] 加入報表，實作 projection
-    - 結構化 logging、metrics、distributed tracing、健康檢查
+- [ ] 細緻授權與操作政策
+    - 目前已完成 RonFlow / RonAuth supporting domain 整合；下一步應聚焦於 Project / Task operation level 的 authorization、RBAC、policy-based access control
+- [ ] 報表與 projection
+    - 將 read model / reporting model 明確化，展示 workflow throughput、task aging、cycle time、AI 操作統計等 projection 設計
 - [ ] 資料庫遷移與 schema evolution
 - [ ] 資料切片
+    - 聚焦資料量成長後的 partition / archive / retention / query performance，不與 tenant 權限邊界混在一起
 - [ ] 多租戶 / workspace 邊界
+    - 聚焦 tenant / workspace isolation、membership、role 與跨 workspace 操作規則，不直接等同資料庫分片
 - [ ] html editor / markdown editor
 - [ ] 檔案附件 / 物件儲存
-- [ ] 部署到正式機的流程，例如 Docker、Health Check 等
+- [ ] 正式部署與 release 流程
+    - Docker / environment config / health check / migration / rollback / smoke test，而不是只描述 localhost 部署
 
 ### 可以視需求展開
 
