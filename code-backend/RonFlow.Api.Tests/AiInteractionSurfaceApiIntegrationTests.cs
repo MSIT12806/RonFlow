@@ -49,12 +49,18 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         var payload = await response.Content.ReadAsStringAsync();
 
         Assert.That(payload, Does.Contain("RonFlow Capabilities Manifest v1"));
+        Assert.That(payload, Does.Contain("apply_endpoint: POST /api/ai/apply"));
+        Assert.That(payload, Does.Contain("required_input_location: requiredFields.<inputName>"));
         Assert.That(payload, Does.Contain("- capability: read_current_work_summary"));
         Assert.That(payload, Does.Contain("- capability: read_audit_entry"));
         Assert.That(payload, Does.Contain("- capability: read_invitation_inbox_summary"));
+        Assert.That(payload, Does.Contain("read_endpoint: GET /api/ai/invitations/summary"));
         Assert.That(payload, Does.Contain("- capability: create_task"));
         Assert.That(payload, Does.Contain("- capability: invite_project_member"));
         Assert.That(payload, Does.Contain("- capability: accept_project_invitation"));
+        Assert.That(payload, Does.Contain("required_fields_path: requiredFields.invitationId"));
+        Assert.That(payload, Does.Contain("\"operation\":\"accept_project_invitation\""));
+        Assert.That(payload, Does.Contain("\"requiredFields\":{\"invitationId\":\"<invitation-id>\"}"));
         Assert.That(payload, Does.Contain("- capability: reject_project_invitation"));
         Assert.That(payload, Does.Contain("- capability: check_task_subtask"));
         Assert.That(payload, Does.Contain("- capability: uncheck_task_subtask"));
@@ -498,8 +504,50 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
 
         Assert.That(payload, Does.Contain("RonFlow Error v1"));
         Assert.That(payload, Does.Contain("error_code: ValidationFailed"));
-        Assert.That(payload, Does.Contain("message: Required field `title` is missing."));
-        Assert.That(payload, Does.Contain("recovery_hint: Provide `title` and submit the write request again."));
+        Assert.That(payload, Does.Contain("message: Required apply field `requiredFields.title` is missing."));
+        Assert.That(payload, Does.Contain("POST /api/ai/apply reads `title` from the `requiredFields` object, not from the top-level body."));
+        Assert.That(payload, Does.Contain("recovery_hint: Provide `requiredFields.title` and submit the apply request again."));
+    }
+
+    [Test]
+    public async Task ApplyAcceptProjectInvitation_WhenInvitationIdIsTopLevel_ReturnsRequiredFieldsPathHint()
+    {
+        await EnsureKnownUserAsync(Client);
+        using var knownInviteeClient = CreateAuthenticatedClient(TestUser.OwnerB);
+        await EnsureKnownUserAsync(knownInviteeClient);
+        var project = await CreateProjectAsync("AI Accept Top Level Invitation Project");
+        var invitationResponse = await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/invitations",
+            new CreateProjectInvitationRequest(TestUser.OwnerB.Email));
+
+        Assert.That(invitationResponse.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+
+        var invitation = await invitationResponse.Content.ReadFromJsonAsync<ProjectInvitationResponse>();
+        Assert.That(invitation, Is.Not.Null);
+
+        using var inviteeClient = CreateSessionAuthenticatedClient(TestUser.OwnerB, "owner-b-ai-apply-accept-top-level-invitation");
+        await ActivateSessionAsync(inviteeClient);
+
+        var response = await inviteeClient.PostAsJsonAsync("/api/ai/apply", new
+        {
+            operation = "accept_project_invitation",
+            targetType = "invitation",
+            targetId = invitation!.Id,
+            invitationId = invitation.Id,
+            requiredFields = new { },
+            optionalFields = new { },
+            note = "invitation id intentionally placed at top level",
+        });
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+
+        var payload = await response.Content.ReadAsStringAsync();
+
+        Assert.That(payload, Does.Contain("RonFlow Error v1"));
+        Assert.That(payload, Does.Contain("error_code: ValidationFailed"));
+        Assert.That(payload, Does.Contain("message: Required apply field `requiredFields.invitationId` is missing."));
+        Assert.That(payload, Does.Contain("POST /api/ai/apply reads `invitationId` from the `requiredFields` object, not from the top-level body."));
+        Assert.That(payload, Does.Contain("recovery_hint: Provide `requiredFields.invitationId` and submit the apply request again."));
     }
 
     [Test]

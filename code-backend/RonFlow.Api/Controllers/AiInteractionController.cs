@@ -324,7 +324,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         var name = GetRequiredString(requiredFields, "name");
         if (name is null)
         {
-            return MissingRequiredField("name");
+            return MissingApplyRequiredField("name");
         }
 
         var result = createProjectCommandService.Create(currentUserId, currentUserName, currentUserEmail, name);
@@ -353,7 +353,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         var projectId = GetRequiredGuid(requiredFields, "projectId");
         if (!projectId.HasValue)
         {
-            return MissingRequiredField("projectId");
+            return MissingApplyRequiredField("projectId");
         }
 
         var scopeError = EnsureScope(projectPresenceRegistry, sessionId, projectId.Value);
@@ -365,7 +365,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         var title = GetRequiredString(requiredFields, "title");
         if (title is null)
         {
-            return MissingRequiredField("title");
+            return MissingApplyRequiredField("title");
         }
 
         var result = createTaskCommandService.Create(currentUserId, projectId.Value, title);
@@ -408,7 +408,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         var projectId = GetRequiredGuid(requiredFields, "projectId");
         if (!projectId.HasValue)
         {
-            return MissingRequiredField("projectId");
+            return MissingApplyRequiredField("projectId");
         }
 
         var scopeError = EnsureScope(projectPresenceRegistry, sessionId, projectId.Value);
@@ -420,7 +420,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         var invitee = GetRequiredString(requiredFields, "invitee");
         if (invitee is null)
         {
-            return MissingRequiredField("invitee");
+            return MissingApplyRequiredField("invitee");
         }
 
         var result = projectInvitationCommandService.Invite(currentUserId, currentUserName, projectId.Value, invitee);
@@ -463,7 +463,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         var invitationId = GetRequiredGuid(requiredFields, "invitationId");
         if (!invitationId.HasValue)
         {
-            return MissingRequiredField("invitationId");
+            return MissingApplyRequiredField("invitationId");
         }
 
         var pendingInvitation = projectCollaborationQueryService.GetInvitationInbox(currentUserEmail)
@@ -515,7 +515,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         var invitationId = GetRequiredGuid(requiredFields, "invitationId");
         if (!invitationId.HasValue)
         {
-            return MissingRequiredField("invitationId");
+            return MissingApplyRequiredField("invitationId");
         }
 
         var pendingInvitation = projectCollaborationQueryService.GetInvitationInbox(currentUserEmail)
@@ -555,7 +555,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         var taskId = GetRequiredGuid(requiredFields, "taskId");
         if (!taskId.HasValue)
         {
-            return MissingRequiredField("taskId");
+            return MissingApplyRequiredField("taskId");
         }
 
         var task = taskRepository.Get(taskId.Value);
@@ -629,13 +629,13 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         var taskId = GetRequiredGuid(requiredFields, "taskId");
         if (!taskId.HasValue)
         {
-            return MissingRequiredField("taskId");
+            return MissingApplyRequiredField("taskId");
         }
 
         var targetStateKey = GetRequiredString(requiredFields, "targetStateKey");
         if (targetStateKey is null)
         {
-            return MissingRequiredField("targetStateKey");
+            return MissingApplyRequiredField("targetStateKey");
         }
 
         var task = taskRepository.Get(taskId.Value);
@@ -691,13 +691,13 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         var taskId = GetRequiredGuid(requiredFields, "taskId");
         if (!taskId.HasValue)
         {
-            return MissingRequiredField("taskId");
+            return MissingApplyRequiredField("taskId");
         }
 
         var subtaskId = GetRequiredGuid(requiredFields, "subtaskId");
         if (!subtaskId.HasValue)
         {
-            return MissingRequiredField("subtaskId");
+            return MissingApplyRequiredField("subtaskId");
         }
 
         var task = taskRepository.Get(taskId.Value);
@@ -772,19 +772,19 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         var taskId = GetRequiredGuid(requiredFields, "taskId");
         if (!taskId.HasValue)
         {
-            return MissingRequiredField("taskId");
+            return MissingApplyRequiredField("taskId");
         }
 
         var targetStateKey = GetRequiredString(requiredFields, "targetStateKey");
         if (targetStateKey is null)
         {
-            return MissingRequiredField("targetStateKey");
+            return MissingApplyRequiredField("targetStateKey");
         }
 
         var targetIndex = GetRequiredInt32(requiredFields, "targetIndex");
         if (!targetIndex.HasValue)
         {
-            return MissingRequiredField("targetIndex");
+            return MissingApplyRequiredField("targetIndex");
         }
 
         if (targetIndex.Value < 0)
@@ -874,7 +874,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         var taskId = GetRequiredGuid(requiredFields, "taskId");
         if (!taskId.HasValue)
         {
-            return MissingRequiredField("taskId");
+            return MissingApplyRequiredField("taskId");
         }
 
         var task = taskRepository.Get(taskId.Value);
@@ -931,6 +931,15 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
     private static IResult MissingRequiredField(string fieldName)
     {
         return ErrorText(StatusCodes.Status400BadRequest, "ValidationFailed", $"Provide `{fieldName}` and submit the write request again.", $"Required field `{fieldName}` is missing.");
+    }
+
+    private static IResult MissingApplyRequiredField(string fieldName)
+    {
+        return ErrorText(
+            StatusCodes.Status400BadRequest,
+            "ValidationFailed",
+            $"Provide `requiredFields.{fieldName}` and submit the apply request again.",
+            $"Required apply field `requiredFields.{fieldName}` is missing. POST /api/ai/apply reads `{fieldName}` from the `requiredFields` object, not from the top-level body.");
     }
 
     private static IResult ValidationFailed(string fieldName, string message)

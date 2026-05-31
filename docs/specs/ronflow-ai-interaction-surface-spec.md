@@ -432,9 +432,11 @@ RonFlow AI Glossary v1
 4. operation category（read / write）
 5. prerequisites
 6. required inputs
-7. expected output shape
-8. possible error codes
-9. 是否需要 active scope
+7. read endpoint 或 apply endpoint
+8. apply request body shape 與 required input location
+9. expected output shape
+10. possible error codes
+11. 是否需要 active scope
 ```
 
 **Current Capability Coverage**
@@ -474,6 +476,11 @@ RonFlow AI Glossary v1
 ```text
 RonFlow Capabilities Manifest v1
 
+write_request_contract:
+	apply_endpoint: POST /api/ai/apply
+	body_shape: operation, targetType, targetId, requiredFields, optionalFields, note
+	required_input_location: requiredFields.<inputName>
+
 - capability: read_task_detail_summary
 	category: read
 	active_scope_required: yes
@@ -503,6 +510,7 @@ RonFlow Capabilities Manifest v1
 	category: read
 	active_scope_required: no
 	required_inputs: none
+	read_endpoint: GET /api/ai/invitations/summary
 
 - capability: create_project
 	category: write
@@ -518,16 +526,24 @@ RonFlow Capabilities Manifest v1
 	category: write
 	active_scope_required: yes
 	required_inputs: projectId, invitee
+	apply_endpoint: POST /api/ai/apply
+	required_fields_path: requiredFields.projectId, requiredFields.invitee
 
 - capability: accept_project_invitation
 	category: write
 	active_scope_required: no
 	required_inputs: invitationId
+	apply_endpoint: POST /api/ai/apply
+	required_fields_path: requiredFields.invitationId
+	apply_request_example: {"operation":"accept_project_invitation","targetType":"invitation","targetId":"<invitation-id>","requiredFields":{"invitationId":"<invitation-id>"},"optionalFields":{},"note":"accept invitation"}
 
 - capability: reject_project_invitation
 	category: write
 	active_scope_required: no
 	required_inputs: invitationId
+	apply_endpoint: POST /api/ai/apply
+	required_fields_path: requiredFields.invitationId
+	apply_request_example: {"operation":"reject_project_invitation","targetType":"invitation","targetId":"<invitation-id>","requiredFields":{"invitationId":"<invitation-id>"},"optionalFields":{},"note":"reject invitation"}
 
 - capability: update_task_detail
 	category: write
@@ -581,6 +597,8 @@ RonFlow Capabilities Manifest v1
 3. manifest 必須完整列出目前支援的 Project / Task read / write capabilities。
 4. `create_task` 的 `required_inputs` 必須至少包含 `projectId, title`。
 5. `update_task_detail` 必須將 `title, description, dueDate` 列為 optional_inputs。
+6. manifest 必須說明 `POST /api/ai/apply` 的 body shape，且 required inputs 必須放在 `requiredFields.<inputName>`。
+7. invitation 相關 capabilities 必須列出 invitation inbox read endpoint 與 accept / reject apply request example。
 ```
 
 **Testability**
@@ -981,6 +999,7 @@ Feature: Write request preparation
 2. apply 可以承接 create project、create task、update task、move state、reorder、archive、restore、trash、restore from trash、invite project member、accept invitation、reject invitation 等操作。
 3. apply 成功後，系統回傳實際變更結果、差異摘要與對應 audit entry。
 4. 若 apply 失敗，系統回傳結構化錯誤與 recovery hint。
+5. 若 apply request 缺少 required input，錯誤訊息應指出實際讀取位置，例如 `requiredFields.invitationId`，避免 AI 將欄位放在 top-level body。
 ```
 
 **Canonical Text Contract**

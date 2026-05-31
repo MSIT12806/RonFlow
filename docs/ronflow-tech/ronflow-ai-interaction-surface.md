@@ -62,7 +62,9 @@ AI 在寫入前應先讀 summary，確認 session、scope、project、task 與 r
 ### 2. Capabilities manifest 讓可用操作可發現
 AI 不需要猜目前支援哪些操作，而是透過 capabilities manifest 讀到 operation、category、是否需要 active scope，以及 required inputs。
 
-這使得 interaction surface 可以演進：新增能力時更新 manifest 與測試，AI 就能依 contract 發現新能力。
+manifest 也必須把 capability 接到實際 route 與 body shape。Write capability 會明確標示 `POST /api/ai/apply`、`requiredFields.<inputName>` 的欄位位置，以及關鍵操作的 apply request example；read capability 會標示對應的 read endpoint。
+
+這使得 interaction surface 可以演進：新增能力時更新 manifest 與測試，AI 就能依 contract 發現新能力，而不是靠猜 endpoint 或 JSON shape。
 
 ### 3. Bootstrap 做漸進式揭露，不做離線手冊
 RonFlow 的外部 skill 只需要提供登入、session activation 與 bootstrap 入口。
