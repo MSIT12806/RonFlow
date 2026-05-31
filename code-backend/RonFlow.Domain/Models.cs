@@ -13,6 +13,13 @@ public sealed record ActivityTimelineItemModel(string Type, string Message, Date
 
 public sealed record TaskReminderModel(Guid Id, string ReminderDateTime, string Description);
 
+public sealed record TaskCodeTraceabilityItemModel(string ChangeType, string Target);
+
+public sealed record TaskCodeTraceabilityModel(
+    IReadOnlyList<TaskCodeTraceabilityItemModel> Api,
+    IReadOnlyList<TaskCodeTraceabilityItemModel> FrontendPages,
+    IReadOnlyList<TaskCodeTraceabilityItemModel> FrontendComponents);
+
 public sealed record ProjectSubtaskTemplateModel(Guid Id, string Title, int Order);
 
 public sealed record TaskSubtaskModel(Guid Id, string Title, bool IsChecked, int Order);
@@ -32,6 +39,7 @@ public sealed record TaskModel(
     int SortOrder,
     IReadOnlyList<TaskSubtaskModel> Subtasks,
     IReadOnlyList<TaskReminderModel> Reminders,
+    TaskCodeTraceabilityModel CodeTraceability,
     IReadOnlyList<ActivityTimelineItemModel> ActivityTimeline);
 
 public sealed record ProjectModel(

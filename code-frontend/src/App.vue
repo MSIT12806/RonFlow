@@ -208,7 +208,12 @@ import { ApiValidationError, activateRonFlowSession, releaseRonFlowProjectScope 
 import { ProjectCommandService, ProjectQueryService } from './application'
 import { usePushNotifications } from './composables/usePushNotifications'
 import { useRonFlowAuth } from './composables/useRonFlowAuth'
-import { useRonFlowBoard, type EditableTaskSubtask, type TaskDetailMode } from './composables/useRonFlowBoard'
+import {
+  useRonFlowBoard,
+  type EditableTaskCodeTraceability,
+  type EditableTaskSubtask,
+  type TaskDetailMode,
+} from './composables/useRonFlowBoard'
 import { onRonFlowSessionInvalidated } from './ronflowSession'
 
 type WorkspaceView = 'board' | 'members' | 'invitations' | 'archived' | 'trash'
@@ -487,9 +492,17 @@ async function onTaskDetailSave(payload: {
   title: string
   description: string
   dueDate: string | null
+  codeTraceability: EditableTaskCodeTraceability
   subtasks: EditableTaskSubtask[]
 }) {
-  await updateTaskDetail(payload.taskId, payload.title, payload.description, payload.dueDate, payload.subtasks)
+  await updateTaskDetail(
+    payload.taskId,
+    payload.title,
+    payload.description,
+    payload.dueDate,
+    payload.codeTraceability,
+    payload.subtasks,
+  )
 }
 
 async function onReplaceTaskSubtasks(payload: { taskId: string; subtasks: EditableTaskSubtask[] }) {

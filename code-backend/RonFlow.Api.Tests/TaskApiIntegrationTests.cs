@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Claims;
+using System.Text;
 using RonFlow.Api.Contracts;
 
 namespace RonFlow.Api.Tests;
@@ -10,6 +11,22 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
     public sealed record ProjectInvitationResponse(Guid Id, string Invitee, string Status);
 
     public sealed record TaskSubtaskResponse(Guid Id, string Title, bool IsChecked, int Order);
+
+    public sealed record TaskCodeTraceabilityItemResponse(string ChangeType, string Target);
+
+    public sealed record TaskCodeTraceabilityResponse(
+        IReadOnlyList<TaskCodeTraceabilityItemResponse> Api,
+        IReadOnlyList<TaskCodeTraceabilityItemResponse> FrontendPages,
+        IReadOnlyList<TaskCodeTraceabilityItemResponse> FrontendComponents);
+
+    public sealed record TraceableTaskDetailResponse(
+        Guid Id,
+        Guid ProjectId,
+        string Title,
+        string Description,
+        DateOnly? DueDate,
+        TaskCodeTraceabilityResponse CodeTraceability,
+        IReadOnlyList<ActivityTimelineItemResponse> ActivityTimeline);
 
     public sealed record ChecklistTaskDetailResponse(
         Guid Id,
@@ -419,6 +436,63 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
             new UpdateTaskRequest("Updated Title", "Updated Description", new DateOnly(2026, 5, 20)));
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+    }
+
+    [Test]
+    public async Task UpdateTask_WithStructuredCodeTraceability_PersistsAndReturnsLatestTraceability()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var createdTask = await CreateTaskAsync(project.Id, "Build Kanban Board");
+
+        var acquireResponse = await Client.PostAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}/content-edit-lock", content: null);
+        Assert.That(acquireResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+                var payload = """
+                        {
+                            "title": "Updated Title",
+                            "description": "Updated Description",
+                            "dueDate": "2026-05-20",
+                            "codeTraceability": {
+                                "api": [
+                                    { "changeType": "added", "target": "GET /api/build-info" }
+                                ],
+                                "frontendPages": [
+                                    { "changeType": "modified", "target": "ProjectBoardPage" }
+                                ],
+                                "frontendComponents": [
+                                    { "changeType": "removed", "target": "LegacyTaskDrawer" }
+                                ]
+                            }
+                        }
+                        """;
+
+                var response = await Client.PatchAsync(
+                        $"/api/projects/{project.Id}/tasks/{createdTask.Id}",
+                        new StringContent(payload, Encoding.UTF8, "application/json"));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var updatedTask = await response.Content.ReadFromJsonAsync<TraceableTaskDetailResponse>();
+
+        Assert.That(updatedTask, Is.Not.Null);
+        Assert.That(updatedTask!.Title, Is.EqualTo("Updated Title"));
+        Assert.That(updatedTask.Description, Is.EqualTo("Updated Description"));
+        Assert.That(updatedTask.DueDate, Is.EqualTo(new DateOnly(2026, 5, 20)));
+        Assert.That(updatedTask.CodeTraceability.Api.Select(item => item.Target).ToArray(), Is.EqualTo(new[] { "GET /api/build-info" }));
+        Assert.That(updatedTask.CodeTraceability.Api.Select(item => item.ChangeType).ToArray(), Is.EqualTo(new[] { "added" }));
+        Assert.That(updatedTask.CodeTraceability.FrontendPages.Select(item => item.Target).ToArray(), Is.EqualTo(new[] { "ProjectBoardPage" }));
+        Assert.That(updatedTask.CodeTraceability.FrontendComponents.Select(item => item.Target).ToArray(), Is.EqualTo(new[] { "LegacyTaskDrawer" }));
+        Assert.That(updatedTask.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskCodeTraceabilityChanged"));
+
+        var detailResponse = await Client.GetAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}");
+        Assert.That(detailResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var detail = await detailResponse.Content.ReadFromJsonAsync<TraceableTaskDetailResponse>();
+
+        Assert.That(detail, Is.Not.Null);
+        Assert.That(detail!.CodeTraceability.Api.Select(item => item.Target).ToArray(), Is.EqualTo(new[] { "GET /api/build-info" }));
+        Assert.That(detail.CodeTraceability.FrontendPages.Select(item => item.Target).ToArray(), Is.EqualTo(new[] { "ProjectBoardPage" }));
+        Assert.That(detail.CodeTraceability.FrontendComponents.Select(item => item.Target).ToArray(), Is.EqualTo(new[] { "LegacyTaskDrawer" }));
     }
 
     [Test]

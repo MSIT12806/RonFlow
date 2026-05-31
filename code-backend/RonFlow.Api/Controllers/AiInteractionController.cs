@@ -417,7 +417,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
             var dueDate = GetOptionalDateOnly(optionalFields, "dueDate") ?? task.DueDate;
             var changedFields = GetChangedFields(task, optionalFields);
 
-            var result = updateTaskCommandService.Update(currentUserId, task.ProjectId, taskId.Value, title, description, dueDate);
+            var result = updateTaskCommandService.Update(currentUserId, task.ProjectId, taskId.Value, title, description, dueDate, null);
             if (result.ValidationError is not null)
             {
                 return ValidationFailed(result.ValidationError.Field, result.ValidationError.Message);

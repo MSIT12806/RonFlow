@@ -21,10 +21,18 @@ public sealed record CreateTaskOutput(
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
     IReadOnlyList<TaskSubtaskOutput> Subtasks,
+    TaskCodeTraceabilityOutput CodeTraceability,
     IReadOnlyList<CreatedTaskReminderOutput> Reminders,
     IReadOnlyList<CreatedActivityTimelineItemOutput> ActivityTimeline);
 
 public sealed record CreatedTaskReminderOutput(Guid Id, string ReminderDateTime, string Description);
+
+public sealed record TaskCodeTraceabilityOutput(
+    IReadOnlyList<TaskCodeTraceabilityItemOutput> Api,
+    IReadOnlyList<TaskCodeTraceabilityItemOutput> FrontendPages,
+    IReadOnlyList<TaskCodeTraceabilityItemOutput> FrontendComponents);
+
+public sealed record TaskCodeTraceabilityItemOutput(string ChangeType, string Target);
 
 public sealed record ProjectSubtaskTemplateOutput(Guid Id, string Title, int Order);
 
@@ -56,6 +64,7 @@ internal static class CoreFlowCommandOutputFactory
             task.CreatedAt,
             task.CompletedAt,
             task.Subtasks.Select(CreateTaskSubtask).ToArray(),
+            CreateTaskCodeTraceability(task.CodeTraceability),
             task.Reminders.Select(CreateTaskReminder).ToArray(),
             task.ActivityTimeline.Select(CreateActivityTimelineItem).ToArray());
     }
@@ -73,6 +82,19 @@ internal static class CoreFlowCommandOutputFactory
     private static TaskSubtaskOutput CreateTaskSubtask(TaskSubtaskModel subtask)
     {
         return new TaskSubtaskOutput(subtask.Id, subtask.Title, subtask.IsChecked, subtask.Order);
+    }
+
+    private static TaskCodeTraceabilityOutput CreateTaskCodeTraceability(TaskCodeTraceabilityModel codeTraceability)
+    {
+        return new(
+            codeTraceability.Api.Select(CreateTaskCodeTraceabilityItem).ToArray(),
+            codeTraceability.FrontendPages.Select(CreateTaskCodeTraceabilityItem).ToArray(),
+            codeTraceability.FrontendComponents.Select(CreateTaskCodeTraceabilityItem).ToArray());
+    }
+
+    private static TaskCodeTraceabilityItemOutput CreateTaskCodeTraceabilityItem(TaskCodeTraceabilityItemModel item)
+    {
+        return new(item.ChangeType, item.Target);
     }
 
     private static CreatedWorkflowStateOutput CreateWorkflowState(WorkflowStateModel workflowState)

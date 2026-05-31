@@ -9,7 +9,14 @@ public sealed class UpdateTaskCommandService(
     TaskMutationGuard taskMutationGuard,
     TimeProvider timeProvider)
 {
-    public UpdateTaskResult Update(Guid currentUserId, Guid projectId, Guid taskId, string? rawTitle, string? rawDescription, DateOnly? dueDate)
+    public UpdateTaskResult Update(
+        Guid currentUserId,
+        Guid projectId,
+        Guid taskId,
+        string? rawTitle,
+        string? rawDescription,
+        DateOnly? dueDate,
+        TaskCodeTraceability? codeTraceability)
     {
         if (!TaskTitle.TryCreate(rawTitle, out var taskTitle))
         {
@@ -41,6 +48,7 @@ public sealed class UpdateTaskCommandService(
             taskTitle!,
             rawDescription?.Trim() ?? string.Empty,
             dueDate,
+            codeTraceability,
             changedAt);
 
         if (mutationResult.Locked)

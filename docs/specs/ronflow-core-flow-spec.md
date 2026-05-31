@@ -673,11 +673,12 @@ Feature: 建立任務
 2. 任務描述
 3. 目前狀態
 4. 到期日
-5. 提醒清單
-6. 建立時間
-7. 完成時間（僅 Task 位於 Done 類狀態時顯示）
-8. 活動紀錄
-9. 任務生命週期提示（僅已封存 / 已移到垃圾桶任務時顯示）
+5. 程式修改追蹤
+6. 提醒清單
+7. 建立時間
+8. 完成時間（僅 Task 位於 Done 類狀態時顯示）
+9. 活動紀錄
+10. 任務生命週期提示（僅已封存 / 已移到垃圾桶任務時顯示）
 ```
 
 **User Actions**
@@ -688,20 +689,21 @@ Feature: 建立任務
 3. 編輯任務標題
 4. 編輯任務描述
 5. 修改到期日
-6. 新增提醒
-7. 刪除提醒
-8. 關閉 Drawer
-9. 從更多操作封存任務
-10. 從更多操作移到垃圾桶
-11. 在 read-only mode 還原任務
+6. 管理程式修改追蹤
+7. 新增提醒
+8. 刪除提醒
+9. 關閉 Drawer
+10. 從更多操作封存任務
+11. 從更多操作移到垃圾桶
+12. 在 read-only mode 還原任務
 ```
 
 **Expected Behavior**
 
 ```text
-1. 使用者可以在 Drawer 查看 Task 的 Title、Description、Current State、Due Date、CreatedAt、CompletedAt 與 Activity Timeline
+1. 使用者可以在 Drawer 查看 Task 的 Title、Description、Current State、Due Date、程式修改追蹤、CreatedAt、CompletedAt 與 Activity Timeline
 2. Task Detail Drawer 預設應以 view mode 開啟；使用者需明確進入 edit mode，才可編輯內容。
-3. 使用者進入 edit mode 後，才可修改 Task Title、Description、Due Date 與 Reminder。
+3. 使用者進入 edit mode 後，才可修改 Task Title、Description、Due Date、程式修改追蹤與 Reminder。
 4. 每個提醒至少包含提醒時間與提醒說明，其中提醒時間為必填。
 5. 使用者可以刪除尚未觸發的提醒。
 6. 修改成功後，Drawer 應顯示最新資料。
@@ -712,12 +714,15 @@ Feature: 建立任務
 11. 當其他使用者儲存同一個 Task 後，view mode 的 Drawer 應自動更新為最新已儲存內容。
 12. 當 Task 位於 Archived 或 Trashed 時，Drawer 應以 read-only mode 顯示，且不允許編輯內容、移動狀態、排序或管理提醒。
 13. 當 Task 位於 Archived 或 Trashed 時，Drawer 應提供還原操作。
+14. 程式修改追蹤應至少分為 API、前端頁面、前端元件三類，且每筆都至少包含 change type（新增、修改、移除）與 target 名稱。
+15. 程式修改追蹤屬於 Task 的已儲存共享資料；儲存後重新開啟 Drawer 或重新整理頁面仍應可讀取。
+16. 當 Task 位於 ActiveRecord 且使用者已進入 edit mode 時，系統應允許新增、刪除與編輯程式修改追蹤項目。
 ```
 
 **UI / UX Notes**
 
 ```text
-1. Task Detail Drawer 開啟後，畫面應先顯示 Task Title，再顯示 Description、目前狀態、Due Date、建立時間與活動紀錄。
+1. Task Detail Drawer 開啟後，畫面應先顯示 Task Title，再顯示 Description、目前狀態、Due Date、程式修改追蹤、建立時間與活動紀錄。
 2. Task Detail Drawer 應以覆蓋看板一部分的方式呈現，讓使用者在關閉 Drawer 後可以回到原本的 Project Kanban Board 上下文。
 3. 活動紀錄中的每一筆項目都應以時間先後順序顯示，讓使用者可以直接讀出 Task 的變化過程。
 4. CompletedAt 只在 Task 已進入 Done 類狀態時顯示；未完成的 Task 不應顯示空白的 CompletedAt 欄位。
@@ -725,6 +730,8 @@ Feature: 建立任務
 6. 已封存任務的 Drawer 應顯示「此任務已封存」之類的狀態提示。
 7. 位於垃圾桶的 Drawer 應顯示「此任務位於垃圾桶」之類的狀態提示。
 8. 提醒清單應直接顯示在 Task Detail Drawer 中，讓使用者不需要離開目前 Task 上下文即可管理提醒。
+9. 程式修改追蹤應以三個清楚區塊呈現：API、前端頁面、前端元件。
+10. 每筆程式修改追蹤在 view mode 應直接顯示 change type 與 target，讓人類能快速讀出這個 Task 改了哪些面向。
 ```
 
 **State Handling / Feedback**
@@ -1457,6 +1464,9 @@ Feature: Invitation inbox
 20. Task Detail Drawer 預設以 view mode 開啟；使用者需明確進入 edit mode 才可編輯內容
 21. 儲存成功後，Drawer 應回到 view mode，並釋放內容編輯鎖
 22. 未儲存草稿不屬於共享資料；其他使用者只能看到最新已儲存版本
+23. Task 應保存結構化程式修改追蹤資料，並區分 API、前端頁面、前端元件三類
+24. 每筆程式修改追蹤至少包含 change type 與 target 名稱
+25. Task 更新程式修改追蹤成功後，重新讀取 Task Detail Drawer 應可看見最新已儲存內容
 ```
 
 <a id="reminder-rules"></a>

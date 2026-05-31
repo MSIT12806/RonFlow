@@ -49,6 +49,13 @@ public sealed record ProjectSubtaskTemplateView(Guid Id, string Title, int Order
 
 public sealed record TaskSubtaskView(Guid Id, string Title, bool IsChecked, int Order);
 
+public sealed record TaskCodeTraceabilityItemView(string ChangeType, string Target);
+
+public sealed record TaskCodeTraceabilityView(
+    IReadOnlyList<TaskCodeTraceabilityItemView> Api,
+    IReadOnlyList<TaskCodeTraceabilityItemView> FrontendPages,
+    IReadOnlyList<TaskCodeTraceabilityItemView> FrontendComponents);
+
 public sealed record TaskDetailView(
     Guid Id,
     Guid ProjectId,
@@ -60,6 +67,7 @@ public sealed record TaskDetailView(
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
     IReadOnlyList<TaskSubtaskView> Subtasks,
+    TaskCodeTraceabilityView CodeTraceability,
     IReadOnlyList<TaskReminderView> Reminders,
     IReadOnlyList<ActivityTimelineItemView> ActivityTimeline);
 
@@ -137,6 +145,7 @@ internal static class CoreFlowReadModelFactory
             task.CreatedAt,
             task.CompletedAt,
             task.Subtasks.Select(CreateTaskSubtask).ToArray(),
+            CreateTaskCodeTraceability(task.CodeTraceability),
             task.Reminders.Select(CreateTaskReminder).ToArray(),
             task.ActivityTimeline.Select(CreateActivityTimelineItem).ToArray());
     }
@@ -185,6 +194,19 @@ internal static class CoreFlowReadModelFactory
     private static TaskSubtaskView CreateTaskSubtask(TaskSubtaskModel subtask)
     {
         return new TaskSubtaskView(subtask.Id, subtask.Title, subtask.IsChecked, subtask.Order);
+    }
+
+    private static TaskCodeTraceabilityView CreateTaskCodeTraceability(TaskCodeTraceabilityModel codeTraceability)
+    {
+        return new(
+            codeTraceability.Api.Select(CreateTaskCodeTraceabilityItem).ToArray(),
+            codeTraceability.FrontendPages.Select(CreateTaskCodeTraceabilityItem).ToArray(),
+            codeTraceability.FrontendComponents.Select(CreateTaskCodeTraceabilityItem).ToArray());
+    }
+
+    private static TaskCodeTraceabilityItemView CreateTaskCodeTraceabilityItem(TaskCodeTraceabilityItemModel item)
+    {
+        return new(item.ChangeType, item.Target);
     }
 
     private static TaskReminderView CreateTaskReminder(TaskReminderModel reminder)

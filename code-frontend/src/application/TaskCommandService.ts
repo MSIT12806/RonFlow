@@ -31,8 +31,13 @@ export class TaskCommandService {
     title: string,
     description: string,
     dueDate: string | null,
+    codeTraceability: {
+      api: Array<{ changeType: 'added' | 'modified' | 'removed'; target: string }>
+      frontendPages: Array<{ changeType: 'added' | 'modified' | 'removed'; target: string }>
+      frontendComponents: Array<{ changeType: 'added' | 'modified' | 'removed'; target: string }>
+    },
   ): Promise<TaskDetailResponse> {
-    return updateTask(projectId, taskId, { title, description, dueDate })
+    return updateTask(projectId, taskId, { title, description, dueDate, codeTraceability })
   }
 
   async reorder(projectId: string, taskId: string, targetTaskId: string): Promise<TaskDetailResponse> {

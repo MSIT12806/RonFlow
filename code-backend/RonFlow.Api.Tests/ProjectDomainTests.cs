@@ -154,6 +154,7 @@ public sealed class ProjectDomainTests
             CreateTaskTitle("Updated Kanban Board"),
             "新的描述",
             DateOnly.FromDateTime(changedAt.DateTime),
+            null,
             changedAt);
 
         Assert.That(result.Locked, Is.True);

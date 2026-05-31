@@ -238,6 +238,13 @@ internal static class CoreFlowJsonSerializer
 
         writer.WriteEndArray();
 
+        writer.WritePropertyName("codeTraceability");
+        writer.WriteStartObject();
+        WriteTaskCodeTraceabilityItems(writer, "api", task.CodeTraceability.Api);
+        WriteTaskCodeTraceabilityItems(writer, "frontendPages", task.CodeTraceability.FrontendPages);
+        WriteTaskCodeTraceabilityItems(writer, "frontendComponents", task.CodeTraceability.FrontendComponents);
+        writer.WriteEndObject();
+
         writer.WritePropertyName("activityTimeline");
         writer.WriteStartArray();
 
@@ -300,6 +307,12 @@ internal static class CoreFlowJsonSerializer
                             : (DateTimeOffset?)null))
                 .ToArray()
             : [];
+        var codeTraceability = root.TryGetProperty("codeTraceability", out var codeTraceabilityElement) && codeTraceabilityElement.ValueKind != JsonValueKind.Null
+            ? new TaskCodeTraceability(
+                ReadTaskCodeTraceabilityItems(codeTraceabilityElement, "api"),
+                ReadTaskCodeTraceabilityItems(codeTraceabilityElement, "frontendPages"),
+                ReadTaskCodeTraceabilityItems(codeTraceabilityElement, "frontendComponents"))
+            : TaskCodeTraceability.Empty;
 
         return DomainTask.Rehydrate(
             root.GetProperty("id").GetGuid(),
@@ -316,6 +329,7 @@ internal static class CoreFlowJsonSerializer
             sortOrder,
             subtasks,
             reminders,
+            codeTraceability,
             root.GetProperty("activityTimeline")
                 .EnumerateArray()
                 .Select(ReadActivityTimelineItem)
@@ -347,6 +361,21 @@ internal static class CoreFlowJsonSerializer
             GetRequiredString(element, "type"),
             GetRequiredString(element, "message"),
             element.GetProperty("occurredAt").GetDateTimeOffset());
+    }
+
+    private static TaskCodeTraceabilityItem[] ReadTaskCodeTraceabilityItems(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var itemsElement) || itemsElement.ValueKind == JsonValueKind.Null)
+        {
+            return [];
+        }
+
+        return itemsElement
+            .EnumerateArray()
+            .Select(item => new TaskCodeTraceabilityItem(
+                GetRequiredString(item, "changeType"),
+                GetRequiredString(item, "target")))
+            .ToArray();
     }
 
     private static ProjectSubtaskTemplate ReadProjectSubtaskTemplate(JsonElement element)
@@ -393,6 +422,22 @@ internal static class CoreFlowJsonSerializer
         writer.WriteBoolean("isChecked", subtask.IsChecked);
         writer.WriteNumber("order", subtask.Order);
         writer.WriteEndObject();
+    }
+
+    private static void WriteTaskCodeTraceabilityItems(Utf8JsonWriter writer, string propertyName, IReadOnlyList<TaskCodeTraceabilityItem> items)
+    {
+        writer.WritePropertyName(propertyName);
+        writer.WriteStartArray();
+
+        foreach (var item in items)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("changeType", item.ChangeType);
+            writer.WriteString("target", item.Target);
+            writer.WriteEndObject();
+        }
+
+        writer.WriteEndArray();
     }
 
     private static void WriteActivityTimelineItem(Utf8JsonWriter writer, ActivityTimelineItem item)

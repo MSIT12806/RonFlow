@@ -411,6 +411,26 @@ const playgroundTaskDetail: TaskDetailResponse = {
       order: 1,
     },
   ],
+  codeTraceability: {
+    api: [
+      {
+        changeType: 'added',
+        target: 'GET /api/build-info',
+      },
+    ],
+    frontendPages: [
+      {
+        changeType: 'modified',
+        target: 'ProjectBoardPage',
+      },
+    ],
+    frontendComponents: [
+      {
+        changeType: 'removed',
+        target: 'LegacyTaskDrawer',
+      },
+    ],
+  },
   canEnterEdit: true,
   activityTimeline: [
     {

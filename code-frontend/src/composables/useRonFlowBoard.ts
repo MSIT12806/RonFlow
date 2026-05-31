@@ -5,6 +5,7 @@ import {
   type BoardColumnResponse,
   type LifecycleTaskListItemResponse,
   type ProjectListItemResponse,
+  type TaskCodeTraceabilityChangeType,
   type TaskLifecycleState,
   type WorkflowKey,
 } from '../api/ronflowApi'
@@ -26,6 +27,17 @@ export type EditableTaskSubtask = {
   title: string
   isChecked: boolean
   order: number
+}
+
+export type EditableTaskCodeTraceabilityItem = {
+  changeType: TaskCodeTraceabilityChangeType
+  target: string
+}
+
+export type EditableTaskCodeTraceability = {
+  api: EditableTaskCodeTraceabilityItem[]
+  frontendPages: EditableTaskCodeTraceabilityItem[]
+  frontendComponents: EditableTaskCodeTraceabilityItem[]
 }
 
 const CONTENT_EDIT_LOCK_INACTIVITY_MS = 30_000
@@ -87,8 +99,14 @@ export function useRonFlowBoard() {
   )
 
   const updateTaskDetailResource = useApiResource(
-    (projectId: string, taskId: string, title: string, description: string, dueDate: string | null) =>
-      taskCommandService.update(projectId, taskId, title, description, dueDate),
+    (
+      projectId: string,
+      taskId: string,
+      title: string,
+      description: string,
+      dueDate: string | null,
+      codeTraceability: EditableTaskCodeTraceability,
+    ) => taskCommandService.update(projectId, taskId, title, description, dueDate, codeTraceability),
     {
       mapErrorMessage: (error) => {
         if (error instanceof ApiValidationError) {
@@ -412,6 +430,7 @@ export function useRonFlowBoard() {
     title: string,
     description: string,
     dueDate: string | null,
+    codeTraceability: EditableTaskCodeTraceability,
     subtasks: EditableTaskSubtask[],
   ) {
     if (!activeProjectId.value) {
@@ -424,7 +443,14 @@ export function useRonFlowBoard() {
     taskLifecycleCommandError.value = ''
 
     try {
-      let updatedTask = await updateTaskDetailResource.execute(activeProjectId.value, taskId, title, description, dueDate)
+      let updatedTask = await updateTaskDetailResource.execute(
+        activeProjectId.value,
+        taskId,
+        title,
+        description,
+        dueDate,
+        codeTraceability,
+      )
       updatedTask = await replaceTaskSubtasksResource.execute(
         activeProjectId.value,
         taskId,

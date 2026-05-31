@@ -31,6 +31,11 @@ export async function updateTask(projectId: string, taskId: string, payload: {
   title: string
   description: string
   dueDate: string | null
+  codeTraceability: {
+    api: Array<{ changeType: 'added' | 'modified' | 'removed'; target: string }>
+    frontendPages: Array<{ changeType: 'added' | 'modified' | 'removed'; target: string }>
+    frontendComponents: Array<{ changeType: 'added' | 'modified' | 'removed'; target: string }>
+  }
 }) {
   return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}`), {
     method: 'PATCH',

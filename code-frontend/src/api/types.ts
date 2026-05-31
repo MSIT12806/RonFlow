@@ -13,6 +13,19 @@ export type ActivityTimelineItemResponse = {
   occurredAt: string
 }
 
+export type TaskCodeTraceabilityChangeType = 'added' | 'modified' | 'removed'
+
+export type TaskCodeTraceabilityItemResponse = {
+  changeType: TaskCodeTraceabilityChangeType
+  target: string
+}
+
+export type TaskCodeTraceabilityResponse = {
+  api: TaskCodeTraceabilityItemResponse[]
+  frontendPages: TaskCodeTraceabilityItemResponse[]
+  frontendComponents: TaskCodeTraceabilityItemResponse[]
+}
+
 export type TaskReminderResponse = {
   id: string
   reminderDateTime: string
@@ -47,6 +60,7 @@ export type TaskDetailResponse = {
   createdAt: string
   completedAt: string | null
   subtasks: TaskSubtaskResponse[]
+  codeTraceability: TaskCodeTraceabilityResponse
   reminders?: TaskReminderResponse[]
   activityTimeline: ActivityTimelineItemResponse[]
   canEnterEdit: boolean

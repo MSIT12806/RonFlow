@@ -118,6 +118,99 @@
             </div>
           </div>
 
+          <div class="detail-card detail-card-full" data-testid="task-code-traceability-section">
+            <div class="detail-section-header">
+              <div>
+                <p class="detail-label">程式修改追蹤</p>
+                <p class="detail-supporting-copy">用結構化紀錄標示這個 task 影響到的 API、前端頁面與前端元件。</p>
+              </div>
+            </div>
+
+            <div
+              v-for="category in traceabilityCategories"
+              :key="category.key"
+              class="detail-field"
+              :data-testid="`task-code-traceability-${category.testId}`"
+            >
+              <div class="detail-section-header">
+                <div>
+                  <p class="detail-label">{{ category.label }}</p>
+                </div>
+
+                <button
+                  v-if="!isReadOnly"
+                  type="button"
+                  class="secondary-button"
+                  :disabled="isSaving"
+                  @click="addCodeTraceabilityItem(category.key)"
+                >
+                  新增紀錄
+                </button>
+              </div>
+
+              <p v-if="draftCodeTraceability[category.key].length === 0" class="detail-supporting-copy">目前沒有紀錄</p>
+
+              <ul v-else class="history-list">
+                <li
+                  v-for="(item, index) in draftCodeTraceability[category.key]"
+                  :key="`${category.key}-${index}`"
+                  data-testid="task-code-traceability-item"
+                >
+                  <div v-if="isReadOnly" class="detail-checklist-row">
+                    <strong>{{ formatTraceabilityChangeType(item.changeType) }}</strong>
+                    <span>{{ item.target }}</span>
+                  </div>
+
+                  <div v-else class="detail-reminder-grid">
+                    <div class="detail-field">
+                      <label class="detail-label" :for="`task-code-traceability-${category.testId}-${index}-change-type`">變更類型</label>
+                      <div class="detail-field-control">
+                        <select
+                          :id="`task-code-traceability-${category.testId}-${index}-change-type`"
+                          :value="item.changeType"
+                          :disabled="isSaving"
+                          @change="onCodeTraceabilityChangeTypeChanged(category.key, index, $event)"
+                        >
+                          <option
+                            v-for="option in traceabilityChangeTypeOptions"
+                            :key="option.value"
+                            :value="option.value"
+                          >
+                            {{ option.label }}
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div class="detail-field detail-field-inline">
+                      <label class="detail-label" :for="`task-code-traceability-${category.testId}-${index}-target`">項目名稱</label>
+                      <div class="detail-field-control">
+                        <InputText
+                          :id="`task-code-traceability-${category.testId}-${index}-target`"
+                          :model-value="item.target"
+                          fluid
+                          :disabled="isSaving"
+                          @update:model-value="updateCodeTraceabilityTarget(category.key, index, $event)"
+                        />
+                      </div>
+                    </div>
+
+                    <div class="detail-checklist-actions">
+                      <button
+                        type="button"
+                        class="detail-actions-menu-item"
+                        :disabled="isSaving"
+                        @click="removeCodeTraceabilityItem(category.key, index)"
+                      >
+                        刪除
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+
           <div class="detail-card">
             <p class="detail-label">建立時間</p>
             <strong>{{ formatTimelineTime(task.createdAt) }}</strong>
@@ -290,7 +383,11 @@ import Textarea from 'primevue/textarea'
 import AsyncStateBoundary from './bases/AsyncStateBoundary.vue'
 import ApiCommandResourceView from './bases/ApiCommandResourceView.vue'
 import BaseModalShell from './bases/BaseModalShell.vue'
-import type { TaskDetailResponse, TaskReminderResponse } from '../api/ronflowApi'
+import type {
+  TaskCodeTraceabilityChangeType,
+  TaskDetailResponse,
+  TaskReminderResponse,
+} from '../api/ronflowApi'
 import type { TaskDetailMode } from '../composables/useRonFlowBoard'
 
 type DraftTaskSubtask = {
@@ -298,6 +395,19 @@ type DraftTaskSubtask = {
   title: string
   isChecked: boolean
 }
+
+type DraftTaskCodeTraceabilityItem = {
+  changeType: TaskCodeTraceabilityChangeType
+  target: string
+}
+
+type DraftTaskCodeTraceability = {
+  api: DraftTaskCodeTraceabilityItem[]
+  frontendPages: DraftTaskCodeTraceabilityItem[]
+  frontendComponents: DraftTaskCodeTraceabilityItem[]
+}
+
+type TraceabilityCategoryKey = keyof DraftTaskCodeTraceability
 
 const props = withDefaults(defineProps<{
   isOpen: boolean
@@ -330,6 +440,7 @@ const emit = defineEmits<{
     title: string
     description: string
     dueDate: string | null
+    codeTraceability: DraftTaskCodeTraceability
     subtasks: Array<{ id: string | null; title: string; isChecked: boolean; order: number }>
   }): void
   (event: 'replace-subtasks', payload: {
@@ -350,7 +461,20 @@ const draftDueDate = ref('')
 const draftReminderDateTime = ref('')
 const draftReminderDescription = ref('')
 const draftSubtasks = ref<DraftTaskSubtask[]>([])
+const draftCodeTraceability = ref<DraftTaskCodeTraceability>(createEmptyCodeTraceability())
 const isActionsOpen = ref(false)
+
+const traceabilityCategories: Array<{ key: TraceabilityCategoryKey; label: string; testId: string }> = [
+  { key: 'api', label: 'API', testId: 'api' },
+  { key: 'frontendPages', label: '前端頁面', testId: 'frontend-pages' },
+  { key: 'frontendComponents', label: '前端元件', testId: 'frontend-components' },
+]
+
+const traceabilityChangeTypeOptions: Array<{ value: TaskCodeTraceabilityChangeType; label: string }> = [
+  { value: 'added', label: '新增' },
+  { value: 'modified', label: '修改' },
+  { value: 'removed', label: '移除' },
+]
 
 const isLifecycleReadOnly = computed(() => props.mode !== 'active')
 const canEnterEdit = computed(() => !isLifecycleReadOnly.value && (props.canEnterEdit ?? true))
@@ -462,6 +586,7 @@ function submit() {
     title: draftTitle.value,
     description: draftDescription.value,
     dueDate: draftDueDate.value || null,
+    codeTraceability: buildCodeTraceabilityPayload(),
     subtasks: draftSubtasks.value.map((subtask, index) => ({
       id: subtask.id,
       title: subtask.title,
@@ -480,6 +605,92 @@ function addSubtask() {
       isChecked: false,
     },
   ]
+}
+
+function createEmptyCodeTraceability(): DraftTaskCodeTraceability {
+  return {
+    api: [],
+    frontendPages: [],
+    frontendComponents: [],
+  }
+}
+
+function createDraftCodeTraceability(task: TaskDetailResponse | null): DraftTaskCodeTraceability {
+  return {
+    api: task?.codeTraceability.api.map((item) => ({ ...item })) ?? [],
+    frontendPages: task?.codeTraceability.frontendPages.map((item) => ({ ...item })) ?? [],
+    frontendComponents: task?.codeTraceability.frontendComponents.map((item) => ({ ...item })) ?? [],
+  }
+}
+
+function buildCodeTraceabilityPayload(): DraftTaskCodeTraceability {
+  return {
+    api: draftCodeTraceability.value.api
+      .map((item) => ({ changeType: item.changeType, target: item.target.trim() }))
+      .filter((item) => item.target.length > 0),
+    frontendPages: draftCodeTraceability.value.frontendPages
+      .map((item) => ({ changeType: item.changeType, target: item.target.trim() }))
+      .filter((item) => item.target.length > 0),
+    frontendComponents: draftCodeTraceability.value.frontendComponents
+      .map((item) => ({ changeType: item.changeType, target: item.target.trim() }))
+      .filter((item) => item.target.length > 0),
+  }
+}
+
+function addCodeTraceabilityItem(categoryKey: TraceabilityCategoryKey) {
+  draftCodeTraceability.value = {
+    ...draftCodeTraceability.value,
+    [categoryKey]: [
+      ...draftCodeTraceability.value[categoryKey],
+      { changeType: 'modified', target: '' },
+    ],
+  }
+}
+
+function onCodeTraceabilityChangeTypeChanged(categoryKey: TraceabilityCategoryKey, index: number, event: Event) {
+  const nextValue = (event.target as HTMLSelectElement | null)?.value as TaskCodeTraceabilityChangeType | undefined
+  updateCodeTraceabilityItem(categoryKey, index, {
+    changeType: nextValue ?? 'modified',
+  })
+}
+
+function updateCodeTraceabilityTarget(categoryKey: TraceabilityCategoryKey, index: number, value: string | undefined) {
+  updateCodeTraceabilityItem(categoryKey, index, {
+    target: value ?? '',
+  })
+}
+
+function updateCodeTraceabilityItem(
+  categoryKey: TraceabilityCategoryKey,
+  index: number,
+  patch: Partial<DraftTaskCodeTraceabilityItem>,
+) {
+  draftCodeTraceability.value = {
+    ...draftCodeTraceability.value,
+    [categoryKey]: draftCodeTraceability.value[categoryKey].map((item, currentIndex) =>
+      currentIndex === index
+        ? { ...item, ...patch }
+        : item,
+    ),
+  }
+}
+
+function removeCodeTraceabilityItem(categoryKey: TraceabilityCategoryKey, index: number) {
+  draftCodeTraceability.value = {
+    ...draftCodeTraceability.value,
+    [categoryKey]: draftCodeTraceability.value[categoryKey].filter((_, currentIndex) => currentIndex !== index),
+  }
+}
+
+function formatTraceabilityChangeType(changeType: TaskCodeTraceabilityChangeType): string {
+  switch (changeType) {
+    case 'added':
+      return '新增'
+    case 'removed':
+      return '移除'
+    default:
+      return '修改'
+  }
 }
 
 function updateSubtaskTitle(index: number, value: string | undefined) {
@@ -615,6 +826,9 @@ watch(
     props.task?.description,
     props.task?.dueDate,
     props.task?.subtasks?.length ?? 0,
+    props.task?.codeTraceability?.api?.length ?? 0,
+    props.task?.codeTraceability?.frontendPages?.length ?? 0,
+    props.task?.codeTraceability?.frontendComponents?.length ?? 0,
     props.task?.reminders?.length ?? 0,
     props.mode,
   ] as const,
@@ -630,6 +844,7 @@ watch(
     draftDueDate.value = props.task.dueDate ?? ''
     draftReminderDateTime.value = ''
     draftReminderDescription.value = ''
+    draftCodeTraceability.value = createDraftCodeTraceability(props.task)
     draftSubtasks.value = props.task.subtasks.map((subtask) => ({
       id: subtask.id,
       title: subtask.title,

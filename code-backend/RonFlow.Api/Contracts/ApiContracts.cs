@@ -28,7 +28,48 @@ public sealed record PushSubscriptionKeysRequest(string? P256dh, string? Auth);
 
 public sealed record RegisterPushSubscriptionRequest(string? Endpoint, PushSubscriptionKeysRequest? Keys);
 
-public sealed record UpdateTaskRequest(string? Title, string? Description, DateOnly? DueDate);
+public sealed class TaskCodeTraceabilityItemRequest
+{
+    public string? ChangeType { get; init; }
+
+    public string? Target { get; init; }
+}
+
+public sealed class TaskCodeTraceabilityRequest
+{
+    public List<TaskCodeTraceabilityItemRequest>? Api { get; init; }
+
+    public List<TaskCodeTraceabilityItemRequest>? FrontendPages { get; init; }
+
+    public List<TaskCodeTraceabilityItemRequest>? FrontendComponents { get; init; }
+}
+
+public sealed class UpdateTaskRequest
+{
+    public UpdateTaskRequest()
+    {
+    }
+
+    public UpdateTaskRequest(
+        string? title,
+        string? description,
+        DateOnly? dueDate,
+        JsonElement? codeTraceability = null)
+    {
+        Title = title;
+        Description = description;
+        DueDate = dueDate;
+        CodeTraceability = codeTraceability;
+    }
+
+    public string? Title { get; set; }
+
+    public string? Description { get; set; }
+
+    public DateOnly? DueDate { get; set; }
+
+    public JsonElement? CodeTraceability { get; set; }
+}
 
 public sealed record ReplaceProjectSubtaskTemplatesRequest(IReadOnlyList<ProjectSubtaskTemplateItemRequest>? Items);
 
@@ -42,13 +83,19 @@ public sealed record ReorderTaskRequest(Guid? TargetTaskId);
 
 public sealed record PushNotificationPublicKeyResponse(string PublicKey);
 
-public sealed record BuildInfoResponse(
+public sealed record DeploymentComponentResponse(
     string Application,
-    string EnvironmentName,
     string Version,
     string InformationalVersion,
     DateTimeOffset UpdatedAtUtc,
     string? SourceRevision);
+
+public sealed record DeploymentSummaryResponse(
+    string Environment,
+    DeploymentComponentResponse Frontend,
+    DeploymentComponentResponse RonFlowApi,
+    DeploymentComponentResponse RonAuthApi,
+    bool IsSameDeployment);
 
 public sealed record ProjectListResponse(IReadOnlyList<ProjectListItemResponse> Items);
 
@@ -238,6 +285,41 @@ public sealed record TaskSubtaskResponse(Guid Id, string Title, bool IsChecked, 
     }
 }
 
+public sealed record TaskCodeTraceabilityItemResponse(string ChangeType, string Target)
+{
+    public static TaskCodeTraceabilityItemResponse FromView(TaskCodeTraceabilityItemView view)
+    {
+        return new(view.ChangeType, view.Target);
+    }
+
+    public static TaskCodeTraceabilityItemResponse FromOutput(TaskCodeTraceabilityItemOutput output)
+    {
+        return new(output.ChangeType, output.Target);
+    }
+}
+
+public sealed record TaskCodeTraceabilityResponse(
+    IReadOnlyList<TaskCodeTraceabilityItemResponse> Api,
+    IReadOnlyList<TaskCodeTraceabilityItemResponse> FrontendPages,
+    IReadOnlyList<TaskCodeTraceabilityItemResponse> FrontendComponents)
+{
+    public static TaskCodeTraceabilityResponse FromView(TaskCodeTraceabilityView view)
+    {
+        return new(
+            view.Api.Select(TaskCodeTraceabilityItemResponse.FromView).ToArray(),
+            view.FrontendPages.Select(TaskCodeTraceabilityItemResponse.FromView).ToArray(),
+            view.FrontendComponents.Select(TaskCodeTraceabilityItemResponse.FromView).ToArray());
+    }
+
+    public static TaskCodeTraceabilityResponse FromOutput(TaskCodeTraceabilityOutput output)
+    {
+        return new(
+            output.Api.Select(TaskCodeTraceabilityItemResponse.FromOutput).ToArray(),
+            output.FrontendPages.Select(TaskCodeTraceabilityItemResponse.FromOutput).ToArray(),
+            output.FrontendComponents.Select(TaskCodeTraceabilityItemResponse.FromOutput).ToArray());
+    }
+}
+
 public sealed record TaskDetailResponse(
     Guid Id,
     Guid ProjectId,
@@ -249,6 +331,7 @@ public sealed record TaskDetailResponse(
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
     IReadOnlyList<TaskSubtaskResponse> Subtasks,
+    TaskCodeTraceabilityResponse CodeTraceability,
     IReadOnlyList<TaskReminderResponse> Reminders,
     IReadOnlyList<ActivityTimelineItemResponse> ActivityTimeline,
     bool CanEnterEdit)
@@ -266,6 +349,7 @@ public sealed record TaskDetailResponse(
             output.CreatedAt,
             output.CompletedAt,
             output.Subtasks.Select(TaskSubtaskResponse.FromOutput).ToArray(),
+            TaskCodeTraceabilityResponse.FromOutput(output.CodeTraceability),
             output.Reminders.Select(TaskReminderResponse.FromOutput).ToArray(),
             output.ActivityTimeline.Select(ActivityTimelineItemResponse.FromOutput).ToArray(),
             canEnterEdit);
@@ -284,6 +368,7 @@ public sealed record TaskDetailResponse(
             view.CreatedAt,
             view.CompletedAt,
             view.Subtasks.Select(TaskSubtaskResponse.FromView).ToArray(),
+            TaskCodeTraceabilityResponse.FromView(view.CodeTraceability),
             view.Reminders.Select(TaskReminderResponse.FromView).ToArray(),
             view.ActivityTimeline.Select(ActivityTimelineItemResponse.FromView).ToArray(),
             canEnterEdit);

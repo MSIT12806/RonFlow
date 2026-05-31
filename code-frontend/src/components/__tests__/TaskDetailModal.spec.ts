@@ -26,6 +26,11 @@ function createTask(overrides: Partial<TaskDetailResponse> = {}): TaskDetailResp
         order: 0,
       },
     ],
+    codeTraceability: {
+      api: [],
+      frontendPages: [],
+      frontendComponents: [],
+    },
     activityTimeline: [],
     canEnterEdit: true,
     ...overrides,
@@ -105,6 +110,30 @@ describe('TaskDetailModal', () => {
 
     expect(wrapper.text()).toContain('提醒可能無法送達，請先啟用此裝置的提醒通知。')
     expect(wrapper.text()).toContain('啟用提醒通知')
+  })
+
+  it('shows structured code traceability entries in view mode', () => {
+    const wrapper = mountTaskDetail(createTask({
+      codeTraceability: {
+        api: [
+          { changeType: 'added', target: 'GET /api/build-info' },
+        ],
+        frontendPages: [
+          { changeType: 'modified', target: 'ProjectBoardPage' },
+        ],
+        frontendComponents: [
+          { changeType: 'removed', target: 'LegacyTaskDrawer' },
+        ],
+      },
+    }))
+
+    expect(wrapper.text()).toContain('程式修改追蹤')
+    expect(wrapper.text()).toContain('新增')
+    expect(wrapper.text()).toContain('GET /api/build-info')
+    expect(wrapper.text()).toContain('修改')
+    expect(wrapper.text()).toContain('ProjectBoardPage')
+    expect(wrapper.text()).toContain('移除')
+    expect(wrapper.text()).toContain('LegacyTaskDrawer')
   })
 
   it('opens active tasks in view mode until the user explicitly enters edit mode', () => {
@@ -227,6 +256,82 @@ describe('TaskDetailModal', () => {
 
     expect(wrapper.text()).toContain('儲存變更')
     expect(wrapper.findAll('button').some((button) => button.text() === '編輯')).toBe(false)
+  })
+
+  it('emits structured code traceability in save payload', async () => {
+    const wrapper = mount(TaskDetailModal, {
+      props: {
+        isOpen: true,
+        isLoading: false,
+        isSaving: false,
+        isEditing: true,
+        errorMessage: '',
+        saveErrorMessage: '',
+        titleValidationError: '',
+        reminderDatetimeValidationError: '',
+        reminderDeliveryStatusMessage: '',
+        canEnableReminderDelivery: true,
+        isEnablingReminderDelivery: false,
+        mode: 'active',
+        displayTitle: '補上 Drawer 編輯測試',
+        task: createTask({
+          codeTraceability: {
+            api: [
+              { changeType: 'added', target: 'GET /api/build-info' },
+            ],
+            frontendPages: [],
+            frontendComponents: [],
+          },
+        }),
+        formatTimelineTime: (occurredAt: string) => occurredAt,
+      },
+      global: {
+        stubs: {
+          BaseModalShell: {
+            template: '<div><slot /></div>',
+          },
+          AsyncStateBoundary: {
+            template: '<div><slot /></div>',
+          },
+          ApiCommandResourceView: {
+            template: '<div data-testid="command-resource-view"></div>',
+          },
+          DatePicker: {
+            template: '<input />',
+          },
+          InputText: {
+            template: '<input />',
+          },
+          Textarea: {
+            template: '<textarea></textarea>',
+          },
+        },
+      },
+    })
+
+    await wrapper.get('button.primary-button').trigger('click')
+
+    expect(wrapper.emitted('save')).toEqual([[{
+      taskId: 'task-1',
+      title: '補上 Drawer 編輯測試',
+      description: '讓使用者可以直接在 Task Detail Drawer 編輯標題、描述與到期日。',
+      dueDate: '2026-05-20',
+      codeTraceability: {
+        api: [
+          { changeType: 'added', target: 'GET /api/build-info' },
+        ],
+        frontendPages: [],
+        frontendComponents: [],
+      },
+      subtasks: [
+        {
+          id: 'subtask-1',
+          title: '需求已釐清',
+          isChecked: false,
+          order: 0,
+        },
+      ],
+    }]])
   })
 
   it('stacks the task description label above the input area', () => {
