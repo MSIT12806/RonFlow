@@ -864,6 +864,51 @@ button {
   font-weight: 700;
 }
 
+.traceability-filter-bar {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr) minmax(220px, 2fr);
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: var(--shadow-sm);
+}
+
+.traceability-filter-bar label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #16324a;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.traceability-filter-bar select,
+.traceability-filter-bar input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.48);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #112031;
+}
+
+.traceability-result-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.traceability-result-details {
+  grid-template-columns: minmax(140px, 0.6fr) minmax(0, 2fr);
+}
+
+.traceability-empty-state {
+  min-height: 260px;
+}
+
 .ghost-icon-button {
   display: inline-flex;
   align-items: center;

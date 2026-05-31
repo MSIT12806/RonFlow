@@ -1,6 +1,7 @@
 import { apiPath, request } from './request'
 import type {
   ProjectBoardResponse,
+  ProjectCodeTraceabilityResponse,
   ProjectInvitationListResponse,
   ProjectInvitationResponse,
   ProjectListResponse,
@@ -22,6 +23,10 @@ export async function createProject(name: string) {
 
 export async function getProjectBoard(projectId: string) {
   return request<ProjectBoardResponse>(apiPath(`/projects/${projectId}/board`))
+}
+
+export async function getProjectCodeTraceability(projectId: string) {
+  return request<ProjectCodeTraceabilityResponse>(apiPath(`/projects/${projectId}/code-traceability`))
 }
 
 export async function getProjectSubtaskTemplates(projectId: string) {

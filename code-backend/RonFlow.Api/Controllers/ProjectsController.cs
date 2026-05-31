@@ -94,6 +94,29 @@ public sealed class ProjectsController : AuthenticatedControllerBase
             : Results.Ok(ProjectBoardResponse.FromView(result.Resource!));
     }
 
+    [HttpGet("{projectId:guid}/code-traceability")]
+    [ProducesResponseType<ProjectCodeTraceabilityResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public IResult GetCodeTraceability(
+        Guid projectId,
+        [FromServices] GetProjectCodeTraceabilityQueryService queryService)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = queryService.Get(currentUserId, projectId);
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
+        }
+
+        return result.NotFound
+            ? Results.NotFound()
+            : Results.Ok(ProjectCodeTraceabilityResponse.FromView(result.Resource!));
+    }
+
     [HttpGet("{projectId:guid}/subtask-templates")]
     [ProducesResponseType<ProjectSubtaskTemplateListResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

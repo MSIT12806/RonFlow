@@ -101,6 +101,20 @@ export type ProjectBoardResponse = {
   columns: BoardColumnResponse[]
 }
 
+export type ProjectCodeTraceabilityCategory = 'api' | 'frontendPages' | 'frontendComponents'
+
+export type ProjectCodeTraceabilityItemResponse = {
+  taskId: string
+  taskTitle: string
+  category: ProjectCodeTraceabilityCategory
+  changeType: TaskCodeTraceabilityChangeType
+  target: string
+}
+
+export type ProjectCodeTraceabilityResponse = {
+  items: ProjectCodeTraceabilityItemResponse[]
+}
+
 export type ProjectResponse = {
   id: string
   name: string

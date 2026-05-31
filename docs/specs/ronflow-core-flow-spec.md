@@ -514,6 +514,9 @@ Feature: 建立專案
 11. 其他成員已儲存的 Task 變更，應近即時反映在目前 Board 上可見的資訊中。
 12. 若某張 Task 正由其他使用者拖曳、編輯或執行 lifecycle 操作，該 Task 仍可被查看，但衝突操作應被禁止。
 13. Board 應顯示目前仍在此 Project scope 中的在線成員清單。
+14. 使用者可以從 Project Kanban Board 進入程式修改紀錄查詢頁，查看目前 Project 中所有 ActiveRecord Task 已填寫的程式修改追蹤。
+15. 程式修改紀錄查詢頁應列出 Task 標題、紀錄類別、change type 與 target，讓使用者可跨 Task 查出某個 API、前端頁面或前端元件被哪些任務改動。
+16. 程式修改紀錄查詢頁應提供類別、change type 與關鍵字篩選；關鍵字至少比對 Task 標題與 target。
 ```
 
 **UI / UX Notes**
@@ -525,6 +528,8 @@ Feature: 建立專案
 4. 「建立任務」按鈕應位於看板頁可直接操作的位置，使用者不需先打開其他選單才能建立 Task。
 5. 每張 Task Card 都應同時支援兩種操作：點擊開啟 Task Detail Drawer，以及拖曳到其他 workflow column 以變更狀態。
 6. Task Card 不應直接提供 Archive 或 Move To Trash 操作，避免與主要工作流互動混淆。
+7. 程式修改紀錄查詢頁入口應與 Archived Tasks View、Trash View 同層，維持 Project-level 工具入口的一致性。
+8. 程式修改紀錄查詢頁應可返回 Project Kanban Board，且不應打開或覆蓋 Task Detail Drawer。
 ```
 
 **Empty State**
@@ -576,6 +581,13 @@ Feature: Project Kanban Board
     Given 使用者已在目前 Project 建立標題為 "Build Kanban Board" 的 Task
     Then 該 Task 應顯示在「待處理」（Todo）欄位
     And 該 Task 應顯示為可點擊的 Task Card
+
+  Scenario: 使用者查詢 Project 的程式修改紀錄
+    Given 使用者已進入某個 Project Kanban Board
+    And Project 中有 Task 填寫 API、前端頁面與前端元件的程式修改追蹤
+    When 使用者開啟「程式修改紀錄」查詢頁
+    Then 畫面應列出 Task 標題、紀錄類別、change type 與 target
+    And 使用者可以依類別、change type 與關鍵字篩選紀錄
 ```
 
 ### 7.4 Create Task Modal

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using RonFlow.Api.Contracts;
 
 namespace RonFlow.Api.Tests;
@@ -9,6 +10,15 @@ public sealed class ProjectApiIntegrationTests : ApiIntegrationTestBase
     public sealed record ProjectSubtaskTemplateResponse(Guid Id, string Title, int Order);
 
     public sealed record ProjectSubtaskTemplateListResponse(IReadOnlyList<ProjectSubtaskTemplateResponse> Items);
+
+    public sealed record ProjectCodeTraceabilityItemResponse(
+        Guid TaskId,
+        string TaskTitle,
+        string Category,
+        string ChangeType,
+        string Target);
+
+    public sealed record ProjectCodeTraceabilityResponse(IReadOnlyList<ProjectCodeTraceabilityItemResponse> Items);
 
     [Test]
     public async Task GetProjects_WhenAuthenticatedUserHasNoProjects_ReturnsEmptyList()
@@ -184,6 +194,59 @@ public sealed class ProjectApiIntegrationTests : ApiIntegrationTestBase
         var response = await outsiderClient.GetAsync($"/api/projects/{project.Id}/board");
 
         await AssertAccessDeniedAsync(response);
+    }
+
+    [Test]
+    public async Task GetCodeTraceability_WhenProjectHasTraceableTasks_ReturnsFlattenedTraceabilityItems()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var traceableTask = await CreateTaskAsync(project.Id, "Traceable Task");
+        await CreateTaskAsync(project.Id, "Empty Task");
+
+        var acquireResponse = await Client.PostAsync($"/api/projects/{project.Id}/tasks/{traceableTask.Id}/content-edit-lock", content: null);
+        Assert.That(acquireResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var payload = """
+                      {
+                          "title": "Traceable Task",
+                          "description": "Records code changes",
+                          "dueDate": null,
+                          "codeTraceability": {
+                              "api": [
+                                  { "changeType": "added", "target": "GET /api/projects/{projectId}/code-traceability" }
+                              ],
+                              "frontendPages": [
+                                  { "changeType": "modified", "target": "Project Board" }
+                              ],
+                              "frontendComponents": [
+                                  { "changeType": "added", "target": "CodeTraceabilityQueryView" }
+                              ]
+                          }
+                      }
+                      """;
+
+        var updateResponse = await Client.PatchAsync(
+            $"/api/projects/{project.Id}/tasks/{traceableTask.Id}",
+            new StringContent(payload, Encoding.UTF8, "application/json"));
+
+        Assert.That(updateResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var response = await Client.GetAsync($"/api/projects/{project.Id}/code-traceability");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var result = await response.Content.ReadFromJsonAsync<ProjectCodeTraceabilityResponse>();
+
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result!.Items.Select(item => item.TaskTitle).Distinct().ToArray(), Is.EqualTo(new[] { "Traceable Task" }));
+        Assert.That(result.Items.Select(item => item.Category).ToArray(), Is.EqualTo(new[] { "api", "frontendPages", "frontendComponents" }));
+        Assert.That(result.Items.Select(item => item.ChangeType).ToArray(), Is.EqualTo(new[] { "added", "modified", "added" }));
+        Assert.That(result.Items.Select(item => item.Target).ToArray(), Is.EqualTo(new[]
+        {
+            "GET /api/projects/{projectId}/code-traceability",
+            "Project Board",
+            "CodeTraceabilityQueryView",
+        }));
     }
 
     [Test]

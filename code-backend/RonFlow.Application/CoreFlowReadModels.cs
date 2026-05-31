@@ -43,6 +43,15 @@ public sealed record BoardColumnView(
 
 public sealed record BoardTaskCardView(Guid Id, string Title);
 
+public sealed record ProjectCodeTraceabilityView(IReadOnlyList<ProjectCodeTraceabilityItemView> Items);
+
+public sealed record ProjectCodeTraceabilityItemView(
+    Guid TaskId,
+    string TaskTitle,
+    string Category,
+    string ChangeType,
+    string Target);
+
 public sealed record WorkflowStateView(string Key, string Label, bool IsInitialState, bool IsCompletedState);
 
 public sealed record ProjectSubtaskTemplateView(Guid Id, string Title, int Order);
@@ -150,6 +159,15 @@ internal static class CoreFlowReadModelFactory
             task.ActivityTimeline.Select(CreateActivityTimelineItem).ToArray());
     }
 
+    public static ProjectCodeTraceabilityView CreateProjectCodeTraceability(ProjectBoardModel board)
+    {
+        return new ProjectCodeTraceabilityView(
+            board.Tasks
+                .Where(task => task.LifecycleState == TaskLifecycleState.ActiveRecord)
+                .SelectMany(CreateProjectCodeTraceabilityItems)
+                .ToArray());
+    }
+
     public static LifecycleTaskListView CreateLifecycleTaskList(Project project, IReadOnlyList<TaskModel> tasks, TaskLifecycleState lifecycleState)
     {
         return new LifecycleTaskListView(
@@ -207,6 +225,21 @@ internal static class CoreFlowReadModelFactory
     private static TaskCodeTraceabilityItemView CreateTaskCodeTraceabilityItem(TaskCodeTraceabilityItemModel item)
     {
         return new(item.ChangeType, item.Target);
+    }
+
+    private static IEnumerable<ProjectCodeTraceabilityItemView> CreateProjectCodeTraceabilityItems(TaskModel task)
+    {
+        return task.CodeTraceability.Api.Select(item => CreateProjectCodeTraceabilityItem(task, "api", item))
+            .Concat(task.CodeTraceability.FrontendPages.Select(item => CreateProjectCodeTraceabilityItem(task, "frontendPages", item)))
+            .Concat(task.CodeTraceability.FrontendComponents.Select(item => CreateProjectCodeTraceabilityItem(task, "frontendComponents", item)));
+    }
+
+    private static ProjectCodeTraceabilityItemView CreateProjectCodeTraceabilityItem(
+        TaskModel task,
+        string category,
+        TaskCodeTraceabilityItemModel item)
+    {
+        return new(task.Id, task.Title, category, item.ChangeType, item.Target);
     }
 
     private static TaskReminderView CreateTaskReminder(TaskReminderModel reminder)

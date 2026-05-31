@@ -64,6 +64,7 @@
             @open-project-subtask-templates="openProjectSubtaskTemplatesModal"
             @open-project-members="openProjectMembersPanel"
             @open-archived-tasks="openArchivedTasksView"
+            @open-code-traceability="openCodeTraceabilityView"
             @open-trash-view="openTrashView"
             @open-task-detail="onOpenTaskDetail"
             @move-task-to-state="moveTaskToState"
@@ -115,6 +116,14 @@
             @back-to-board="openBoardView"
             @open-task-detail="(taskId, taskTitle) => onOpenLifecycleTaskDetail(taskId, 'trashed', taskTitle)"
             @restore-task="onRestoreTask($event, 'trashed')"
+          />
+
+          <CodeTraceabilityQueryView
+            v-else-if="currentWorkspaceView === 'codeTraceability'"
+            :items="codeTraceabilityItems"
+            :is-loading="isLoadingCodeTraceability"
+            :error-message="codeTraceabilityError"
+            @back-to-board="openBoardView"
           />
         </section>
       </AsyncStateBoundary>
@@ -192,6 +201,7 @@
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import AsyncStatePlayground from './devtools/playground/AsyncStatePlayground.vue'
 import AsyncStateBoundary from './components/bases/AsyncStateBoundary.vue'
+import CodeTraceabilityQueryView from './components/CodeTraceabilityQueryView.vue'
 import CreateProjectModal from './components/CreateProjectModal.vue'
 import CreateTaskModal from './components/CreateTaskModal.vue'
 import InvitationInboxView from './components/InvitationInboxView.vue'
@@ -203,7 +213,7 @@ import ProjectSubtaskTemplatesModal from './components/ProjectSubtaskTemplatesMo
 import RonAuthEntryPanel from './components/RonAuthEntryPanel.vue'
 import TaskDetailModal from './components/TaskDetailModal.vue'
 import type { PasswordLoginInput, RegisterUserInput } from './api/ronauth'
-import type { ProjectSubtaskTemplateResponse } from './api/ronflowApi'
+import type { ProjectCodeTraceabilityItemResponse, ProjectSubtaskTemplateResponse } from './api/ronflowApi'
 import { ApiValidationError, activateRonFlowSession, releaseRonFlowProjectScope } from './api/ronflowApi'
 import { ProjectCommandService, ProjectQueryService } from './application'
 import { usePushNotifications } from './composables/usePushNotifications'
@@ -216,7 +226,7 @@ import {
 } from './composables/useRonFlowBoard'
 import { onRonFlowSessionInvalidated } from './ronflowSession'
 
-type WorkspaceView = 'board' | 'members' | 'invitations' | 'archived' | 'trash'
+type WorkspaceView = 'board' | 'members' | 'invitations' | 'archived' | 'trash' | 'codeTraceability'
 
 const showAsyncStatePlayground = import.meta.env.DEV
   && new URLSearchParams(window.location.search).get('playground') === 'async-states'
@@ -231,6 +241,9 @@ const isSavingProjectSubtaskTemplates = ref(false)
 const projectSubtaskTemplates = ref<ProjectSubtaskTemplateResponse[]>([])
 const projectSubtaskTemplatesError = ref('')
 const projectSubtaskTemplatesCommandError = ref('')
+const codeTraceabilityItems = ref<ProjectCodeTraceabilityItemResponse[]>([])
+const isLoadingCodeTraceability = ref(false)
+const codeTraceabilityError = ref('')
 
 const projectQueryService = new ProjectQueryService()
 const projectCommandService = new ProjectCommandService()
@@ -455,6 +468,25 @@ async function openTrashView() {
 
   currentWorkspaceView.value = 'trash'
   await loadTrashedTasks(activeProjectId.value)
+}
+
+async function openCodeTraceabilityView() {
+  if (!activeProjectId.value) {
+    return
+  }
+
+  currentWorkspaceView.value = 'codeTraceability'
+  isLoadingCodeTraceability.value = true
+  codeTraceabilityError.value = ''
+
+  try {
+    const response = await projectQueryService.getCodeTraceability(activeProjectId.value)
+    codeTraceabilityItems.value = response.items
+  } catch {
+    codeTraceabilityError.value = '無法載入程式修改紀錄，請稍後再試。'
+  } finally {
+    isLoadingCodeTraceability.value = false
+  }
 }
 
 async function onSelectProject(projectId: string) {

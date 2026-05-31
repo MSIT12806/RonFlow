@@ -233,6 +233,27 @@ public sealed record BoardTaskCardResponse(Guid Id, string Title)
     }
 }
 
+public sealed record ProjectCodeTraceabilityResponse(IReadOnlyList<ProjectCodeTraceabilityItemResponse> Items)
+{
+    public static ProjectCodeTraceabilityResponse FromView(ProjectCodeTraceabilityView view)
+    {
+        return new(view.Items.Select(ProjectCodeTraceabilityItemResponse.FromView).ToArray());
+    }
+}
+
+public sealed record ProjectCodeTraceabilityItemResponse(
+    Guid TaskId,
+    string TaskTitle,
+    string Category,
+    string ChangeType,
+    string Target)
+{
+    public static ProjectCodeTraceabilityItemResponse FromView(ProjectCodeTraceabilityItemView view)
+    {
+        return new(view.TaskId, view.TaskTitle, view.Category, view.ChangeType, view.Target);
+    }
+}
+
 public sealed record WorkflowStateResponse(string Key, string Label, bool IsInitialState, bool IsCompletedState)
 {
     public static WorkflowStateResponse FromOutput(CreatedWorkflowStateOutput output)

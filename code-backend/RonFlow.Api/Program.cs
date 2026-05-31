@@ -105,6 +105,7 @@ public partial class Program
         builder.Services.AddSingleton<IPushNotificationSender, WebPushNotificationSender>();
         builder.Services.AddSingleton<GetProjectsQueryService>();
         builder.Services.AddSingleton<GetProjectBoardQueryService>();
+        builder.Services.AddSingleton<GetProjectCodeTraceabilityQueryService>();
         builder.Services.AddSingleton<GetProjectSubtaskTemplatesQueryService>();
         builder.Services.AddSingleton<IGetProjectBoardQueryService>(serviceProvider =>
             new ObservedGetProjectBoardQueryService(serviceProvider.GetRequiredService<GetProjectBoardQueryService>()));

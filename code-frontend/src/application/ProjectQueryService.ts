@@ -1,11 +1,13 @@
 import {
   getInvitationInbox,
   getProjectBoard,
+  getProjectCodeTraceability,
   getProjectInvitations,
   getProjectMembers,
   getProjectSubtaskTemplates,
   getProjects,
   type ProjectBoardResponse,
+  type ProjectCodeTraceabilityResponse,
   type ProjectInvitationListResponse,
   type ProjectListResponse,
   type ProjectMembersResponse,
@@ -19,6 +21,10 @@ export class ProjectQueryService {
 
   async getBoard(projectId: string): Promise<ProjectBoardResponse> {
     return getProjectBoard(projectId)
+  }
+
+  async getCodeTraceability(projectId: string): Promise<ProjectCodeTraceabilityResponse> {
+    return getProjectCodeTraceability(projectId)
   }
 
   async getSubtaskTemplates(projectId: string): Promise<ProjectSubtaskTemplateListResponse> {
