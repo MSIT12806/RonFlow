@@ -124,6 +124,7 @@
             :is-loading="isLoadingCodeTraceability"
             :error-message="codeTraceabilityError"
             @back-to-board="openBoardView"
+            @open-task-detail="onOpenCodeTraceabilityTaskDetail"
           />
         </section>
       </AsyncStateBoundary>
@@ -147,6 +148,7 @@
       :is-loading="isLoadingTaskDetail"
       :is-saving="isUpdatingTaskDetail"
       :is-editing="isEditingTaskDetail"
+      :is-read-only="isTaskDetailReadOnly"
       :can-enter-edit="selectedTask?.canEnterEdit ?? true"
       :error-message="taskDetailError"
       :save-error-message="taskDetailCommandError"
@@ -281,6 +283,7 @@ const {
   selectedTask,
   taskDetailDisplayTitle,
   taskDetailMode,
+  isTaskDetailReadOnly,
   isEditingTaskDetail,
   archivedTasks,
   trashedTasks,
@@ -506,6 +509,10 @@ async function onOpenTaskDetail(taskId: string, taskTitle: string) {
 
 async function onOpenLifecycleTaskDetail(taskId: string, mode: Exclude<TaskDetailMode, 'active'>, taskTitle: string) {
   await openTaskDetail(taskId, mode, taskTitle)
+}
+
+async function onOpenCodeTraceabilityTaskDetail(taskId: string, taskTitle: string) {
+  await openTaskDetail(taskId, 'active', taskTitle, { forceReadOnly: true })
 }
 
 async function onProjectCreated(projectId: string) {

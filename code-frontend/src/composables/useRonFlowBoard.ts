@@ -22,6 +22,10 @@ const taskCommandService = new TaskCommandService()
 
 export type TaskDetailMode = 'active' | 'archived' | 'trashed'
 
+export type OpenTaskDetailOptions = {
+  forceReadOnly?: boolean
+}
+
 export type EditableTaskSubtask = {
   id: string | null
   title: string
@@ -47,6 +51,7 @@ export function useRonFlowBoard() {
   const activeProjectId = ref<string | null>(null)
   const isTaskDetailOpen = ref(false)
   const taskDetailMode = ref<TaskDetailMode>('active')
+  const isTaskDetailReadOnly = ref(false)
   const isEditingTaskDetail = ref(false)
   const pendingTaskTitle = ref('')
   let contentEditInactivityTimer: ReturnType<typeof window.setTimeout> | null = null
@@ -321,7 +326,7 @@ export function useRonFlowBoard() {
     resetContentEditInactivityTimer()
   }
 
-  async function openTaskDetail(taskId: string, mode: TaskDetailMode = 'active', taskTitle = '') {
+  async function openTaskDetail(taskId: string, mode: TaskDetailMode = 'active', taskTitle = '', options: OpenTaskDetailOptions = {}) {
     if (!activeProjectId.value) {
       return
     }
@@ -335,6 +340,7 @@ export function useRonFlowBoard() {
     taskTitleValidationError.value = ''
     reminderDateTimeValidationError.value = ''
     taskDetailMode.value = mode
+    isTaskDetailReadOnly.value = Boolean(options.forceReadOnly)
     isEditingTaskDetail.value = false
     pendingTaskTitle.value = taskTitle
     isTaskDetailOpen.value = true
@@ -358,6 +364,7 @@ export function useRonFlowBoard() {
     taskTitleValidationError.value = ''
     reminderDateTimeValidationError.value = ''
     taskDetailMode.value = 'active'
+    isTaskDetailReadOnly.value = false
     isEditingTaskDetail.value = false
     pendingTaskTitle.value = ''
     isTaskDetailOpen.value = false
@@ -379,12 +386,13 @@ export function useRonFlowBoard() {
     taskTitleValidationError.value = ''
     reminderDateTimeValidationError.value = ''
     taskDetailMode.value = 'active'
+    isTaskDetailReadOnly.value = false
     isEditingTaskDetail.value = false
     pendingTaskTitle.value = ''
   }
 
   function enterTaskDetailEditMode() {
-    if (taskDetailMode.value !== 'active' || !selectedTask.value || !activeProjectId.value) {
+    if (isTaskDetailReadOnly.value || taskDetailMode.value !== 'active' || !selectedTask.value || !activeProjectId.value) {
       return
     }
 
@@ -841,6 +849,7 @@ export function useRonFlowBoard() {
     selectedTask,
     taskDetailDisplayTitle,
     taskDetailMode,
+    isTaskDetailReadOnly,
     isEditingTaskDetail,
     archivedTasks,
     trashedTasks,

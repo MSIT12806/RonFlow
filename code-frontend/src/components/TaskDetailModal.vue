@@ -25,7 +25,7 @@
               <strong v-else>此任務位於垃圾桶</strong>
             </div>
 
-            <div v-else class="detail-toolbar-actions">
+            <div v-else-if="!isForcedReadOnly" class="detail-toolbar-actions">
               <button
                 v-if="!isEditing"
                 type="button"
@@ -279,7 +279,7 @@
               </div>
 
               <button
-                v-if="canEnableReminderDelivery"
+                v-if="canEnableReminderDelivery && !isReadOnly"
                 type="button"
                 class="secondary-button"
                 :disabled="isSaving || isEnablingReminderDelivery"
@@ -414,6 +414,7 @@ const props = withDefaults(defineProps<{
   isLoading: boolean
   isSaving: boolean
   isEditing?: boolean
+  isReadOnly?: boolean
   canEnterEdit?: boolean
   errorMessage: string
   saveErrorMessage: string
@@ -429,6 +430,7 @@ const props = withDefaults(defineProps<{
   formatTimelineTime: (occurredAt: string) => string
 }>(), {
   isEditing: false,
+  isReadOnly: false,
   canEnterEdit: true,
 })
 
@@ -476,12 +478,13 @@ const traceabilityChangeTypeOptions: Array<{ value: TaskCodeTraceabilityChangeTy
   { value: 'removed', label: '移除' },
 ]
 
+const isForcedReadOnly = computed(() => Boolean(props.isReadOnly))
 const isLifecycleReadOnly = computed(() => props.mode !== 'active')
-const canEnterEdit = computed(() => !isLifecycleReadOnly.value && (props.canEnterEdit ?? true))
-const isEditing = computed(() => !isLifecycleReadOnly.value && Boolean(props.isEditing))
-const isReadOnly = computed(() => isLifecycleReadOnly.value || !isEditing.value)
-const canToggleSubtaskCheckbox = computed(() => !isLifecycleReadOnly.value && canEnterEdit.value)
-const isChecklistTextReadOnly = computed(() => isLifecycleReadOnly.value || !isEditing.value)
+const canEnterEdit = computed(() => !isForcedReadOnly.value && !isLifecycleReadOnly.value && (props.canEnterEdit ?? true))
+const isEditing = computed(() => !isForcedReadOnly.value && !isLifecycleReadOnly.value && Boolean(props.isEditing))
+const isReadOnly = computed(() => isForcedReadOnly.value || isLifecycleReadOnly.value || !isEditing.value)
+const canToggleSubtaskCheckbox = computed(() => !isForcedReadOnly.value && !isLifecycleReadOnly.value && canEnterEdit.value)
+const isChecklistTextReadOnly = computed(() => isForcedReadOnly.value || isLifecycleReadOnly.value || !isEditing.value)
 const taskReminders = computed(() => props.task?.reminders ?? [])
 const reminderValidationError = computed(() =>
   props.reminderDatetimeValidationError
@@ -776,7 +779,7 @@ function emitEnableReminderDelivery() {
 }
 
 function toggleActionsMenu() {
-  if (props.isSaving || isLifecycleReadOnly.value || isEditing.value || !canEnterEdit.value) {
+  if (props.isSaving || isForcedReadOnly.value || isLifecycleReadOnly.value || isEditing.value || !canEnterEdit.value) {
     return
   }
 
@@ -792,7 +795,7 @@ function emitEnterEdit() {
 }
 
 function emitArchive() {
-  if (!props.task || props.isSaving) {
+  if (!props.task || props.isSaving || isForcedReadOnly.value) {
     return
   }
 
@@ -801,7 +804,7 @@ function emitArchive() {
 }
 
 function emitMoveToTrash() {
-  if (!props.task || props.isSaving) {
+  if (!props.task || props.isSaving || isForcedReadOnly.value) {
     return
   }
 

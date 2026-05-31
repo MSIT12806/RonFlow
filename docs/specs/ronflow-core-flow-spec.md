@@ -515,8 +515,9 @@ Feature: 建立專案
 12. 若某張 Task 正由其他使用者拖曳、編輯或執行 lifecycle 操作，該 Task 仍可被查看，但衝突操作應被禁止。
 13. Board 應顯示目前仍在此 Project scope 中的在線成員清單。
 14. 使用者可以從 Project Kanban Board 進入程式修改紀錄查詢頁，查看目前 Project 中所有 ActiveRecord Task 已填寫的程式修改追蹤。
-15. 程式修改紀錄查詢頁應列出 Task 標題、紀錄類別、change type 與 target，讓使用者可跨 Task 查出某個 API、前端頁面或前端元件被哪些任務改動。
+15. 程式修改紀錄查詢頁應以一個 Task 一張 card 的形式列出符合查詢條件的 Task，card 內呈現該 Task 的紀錄類別、change type 與 target。
 16. 程式修改紀錄查詢頁應提供類別、change type 與關鍵字篩選；關鍵字至少比對 Task 標題與 target。
+17. 使用者點擊程式修改紀錄查詢頁中的 Task card 時，系統應開啟該 Task 的 Task Detail Modal。
 ```
 
 **UI / UX Notes**
@@ -530,6 +531,7 @@ Feature: 建立專案
 6. Task Card 不應直接提供 Archive 或 Move To Trash 操作，避免與主要工作流互動混淆。
 7. 程式修改紀錄查詢頁入口應與 Archived Tasks View、Trash View 同層，維持 Project-level 工具入口的一致性。
 8. 程式修改紀錄查詢頁應可返回 Project Kanban Board，且不應打開或覆蓋 Task Detail Drawer。
+9. 從程式修改紀錄查詢頁開啟的 Task Detail Modal 應為唯讀模式，不提供編輯、Archive、Move To Trash、提醒新增或完成條件變更操作。
 ```
 
 **Empty State**
@@ -586,8 +588,11 @@ Feature: Project Kanban Board
     Given 使用者已進入某個 Project Kanban Board
     And Project 中有 Task 填寫 API、前端頁面與前端元件的程式修改追蹤
     When 使用者開啟「程式修改紀錄」查詢頁
-    Then 畫面應列出 Task 標題、紀錄類別、change type 與 target
+    Then 畫面應以一個 Task 一張 card 的形式列出 Task 標題、紀錄類別、change type 與 target
     And 使用者可以依類別、change type 與關鍵字篩選紀錄
+    When 使用者點擊程式修改紀錄中的 Task card
+    Then 系統應開啟該 Task 的 Task Detail Modal
+    And Task Detail Modal 不應提供編輯操作
 ```
 
 ### 7.4 Create Task Modal

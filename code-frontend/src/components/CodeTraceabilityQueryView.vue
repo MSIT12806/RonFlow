@@ -49,19 +49,29 @@
       </div>
 
       <div v-else class="traceability-result-list">
-        <article
-          v-for="(item, index) in filteredItems"
-          :key="`${item.taskId}-${item.category}-${item.changeType}-${item.target}`"
-          class="lifecycle-task-card"
+        <button
+          v-for="task in filteredTasks"
+          :key="task.taskId"
+          type="button"
+          class="lifecycle-task-card traceability-task-card"
           data-testid="code-traceability-result"
+          :aria-label="`開啟 ${task.taskTitle} 的任務詳細資訊`"
+          @click="$emit('open-task-detail', task.taskId, task.taskTitle)"
         >
           <div class="lifecycle-task-copy">
-            <strong v-if="shouldShowTaskTitle(index)">{{ item.taskTitle }}</strong>
-            <span v-else class="task-meta">同一任務</span>
-            <span class="task-meta">{{ formatCategory(item.category) }}</span>
+            <strong>{{ task.taskTitle }}</strong>
+            <span class="task-meta">{{ task.items.length }} 筆程式修改紀錄</span>
           </div>
 
-          <dl class="lifecycle-task-details traceability-result-details">
+          <dl
+            v-for="item in task.items"
+            :key="`${item.category}-${item.changeType}-${item.target}`"
+            class="lifecycle-task-details traceability-result-details"
+          >
+            <div>
+              <dt>紀錄類別</dt>
+              <dd>{{ formatCategory(item.category) }}</dd>
+            </div>
             <div>
               <dt>變更類型</dt>
               <dd>{{ formatChangeType(item.changeType) }}</dd>
@@ -71,7 +81,7 @@
               <dd>{{ item.target }}</dd>
             </div>
           </dl>
-        </article>
+        </button>
       </div>
     </AsyncStateBoundary>
   </section>
@@ -86,6 +96,12 @@ import type {
   TaskCodeTraceabilityChangeType,
 } from '../api/ronflowApi'
 
+type TraceabilityTaskGroup = {
+  taskId: string
+  taskTitle: string
+  items: ProjectCodeTraceabilityItemResponse[]
+}
+
 const props = defineProps<{
   items: ProjectCodeTraceabilityItemResponse[]
   isLoading: boolean
@@ -94,6 +110,7 @@ const props = defineProps<{
 
 defineEmits<{
   (event: 'back-to-board'): void
+  (event: 'open-task-detail', taskId: string, taskTitle: string): void
 }>()
 
 const categoryFilter = ref<ProjectCodeTraceabilityCategory | 'all'>('all')
@@ -114,9 +131,25 @@ const filteredItems = computed(() => {
   })
 })
 
-function shouldShowTaskTitle(index: number): boolean {
-  return index === 0 || filteredItems.value[index - 1].taskId !== filteredItems.value[index].taskId
-}
+const filteredTasks = computed<TraceabilityTaskGroup[]>(() => {
+  const groups = new Map<string, TraceabilityTaskGroup>()
+
+  for (const item of filteredItems.value) {
+    const existingGroup = groups.get(item.taskId)
+    if (existingGroup) {
+      existingGroup.items.push(item)
+      continue
+    }
+
+    groups.set(item.taskId, {
+      taskId: item.taskId,
+      taskTitle: item.taskTitle,
+      items: [item],
+    })
+  }
+
+  return Array.from(groups.values())
+})
 
 function formatCategory(category: ProjectCodeTraceabilityCategory): string {
   switch (category) {
