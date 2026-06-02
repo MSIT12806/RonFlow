@@ -20,9 +20,12 @@ This file is intentionally local-only and matches the repo ignore rule `*.local`
 
 - RonAuth API base URL: http://localhost/ronauth-api/api/auth
 - RonFlow API base URL: http://localhost/ronflow-api/api
+- UI root URL: http://localhost/
 - RonFlow AI bootstrap: http://localhost/ronflow-api/api/ai/bootstrap
 - 人類聯絡規則: {HUMAN_CONTACT_RULE}
 - Project access 規則: {PROJECT_ACCESS_RULE}
+
+注意：`http://localhost/` 主要是 UI shell，不是 RonFlow AI API base URL。若 agent 直接把 AI contract 路徑接在 `http://localhost/` 後面，通常只會得到一般 404，而不是有語意的 contract 錯誤。
 
 ## 啟動流程
 1. 若你還沒有 RonFlow 帳號，呼叫 `POST http://localhost/ronauth-api/api/auth/register` 建立帳號。
@@ -36,6 +39,13 @@ next_action_needed_from_human: please add me to the correct project or invite me
 ```
 
 3. 若你已有帳號，呼叫 `POST http://localhost/ronauth-api/api/auth/login` 取得 access token。
+	login request body 應使用 `userName` 與 `password`，不是 `email`：
+
+```json
+{"userName":"<your-user-name>","password":"<your-password>"}
+```
+
+	`Email` 在這份文件中是身分資訊與註冊資料，不是 RonAuth password login 的欄位名稱。
 4. 建立一個新的 RonFlow session id，之後所有 RonFlow API 請求都必須帶：
 
 ```text

@@ -66,6 +66,8 @@ manifest 也必須把 capability 接到實際 route 與 body shape。Write capab
 
 這使得 interaction surface 可以演進：新增能力時更新 manifest 與測試，AI 就能依 contract 發現新能力，而不是靠猜 endpoint 或 JSON shape。
 
+bootstrap 也應補上 canonical base paths 與 entrypoints，因為 localhost 同時掛 UI、RonFlow API 與 RonAuth API。若 AI 一開始把 contract path 接到 `http://localhost/`，通常只會看到一般 404，這對 agent 幾乎沒有診斷價值。
+
 ### 3. Bootstrap 做漸進式揭露，不做離線手冊
 RonFlow 的外部 skill 只需要提供登入、session activation 與 bootstrap 入口。
 

@@ -301,6 +301,29 @@ RonFlow Bootstrap v1
 RonFlow 是一個專案管理工具。
 RonFlow 管理的主要工作物件有：Project、Board、Task、Session、Active Scope。
 
+canonical_base_paths:
+- ui_root_url: http://localhost/
+- ronflow_api_base_url: http://localhost/ronflow-api/api
+- ronauth_api_base_url: http://localhost/ronauth-api/api/auth
+- warning: http://localhost/ serves the UI shell; AI contracts live under /ronflow-api/api and auth lives under /ronauth-api/api/auth
+
+canonical_entrypoints:
+- GET /api/ai/bootstrap
+- GET /api/ai/glossary
+- GET /api/ai/capabilities
+- GET /api/ai/workflow-guidance
+- GET /api/ai/session-summary
+- GET /api/ai/projects/summary
+- GET /api/ai/invitations/summary
+- POST /api/ai/active-scope
+- POST /api/ai/apply
+- GET /api/ai/audit-entries/{auditEntryId}
+
+login_contract:
+- endpoint: POST http://localhost/ronauth-api/api/auth/login
+- request_body: {"userName":"<user-name>","password":"<password>"}
+- note: RonAuth login reads `userName`, not `email`; email is identity metadata and may appear in summaries or responses
+
 你現在應先做以下事情：
 1. 讀取 capabilities manifest
 2. 讀取 glossary
@@ -336,7 +359,10 @@ RonFlow 管理的主要工作物件有：Project、Board、Task、Session、Acti
 2. bootstrap 必須完整包含 `RonFlow 是一個專案管理工具。` 這句話。
 3. bootstrap 必須完整列出 `Project、Board、Task、Session、Active Scope`。
 4. bootstrap 必須完整列出六個第一步入口：manifest、glossary、workflow guidance、session / scope summary、project list summary、invitation inbox summary。
-5. bootstrap 必須完整列出四個需要先問人的情況。
+5. bootstrap 必須明確揭露 localhost canonical base paths，並區分 UI root 與 API base path。
+6. bootstrap 必須明確揭露 canonical entrypoints，包括 `POST /api/ai/active-scope` 與 `POST /api/ai/apply`。
+7. bootstrap 必須說明 RonAuth login request 使用 `userName`，不是 `email`。
+8. bootstrap 必須完整列出四個需要先問人的情況。
 ```
 
 **Testability**
@@ -365,6 +391,8 @@ Feature: AI bootstrap
 		And 回應應包含 `3. 讀取 workflow guidance`
 		And 回應應包含 `5. 讀取 project list summary`
 		And 回應應包含 `6. 視需要讀取 invitation inbox summary`
+		And 回應應包含 `ronflow_api_base_url: http://localhost/ronflow-api/api`
+		And 回應應包含 `endpoint: POST http://localhost/ronauth-api/api/auth/login`
 ```
 
 ### 7.1.1 AI Glossary
@@ -476,6 +504,12 @@ RonFlow AI Glossary v1
 ```text
 RonFlow Capabilities Manifest v1
 
+scope_activation_contract:
+	endpoint: POST /api/ai/active-scope
+	body_shape: {"projectId":"<project-id>"}
+	success_status: 204 No Content
+	recovery_path: if the target project is not visible in project list summary, read invitation inbox summary before asking the human for access
+
 write_request_contract:
 	apply_endpoint: POST /api/ai/apply
 	body_shape: operation, targetType, targetId, requiredFields, optionalFields, note
@@ -516,11 +550,17 @@ write_request_contract:
 	category: write
 	active_scope_required: no
 	required_inputs: name
+	apply_endpoint: POST /api/ai/apply
+	required_fields_path: requiredFields.name
+	apply_request_example: {"operation":"create_project","targetType":"project","targetId":"new","requiredFields":{"name":"<project-name>"},"optionalFields":{},"note":"create project"}
 
 - capability: create_task
 	category: write
 	active_scope_required: yes
 	required_inputs: projectId, title
+	apply_endpoint: POST /api/ai/apply
+	required_fields_path: requiredFields.projectId, requiredFields.title
+	apply_request_example: {"operation":"create_task","targetType":"task","targetId":"new","requiredFields":{"projectId":"<project-id>","title":"<task-title>"},"optionalFields":{},"note":"create task"}
 
 - capability: invite_project_member
 	category: write
@@ -550,11 +590,18 @@ write_request_contract:
 	active_scope_required: yes
 	required_inputs: taskId
 	optional_inputs: title, description, dueDate
+	apply_endpoint: POST /api/ai/apply
+	required_fields_path: requiredFields.taskId
+	optional_fields_path: optionalFields.title, optionalFields.description, optionalFields.dueDate
+	apply_request_example: {"operation":"update_task_detail","targetType":"task","targetId":"<task-id>","requiredFields":{"taskId":"<task-id>"},"optionalFields":{"title":"<new-title>"},"note":"update task detail"}
 
 - capability: move_task_state
 	category: write
 	active_scope_required: yes
 	required_inputs: taskId, targetStateKey
+	apply_endpoint: POST /api/ai/apply
+	required_fields_path: requiredFields.taskId, requiredFields.targetStateKey
+	apply_request_example: {"operation":"move_task_state","targetType":"task","targetId":"<task-id>","requiredFields":{"taskId":"<task-id>","targetStateKey":"Done"},"optionalFields":{},"note":"move task state"}
 
 - capability: reorder_task
 	category: write
@@ -599,6 +646,8 @@ write_request_contract:
 5. `update_task_detail` 必須將 `title, description, dueDate` 列為 optional_inputs。
 6. manifest 必須說明 `POST /api/ai/apply` 的 body shape，且 required inputs 必須放在 `requiredFields.<inputName>`。
 7. invitation 相關 capabilities 必須列出 invitation inbox read endpoint 與 accept / reject apply request example。
+8. manifest 必須明確揭露 `POST /api/ai/active-scope` 的 endpoint、body shape、成功狀態與 recovery path。
+9. `create_task` 這類常用 write capability 必須提供 canonical apply request example。
 ```
 
 **Testability**

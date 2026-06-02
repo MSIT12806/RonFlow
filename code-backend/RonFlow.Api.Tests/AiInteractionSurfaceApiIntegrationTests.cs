@@ -17,6 +17,16 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
 
         Assert.That(payload, Does.Contain("RonFlow Bootstrap v1"));
         Assert.That(payload, Does.Contain("RonFlow 是一個專案管理工具。"));
+        Assert.That(payload, Does.Contain("canonical_base_paths:"));
+        Assert.That(payload, Does.Contain("ronflow_api_base_url: http://localhost/ronflow-api/api"));
+        Assert.That(payload, Does.Contain("ronauth_api_base_url: http://localhost/ronauth-api/api/auth"));
+        Assert.That(payload, Does.Contain("serves the UI shell"));
+        Assert.That(payload, Does.Contain("canonical_entrypoints:"));
+        Assert.That(payload, Does.Contain("- POST /api/ai/active-scope"));
+        Assert.That(payload, Does.Contain("- POST /api/ai/apply"));
+        Assert.That(payload, Does.Contain("login_contract:"));
+        Assert.That(payload, Does.Contain("request_body: {\"userName\":\"<user-name>\",\"password\":\"<password>\"}"));
+        Assert.That(payload, Does.Contain("login reads `userName`, not `email`"));
         Assert.That(payload, Does.Contain("1. 讀取 capabilities manifest"));
         Assert.That(payload, Does.Contain("3. 讀取 workflow guidance"));
         Assert.That(payload, Does.Contain("5. 讀取 project list summary"));
@@ -49,6 +59,10 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         var payload = await response.Content.ReadAsStringAsync();
 
         Assert.That(payload, Does.Contain("RonFlow Capabilities Manifest v1"));
+        Assert.That(payload, Does.Contain("scope_activation_contract:"));
+        Assert.That(payload, Does.Contain("endpoint: POST /api/ai/active-scope"));
+        Assert.That(payload, Does.Contain("body_shape: {\"projectId\":\"<project-id>\"}"));
+        Assert.That(payload, Does.Contain("success_status: 204 No Content"));
         Assert.That(payload, Does.Contain("apply_endpoint: POST /api/ai/apply"));
         Assert.That(payload, Does.Contain("required_input_location: requiredFields.<inputName>"));
         Assert.That(payload, Does.Contain("- capability: read_current_work_summary"));
@@ -56,6 +70,8 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("- capability: read_invitation_inbox_summary"));
         Assert.That(payload, Does.Contain("read_endpoint: GET /api/ai/invitations/summary"));
         Assert.That(payload, Does.Contain("- capability: create_task"));
+        Assert.That(payload, Does.Contain("required_fields_path: requiredFields.projectId, requiredFields.title"));
+        Assert.That(payload, Does.Contain("\"operation\":\"create_task\""));
         Assert.That(payload, Does.Contain("- capability: invite_project_member"));
         Assert.That(payload, Does.Contain("- capability: accept_project_invitation"));
         Assert.That(payload, Does.Contain("required_fields_path: requiredFields.invitationId"));
