@@ -1,5 +1,8 @@
 namespace RonFlow.Domain;
 
+/// <summary>
+/// 表示任務活動時間軸上的單一事件。
+/// </summary>
 public sealed record ActivityTimelineItem(string Type, string Message, DateTimeOffset OccurredAt)
 {
     public static ActivityTimelineItem TaskCreated(DateTimeOffset occurredAt)
@@ -71,6 +74,9 @@ public sealed record ActivityTimelineItem(string Type, string Message, DateTimeO
         return new("TaskRestoredFromTrash", "已從垃圾桶還原", occurredAt);
     }
 
+    /// <summary>
+    /// 建立一筆新增提醒的活動事件。
+    /// </summary>
     public static ActivityTimelineItem TaskReminderAdded(DateTimeOffset occurredAt)
     {
         return new("TaskReminderAdded", "已新增提醒", occurredAt);
@@ -86,6 +92,9 @@ public sealed record ActivityTimelineItem(string Type, string Message, DateTimeO
         return new("TaskChecklistChanged", "已更新完成條件清單", occurredAt);
     }
 
+    /// <summary>
+    /// 將活動事件轉成對外輸出的 timeline item model。
+    /// </summary>
     public ActivityTimelineItemModel ToModel()
     {
         return new(Type, Message, OccurredAt);

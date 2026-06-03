@@ -2,6 +2,9 @@ using RonFlow.Domain;
 
 namespace RonFlow.Application;
 
+/// <summary>
+/// 協調建立任務提醒流程。
+/// </summary>
 public sealed class CreateTaskReminderCommandService(
     IProjectRepository projectRepository,
     ProjectAccessService projectAccessService,
@@ -9,6 +12,9 @@ public sealed class CreateTaskReminderCommandService(
     TaskMutationGuard taskMutationGuard,
     TimeProvider timeProvider)
 {
+    /// <summary>
+    /// 在指定任務上建立一筆提醒並回傳最新任務資料。
+    /// </summary>
     public CreateTaskReminderResult Create(Guid currentUserId, Guid projectId, Guid taskId, string? rawReminderDateTime, string? rawDescription)
     {
         if (string.IsNullOrWhiteSpace(rawReminderDateTime))
@@ -35,7 +41,7 @@ public sealed class CreateTaskReminderCommandService(
             return CreateTaskReminderResult.NotFound();
         }
 
-        var changedAt = timeProvider.GetUtcNow();
+        var changedAt = GetReminderChangedAt();
         var mutationResult = task.AddReminder(
             taskMutationGuard.Authorize(currentUserId, taskId, TaskMutationKind.CreateReminder),
             rawReminderDateTime,
@@ -53,5 +59,13 @@ public sealed class CreateTaskReminderCommandService(
         projectRepository.Update(project);
 
         return CreateTaskReminderResult.Success(CoreFlowCommandOutputFactory.CreateTask(task.ToModel()));
+    }
+
+    /// <summary>
+    /// 取得這次建立任務提醒流程要使用的異動時間。
+    /// </summary>
+    private DateTimeOffset GetReminderChangedAt()
+    {
+        return timeProvider.GetUtcNow();
     }
 }

@@ -7,8 +7,14 @@ public enum ProjectInvitationStatus
     Rejected,
 }
 
+/// <summary>
+/// 表示專案成員身分。
+/// </summary>
 public sealed record ProjectMember(Guid UserId, string UserName, string Email)
 {
+    /// <summary>
+    /// 判斷這筆成員資料是否對應指定使用者。
+    /// </summary>
     public bool MatchesUser(Guid userId)
     {
         return UserId == userId;

@@ -1,5 +1,8 @@
 namespace RonFlow.Domain;
 
+/// <summary>
+/// 表示 RonFlow 的專案聚合根。
+/// </summary>
 public sealed class Project
 {
     private readonly IReadOnlyList<WorkflowState> workflowStates;
@@ -113,11 +116,17 @@ public sealed class Project
         return new ProjectSummaryModel(Id, OwnerId, Name, UpdatedAt);
     }
 
+    /// <summary>
+    /// 判斷指定使用者是否為專案擁有者。
+    /// </summary>
     public bool IsOwnedBy(Guid userId)
     {
         return OwnerId == userId;
     }
 
+    /// <summary>
+    /// 判斷指定使用者是否可存取這個專案。
+    /// </summary>
     public bool IsAccessibleBy(Guid userId)
     {
         return IsOwnedBy(userId) || members.Any(member => member.MatchesUser(userId));
@@ -237,6 +246,9 @@ public sealed class Project
             .ToArray();
     }
 
+    /// <summary>
+    /// 更新專案最後異動時間。
+    /// </summary>
     public void Touch(DateTimeOffset updatedAt)
     {
         UpdatedAt = updatedAt;

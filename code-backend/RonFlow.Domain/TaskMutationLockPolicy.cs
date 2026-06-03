@@ -1,5 +1,8 @@
 namespace RonFlow.Domain;
 
+/// <summary>
+/// 定義任務異動的種類。
+/// </summary>
 public enum TaskMutationKind
 {
     UpdateDetails,
@@ -21,8 +24,14 @@ public enum TaskMutationLockRequirement
     RequireUnlockedOrOwnedLock,
 }
 
+/// <summary>
+/// 將任務異動種類對應到需要的鎖定規則。
+/// </summary>
 public static class TaskMutationLockPolicy
 {
+    /// <summary>
+    /// 解析指定任務異動所需的鎖定條件。
+    /// </summary>
     public static TaskMutationLockRequirement Resolve(TaskMutationKind mutationKind)
     {
         return mutationKind switch

@@ -1,5 +1,8 @@
 namespace RonFlow.Domain;
 
+/// <summary>
+/// 表示 RonFlow 的任務聚合根。
+/// </summary>
 public sealed class Task
 {
     private readonly List<ActivityTimelineItem> activityTimeline;
@@ -122,6 +125,9 @@ public sealed class Task
         return new Task(id, projectId, title, description, currentState, lifecycleState, dueDate, createdAt, completedAt, archivedAt, trashedAt, sortOrder, subtasks, reminders, codeTraceability, activityTimeline);
     }
 
+    /// <summary>
+    /// 在任務上新增一筆提醒。
+    /// </summary>
     public TaskMutationExecutionResult AddReminder(TaskMutationAuthorization authorization, string reminderDateTime, string description, DateTimeOffset changedAt)
     {
         if (TryRejectLockedMutation(authorization, TaskMutationKind.CreateReminder, out var lockedResult))
@@ -388,6 +394,9 @@ public sealed class Task
             : TaskMutationExecutionResult.NoChanges();
     }
 
+    /// <summary>
+    /// 驗證 mutation authorization 是否與預期操作一致，並在鎖定時回傳 locked result。
+    /// </summary>
     private static bool TryRejectLockedMutation(TaskMutationAuthorization authorization, TaskMutationKind expectedKind, out TaskMutationExecutionResult lockedResult)
     {
         if (authorization.Kind != expectedKind)
@@ -399,6 +408,9 @@ public sealed class Task
         return authorization.IsLocked;
     }
 
+    /// <summary>
+    /// 將任務聚合轉成對外輸出的 task model。
+    /// </summary>
     public TaskModel ToModel()
     {
         return new TaskModel(

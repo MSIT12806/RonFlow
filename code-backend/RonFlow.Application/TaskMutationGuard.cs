@@ -2,8 +2,14 @@ using RonFlow.Domain;
 
 namespace RonFlow.Application;
 
+/// <summary>
+/// 依任務異動種類判斷目前使用者是否可執行異動。
+/// </summary>
 public sealed class TaskMutationGuard(TaskContentEditLockService taskContentEditLockService)
 {
+    /// <summary>
+    /// 根據 mutation kind 與目前鎖定狀態產生授權結果。
+    /// </summary>
     public TaskMutationAuthorization Authorize(Guid currentUserId, Guid taskId, TaskMutationKind mutationKind)
     {
         var requirement = TaskMutationLockPolicy.Resolve(mutationKind);

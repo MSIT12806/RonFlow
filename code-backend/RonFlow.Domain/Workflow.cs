@@ -2,6 +2,9 @@ namespace RonFlow.Domain;
 
 public sealed record WorkflowState(string Key, string Label, bool IsInitialState, bool IsCompletedState)
 {
+    /// <summary>
+    /// 將 workflow state 轉成對外輸出的 state model。
+    /// </summary>
     public WorkflowStateModel ToModel()
     {
         return new(Key, Label, IsInitialState, IsCompletedState);
