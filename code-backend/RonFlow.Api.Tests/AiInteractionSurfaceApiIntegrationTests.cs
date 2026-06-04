@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using RonFlow.Application;
 using RonFlow.Api.Contracts;
 
 namespace RonFlow.Api.Tests;
@@ -666,6 +667,8 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
             .Substring("audit_entry_id:".Length)
             .Trim();
 
+        GetRequiredService<ProcessAiAuditProjectionService>().ProcessPending();
+
         var auditResponse = await sessionClient.GetAsync($"/api/ai/audit-entries/{auditEntryId}");
 
         Assert.That(auditResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
@@ -678,6 +681,52 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(auditPayload, Does.Contain("requested_change: update_task_detail"));
         Assert.That(auditPayload, Does.Contain($"target_id: {task.Id}"));
         Assert.That(auditPayload, Does.Contain("actual_diff:"));
+    }
+
+    [Test]
+    public async Task GetAuditEntriesSummary_WhenFilterBySessionAndRequestedChange_ReturnsMatchedAuditEntries()
+    {
+        const string sessionId = "owner-a-ai-audit-query";
+        using var sessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, sessionId);
+
+        await EnsureKnownUserAsync(sessionClient);
+        await ActivateSessionAsync(sessionClient);
+
+        var project = await CreateProjectAsync(sessionClient, "AI Audit Query Project");
+        var task = await CreateTaskAsync(sessionClient, project.Id, "AI Audit Query Task");
+
+        var activateResponse = await sessionClient.PostAsJsonAsync("/api/ai/active-scope", new { projectId = project.Id });
+        Assert.That(activateResponse.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
+
+        var applyResponse = await sessionClient.PostAsJsonAsync("/api/ai/apply", new
+        {
+            operation = "update_task_detail",
+            targetType = "task",
+            targetId = task.Id,
+            requiredFields = new
+            {
+                taskId = task.Id,
+            },
+            optionalFields = new
+            {
+                title = "Updated AI Audit Query Task",
+            },
+            note = "query audit entries",
+        });
+
+        Assert.That(applyResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+    GetRequiredService<ProcessAiAuditProjectionService>().ProcessPending();
+
+        var queryResponse = await sessionClient.GetAsync($"/api/ai/audit-entries?sessionId={sessionId}&requestedChange=update_task_detail");
+        Assert.That(queryResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var queryPayload = await queryResponse.Content.ReadAsStringAsync();
+        Assert.That(queryPayload, Does.Contain("RonFlow Audit Entries Summary v1"));
+        Assert.That(queryPayload, Does.Contain($"session_filter: {sessionId}"));
+        Assert.That(queryPayload, Does.Contain("requested_change_filter: update_task_detail"));
+        Assert.That(queryPayload, Does.Contain("matched_entries:"));
+        Assert.That(queryPayload, Does.Contain($"target_id: {task.Id}"));
     }
 
     [Test]

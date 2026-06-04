@@ -272,11 +272,11 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
 
         return operation switch
         {
-            "create_project" => ApplyCreateProject(createProjectCommandService, aiAuditRegistry, currentUserId, currentUserName, targetType, requiredFields),
+            "create_project" => ApplyCreateProject(createProjectCommandService, aiAuditRegistry, currentUserId, currentUserName, sessionId, targetType, requiredFields),
             "create_task" => ApplyCreateTask(createTaskCommandService, aiAuditRegistry, currentUserName, sessionId, targetType, requiredFields, projectPresenceRegistry, currentUserId),
             "invite_project_member" => ApplyInviteProjectMember(projectInvitationCommandService, aiAuditRegistry, currentUserName, sessionId, targetType, requiredFields, projectPresenceRegistry),
-            "accept_project_invitation" => ApplyAcceptProjectInvitation(projectInvitationCommandService, projectCollaborationQueryService, aiAuditRegistry, currentUserId, currentUserName, targetType, requiredFields),
-            "reject_project_invitation" => ApplyRejectProjectInvitation(projectInvitationCommandService, projectCollaborationQueryService, aiAuditRegistry, currentUserId, currentUserName, targetType, requiredFields),
+            "accept_project_invitation" => ApplyAcceptProjectInvitation(projectInvitationCommandService, projectCollaborationQueryService, aiAuditRegistry, currentUserId, currentUserName, sessionId, targetType, requiredFields),
+            "reject_project_invitation" => ApplyRejectProjectInvitation(projectInvitationCommandService, projectCollaborationQueryService, aiAuditRegistry, currentUserId, currentUserName, sessionId, targetType, requiredFields),
             "update_task_detail" => ApplyUpdateTaskDetail(updateTaskCommandService, aiAuditRegistry, taskRepository, taskContentEditLockService, currentUserId, currentUserName, sessionId, targetType, requiredFields, optionalFields, projectPresenceRegistry),
             "check_task_subtask" => ApplyToggleTaskSubtask(replaceTaskSubtasksCommandService, aiAuditRegistry, taskRepository, currentUserId, currentUserName, sessionId, targetType, requiredFields, projectPresenceRegistry, operation, true),
             "uncheck_task_subtask" => ApplyToggleTaskSubtask(replaceTaskSubtasksCommandService, aiAuditRegistry, taskRepository, currentUserId, currentUserName, sessionId, targetType, requiredFields, projectPresenceRegistry, operation, false),
@@ -288,6 +288,36 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
             "restore_trashed_task" => ApplyTaskLifecycle(restoreTrashedTaskCommandService.Restore, aiAuditRegistry, taskRepository, currentUserName, sessionId, currentUserId, targetType, requiredFields, projectPresenceRegistry, operation, "lifecycle_state", "active"),
             _ => ErrorText(StatusCodes.Status400BadRequest, "ValidationFailed", $"Use a capability listed in the manifest and submit the write request again.", $"Operation `{operation}` is not supported."),
         };
+    }
+
+    [HttpGet("audit-entries")]
+    [Produces("text/plain")]
+    public IResult GetAuditEntries(
+        [FromQuery] string? sessionId,
+        [FromQuery] string? actorIdentity,
+        [FromQuery] string? targetType,
+        [FromQuery] string? targetId,
+        [FromQuery] string? requestedChange,
+        [FromQuery] string? actualDiffContains,
+        [FromQuery] int? limit,
+        [FromServices] AiAuditRegistry aiAuditRegistry)
+    {
+        if (!TryGetCurrentUserId(out _))
+        {
+            return Results.Unauthorized();
+        }
+
+        var query = new AiAuditQuery(
+            sessionId,
+            actorIdentity,
+            targetType,
+            targetId,
+            requestedChange,
+            actualDiffContains,
+            limit ?? 20);
+
+        var entries = aiAuditRegistry.Query(query);
+        return PlainText(AiTextContractFormatter.AuditEntriesSummary(query, entries));
     }
 
     [HttpGet("audit-entries/{auditEntryId:guid}")]
@@ -313,6 +343,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         AiAuditRegistry aiAuditRegistry,
         Guid currentUserId,
         string currentUserName,
+        string sessionId,
         string targetType,
         IReadOnlyDictionary<string, JsonElement> requiredFields)
     {
@@ -335,7 +366,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
 
         var project = result.Project!;
         var actualDiff = new[] { $"name: none -> {project.Name}" };
-        var auditEntryId = aiAuditRegistry.Record(currentUserName, targetType, project.Id.ToString(), "create_project", "success", actualDiff);
+        var auditEntryId = aiAuditRegistry.Record(sessionId, currentUserName, targetType, project.Id.ToString(), "create_project", "success", actualDiff);
 
         return PlainText(AiTextContractFormatter.ApplyResult("create_project", targetType, project.Id.ToString(), ["name"], auditEntryId));
     }
@@ -386,7 +417,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
 
         var task = result.Task!;
         var actualDiff = new[] { $"title: none -> {task.Title}" };
-        var auditEntryId = aiAuditRegistry.Record(currentUserName, targetType, task.Id.ToString(), "create_task", "success", actualDiff);
+        var auditEntryId = aiAuditRegistry.Record(sessionId, currentUserName, targetType, task.Id.ToString(), "create_task", "success", actualDiff);
 
         return PlainText(AiTextContractFormatter.ApplyResult("create_task", targetType, task.Id.ToString(), ["title"], auditEntryId));
     }
@@ -441,7 +472,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
 
         var invitation = result.Invitation!;
         var actualDiff = new[] { $"invitation:{invitation.Invitee}: none -> {invitation.Status}" };
-        var auditEntryId = aiAuditRegistry.Record(currentUserName, targetType, projectId.Value.ToString(), "invite_project_member", "success", actualDiff);
+        var auditEntryId = aiAuditRegistry.Record(sessionId, currentUserName, targetType, projectId.Value.ToString(), "invite_project_member", "success", actualDiff);
 
         return PlainText(AiTextContractFormatter.ApplyResult("invite_project_member", targetType, projectId.Value.ToString(), ["invitations"], auditEntryId));
     }
@@ -452,6 +483,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         AiAuditRegistry aiAuditRegistry,
         Guid currentUserId,
         string currentUserName,
+        string sessionId,
         string targetType,
         IReadOnlyDictionary<string, JsonElement> requiredFields)
     {
@@ -493,7 +525,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
             $"membership: none -> {membershipTarget}",
             "invitation_status: Pending -> Accepted",
         };
-        var auditEntryId = aiAuditRegistry.Record(currentUserName, targetType, invitationId.Value.ToString(), "accept_project_invitation", "success", actualDiff);
+        var auditEntryId = aiAuditRegistry.Record(sessionId, currentUserName, targetType, invitationId.Value.ToString(), "accept_project_invitation", "success", actualDiff);
 
         return PlainText(AiTextContractFormatter.ApplyResult("accept_project_invitation", targetType, invitationId.Value.ToString(), ["membership", "invitation_status"], auditEntryId));
     }
@@ -504,6 +536,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         AiAuditRegistry aiAuditRegistry,
         Guid currentUserId,
         string currentUserName,
+        string sessionId,
         string targetType,
         IReadOnlyDictionary<string, JsonElement> requiredFields)
     {
@@ -534,7 +567,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
 
         var projectName = pendingInvitation?.ProjectName ?? "project";
         var actualDiff = new[] { $"invitation_status:{projectName}: Pending -> Rejected" };
-        var auditEntryId = aiAuditRegistry.Record(currentUserName, targetType, invitationId.Value.ToString(), "reject_project_invitation", "success", actualDiff);
+        var auditEntryId = aiAuditRegistry.Record(sessionId, currentUserName, targetType, invitationId.Value.ToString(), "reject_project_invitation", "success", actualDiff);
 
         return PlainText(AiTextContractFormatter.ApplyResult("reject_project_invitation", targetType, invitationId.Value.ToString(), ["invitation_status"], auditEntryId));
     }
@@ -605,7 +638,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
 
             var updatedTask = result.Task!;
             var actualDiff = BuildTaskDetailDiff(task, updatedTask, changedFields);
-            var auditEntryId = aiAuditRegistry.Record(currentUserName, targetType, updatedTask.Id.ToString(), "update_task_detail", "success", actualDiff);
+            var auditEntryId = aiAuditRegistry.Record(sessionId, currentUserName, targetType, updatedTask.Id.ToString(), "update_task_detail", "success", actualDiff);
 
             return PlainText(AiTextContractFormatter.ApplyResult("update_task_detail", targetType, updatedTask.Id.ToString(), changedFields, auditEntryId));
         }
@@ -670,7 +703,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
 
         var changedTask = result.Task!;
         var actualDiff = new[] { $"workflow_state_key: {NormalizeText(beforeStateKey)} -> {NormalizeText(changedTask.CurrentState.Key)}" };
-        var auditEntryId = aiAuditRegistry.Record(currentUserName, targetType, changedTask.Id.ToString(), "move_task_state", "success", actualDiff);
+    var auditEntryId = aiAuditRegistry.Record(sessionId, currentUserName, targetType, changedTask.Id.ToString(), "move_task_state", "success", actualDiff);
 
         return PlainText(AiTextContractFormatter.ApplyResult("move_task_state", targetType, changedTask.Id.ToString(), ["workflow_state_key"], auditEntryId));
     }
@@ -753,7 +786,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         var changedTask = result.Task!;
         var changedFields = GetTaskSubtaskChangedFields(task, changedTask, subtaskId.Value);
         var actualDiff = BuildTaskSubtaskDiff(task, changedTask, subtaskId.Value);
-        var auditEntryId = aiAuditRegistry.Record(currentUserName, targetType, changedTask.Id.ToString(), operation, "success", actualDiff);
+        var auditEntryId = aiAuditRegistry.Record(sessionId, currentUserName, targetType, changedTask.Id.ToString(), operation, "success", actualDiff);
 
         return PlainText(AiTextContractFormatter.ApplyResult(operation, targetType, changedTask.Id.ToString(), changedFields, auditEntryId));
     }
@@ -824,7 +857,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
 
         if (orderedTasks.Count == 0)
         {
-            var auditEntryId = aiAuditRegistry.Record(currentUserName, targetType, task.Id.ToString(), "reorder_task", "success", [$"sort_order: {originalIndex} -> 0"]);
+            var auditEntryId = aiAuditRegistry.Record(sessionId, currentUserName, targetType, task.Id.ToString(), "reorder_task", "success", [$"sort_order: {originalIndex} -> 0"]);
             return PlainText(AiTextContractFormatter.ApplyResult("reorder_task", targetType, task.Id.ToString(), ["sort_order"], auditEntryId));
         }
 
@@ -852,7 +885,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         }
 
         var changedTask = result.Task!;
-        var auditEntryIdForReorder = aiAuditRegistry.Record(currentUserName, targetType, changedTask.Id.ToString(), "reorder_task", "success", [$"sort_order: {originalIndex} -> {targetIndex.Value}"]);
+    var auditEntryIdForReorder = aiAuditRegistry.Record(sessionId, currentUserName, targetType, changedTask.Id.ToString(), "reorder_task", "success", [$"sort_order: {originalIndex} -> {targetIndex.Value}"]);
 
         return PlainText(AiTextContractFormatter.ApplyResult("reorder_task", targetType, changedTask.Id.ToString(), ["sort_order"], auditEntryIdForReorder));
     }
@@ -912,7 +945,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
 
         var changedTask = result.Task!;
         var actualDiff = new[] { $"{changedField}: {NormalizeText(task.LifecycleState.ToString())} -> {changedTo}" };
-        var auditEntryId = aiAuditRegistry.Record(currentUserName, targetType, changedTask.Id.ToString(), operation, "success", actualDiff);
+    var auditEntryId = aiAuditRegistry.Record(sessionId, currentUserName, targetType, changedTask.Id.ToString(), operation, "success", actualDiff);
 
         return PlainText(AiTextContractFormatter.ApplyResult(operation, targetType, changedTask.Id.ToString(), [changedField], auditEntryId));
     }

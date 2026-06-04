@@ -79,6 +79,35 @@ CREATE TABLE IF NOT EXISTS WorkflowThroughputBuckets (
     ReopenedCount INTEGER NOT NULL,
     LastUpdatedAt TEXT NOT NULL,
     PRIMARY KEY (ProjectId, BucketType, BucketStart)
+);
+
+CREATE TABLE IF NOT EXISTS AiAuditOutbox (
+    MessageId TEXT NOT NULL PRIMARY KEY,
+    AuditEntryId TEXT NOT NULL,
+    SessionId TEXT NOT NULL,
+    ActorType TEXT NOT NULL,
+    ActorIdentity TEXT NOT NULL,
+    TargetType TEXT NOT NULL,
+    TargetId TEXT NOT NULL,
+    RequestedChange TEXT NOT NULL,
+    ResultStatus TEXT NOT NULL,
+    ActualDiffText TEXT NOT NULL,
+    OccurredAt TEXT NOT NULL,
+    ProcessedAt TEXT NULL
+);
+
+CREATE TABLE IF NOT EXISTS AiAuditReadModel (
+    AuditEntryId TEXT NOT NULL PRIMARY KEY,
+    SessionId TEXT NOT NULL,
+    ActorType TEXT NOT NULL,
+    ActorIdentity TEXT NOT NULL,
+    TargetType TEXT NOT NULL,
+    TargetId TEXT NOT NULL,
+    RequestedChange TEXT NOT NULL,
+    ResultStatus TEXT NOT NULL,
+    ActualDiffText TEXT NOT NULL,
+    OccurredAt TEXT NOT NULL,
+    ProjectedAt TEXT NOT NULL
 );";
 
         command.ExecuteNonQuery();

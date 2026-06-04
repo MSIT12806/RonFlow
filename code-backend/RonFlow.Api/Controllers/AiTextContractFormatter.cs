@@ -34,6 +34,7 @@ internal static class AiTextContractFormatter
             "- GET /api/ai/projects/{projectId}/tasks/{taskId}/detail-summary",
             "- POST /api/ai/active-scope",
             "- POST /api/ai/apply",
+            "- GET /api/ai/audit-entries",
             "- GET /api/ai/audit-entries/{auditEntryId}",
             string.Empty,
             "login_contract:",
@@ -155,6 +156,14 @@ internal static class AiTextContractFormatter
             "  route_params: auditEntryId",
             "  route_param_sources:",
             "  - auditEntryId <- apply_result.audit_entry_id",
+            string.Empty,
+            "- capability: read_audit_entries_summary",
+            "  category: read",
+            "  active_scope_required: yes",
+            "  required_inputs: none",
+            "  optional_inputs: sessionId, actorIdentity, targetType, targetId, requestedChange, actualDiffContains, limit",
+            "  read_endpoint: GET /api/ai/audit-entries",
+            "  route_params: none",
             string.Empty,
             "- capability: read_invitation_inbox_summary",
             "  category: read",
@@ -561,18 +570,54 @@ internal static class AiTextContractFormatter
         builder.AppendLine("RonFlow Audit Entry v1");
         builder.AppendLine();
         builder.AppendLine($"audit_entry_id: {auditEntry.Id}");
+        builder.AppendLine($"session_id: {auditEntry.SessionId}");
         builder.AppendLine($"actor_type: {auditEntry.ActorType}");
         builder.AppendLine($"actor_identity: {auditEntry.ActorIdentity}");
         builder.AppendLine($"target_type: {auditEntry.TargetType}");
         builder.AppendLine($"target_id: {auditEntry.TargetId}");
         builder.AppendLine($"requested_change: {auditEntry.RequestedChange}");
         builder.AppendLine($"result_status: {auditEntry.ResultStatus}");
+        builder.AppendLine($"occurred_at: {auditEntry.OccurredAt:O}");
         builder.AppendLine("actual_diff:");
 
         foreach (var diff in auditEntry.ActualDiff)
         {
             builder.AppendLine($"- {diff}");
         }
+
+        return builder.ToString().TrimEnd();
+    }
+
+    public static string AuditEntriesSummary(AiAuditQuery query, IReadOnlyList<AiAuditEntry> entries)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("RonFlow Audit Entries Summary v1");
+        builder.AppendLine();
+        builder.AppendLine($"matched_count: {entries.Count}");
+        builder.AppendLine($"session_filter: {query.SessionId ?? "any"}");
+        builder.AppendLine($"actor_identity_filter: {query.ActorIdentity ?? "any"}");
+        builder.AppendLine($"target_type_filter: {query.TargetType ?? "any"}");
+        builder.AppendLine($"target_id_filter: {query.TargetId ?? "any"}");
+        builder.AppendLine($"requested_change_filter: {query.RequestedChange ?? "any"}");
+        builder.AppendLine($"actual_diff_contains_filter: {query.ActualDiffContains ?? "any"}");
+        builder.AppendLine($"limit: {query.Limit}");
+        builder.AppendLine("matched_entries:");
+
+        foreach (var entry in entries)
+        {
+            builder.AppendLine($"- audit_entry_id: {entry.Id}");
+            builder.AppendLine($"  session_id: {entry.SessionId}");
+            builder.AppendLine($"  actor_identity: {entry.ActorIdentity}");
+            builder.AppendLine($"  target_type: {entry.TargetType}");
+            builder.AppendLine($"  target_id: {entry.TargetId}");
+            builder.AppendLine($"  requested_change: {entry.RequestedChange}");
+            builder.AppendLine($"  result_status: {entry.ResultStatus}");
+            builder.AppendLine($"  occurred_at: {entry.OccurredAt:O}");
+        }
+
+        builder.AppendLine("next_actions:");
+        builder.AppendLine("- read_audit_entry");
+        builder.AppendLine("- refine_audit_filters");
 
         return builder.ToString().TrimEnd();
     }

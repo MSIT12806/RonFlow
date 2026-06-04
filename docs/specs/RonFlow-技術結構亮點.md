@@ -48,9 +48,10 @@
 
 ## 可視需求深化
 
-- [ ] AI audit trail 持久化與查詢化
-    - 目前 AI apply 已會產生 audit entry，足以回報單次 AI 操作做了什麼、改了哪些欄位
-    - 這裡的「深化」指的是：若未來需要跨 session、跨版本、跨部署長期查詢 AI 操作紀錄，可把目前 runtime-level 的 AI audit registry 推進成正式儲存的 audit read model
+- [x] AI audit trail 持久化與查詢化
+    - AI apply 產生的 audit message 已導入 outbox，由 background consumer 投影到正式 audit read model
+    - 已提供 `GET /api/ai/audit-entries` 查詢介面，支援 session、actor、target、requested change 與 actual diff 片段等維度
+    - 實踐細節見 [RonFlow 的 AI audit trail 持久化與查詢化](../ronflow-tech/ronflow-ai-audit-projection-read-model.md)
 
 ## 下一批值得展現
 

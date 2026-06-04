@@ -91,6 +91,7 @@ public partial class Program
         builder.Services.AddSingleton<TaskMutationGuard>();
         builder.Services.AddSingleton<ProjectPresenceRegistry>();
         builder.Services.AddSingleton<AiAuditRegistry>();
+        builder.Services.AddSingleton<ProcessAiAuditProjectionService>();
         builder.Services.AddSingleton<RonFlowActiveSessionRegistry>();
         builder.Services.AddSingleton<ProcessWorkflowThroughputProjectionService>();
         builder.Services.AddSingleton<ReorderTaskCommandService>();
@@ -118,6 +119,7 @@ public partial class Program
         builder.Services.AddSingleton<GetArchivedTasksQueryService>();
         builder.Services.AddSingleton<GetTrashedTasksQueryService>();
         builder.Services.AddHostedService<ReminderNotificationBackgroundService>();
+        builder.Services.AddHostedService<AiAuditProjectionBackgroundService>();
         builder.Services.AddHostedService<WorkflowThroughputProjectionBackgroundService>();
 
         var app = builder.Build();
@@ -148,6 +150,8 @@ public partial class Program
             builder.Services.AddSingleton<IProjectRepository, InMemoryProjectRepository>();
             builder.Services.AddSingleton<ITaskRepository, InMemoryTaskRepository>();
             builder.Services.AddSingleton<IPushSubscriptionRepository, InMemoryPushSubscriptionRepository>();
+            builder.Services.AddSingleton<IAiAuditProjectionOutbox, InMemoryAiAuditProjectionOutbox>();
+            builder.Services.AddSingleton<IAiAuditReadModelStore, InMemoryAiAuditReadModelStore>();
             builder.Services.AddSingleton<IWorkflowThroughputProjectionOutbox, InMemoryWorkflowThroughputProjectionOutbox>();
             builder.Services.AddSingleton<IWorkflowThroughputProjectionStore, InMemoryWorkflowThroughputProjectionStore>();
             builder.Services.AddSingleton<InMemoryCoreFlowReadStore>();
@@ -166,6 +170,8 @@ public partial class Program
         builder.Services.AddSingleton<IProjectRepository, SqliteProjectRepository>();
         builder.Services.AddSingleton<ITaskRepository, SqliteTaskRepository>();
         builder.Services.AddSingleton<IPushSubscriptionRepository, SqlitePushSubscriptionRepository>();
+        builder.Services.AddSingleton<IAiAuditProjectionOutbox, SqliteAiAuditProjectionOutbox>();
+        builder.Services.AddSingleton<IAiAuditReadModelStore, SqliteAiAuditReadModelStore>();
         builder.Services.AddSingleton<IWorkflowThroughputProjectionOutbox, SqliteWorkflowThroughputProjectionOutbox>();
         builder.Services.AddSingleton<IWorkflowThroughputProjectionStore, SqliteWorkflowThroughputProjectionStore>();
         builder.Services.AddSingleton<SqliteCoreFlowReadStore>();

@@ -27,6 +27,7 @@
 - RonFlow 的 cross-cutting pattern language：`ronflow-cross-cutting-pattern-language.md`
 - RonFlow 的壓力測試與 observability 實踐：`ronflow-load-testing-observability.md`
 - RonFlow 的活動紀錄 / audit trail 雛形：`ronflow-activity-audit-trail.md`
+- RonFlow 的 AI audit trail 持久化與查詢化：`ronflow-ai-audit-projection-read-model.md`
 - RonFlow 的 AI discovery surface：`ronflow-ai-discovery-surface.md`
 - RonFlow 的 AI interaction surface：`ronflow-ai-interaction-surface.md`
 - RonFlow 的 Testing-only HTTP fault injection 實踐：`ronflow-testing-http-fault-injection.md`

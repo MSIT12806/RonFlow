@@ -1253,6 +1253,16 @@ Feature: Structured errors and recovery
 4. audit entry 會記錄「成功 / 失敗」之外的必要上下文。
 ```
 
+**Projection & Delivery Contract**
+
+```text
+1. apply 成功後，系統必須先產生 AiActionApplied（或等價）audit message 並投遞到 outbox / queue。
+2. audit read model 的投影處理由 background consumer 負責，不要求在 apply 回應內同步完成。
+3. event consumer 必須具備基本冪等：同一 message 重放不應造成重複 audit read model 紀錄。
+4. audit read model 必須可獨立查詢，且至少支援 session、actor、target、requested change、actual diff 文字片段等維度。
+5. apply result 仍需回傳 audit_entry_id，作為追查與查詢錨點。
+```
+
 **Canonical Text Contract**
 
 ```text
@@ -1283,6 +1293,8 @@ actual_diff:
 1. audit entry 第一行必須是 `RonFlow Audit Entry v1`。
 2. audit entry 必須包含 `audit_entry_id`、`actor_type`、`actor_identity`、`target_type`、`target_id`、`requested_change`、`result_status`、`actual_diff`。
 3. 若 result_status 為 `success`，`actual_diff` 必須至少列出一項實際差異。
+4. event 投遞、outbox 消費、audit read model 查詢三者必須可分離驗證。
+5. audit read model 查詢必須支援至少一種組合查詢（例如 session + requested change）。
 ```
 
 **Testability**
@@ -1290,6 +1302,8 @@ actual_diff:
 ```text
 1. 測試應能驗證每次 AI 寫入都會產生可查詢的 audit entry。
 2. 測試應能驗證 audit entry 是否足以重建 summary 到 write result 的決策鏈。
+3. 測試應能驗證 audit message 進 outbox 後，由 consumer 投影到 read model。
+4. 測試應能驗證 read model 的查詢條件（session、actor、target、requested change、actual diff 片段）至少涵蓋主要路徑。
 ```
 
 **Related Rules**
