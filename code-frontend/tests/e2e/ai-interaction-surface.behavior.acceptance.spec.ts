@@ -135,7 +135,8 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
       'RonFlow 是一個專案管理工具。',
       '你現在應先做以下事情：',
       '1. 讀取 capabilities manifest',
-      '4. 讀取 project list summary',
+      '4. 查詢 session / scope summary',
+      '5. 讀取 project list summary',
     ])
   })
 
@@ -334,8 +335,9 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
     await expectErrorTextContract(response, [
       'RonFlow Error v1',
       'error_code: ValidationFailed',
-      'message: Required field `title` is missing.',
-      'recovery_hint: Provide `title` and submit the write request again.',
+      'message: Required apply field `requiredFields.title` is missing.',
+      'POST /api/ai/apply reads `title` from the `requiredFields` object, not from the top-level body.',
+      'recovery_hint: Provide `requiredFields.title` and submit the apply request again.',
     ])
   })
 
