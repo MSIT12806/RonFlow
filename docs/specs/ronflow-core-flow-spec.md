@@ -17,6 +17,8 @@
 
 RonFlow 的 AI companion spec 為 [ronflow-ai-interaction-surface-spec.md](./ronflow-ai-interaction-surface-spec.md)。若本文件新增共享的 Project / Task 欄位、狀態規則、操作或摘要需求，且可能影響 AI actor 的 summary、manifest、write request 或 apply contract，應同批更新 companion spec，或在 companion spec 明確標示尚未承接，避免 human flow 與 AI flow 規格漂移。
 
+RonFlow 的 reporting / projection companion spec 為 [ronflow-reporting-projection-spec.md](./ronflow-reporting-projection-spec.md)。若本文件新增 Task 建立、workflow state 轉移、完成、重新開啟或其他會影響 reporting model / projection 的共享規則，應同批更新 companion spec，避免 core flow 與 reporting projection 規格漂移。
+
 ## Related Acceptance Tests
 
 這份 spec 對應的是目前 RonFlow 的主要 acceptance baseline。做 spec / E2E 差異比對時，可優先從下列 Playwright 檔案開始：

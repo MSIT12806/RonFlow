@@ -46,6 +46,11 @@ export async function openProjectMembersPanel(page: Page) {
   await expect(page.getByRole('heading', { name: '專案成員' })).toBeVisible()
 }
 
+export async function openProjectReportsView(page: Page) {
+  await page.getByRole('button', { name: '報表', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '專案報表' })).toBeVisible()
+}
+
 export async function openInvitationInbox(page: Page) {
   await page.getByText('邀請收件匣', { exact: true }).click()
   await expect(page.getByRole('heading', { name: '邀請收件匣' })).toBeVisible()

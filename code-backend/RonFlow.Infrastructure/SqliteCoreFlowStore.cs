@@ -56,6 +56,29 @@ CREATE TABLE IF NOT EXISTS KnownUsers (
     UserId TEXT NOT NULL PRIMARY KEY,
     UserName TEXT NOT NULL,
     Email TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS WorkflowThroughputOutbox (
+    MessageId TEXT NOT NULL PRIMARY KEY,
+    ProjectId TEXT NOT NULL,
+    TaskId TEXT NOT NULL,
+    EventType TEXT NOT NULL,
+    StateKey TEXT NULL,
+    OccurredAt TEXT NOT NULL,
+    ProcessedAt TEXT NULL
+);
+
+CREATE TABLE IF NOT EXISTS WorkflowThroughputBuckets (
+    ProjectId TEXT NOT NULL,
+    BucketType TEXT NOT NULL,
+    BucketStart TEXT NOT NULL,
+    CreatedCount INTEGER NOT NULL,
+    MovedToActiveCount INTEGER NOT NULL,
+    MovedToReviewCount INTEGER NOT NULL,
+    CompletedCount INTEGER NOT NULL,
+    ReopenedCount INTEGER NOT NULL,
+    LastUpdatedAt TEXT NOT NULL,
+    PRIMARY KEY (ProjectId, BucketType, BucketStart)
 );";
 
         command.ExecuteNonQuery();

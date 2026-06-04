@@ -22,6 +22,7 @@
 - RonFlow 的 DDD 實踐：`ronflow-ddd.md`
 - RonFlow 的 workflow state / lifecycle state 雙狀態軸設計：`ronflow-task-state-axes.md`
 - RonFlow 的 CQRS 實踐：`ronflow-cqrs.md`
+- RonFlow 的 reporting / projection 實踐：`ronflow-reporting-projection.md`
 - RonFlow 的多人協作 / 即時同步設計：`ronflow-real-time-collaboration.md`
 - RonFlow 的 cross-cutting pattern language：`ronflow-cross-cutting-pattern-language.md`
 - RonFlow 的壓力測試與 observability 實踐：`ronflow-load-testing-observability.md`

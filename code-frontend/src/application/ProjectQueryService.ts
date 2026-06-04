@@ -5,6 +5,7 @@ import {
   getProjectInvitations,
   getProjectMembers,
   getProjectSubtaskTemplates,
+  getWorkflowThroughputReport,
   getProjects,
   type ProjectBoardResponse,
   type ProjectCodeTraceabilityResponse,
@@ -12,6 +13,7 @@ import {
   type ProjectListResponse,
   type ProjectMembersResponse,
   type ProjectSubtaskTemplateListResponse,
+  type WorkflowThroughputReportResponse,
 } from '../api/ronflowApi'
 
 export class ProjectQueryService {
@@ -25,6 +27,10 @@ export class ProjectQueryService {
 
   async getCodeTraceability(projectId: string): Promise<ProjectCodeTraceabilityResponse> {
     return getProjectCodeTraceability(projectId)
+  }
+
+  async getWorkflowThroughput(projectId: string, bucket: 'day' | 'week'): Promise<WorkflowThroughputReportResponse> {
+    return getWorkflowThroughputReport(projectId, bucket)
   }
 
   async getSubtaskTemplates(projectId: string): Promise<ProjectSubtaskTemplateListResponse> {

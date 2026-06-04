@@ -460,3 +460,39 @@ public sealed record LifecycleTaskListItemResponse(
             view.ChangedAt);
     }
 }
+
+public sealed record WorkflowThroughputBucketResponse(
+    DateOnly BucketStart,
+    int CreatedCount,
+    int MovedToActiveCount,
+    int MovedToReviewCount,
+    int CompletedCount,
+    int ReopenedCount)
+{
+    public static WorkflowThroughputBucketResponse FromView(WorkflowThroughputBucketView view)
+    {
+        return new(
+            view.BucketStart,
+            view.CreatedCount,
+            view.MovedToActiveCount,
+            view.MovedToReviewCount,
+            view.CompletedCount,
+            view.ReopenedCount);
+    }
+}
+
+public sealed record WorkflowThroughputReportResponse(
+    Guid ProjectId,
+    string BucketType,
+    DateTimeOffset? LastUpdatedAt,
+    IReadOnlyList<WorkflowThroughputBucketResponse> Buckets)
+{
+    public static WorkflowThroughputReportResponse FromView(WorkflowThroughputReportView view)
+    {
+        return new(
+            view.ProjectId,
+            view.BucketType,
+            view.LastUpdatedAt,
+            view.Buckets.Select(WorkflowThroughputBucketResponse.FromView).ToArray());
+    }
+}

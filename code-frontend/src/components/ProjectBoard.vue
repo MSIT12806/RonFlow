@@ -34,6 +34,10 @@
             程式修改紀錄
           </button>
 
+          <button type="button" class="secondary-button" @click="$emit('open-reports')">
+            報表
+          </button>
+
           <button type="button" class="secondary-button" @click="$emit('open-trash-view')">
             垃圾桶
           </button>
@@ -134,6 +138,7 @@ const emit = defineEmits<{
   (event: 'open-project-members'): void
   (event: 'open-archived-tasks'): void
   (event: 'open-code-traceability'): void
+  (event: 'open-reports'): void
   (event: 'open-trash-view'): void
   (event: 'open-task-detail', taskId: string, taskTitle: string): void
   (event: 'move-task-to-state', taskId: string, stateKey: WorkflowKey): void

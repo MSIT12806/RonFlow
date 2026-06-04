@@ -65,6 +65,7 @@
             @open-project-members="openProjectMembersPanel"
             @open-archived-tasks="openArchivedTasksView"
             @open-code-traceability="openCodeTraceabilityView"
+            @open-reports="openReportsView"
             @open-trash-view="openTrashView"
             @open-task-detail="onOpenTaskDetail"
             @move-task-to-state="moveTaskToState"
@@ -125,6 +126,17 @@
             :error-message="codeTraceabilityError"
             @back-to-board="openBoardView"
             @open-task-detail="onOpenCodeTraceabilityTaskDetail"
+          />
+
+          <ProjectReportsView
+            v-else-if="currentWorkspaceView === 'reports'"
+            :active-project-name="activeProject?.name ?? null"
+            :report="workflowThroughputReport"
+            :bucket-type="workflowThroughputBucket"
+            :is-loading="isLoadingWorkflowThroughput"
+            :error-message="workflowThroughputError"
+            @back-to-board="openBoardView"
+            @change-bucket="loadWorkflowThroughputReport"
           />
         </section>
       </AsyncStateBoundary>
@@ -210,12 +222,17 @@ import InvitationInboxView from './components/InvitationInboxView.vue'
 import LifecycleTaskListView from './components/LifecycleTaskListView.vue'
 import ProjectBoard from './components/ProjectBoard.vue'
 import ProjectMembersPanel from './components/ProjectMembersPanel.vue'
+import ProjectReportsView from './components/ProjectReportsView.vue'
 import ProjectSidebar from './components/ProjectSidebar.vue'
 import ProjectSubtaskTemplatesModal from './components/ProjectSubtaskTemplatesModal.vue'
 import RonAuthEntryPanel from './components/RonAuthEntryPanel.vue'
 import TaskDetailModal from './components/TaskDetailModal.vue'
 import type { PasswordLoginInput, RegisterUserInput } from './api/ronauth'
-import type { ProjectCodeTraceabilityItemResponse, ProjectSubtaskTemplateResponse } from './api/ronflowApi'
+import type {
+  ProjectCodeTraceabilityItemResponse,
+  ProjectSubtaskTemplateResponse,
+  WorkflowThroughputReportResponse,
+} from './api/ronflowApi'
 import { ApiValidationError, activateRonFlowSession, releaseRonFlowProjectScope } from './api/ronflowApi'
 import { ProjectCommandService, ProjectQueryService } from './application'
 import { usePushNotifications } from './composables/usePushNotifications'
@@ -228,7 +245,7 @@ import {
 } from './composables/useRonFlowBoard'
 import { onRonFlowSessionInvalidated } from './ronflowSession'
 
-type WorkspaceView = 'board' | 'members' | 'invitations' | 'archived' | 'trash' | 'codeTraceability'
+type WorkspaceView = 'board' | 'members' | 'invitations' | 'archived' | 'trash' | 'codeTraceability' | 'reports'
 
 const showAsyncStatePlayground = import.meta.env.DEV
   && new URLSearchParams(window.location.search).get('playground') === 'async-states'
@@ -246,6 +263,10 @@ const projectSubtaskTemplatesCommandError = ref('')
 const codeTraceabilityItems = ref<ProjectCodeTraceabilityItemResponse[]>([])
 const isLoadingCodeTraceability = ref(false)
 const codeTraceabilityError = ref('')
+const workflowThroughputReport = ref<WorkflowThroughputReportResponse | null>(null)
+const workflowThroughputBucket = ref<'day' | 'week'>('day')
+const isLoadingWorkflowThroughput = ref(false)
+const workflowThroughputError = ref('')
 
 const projectQueryService = new ProjectQueryService()
 const projectCommandService = new ProjectCommandService()
@@ -380,6 +401,10 @@ async function pollWorkspace() {
       await refreshSelectedTaskDetailSilently()
     }
 
+    if (currentWorkspaceView.value === 'reports') {
+      await loadWorkflowThroughputReport(workflowThroughputBucket.value, true)
+    }
+
     await refreshInvitationInboxCount()
   } finally {
     isPollingWorkspace = false
@@ -489,6 +514,39 @@ async function openCodeTraceabilityView() {
     codeTraceabilityError.value = '無法載入程式修改紀錄，請稍後再試。'
   } finally {
     isLoadingCodeTraceability.value = false
+  }
+}
+
+async function openReportsView() {
+  if (!activeProjectId.value) {
+    return
+  }
+
+  currentWorkspaceView.value = 'reports'
+  await loadWorkflowThroughputReport(workflowThroughputBucket.value)
+}
+
+async function loadWorkflowThroughputReport(bucket: 'day' | 'week', silent = false) {
+  if (!activeProjectId.value) {
+    return
+  }
+
+  workflowThroughputBucket.value = bucket
+
+  if (!silent) {
+    isLoadingWorkflowThroughput.value = true
+  }
+
+  workflowThroughputError.value = ''
+
+  try {
+    workflowThroughputReport.value = await projectQueryService.getWorkflowThroughput(activeProjectId.value, bucket)
+  } catch {
+    workflowThroughputError.value = '無法載入工作流量報表，請稍後再試。'
+  } finally {
+    if (!silent) {
+      isLoadingWorkflowThroughput.value = false
+    }
   }
 }
 

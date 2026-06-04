@@ -8,6 +8,7 @@ import type {
   ProjectMembersResponse,
   ProjectSubtaskTemplateListResponse,
   ProjectResponse,
+  WorkflowThroughputReportResponse,
 } from './types'
 
 export async function getProjects() {
@@ -27,6 +28,10 @@ export async function getProjectBoard(projectId: string) {
 
 export async function getProjectCodeTraceability(projectId: string) {
   return request<ProjectCodeTraceabilityResponse>(apiPath(`/projects/${projectId}/code-traceability`))
+}
+
+export async function getWorkflowThroughputReport(projectId: string, bucket: 'day' | 'week' = 'day') {
+  return request<WorkflowThroughputReportResponse>(apiPath(`/projects/${projectId}/reports/workflow-throughput?bucket=${bucket}`))
 }
 
 export async function getProjectSubtaskTemplates(projectId: string) {

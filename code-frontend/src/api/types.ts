@@ -115,6 +115,22 @@ export type ProjectCodeTraceabilityResponse = {
   items: ProjectCodeTraceabilityItemResponse[]
 }
 
+export type WorkflowThroughputBucketResponse = {
+  bucketStart: string
+  createdCount: number
+  movedToActiveCount: number
+  movedToReviewCount: number
+  completedCount: number
+  reopenedCount: number
+}
+
+export type WorkflowThroughputReportResponse = {
+  projectId: string
+  bucketType: 'day' | 'week'
+  lastUpdatedAt: string | null
+  buckets: WorkflowThroughputBucketResponse[]
+}
+
 export type ProjectResponse = {
   id: string
   name: string

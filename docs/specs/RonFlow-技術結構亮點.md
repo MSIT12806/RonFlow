@@ -27,6 +27,10 @@
 - [x] 壓力測試與 observability
 - [x] workflow state 與 lifecycle state 雙狀態軸設計
 - [x] 活動紀錄 / audit trail 雛形
+- [x] reporting / projection（第一批）
+    - 已完成 workflow throughput 報表的第一批 projection slice，包含 event-like source、outbox、background consumer、projection store、query API 與 reports page
+    - Task Aging / Cycle Time / Lead Time 仍是後續延伸
+    - 實踐細節見 [RonFlow 的 reporting / projection 實踐](../ronflow-tech/ronflow-reporting-projection.md)
 - [x] Task mutation lock policy 與 aggregate execution result
     - lock 規則不再散落在各個 command service 手寫判斷，而是由 domain 中的 `TaskMutationLockPolicy` 定義各 mutation 的 lock requirement
     - application 層的 `TaskMutationGuard` 將 runtime lock 狀態轉成 `TaskMutationAuthorization`
@@ -53,8 +57,6 @@
 
 - [ ] 細緻授權與操作政策
     - 目前已完成 RonFlow / RonAuth supporting domain 整合；下一步應聚焦於 Project / Task operation level 的 authorization、RBAC、policy-based access control
-- [ ] 報表與 projection
-    - 將 read model / reporting model 明確化，展示 workflow throughput、task aging、cycle time、AI 操作統計等 projection 設計
 - [ ] 資料庫遷移與 schema evolution
 - [ ] 資料切片
     - 聚焦資料量成長後的 partition / archive / retention / query performance，不與 tenant 權限邊界混在一起

@@ -7,13 +7,14 @@ public sealed class ChangeTaskStateCommandService(
     ProjectAccessService projectAccessService,
     ITaskRepository taskRepository,
     TaskMutationGuard taskMutationGuard,
+    IWorkflowThroughputProjectionOutbox workflowThroughputProjectionOutbox,
     TimeProvider timeProvider)
 {
     public ChangeTaskStateCommandService(
         IProjectRepository projectRepository,
         ITaskRepository taskRepository,
         TimeProvider timeProvider)
-        : this(projectRepository, new ProjectAccessService(projectRepository), taskRepository, new TaskMutationGuard(new TaskContentEditLockService()), timeProvider)
+        : this(projectRepository, new ProjectAccessService(projectRepository), taskRepository, new TaskMutationGuard(new TaskContentEditLockService()), new NoOpWorkflowThroughputProjectionOutbox(), timeProvider)
     {
     }
 
@@ -50,6 +51,7 @@ public sealed class ChangeTaskStateCommandService(
         }
 
         var changedAt = timeProvider.GetUtcNow();
+        var wasCompleted = task.CurrentState.IsCompletedState;
         var mutationResult = task.ChangeState(
             taskMutationGuard.Authorize(currentUserId, taskId, TaskMutationKind.ChangeWorkflowState),
             targetState,
@@ -61,6 +63,16 @@ public sealed class ChangeTaskStateCommandService(
         }
 
         taskRepository.Update(task);
+        workflowThroughputProjectionOutbox.EnqueueTaskStateChanged(project.Id, task.Id, targetState.Key, changedAt);
+        if (!wasCompleted && targetState.IsCompletedState)
+        {
+            workflowThroughputProjectionOutbox.EnqueueTaskCompleted(project.Id, task.Id, changedAt);
+        }
+
+        if (wasCompleted && !targetState.IsCompletedState)
+        {
+            workflowThroughputProjectionOutbox.EnqueueTaskReopened(project.Id, task.Id, changedAt);
+        }
 
         project.Touch(changedAt);
         projectRepository.Update(project);

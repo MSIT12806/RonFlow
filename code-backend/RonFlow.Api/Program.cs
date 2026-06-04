@@ -92,6 +92,7 @@ public partial class Program
         builder.Services.AddSingleton<ProjectPresenceRegistry>();
         builder.Services.AddSingleton<AiAuditRegistry>();
         builder.Services.AddSingleton<RonFlowActiveSessionRegistry>();
+        builder.Services.AddSingleton<ProcessWorkflowThroughputProjectionService>();
         builder.Services.AddSingleton<ReorderTaskCommandService>();
         builder.Services.AddSingleton<CreateTaskReminderCommandService>();
         builder.Services.AddSingleton<DeleteTaskReminderCommandService>();
@@ -111,9 +112,11 @@ public partial class Program
             new ObservedGetProjectBoardQueryService(serviceProvider.GetRequiredService<GetProjectBoardQueryService>()));
         builder.Services.AddSingleton<ProjectCollaborationQueryService>();
         builder.Services.AddSingleton<GetTaskDetailQueryService>();
+        builder.Services.AddSingleton<GetWorkflowThroughputReportQueryService>();
         builder.Services.AddSingleton<GetArchivedTasksQueryService>();
         builder.Services.AddSingleton<GetTrashedTasksQueryService>();
         builder.Services.AddHostedService<ReminderNotificationBackgroundService>();
+        builder.Services.AddHostedService<WorkflowThroughputProjectionBackgroundService>();
 
         var app = builder.Build();
 
@@ -143,6 +146,8 @@ public partial class Program
             builder.Services.AddSingleton<IProjectRepository, InMemoryProjectRepository>();
             builder.Services.AddSingleton<ITaskRepository, InMemoryTaskRepository>();
             builder.Services.AddSingleton<IPushSubscriptionRepository, InMemoryPushSubscriptionRepository>();
+            builder.Services.AddSingleton<IWorkflowThroughputProjectionOutbox, InMemoryWorkflowThroughputProjectionOutbox>();
+            builder.Services.AddSingleton<IWorkflowThroughputProjectionStore, InMemoryWorkflowThroughputProjectionStore>();
             builder.Services.AddSingleton<InMemoryCoreFlowReadStore>();
             builder.Services.AddSingleton<ICoreFlowReadStore>(serviceProvider =>
                 new ObservedCoreFlowReadStore(serviceProvider.GetRequiredService<InMemoryCoreFlowReadStore>()));
@@ -159,6 +164,8 @@ public partial class Program
         builder.Services.AddSingleton<IProjectRepository, SqliteProjectRepository>();
         builder.Services.AddSingleton<ITaskRepository, SqliteTaskRepository>();
         builder.Services.AddSingleton<IPushSubscriptionRepository, SqlitePushSubscriptionRepository>();
+        builder.Services.AddSingleton<IWorkflowThroughputProjectionOutbox, SqliteWorkflowThroughputProjectionOutbox>();
+        builder.Services.AddSingleton<IWorkflowThroughputProjectionStore, SqliteWorkflowThroughputProjectionStore>();
         builder.Services.AddSingleton<SqliteCoreFlowReadStore>();
         builder.Services.AddSingleton<ICoreFlowReadStore>(serviceProvider =>
             new ObservedCoreFlowReadStore(serviceProvider.GetRequiredService<SqliteCoreFlowReadStore>()));
