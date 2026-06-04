@@ -187,6 +187,9 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Reminders Behavior', () => {
     const deliveryStatus = getRemindersSection(detailDialog).getByTestId('reminder-delivery-status')
 
     await expect(deliveryStatus).toContainText('提醒可能無法送達，請先啟用此裝置的提醒通知。')
+    await expect(detailDialog.getByRole('button', { name: '啟用提醒通知', exact: true })).toHaveCount(0)
+
+    await enterTaskDetailEditMode(detailDialog)
     await detailDialog.getByRole('button', { name: '啟用提醒通知', exact: true }).click()
 
     await expect(deliveryStatus).toContainText('此裝置已啟用提醒通知，提醒會以通知方式送達。')
