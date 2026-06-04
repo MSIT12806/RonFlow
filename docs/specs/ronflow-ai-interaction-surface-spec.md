@@ -920,6 +920,18 @@ next_actions:
 - reorder_task
 - archive_task
 - trash_task
+
+recommended_start_work_apply:
+condition: if you will implement this task now
+operation: move_task_state
+targetType: task
+targetId: <task-id>
+requiredFields:
+  taskId: <task-id>
+  targetStateKey: Active
+optionalFields: {}
+note: start implementation work
+skip_when: only inspecting, comparing, estimating, clarifying, or explicitly told not to change task state
 ```
 
 **State Handling / Feedback**
@@ -943,6 +955,7 @@ next_actions:
 9. Task Detail summary 必須完整包含 `task_id`、`title`、`description`、`due_date`、`workflow_state_key`、`workflow_state_name`、`lifecycle_state`。
 10. 若 task 有 checklist，Task Detail summary 必須包含 `subtasks:` 區塊，且每個 subtask 至少列出 `subtask_id`、`title`、`is_checked`、`order`。
 11. Task Detail summary 必須包含 `recent_activities:` 與 `next_actions:` 區塊。
+12. 若 Task Detail summary 的 `workflow_state_key` 是 `Todo`，必須包含 `recommended_start_work_apply:` 區塊，直接提供 `move_task_state` 到 `Active` 的 apply 欄位，並說明只在即將實作 task 時使用。
 ```
 
 **Testability**

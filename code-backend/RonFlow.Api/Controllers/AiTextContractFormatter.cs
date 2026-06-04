@@ -488,6 +488,7 @@ internal static class AiTextContractFormatter
 
     public static string TaskDetailSummary(TaskDetailView task)
     {
+        var workflowStateKey = NormalizeWorkflowKey(task.CurrentState.Key);
         var builder = new StringBuilder();
         builder.AppendLine("RonFlow Task Detail Summary v1");
         builder.AppendLine();
@@ -495,7 +496,7 @@ internal static class AiTextContractFormatter
         builder.AppendLine($"title: {task.Title}");
         builder.AppendLine($"description: {task.Description}");
         builder.AppendLine($"due_date: {(task.DueDate.HasValue ? task.DueDate.Value.ToString("yyyy-MM-dd") : "none")}");
-        builder.AppendLine($"workflow_state_key: {NormalizeWorkflowKey(task.CurrentState.Key)}");
+        builder.AppendLine($"workflow_state_key: {workflowStateKey}");
         builder.AppendLine($"workflow_state_name: {task.CurrentState.Label}");
         builder.AppendLine($"lifecycle_state: {NormalizeLifecycleState(task.LifecycleState)}");
         builder.AppendLine("subtasks:");
@@ -527,6 +528,22 @@ internal static class AiTextContractFormatter
         builder.AppendLine("- reorder_task");
         builder.AppendLine("- archive_task");
         builder.AppendLine("- trash_task");
+
+        if (string.Equals(workflowStateKey, "Todo", StringComparison.Ordinal))
+        {
+            builder.AppendLine();
+            builder.AppendLine("recommended_start_work_apply:");
+            builder.AppendLine("condition: if you will implement this task now");
+            builder.AppendLine("operation: move_task_state");
+            builder.AppendLine("targetType: task");
+            builder.AppendLine($"targetId: {task.Id}");
+            builder.AppendLine("requiredFields:");
+            builder.AppendLine($"  taskId: {task.Id}");
+            builder.AppendLine("  targetStateKey: Active");
+            builder.AppendLine("optionalFields: {}");
+            builder.AppendLine("note: start implementation work");
+            builder.AppendLine("skip_when: only inspecting, comparing, estimating, clarifying, or explicitly told not to change task state");
+        }
 
         return builder.ToString().TrimEnd();
     }

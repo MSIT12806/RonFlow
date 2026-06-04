@@ -255,6 +255,13 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("workflow_state_key: Todo"));
         Assert.That(payload, Does.Contain("next_actions:"));
         Assert.That(payload, Does.Contain("- update_task_detail"));
+        Assert.That(payload, Does.Contain("recommended_start_work_apply:"));
+        Assert.That(payload, Does.Contain("operation: move_task_state"));
+        Assert.That(payload, Does.Contain($"targetId: {task.Id}"));
+        Assert.That(payload, Does.Contain("requiredFields:"));
+        Assert.That(payload, Does.Contain($"  taskId: {task.Id}"));
+        Assert.That(payload, Does.Contain("  targetStateKey: Active"));
+        Assert.That(payload, Does.Contain("skip_when: only inspecting, comparing, estimating, clarifying, or explicitly told not to change task state"));
     }
 
     [Test]

@@ -251,6 +251,10 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
       'recent_activities:',
       'next_actions:',
       '- update_task_detail',
+      'recommended_start_work_apply:',
+      'operation: move_task_state',
+      'requiredFields:',
+      '  targetStateKey: Active',
     ])
   })
 

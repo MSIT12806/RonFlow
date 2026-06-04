@@ -170,6 +170,7 @@ Step 7. 一律透過 AI apply contract 寫入
 
 - `move_task_state` 的 `targetStateKey` 應使用 RonFlow AI-facing contract 顯示的狀態 key，例如 `Todo`、`Active`、`Review`、`Done`。
 - 當你被要求執行一個已確認的 RonFlow task，且該 task 目前在 `Todo`，請先用 `move_task_state` 將它移到 `Active`，檢查 apply 結果後再開始實作。
+- 如果 task detail summary 提供 `recommended_start_work_apply:`，且你確定現在要實作該 task，優先依照該 block 的欄位送出 apply。
 - 只有在 task 已經是 `Active` / `Review` / `Done`、目標 task 不明確、project 沒有 `Active` 狀態，或人類明確要求不要改狀態時，才跳過開始前移動狀態。
 - `reorder_task` 需要提供：
   - `taskId`
