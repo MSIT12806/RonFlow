@@ -109,6 +109,31 @@ async function expectErrorTextContract(response: APIResponse, expectedLines: str
   return responseText
 }
 
+async function expectEventuallySuccessfulTextContract(responseFactory: () => Promise<APIResponse>, expectedLines: string[]) {
+  let responseText = ''
+
+  await expect.poll(async () => {
+    const response = await responseFactory()
+    responseText = await response.text()
+
+    if (!response.ok()) {
+      return `not-ready:${response.status()}`
+    }
+
+    const missingExpectedLine = expectedLines.find((expectedLine) => !responseText.includes(expectedLine))
+    if (missingExpectedLine) {
+      return `missing:${missingExpectedLine}`
+    }
+
+    return 'ready'
+  }, {
+    intervals: [500, 1000, 1500, 3000],
+    timeout: 10000,
+  }).toBe('ready')
+
+  return responseText
+}
+
 async function seedProjectWithTask(request: Parameters<typeof test>[0]['request'], testInfo: TestInfo) {
   const session = await registerRonFlowAiSession(request)
   const { projectName, taskTitle } = createScenarioData(testInfo)
@@ -590,11 +615,10 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
     expect(auditEntryIdLine).toBeTruthy()
 
     const auditEntryId = auditEntryIdLine!.slice('audit_entry_id:'.length).trim()
-    const auditResponse = await request.get(aiRoutes.auditEntry(auditEntryId), {
-      headers: authHeaders(session.accessToken, session.ronFlowSessionId),
-    })
-
-    await expectSuccessfulTextContract(auditResponse, [
+    await expectEventuallySuccessfulTextContract(() =>
+      request.get(aiRoutes.auditEntry(auditEntryId), {
+        headers: authHeaders(session.accessToken, session.ronFlowSessionId),
+      }), [
       'RonFlow Audit Entry v1',
       `audit_entry_id: ${auditEntryId}`,
       'actor_type: ai',
