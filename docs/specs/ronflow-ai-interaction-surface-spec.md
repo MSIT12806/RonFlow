@@ -1332,6 +1332,7 @@ Feature: Audit trail for AI actions
 2. guidance 提供工作順序與判斷原則，並與正式權限與 contract 對齊。
 3. AI 應能從 guidance 理解何時該先整理 spec、何時該先讀摘要、何時該先補齊缺少的輸入。
 4. 若 task detail summary 含有 subtasks，AI 應把 checklist 視為 execution plan，而不是直接以 task level 宣告完成。
+5. 當 AI 被要求執行已確認的 Todo task 時，guidance 應要求 AI 在實作前先把 task 移到 Active。
 ```
 
 **Canonical Text Contract**
@@ -1357,6 +1358,12 @@ canonical_discovery_path:
 - activate target project scope -> POST /api/ai/active-scope with projectId
 - inspect scoped work -> GET /api/ai/projects/{projectId}/board-summary or GET /api/ai/projects/{projectId}/current-work-summary -> yields taskId
 - inspect task detail -> GET /api/ai/projects/{projectId}/tasks/{taskId}/detail-summary
+
+task_start_rules:
+- when the human asks the AI to execute a RonFlow task and the confirmed task is in Todo, move it to Active before implementation work begins
+- use move_task_state with targetStateKey: Active
+- inspect the apply result before continuing implementation work
+- skip this only when the task is already Active, Review, or Done; the target task is ambiguous; the project has no Active state; or the human explicitly asks not to change state
 
 checklist_rules:
 - if task detail summary contains subtasks, treat them as the execution plan before declaring the task complete
@@ -1387,10 +1394,11 @@ ask_human_when:
 
 ```text
 1. workflow guidance 第一行必須是 `RonFlow Workflow Guidance v1`。
-2. guidance 必須包含 `recommended_order:`、`canonical_discovery_path:`、`checklist_rules:` 與 `ask_human_when:` 四個區塊。
+2. guidance 必須包含 `recommended_order:`、`canonical_discovery_path:`、`task_start_rules:`、`checklist_rules:` 與 `ask_human_when:` 五個區塊。
 3. `recommended_order` 必須完整列出 read summary、confirm target object、confirm required fields、prepare write request、apply、inspect result。
 4. `canonical_discovery_path` 必須明確揭露 projectId 與 taskId 的取得路徑，不得要求 AI 自行猜測 summary endpoint。
-5. `checklist_rules` 必須明確說明 AI 應逐項勾選 checklist，且在未完成前不得直接宣告 task 完成。
+5. `task_start_rules` 必須明確說明 AI 開始執行 Todo task 前應先使用 `move_task_state` 移到 `Active`，並列出可跳過的例外。
+6. `checklist_rules` 必須明確說明 AI 應逐項勾選 checklist，且在未完成前不得直接宣告 task 完成。
 ```
 
 **Testability**
@@ -1529,6 +1537,7 @@ Feature: Workflow guidance
 1. workflow guidance 的責任是引導 AI 採用正確工作順序。
 2. workflow guidance 與正式 contract 與權限規則對齊。
 3. workflow guidance 應與 RonFlow 的 spec-first / acceptance-first workflow 對齊。
+4. workflow guidance 應要求 AI 在開始實作已確認的 Todo task 前，先透過正式 apply contract 將 task 移到 Active。
 ```
 
 ---

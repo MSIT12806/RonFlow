@@ -266,6 +266,8 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
       '1. read summary',
       '4. prepare write request',
       '6. inspect result',
+      'task_start_rules:',
+      '- use move_task_state with targetStateKey: Active',
       'ask_human_when:',
     ])
   })

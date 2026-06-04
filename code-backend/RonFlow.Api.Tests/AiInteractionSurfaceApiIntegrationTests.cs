@@ -111,6 +111,9 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("canonical_discovery_path:"));
         Assert.That(payload, Does.Contain("- discover projects -> GET /api/ai/projects/summary -> yields projectId"));
         Assert.That(payload, Does.Contain("- inspect scoped work -> GET /api/ai/projects/{projectId}/board-summary or GET /api/ai/projects/{projectId}/current-work-summary -> yields taskId"));
+        Assert.That(payload, Does.Contain("task_start_rules:"));
+        Assert.That(payload, Does.Contain("- when the human asks the AI to execute a RonFlow task and the confirmed task is in Todo, move it to Active before implementation work begins"));
+        Assert.That(payload, Does.Contain("- use move_task_state with targetStateKey: Active"));
         Assert.That(payload, Does.Contain("checklist_rules:"));
         Assert.That(payload, Does.Contain("- use check_task_subtask when one checklist item is finished"));
         Assert.That(payload, Does.Contain("invitation_rules:"));
