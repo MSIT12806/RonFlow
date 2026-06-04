@@ -112,4 +112,53 @@ public sealed class ReportingProjectionApiIntegrationTests : ApiIntegrationTestB
         Assert.That(bucket.MovedToActiveCount, Is.EqualTo(1));
         Assert.That(bucket.MovedToReviewCount, Is.EqualTo(1));
     }
+
+    [Test]
+    public async Task GetTaskAgingReport_WhenThresholdIsZero_ReturnsOnlyOpenTasks()
+    {
+        var project = await CreateProjectAsync("Task Aging Project");
+        var openTask = await CreateTaskAsync(project.Id, "Investigate stuck task");
+        var completedTask = await CreateTaskAsync(project.Id, "Close finished task");
+
+        var completeResponse = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{completedTask.Id}/state",
+            new ChangeTaskStateRequest("done"));
+        Assert.That(completeResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var response = await Client.GetAsync(
+            $"/api/projects/{project.Id}/reports/task-aging?todoThresholdDays=0&activeThresholdDays=0&reviewThresholdDays=0");
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var report = await response.Content.ReadFromJsonAsync<TaskAgingReportResponse>();
+        Assert.That(report, Is.Not.Null);
+        Assert.That(report!.ProjectId, Is.EqualTo(project.Id));
+        Assert.That(report.Items.Select(item => item.TaskId), Does.Contain(openTask.Id));
+        Assert.That(report.Items.Select(item => item.TaskId), Does.Not.Contain(completedTask.Id));
+        Assert.That(report.Thresholds.Select(item => item.StateKey), Does.Contain("todo"));
+    }
+
+    [Test]
+    public async Task GetTaskAgingReport_AfterTaskMovesState_UsesCurrentStateEntryTime()
+    {
+        var project = await CreateProjectAsync("Task Aging State Project");
+        var task = await CreateTaskAsync(project.Id, "Measure current state age");
+
+        await Task.Delay(50);
+
+        var moveResponse = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{task.Id}/state",
+            new ChangeTaskStateRequest("active"));
+        Assert.That(moveResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var response = await Client.GetAsync(
+            $"/api/projects/{project.Id}/reports/task-aging?todoThresholdDays=0&activeThresholdDays=0&reviewThresholdDays=0");
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var report = await response.Content.ReadFromJsonAsync<TaskAgingReportResponse>();
+        Assert.That(report, Is.Not.Null);
+
+        var item = report!.Items.Single(entry => entry.TaskId == task.Id);
+        Assert.That(item.CurrentState.Key, Is.EqualTo("active"));
+        Assert.That(item.EnteredStateAt, Is.GreaterThan(task.CreatedAt));
+    }
 }

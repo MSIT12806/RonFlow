@@ -131,6 +131,27 @@ export type WorkflowThroughputReportResponse = {
   buckets: WorkflowThroughputBucketResponse[]
 }
 
+export type TaskAgingStateThresholdResponse = {
+  stateKey: WorkflowKey
+  stateLabel: string
+  thresholdDays: number
+}
+
+export type TaskAgingTaskItemResponse = {
+  taskId: string
+  title: string
+  currentState: WorkflowStateResponse
+  enteredStateAt: string
+  agingDays: number
+}
+
+export type TaskAgingReportResponse = {
+  projectId: string
+  lastUpdatedAt: string
+  thresholds: TaskAgingStateThresholdResponse[]
+  items: TaskAgingTaskItemResponse[]
+}
+
 export type ProjectResponse = {
   id: string
   name: string

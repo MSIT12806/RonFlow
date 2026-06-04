@@ -13,13 +13,13 @@
     </header>
 
     <div class="traceability-filter-bar reports-tab-bar" role="tablist" aria-label="報表切換">
-      <button type="button" class="secondary-button" :class="{ 'tab-active': activeTab === 'workflow' }" @click="activeTab = 'workflow'">
+      <button type="button" class="secondary-button" :class="{ 'tab-active': activeTab === 'workflow' }" @click="setActiveTab('workflow')">
         工作流量
       </button>
-      <button type="button" class="secondary-button" :class="{ 'tab-active': activeTab === 'aging' }" @click="activeTab = 'aging'">
+      <button type="button" class="secondary-button" :class="{ 'tab-active': activeTab === 'aging' }" @click="setActiveTab('aging')">
         任務停留
       </button>
-      <button type="button" class="secondary-button" :class="{ 'tab-active': activeTab === 'cycle' }" @click="activeTab = 'cycle'">
+      <button type="button" class="secondary-button" :class="{ 'tab-active': activeTab === 'cycle' }" @click="setActiveTab('cycle')">
         週期時間
       </button>
     </div>
@@ -71,10 +71,64 @@
       </AsyncStateBoundary>
     </section>
 
-    <section v-else-if="activeTab === 'aging'" class="board-empty-state reports-placeholder-state">
-      <p class="eyebrow">Task Aging</p>
-      <h3>任務停留報表將在下一批交付。</h3>
-      <p class="empty-copy">這裡會聚焦目前卡在特定 workflow state 太久的任務。</p>
+    <section v-else-if="activeTab === 'aging'" class="reports-section">
+      <div class="traceability-filter-bar">
+        <label>
+          Todo 閾值（天）
+          <input :value="localThresholds.todoThresholdDays" type="number" min="0" aria-label="Todo 閾值（天）" @input="onThresholdChange('todoThresholdDays', $event)" />
+        </label>
+
+        <label>
+          Active 閾值（天）
+          <input :value="localThresholds.activeThresholdDays" type="number" min="0" aria-label="Active 閾值（天）" @input="onThresholdChange('activeThresholdDays', $event)" />
+        </label>
+
+        <label>
+          Review 閾值（天）
+          <input :value="localThresholds.reviewThresholdDays" type="number" min="0" aria-label="Review 閾值（天）" @input="onThresholdChange('reviewThresholdDays', $event)" />
+        </label>
+
+        <span class="task-meta">最後更新時間：{{ formatLastUpdatedAt(agingReport?.lastUpdatedAt ?? null) }}</span>
+      </div>
+
+      <div v-if="agingReport?.thresholds.length" class="traceability-filter-bar">
+        <span v-for="threshold in agingReport.thresholds" :key="threshold.stateKey" class="task-meta">
+          {{ threshold.stateKey }} 超過 {{ threshold.thresholdDays }} 天
+        </span>
+      </div>
+
+      <AsyncStateBoundary
+        :is-loading="isLoadingAging"
+        :error-message="agingErrorMessage"
+        loading-message="正在載入任務停留報表..."
+      >
+        <div v-if="!agingReport || agingReport.items.length === 0" class="board-empty-state">
+          <p class="eyebrow">Task Aging</p>
+          <p class="empty-copy">目前沒有超過停留閾值的任務。</p>
+        </div>
+
+        <div v-else class="traceability-result-list reports-result-list">
+          <button
+            v-for="item in agingReport.items"
+            :key="item.taskId"
+            type="button"
+            class="lifecycle-task-card reports-bucket-card reports-aging-item"
+            data-testid="task-aging-item"
+            @click="$emit('open-task-detail', item.taskId, item.title)"
+          >
+            <div class="lifecycle-task-copy">
+              <strong>{{ item.title }}</strong>
+              <span class="task-meta">{{ item.currentState.label }}</span>
+            </div>
+
+            <dl class="lifecycle-task-details traceability-result-details reports-bucket-details">
+              <div><dt>目前狀態</dt><dd>{{ item.currentState.label }}</dd></div>
+              <div><dt>停留天數</dt><dd>{{ item.agingDays }}</dd></div>
+              <div><dt>進入時間</dt><dd>{{ formatLastUpdatedAt(item.enteredStateAt) }}</dd></div>
+            </dl>
+          </button>
+        </div>
+      </AsyncStateBoundary>
     </section>
 
     <section v-else class="board-empty-state reports-placeholder-state">
@@ -86,27 +140,44 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import AsyncStateBoundary from './bases/AsyncStateBoundary.vue'
-import type { WorkflowThroughputReportResponse } from '../api/ronflowApi'
+import type { TaskAgingReportResponse, WorkflowThroughputReportResponse } from '../api/ronflowApi'
 
 const props = defineProps<{
   activeProjectName: string | null
   report: WorkflowThroughputReportResponse | null
+  agingReport: TaskAgingReportResponse | null
+  agingThresholds: {
+    todoThresholdDays: number
+    activeThresholdDays: number
+    reviewThresholdDays: number
+  }
   bucketType: 'day' | 'week'
   isLoading: boolean
+  isLoadingAging: boolean
   errorMessage: string
+  agingErrorMessage: string
 }>()
 
 const emit = defineEmits<{
   (event: 'back-to-board'): void
   (event: 'change-bucket', bucket: 'day' | 'week'): void
+  (event: 'change-task-aging-thresholds', thresholds: { todoThresholdDays: number; activeThresholdDays: number; reviewThresholdDays: number }): void
+  (event: 'open-task-detail', taskId: string, taskTitle: string): void
 }>()
 
 const activeTab = ref<'workflow' | 'aging' | 'cycle'>('workflow')
+const localThresholds = ref({ ...props.agingThresholds })
 
-const formattedLastUpdatedAt = computed(() => {
-  if (!props.report?.lastUpdatedAt) {
+watch(() => props.agingThresholds, (nextValue) => {
+  localThresholds.value = { ...nextValue }
+}, { deep: true })
+
+const formattedLastUpdatedAt = computed(() => formatLastUpdatedAt(props.report?.lastUpdatedAt ?? null))
+
+function formatLastUpdatedAt(value: string | null) {
+  if (!value) {
     return '尚未更新'
   }
 
@@ -116,12 +187,31 @@ const formattedLastUpdatedAt = computed(() => {
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-  }).format(new Date(props.report.lastUpdatedAt))
-})
+  }).format(new Date(value))
+}
+
+function setActiveTab(tab: 'workflow' | 'aging' | 'cycle') {
+  activeTab.value = tab
+}
 
 function onBucketChange(event: Event) {
   const nextBucket = (event.target as HTMLSelectElement).value === 'week' ? 'week' : 'day'
   emit('change-bucket', nextBucket)
+}
+
+function onThresholdChange(
+  key: 'todoThresholdDays' | 'activeThresholdDays' | 'reviewThresholdDays',
+  event: Event,
+) {
+  const rawValue = Number.parseInt((event.target as HTMLInputElement).value, 10)
+  const nextValue = Number.isNaN(rawValue) || rawValue < 0 ? 0 : rawValue
+
+  localThresholds.value = {
+    ...localThresholds.value,
+    [key]: nextValue,
+  }
+
+  emit('change-task-aging-thresholds', { ...localThresholds.value })
 }
 
 function formatBucketStart(value: string) {

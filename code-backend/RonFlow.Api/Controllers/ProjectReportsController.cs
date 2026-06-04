@@ -40,4 +40,54 @@ public sealed class ProjectReportsController : AuthenticatedControllerBase
             ? Results.NotFound()
             : Results.Ok(WorkflowThroughputReportResponse.FromView(result.Resource!));
     }
+
+    [HttpGet("task-aging")]
+    [ProducesResponseType<TaskAgingReportResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public IResult GetTaskAging(
+        Guid projectId,
+        [FromQuery] int? todoThresholdDays,
+        [FromQuery] int? activeThresholdDays,
+        [FromQuery] int? reviewThresholdDays,
+        [FromServices] GetTaskAgingReportQueryService queryService)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var validationError = ValidateThreshold(todoThresholdDays, "todoThresholdDays")
+            ?? ValidateThreshold(activeThresholdDays, "activeThresholdDays")
+            ?? ValidateThreshold(reviewThresholdDays, "reviewThresholdDays");
+        if (validationError is not null)
+        {
+            return ValidationResults.FromError(validationError);
+        }
+
+        var result = queryService.Get(
+            currentUserId,
+            projectId,
+            new TaskAgingThresholdOverrides(todoThresholdDays, activeThresholdDays, reviewThresholdDays));
+
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
+        }
+
+        return result.NotFound
+            ? Results.NotFound()
+            : Results.Ok(TaskAgingReportResponse.FromView(result.Resource!));
+    }
+
+    private static ValidationError? ValidateThreshold(int? value, string fieldName)
+    {
+        if (value is not null && value.Value < 0)
+        {
+            return new ValidationError(fieldName, "停留閾值必須為 0 或正整數");
+        }
+
+        return null;
+    }
 }

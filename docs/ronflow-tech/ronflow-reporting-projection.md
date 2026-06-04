@@ -73,8 +73,8 @@ RonFlow 的 `WorkflowThroughputBuckets` 直接按 project、bucketType、bucketS
 ### 2. idempotency 目前仍是第一批版本
 目前 outbox message 會被標記 processed，projection bucket 也用固定 counter update。這足以支撐現在的單機流程，但若未來有重播、併發 consumer、跨程序重試，還需要更明確的去重策略。
 
-### 3. 報表範圍目前只落地第一張
-現在真正完整打通的是 `Workflow Throughput`。`Task Aging` 與 `Cycle Time / Lead Time` 已先進 spec 與 UI 入口，但仍是後續延伸。
+### 3. 報表範圍目前已落地兩張
+現在真正完整打通的是 `Workflow Throughput` 與 `Task Aging`。其中 `Workflow Throughput` 走的是 event-like source + outbox + background consumer + projection store；`Task Aging` 則直接利用既有 task activity timeline，在 query side 計算目前 state 的停留時間。`Cycle Time / Lead Time` 仍是後續延伸。
 
 ## RonFlow 裡是怎麼實作的
 ### 1. Command side 產生 projection source
@@ -119,20 +119,24 @@ SQLite 端新增了兩張 table：
 ### 5. Query side 透過專屬 reports controller 暴露
 這次新增的 API 入口是：
 - `GET /api/projects/{projectId}/reports/workflow-throughput?bucket=day|week`
+- `GET /api/projects/{projectId}/reports/task-aging?todoThresholdDays=7&activeThresholdDays=3&reviewThresholdDays=2`
 
 `ProjectReportsController` 會先做：
 - authenticated user 判斷
 - bucket 參數驗證
 - project access boundary 檢查
 
-接著交給 `GetWorkflowThroughputReportQueryService` 從 projection store 讀出 `WorkflowThroughputReportView`。
+接著交給對應 query service：
+- `GetWorkflowThroughputReportQueryService` 從 projection store 讀出 `WorkflowThroughputReportView`
+- `GetTaskAgingReportQueryService` 從 `ProjectBoardModel.Tasks[*].ActivityTimeline` 算出目前 state 的 entered time 與 aging item
 
-### 6. Frontend 以 Project Reports View 承接第一批報表
+### 6. Frontend 以 Project Reports View 承接目前兩張報表
 這次前端新增的是 project-level 的 `ProjectReportsView`：
 - 從 Project Board 點擊 `報表` 入口進入
 - 預設顯示 `工作流量`
 - 可切換 `day / week`
-- `Task Aging` 與 `Cycle Time / Lead Time` 先提供佔位與明確交付順序
+- `Task Aging` 可調整 Todo / Active / Review 閾值，並可直接從報表開啟 Task Detail Drawer
+- `Cycle Time / Lead Time` 目前仍保留佔位與明確交付順序
 
 另外，前端還補了一個很重要的細節：reports view 被納入 workspace polling。這是因為 projection 是背景更新，如果 reports page 不 refresh，就會讓使用者看到停在舊投影的畫面。
 
@@ -144,13 +148,15 @@ SQLite 端新增了兩張 table：
 - task 建立與完成後，daily bucket 會正確累積
 - task reopen 後，reopened counter 會遞增
 - weekly bucket 會把同週事件聚合起來
+- task aging 只會列出目前尚未完成的 task
+- task aging 會以目前 state 的 entered time，而不是 task created time，計算停留時間
 
 ### Frontend acceptance
 前端新增了兩支 E2E：
 - `project-reports.screen.acceptance.spec.ts`
 - `project-reports.behavior.acceptance.spec.ts`
 
-前者驗證從 Project Board 進入報表頁的 user-facing flow；後者驗證 task workflow 流轉後，工作流量報表真的會讀出正確統計。
+前者驗證從 Project Board 進入報表頁的 user-facing flow；後者驗證 task workflow 流轉後，工作流量報表真的會讀出正確統計，並驗證 Task Aging 可調整閾值、列出卡住 task、直接開啟 Task Detail Drawer。
 
 ### Localhost deploy verification
 這次也實際把變更部署到 localhost，確認：

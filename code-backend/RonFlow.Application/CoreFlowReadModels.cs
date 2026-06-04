@@ -194,7 +194,7 @@ internal static class CoreFlowReadModelFactory
         return new BoardTaskCardView(task.Id, task.Title);
     }
 
-    private static WorkflowStateView CreateWorkflowState(WorkflowStateModel workflowState)
+    internal static WorkflowStateView CreateWorkflowState(WorkflowStateModel workflowState)
     {
         return new WorkflowStateView(workflowState.Key, workflowState.Label, workflowState.IsInitialState, workflowState.IsCompletedState);
     }

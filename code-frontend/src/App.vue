@@ -132,11 +132,17 @@
             v-else-if="currentWorkspaceView === 'reports'"
             :active-project-name="activeProject?.name ?? null"
             :report="workflowThroughputReport"
+            :aging-report="taskAgingReport"
+            :aging-thresholds="taskAgingThresholds"
             :bucket-type="workflowThroughputBucket"
             :is-loading="isLoadingWorkflowThroughput"
+            :is-loading-aging="isLoadingTaskAging"
             :error-message="workflowThroughputError"
+            :aging-error-message="taskAgingError"
             @back-to-board="openBoardView"
             @change-bucket="loadWorkflowThroughputReport"
+            @change-task-aging-thresholds="loadTaskAgingReport"
+            @open-task-detail="onOpenTaskDetail"
           />
         </section>
       </AsyncStateBoundary>
@@ -231,6 +237,7 @@ import type { PasswordLoginInput, RegisterUserInput } from './api/ronauth'
 import type {
   ProjectCodeTraceabilityItemResponse,
   ProjectSubtaskTemplateResponse,
+  TaskAgingReportResponse,
   WorkflowThroughputReportResponse,
 } from './api/ronflowApi'
 import { ApiValidationError, activateRonFlowSession, releaseRonFlowProjectScope } from './api/ronflowApi'
@@ -267,6 +274,14 @@ const workflowThroughputReport = ref<WorkflowThroughputReportResponse | null>(nu
 const workflowThroughputBucket = ref<'day' | 'week'>('day')
 const isLoadingWorkflowThroughput = ref(false)
 const workflowThroughputError = ref('')
+const taskAgingReport = ref<TaskAgingReportResponse | null>(null)
+const taskAgingThresholds = ref({
+  todoThresholdDays: 7,
+  activeThresholdDays: 3,
+  reviewThresholdDays: 2,
+})
+const isLoadingTaskAging = ref(false)
+const taskAgingError = ref('')
 
 const projectQueryService = new ProjectQueryService()
 const projectCommandService = new ProjectCommandService()
@@ -403,6 +418,7 @@ async function pollWorkspace() {
 
     if (currentWorkspaceView.value === 'reports') {
       await loadWorkflowThroughputReport(workflowThroughputBucket.value, true)
+      await loadTaskAgingReport(taskAgingThresholds.value, true)
     }
 
     await refreshInvitationInboxCount()
@@ -523,7 +539,10 @@ async function openReportsView() {
   }
 
   currentWorkspaceView.value = 'reports'
-  await loadWorkflowThroughputReport(workflowThroughputBucket.value)
+  await Promise.all([
+    loadWorkflowThroughputReport(workflowThroughputBucket.value),
+    loadTaskAgingReport(taskAgingThresholds.value),
+  ])
 }
 
 async function loadWorkflowThroughputReport(bucket: 'day' | 'week', silent = false) {
@@ -546,6 +565,33 @@ async function loadWorkflowThroughputReport(bucket: 'day' | 'week', silent = fal
   } finally {
     if (!silent) {
       isLoadingWorkflowThroughput.value = false
+    }
+  }
+}
+
+async function loadTaskAgingReport(
+  thresholds: { todoThresholdDays: number; activeThresholdDays: number; reviewThresholdDays: number },
+  silent = false,
+) {
+  if (!activeProjectId.value) {
+    return
+  }
+
+  taskAgingThresholds.value = { ...thresholds }
+
+  if (!silent) {
+    isLoadingTaskAging.value = true
+  }
+
+  taskAgingError.value = ''
+
+  try {
+    taskAgingReport.value = await projectQueryService.getTaskAging(activeProjectId.value, taskAgingThresholds.value)
+  } catch {
+    taskAgingError.value = '無法載入任務停留報表，請稍後再試。'
+  } finally {
+    if (!silent) {
+      isLoadingTaskAging.value = false
     }
   }
 }

@@ -496,3 +496,48 @@ public sealed record WorkflowThroughputReportResponse(
             view.Buckets.Select(WorkflowThroughputBucketResponse.FromView).ToArray());
     }
 }
+
+public sealed record TaskAgingStateThresholdResponse(
+    string StateKey,
+    string StateLabel,
+    int ThresholdDays)
+{
+    public static TaskAgingStateThresholdResponse FromView(TaskAgingStateThresholdView view)
+    {
+        return new(view.StateKey, view.StateLabel, view.ThresholdDays);
+    }
+}
+
+public sealed record TaskAgingTaskItemResponse(
+    Guid TaskId,
+    string Title,
+    WorkflowStateResponse CurrentState,
+    DateTimeOffset EnteredStateAt,
+    int AgingDays)
+{
+    public static TaskAgingTaskItemResponse FromView(TaskAgingTaskItemView view)
+    {
+        return new(
+            view.TaskId,
+            view.Title,
+            WorkflowStateResponse.FromView(view.CurrentState),
+            view.EnteredStateAt,
+            view.AgingDays);
+    }
+}
+
+public sealed record TaskAgingReportResponse(
+    Guid ProjectId,
+    DateTimeOffset LastUpdatedAt,
+    IReadOnlyList<TaskAgingStateThresholdResponse> Thresholds,
+    IReadOnlyList<TaskAgingTaskItemResponse> Items)
+{
+    public static TaskAgingReportResponse FromView(TaskAgingReportView view)
+    {
+        return new(
+            view.ProjectId,
+            view.LastUpdatedAt,
+            view.Thresholds.Select(TaskAgingStateThresholdResponse.FromView).ToArray(),
+            view.Items.Select(TaskAgingTaskItemResponse.FromView).ToArray());
+    }
+}

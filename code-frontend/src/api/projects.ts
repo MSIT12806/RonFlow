@@ -8,6 +8,7 @@ import type {
   ProjectMembersResponse,
   ProjectSubtaskTemplateListResponse,
   ProjectResponse,
+  TaskAgingReportResponse,
   WorkflowThroughputReportResponse,
 } from './types'
 
@@ -32,6 +33,20 @@ export async function getProjectCodeTraceability(projectId: string) {
 
 export async function getWorkflowThroughputReport(projectId: string, bucket: 'day' | 'week' = 'day') {
   return request<WorkflowThroughputReportResponse>(apiPath(`/projects/${projectId}/reports/workflow-throughput?bucket=${bucket}`))
+}
+
+export async function getTaskAgingReport(projectId: string, thresholds: {
+  todoThresholdDays: number
+  activeThresholdDays: number
+  reviewThresholdDays: number
+}) {
+  const query = new URLSearchParams({
+    todoThresholdDays: `${thresholds.todoThresholdDays}`,
+    activeThresholdDays: `${thresholds.activeThresholdDays}`,
+    reviewThresholdDays: `${thresholds.reviewThresholdDays}`,
+  })
+
+  return request<TaskAgingReportResponse>(apiPath(`/projects/${projectId}/reports/task-aging?${query.toString()}`))
 }
 
 export async function getProjectSubtaskTemplates(projectId: string) {

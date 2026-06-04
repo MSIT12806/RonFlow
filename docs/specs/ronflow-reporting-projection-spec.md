@@ -22,8 +22,10 @@
 1. API integration tests：`ReportingProjectionApiIntegrationTests`，驗證 workflow throughput 報表的 daily / weekly bucket、completed / reopened 統計。
 2. frontend screen acceptance tests：`project-reports.screen.acceptance.spec.ts`，驗證使用者可從 Project Kanban Board 進入報表畫面。
 3. frontend behavior acceptance tests：`project-reports.behavior.acceptance.spec.ts`，驗證 task workflow 流轉後，工作流量報表會顯示對應統計。
+4. API integration tests：`ReportingProjectionApiIntegrationTests`，也應承接 Task Aging 報表的 threshold 過濾與 open task 規則。
+5. frontend behavior acceptance tests：`project-reports.behavior.acceptance.spec.ts`，也應承接 Task Aging 報表的 threshold 調整與從報表開啟 Task Detail Drawer。
 
-這份對照是第一批入口，不代表 coverage 已完整。實際評估進度時，仍應逐段比對 spec、acceptance tests 與實作是否一一承接，尤其是 Task Aging 與 Cycle Time / Lead Time 仍待後續補齊。
+這份對照是目前入口，不代表 coverage 已完整。實際評估進度時，仍應逐段比對 spec、acceptance tests 與實作是否一一承接，尤其是 Cycle Time / Lead Time 仍待後續補齊。
 
 ---
 
@@ -52,7 +54,8 @@ RonFlow 目前規劃的核心報表為：
 
 ```text
 1. 先提供 Workflow Throughput 報表
-2. Task Aging 報表與 Cycle Time / Lead Time 報表先寫入規格，作為後續延伸
+2. 接著提供 Task Aging 報表
+3. Cycle Time / Lead Time 報表保留為後續延伸
 ```
 
 ---
@@ -80,7 +83,7 @@ RonFlow 目前規劃的核心報表為：
 4. 使用者可以調整報表條件，例如時間粒度、日期範圍或閾值條件。
 5. 使用者可以從報表內容回到 Task 或 Project 的既有工作畫面。
 6. 報表畫面應遵守 Project 權限邊界。
-7. 第一批至少要讓使用者可在畫面中查看 Workflow Throughput 報表。
+7. 目前至少要讓使用者可在畫面中查看 Workflow Throughput 與 Task Aging 報表。
 ```
 
 ### 4.1 資料邊界前提
@@ -388,7 +391,8 @@ flowchart TD
 ```text
 1. 先讓使用者可從 Project Kanban Board 進入 Reports View。
 2. 先完成 Workflow Throughput 報表。
-3. Task Aging 與 Cycle Time / Lead Time 先保留在 spec，待後續版本承接。
+3. 接著完成 Task Aging 報表。
+4. Cycle Time / Lead Time 先保留在 spec，待後續版本承接。
 ```
 
-這代表第一批完成後，使用者至少應能進入報表畫面並查看 Workflow Throughput；其餘兩張報表可先保留入口、占位或規劃位置，但不要求同批完成所有統計內容。
+這代表目前版本完成後，使用者至少應能進入報表畫面並查看 Workflow Throughput 與 Task Aging；Cycle Time / Lead Time 仍可先保留入口、占位或規劃位置，但不要求同批完成所有統計內容。

@@ -5,6 +5,7 @@ import {
   getProjectInvitations,
   getProjectMembers,
   getProjectSubtaskTemplates,
+  getTaskAgingReport,
   getWorkflowThroughputReport,
   getProjects,
   type ProjectBoardResponse,
@@ -13,6 +14,7 @@ import {
   type ProjectListResponse,
   type ProjectMembersResponse,
   type ProjectSubtaskTemplateListResponse,
+  type TaskAgingReportResponse,
   type WorkflowThroughputReportResponse,
 } from '../api/ronflowApi'
 
@@ -31,6 +33,14 @@ export class ProjectQueryService {
 
   async getWorkflowThroughput(projectId: string, bucket: 'day' | 'week'): Promise<WorkflowThroughputReportResponse> {
     return getWorkflowThroughputReport(projectId, bucket)
+  }
+
+  async getTaskAging(projectId: string, thresholds: {
+    todoThresholdDays: number
+    activeThresholdDays: number
+    reviewThresholdDays: number
+  }): Promise<TaskAgingReportResponse> {
+    return getTaskAgingReport(projectId, thresholds)
   }
 
   async getSubtaskTemplates(projectId: string): Promise<ProjectSubtaskTemplateListResponse> {

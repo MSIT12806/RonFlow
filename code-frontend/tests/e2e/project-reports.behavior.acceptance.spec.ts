@@ -25,4 +25,22 @@ test.describe('RonFlow UI/UX 驗收規格 - Project Reports Behavior', () => {
     await expect(bucket.getByTestId('throughput-completed-count')).toHaveText('1')
     await expect(bucket.getByTestId('throughput-reopened-count')).toHaveText('0')
   })
+
+  test('使用者可以在任務停留報表調整閾值並直接開啟 Task Detail Drawer', async ({ page }, testInfo) => {
+    const { projectName, taskTitle } = createScenarioData(testInfo)
+
+    await setupTaskBoard(page, projectName, taskTitle)
+    await openProjectReportsView(page)
+
+    await page.getByRole('button', { name: '任務停留', exact: true }).click()
+    await page.getByLabel('Todo 閾值（天）').fill('0')
+
+    const agingItem = page.getByTestId('task-aging-item').filter({ hasText: taskTitle }).first()
+    await expect(agingItem).toBeVisible()
+    await expect(agingItem).toContainText('待處理')
+
+    await agingItem.click()
+    await expect(page.getByRole('dialog', { name: '任務詳細資訊' })).toBeVisible()
+    await expect(page.getByRole('dialog', { name: '任務詳細資訊' })).toContainText(taskTitle)
+  })
 })
