@@ -503,6 +503,18 @@ RonFlow AI Glossary v1
 2. AI 應能從 manifest 知道某能力是否需要 active scope 與額外前置條件。
 3. manifest 以穩定識別方式列出每個 capability。
 4. 若某能力暫時停用，manifest 應能明確表達其不可用狀態。
+5. manifest 與 summaries 必須保留 text/plain 版本，並在 `?format=json` 或 `Accept: application/json` 時提供 machine-readable JSON。
+6. structured capabilities manifest 必須揭露 operation、targetType、requiredFields、optionalFields、activeScopeRequired 與 exampleRequest。
+```
+
+**Machine-readable JSON Contract**
+
+```text
+1. `GET /api/ai/capabilities?format=json` 回應 application/json。
+2. JSON manifest 必須包含 `version`、`scopeActivationContract`、`writeRequestContract` 與 `capabilities`。
+3. write capability item 必須包含 `operation`、`targetType`、`activeScopeRequired`、`requiredFields`、`optionalFields`、`applyEndpoint` 與 `exampleRequest`。
+4. summary endpoints 使用 `?format=json` 時必須包含 `version`、`canonicalEndpoint` 與該 summary 的 machine-readable payload。
+5. text/plain contract 與 JSON contract 的 capability / field 語意不得互相矛盾。
 ```
 
 **Canonical Text Contract**
@@ -625,11 +637,11 @@ write_request_contract:
 	category: write
 	active_scope_required: yes
 	required_inputs: taskId
-	optional_inputs: title, description, dueDate
+	optional_inputs: title, description, dueDate, codeTraceability
 	apply_endpoint: POST /api/ai/apply
 	required_fields_path: requiredFields.taskId
-	optional_fields_path: optionalFields.title, optionalFields.description, optionalFields.dueDate
-	apply_request_example: {"operation":"update_task_detail","targetType":"task","targetId":"<task-id>","requiredFields":{"taskId":"<task-id>"},"optionalFields":{"title":"<new-title>"},"note":"update task detail"}
+	optional_fields_path: optionalFields.title, optionalFields.description, optionalFields.dueDate, optionalFields.codeTraceability
+	apply_request_example: {"operation":"update_task_detail","targetType":"task","targetId":"<task-id>","requiredFields":{"taskId":"<task-id>"},"optionalFields":{"title":"<new-title>","codeTraceability":{"api":[{"changeType":"modified","target":"GET /api/ai/capabilities"}],"frontendPages":[],"frontendComponents":[]}},"note":"update task detail"}
 
 - capability: move_task_state
 	category: write
@@ -679,13 +691,15 @@ write_request_contract:
 2. 每個 capability 區塊必須至少包含 `capability`、`category`、`active_scope_required`、`required_inputs` 四個 label。
 3. manifest 必須完整列出目前支援的 Project / Task read / write capabilities。
 4. `create_task` 的 `required_inputs` 必須至少包含 `projectId, title`。
-5. `update_task_detail` 必須將 `title, description, dueDate` 列為 optional_inputs。
+5. `update_task_detail` 必須將 `title, description, dueDate, codeTraceability` 列為 optional_inputs。
 6. manifest 必須說明 `POST /api/ai/apply` 的 body shape，且 required inputs 必須放在 `requiredFields.<inputName>`。
 7. 每個 read capability 必須揭露 canonical `read_endpoint` 或 endpoint template。
 8. 對需要 path params 的 read capability，manifest 必須揭露 `route_params` 與 `route_param_sources`。
 9. invitation 相關 capabilities 必須列出 invitation inbox read endpoint 與 accept / reject apply request example。
 10. manifest 必須明確揭露 `POST /api/ai/active-scope` 的 endpoint、body shape、成功狀態與 recovery path。
 11. `create_task` 這類常用 write capability 必須提供 canonical apply request example。
+12. `GET /api/ai/capabilities?format=json` 必須回傳 structured manifest。
+13. `update_task_detail` 的 structured capability 必須包含 `optionalFields.codeTraceability` 的 example request。
 ```
 
 **Testability**
@@ -819,8 +833,9 @@ Feature: Session and scope awareness
 1. Project List summary 會提供目前 actor 可存取的 Project 與其基本狀態。
 2. Project board summary 會提供 workflow columns、open tasks、in-progress tasks、blocked tasks 與最近活動摘要。
 3. task summary 會提供目前狀態、最近活動與目前可承接的下一步操作。
-4. task detail summary 會提供 title、description、due date、current state、lifecycle state、subtasks、recent activities 與 reminder 摘要。
+4. task detail summary 會提供 title、description、due date、current state、lifecycle state、code traceability summary、subtasks、recent activities 與 reminder 摘要。
 5. 若查詢需要 active scope，系統會先驗證 scope，再回傳 summary。
+6. summary endpoints 必須可透過 `?format=json` 或 `Accept: application/json` 回傳 machine-readable payload。
 ```
 
 **Canonical Text Contract**
@@ -903,6 +918,18 @@ due_date: <yyyy-mm-dd or none>
 workflow_state_key: <state-key>
 workflow_state_name: <state-name>
 lifecycle_state: active
+code_traceability_summary:
+- category: api
+	item_count: <count>
+	targets:
+	- change_type: added|modified|removed
+		target: <api endpoint or handler>
+- category: frontendPages
+	item_count: <count>
+	targets:
+- category: frontendComponents
+	item_count: <count>
+	targets:
 subtasks:
 - subtask_id: <subtask-id>
 	title: <subtask-title>
@@ -943,6 +970,8 @@ next_actions:
 9. Task Detail summary 必須完整包含 `task_id`、`title`、`description`、`due_date`、`workflow_state_key`、`workflow_state_name`、`lifecycle_state`。
 10. 若 task 有 checklist，Task Detail summary 必須包含 `subtasks:` 區塊，且每個 subtask 至少列出 `subtask_id`、`title`、`is_checked`、`order`。
 11. Task Detail summary 必須包含 `recent_activities:` 與 `next_actions:` 區塊。
+12. Task Detail summary 必須包含 `code_traceability_summary:`，且至少列出 api、frontendPages、frontendComponents 的 `item_count` 與 target 摘要。
+13. JSON summary 必須包含 `version`、`canonicalEndpoint` 與可直接消費的 id / count / nextActions 欄位。
 ```
 
 **Testability**

@@ -14,56 +14,57 @@ namespace RonFlow.Api.Controllers;
 public sealed class AiInteractionController : AuthenticatedControllerBase
 {
     [HttpGet("bootstrap")]
-    [Produces("text/plain")]
-    public IResult GetBootstrap()
+    [Produces("text/plain", "application/json")]
+    public IResult GetBootstrap([FromQuery] string? format = null)
     {
         if (!TryGetCurrentUserId(out _))
         {
             return Results.Unauthorized();
         }
 
-        return PlainText(AiTextContractFormatter.Bootstrap());
+        return ContractResponse(AiTextContractFormatter.Bootstrap(), AiJsonContractFormatter.Bootstrap(), format);
     }
 
     [HttpGet("glossary")]
-    [Produces("text/plain")]
-    public IResult GetGlossary()
+    [Produces("text/plain", "application/json")]
+    public IResult GetGlossary([FromQuery] string? format = null)
     {
         if (!TryGetCurrentUserId(out _))
         {
             return Results.Unauthorized();
         }
 
-        return PlainText(AiTextContractFormatter.Glossary());
+        return ContractResponse(AiTextContractFormatter.Glossary(), AiJsonContractFormatter.Glossary(), format);
     }
 
     [HttpGet("capabilities")]
-    [Produces("text/plain")]
-    public IResult GetCapabilities()
+    [Produces("text/plain", "application/json")]
+    public IResult GetCapabilities([FromQuery] string? format = null)
     {
         if (!TryGetCurrentUserId(out _))
         {
             return Results.Unauthorized();
         }
 
-        return PlainText(AiTextContractFormatter.CapabilitiesManifest());
+        return ContractResponse(AiTextContractFormatter.CapabilitiesManifest(), AiJsonContractFormatter.CapabilitiesManifest(), format);
     }
 
     [HttpGet("workflow-guidance")]
-    [Produces("text/plain")]
-    public IResult GetWorkflowGuidance()
+    [Produces("text/plain", "application/json")]
+    public IResult GetWorkflowGuidance([FromQuery] string? format = null)
     {
         if (!TryGetCurrentUserId(out _))
         {
             return Results.Unauthorized();
         }
 
-        return PlainText(AiTextContractFormatter.WorkflowGuidance());
+        return ContractResponse(AiTextContractFormatter.WorkflowGuidance(), AiJsonContractFormatter.WorkflowGuidance(), format);
     }
 
     [HttpGet("session-summary")]
-    [Produces("text/plain")]
+    [Produces("text/plain", "application/json")]
     public IResult GetSessionSummary(
+        [FromQuery] string? format,
         [FromServices] GetProjectsQueryService getProjectsQueryService,
         [FromServices] ProjectPresenceRegistry projectPresenceRegistry)
     {
@@ -79,12 +80,16 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
             ? projectPresenceRegistry.GetActiveProjectScope(sessionId)
             : null;
 
-        return PlainText(AiTextContractFormatter.SessionSummary(currentUserName, activeScope, availableScopes));
+        return ContractResponse(
+            AiTextContractFormatter.SessionSummary(currentUserName, activeScope, availableScopes),
+            AiJsonContractFormatter.SessionSummary(currentUserName, activeScope, availableScopes),
+            format);
     }
 
     [HttpGet("projects/summary")]
-    [Produces("text/plain")]
+    [Produces("text/plain", "application/json")]
     public IResult GetProjectListSummary(
+        [FromQuery] string? format,
         [FromServices] GetProjectsQueryService getProjectsQueryService,
         [FromServices] GetProjectBoardQueryService getProjectBoardQueryService)
     {
@@ -95,27 +100,38 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
 
         var projects = getProjectsQueryService.Get(currentUserId);
 
-        return PlainText(AiTextContractFormatter.ProjectListSummary(
-            projects,
-            projectId => CountOpenTasks(getProjectBoardQueryService.Get(projectId))));
+        int OpenTaskCount(Guid projectId) => CountOpenTasks(getProjectBoardQueryService.Get(projectId));
+
+        return ContractResponse(
+            AiTextContractFormatter.ProjectListSummary(projects, OpenTaskCount),
+            AiJsonContractFormatter.ProjectListSummary(projects, OpenTaskCount),
+            format);
     }
 
     [HttpGet("invitations/summary")]
-    [Produces("text/plain")]
-    public IResult GetInvitationInboxSummary([FromServices] ProjectCollaborationQueryService queryService)
+    [Produces("text/plain", "application/json")]
+    public IResult GetInvitationInboxSummary(
+        [FromQuery] string? format,
+        [FromServices] ProjectCollaborationQueryService queryService)
     {
         if (!TryGetCurrentUserEmail(out var currentUserEmail))
         {
             return Results.Unauthorized();
         }
 
-        return PlainText(AiTextContractFormatter.InvitationInboxSummary(queryService.GetInvitationInbox(currentUserEmail)));
+        var inbox = queryService.GetInvitationInbox(currentUserEmail);
+
+        return ContractResponse(
+            AiTextContractFormatter.InvitationInboxSummary(inbox),
+            AiJsonContractFormatter.InvitationInboxSummary(inbox),
+            format);
     }
 
     [HttpGet("projects/{projectId:guid}/board-summary")]
-    [Produces("text/plain")]
+    [Produces("text/plain", "application/json")]
     public IResult GetProjectBoardSummary(
         Guid projectId,
+        [FromQuery] string? format,
         [FromServices] IGetProjectBoardQueryService getProjectBoardQueryService)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
@@ -134,13 +150,17 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
             return ErrorText(StatusCodes.Status404NotFound, "ResourceNotFound", "Read project list summary again and pick an existing project.");
         }
 
-        return PlainText(AiTextContractFormatter.ProjectBoardSummary(result.Resource!));
+        return ContractResponse(
+            AiTextContractFormatter.ProjectBoardSummary(result.Resource!),
+            AiJsonContractFormatter.ProjectBoardSummary(result.Resource!),
+            format);
     }
 
     [HttpGet("projects/{projectId:guid}/current-work-summary")]
-    [Produces("text/plain")]
+    [Produces("text/plain", "application/json")]
     public IResult GetCurrentWorkSummary(
         Guid projectId,
+        [FromQuery] string? format,
         [FromServices] IGetProjectBoardQueryService getProjectBoardQueryService)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
@@ -159,14 +179,18 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
             return ErrorText(StatusCodes.Status404NotFound, "ResourceNotFound", "Read project list summary again and pick an existing project.");
         }
 
-        return PlainText(AiTextContractFormatter.CurrentWorkSummary(result.Resource!));
+        return ContractResponse(
+            AiTextContractFormatter.CurrentWorkSummary(result.Resource!),
+            AiJsonContractFormatter.CurrentWorkSummary(result.Resource!),
+            format);
     }
 
     [HttpGet("projects/{projectId:guid}/tasks/{taskId:guid}/detail-summary")]
-    [Produces("text/plain")]
+    [Produces("text/plain", "application/json")]
     public IResult GetTaskDetailSummary(
         Guid projectId,
         Guid taskId,
+        [FromQuery] string? format,
         [FromServices] GetTaskDetailQueryService getTaskDetailQueryService)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
@@ -185,7 +209,10 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
             return ErrorText(StatusCodes.Status404NotFound, "ResourceNotFound", "Read project board summary again and pick an existing task.");
         }
 
-        return PlainText(AiTextContractFormatter.TaskDetailSummary(result.Resource!));
+        return ContractResponse(
+            AiTextContractFormatter.TaskDetailSummary(result.Resource!),
+            AiJsonContractFormatter.TaskDetailSummary(result.Resource!),
+            format);
     }
 
     [HttpPost("active-scope")]
@@ -580,9 +607,16 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
             var title = GetOptionalString(optionalFields, "title") ?? task.Title;
             var description = GetOptionalString(optionalFields, "description") ?? task.Description;
             var dueDate = GetOptionalDateOnly(optionalFields, "dueDate") ?? task.DueDate;
-            var changedFields = GetChangedFields(task, optionalFields);
+            var codeTraceability = GetOptionalCodeTraceability(optionalFields, out var validationError);
+            if (validationError is not null)
+            {
+                return ValidationFailed($"optionalFields.{validationError.Field}", validationError.Message);
+            }
 
-            var result = updateTaskCommandService.Update(currentUserId, task.ProjectId, taskId.Value, title, description, dueDate, null);
+            var changedFields = GetChangedFields(task, optionalFields);
+            var beforeTaskDetail = TaskDetailSnapshot.FromTask(task);
+
+            var result = updateTaskCommandService.Update(currentUserId, task.ProjectId, taskId.Value, title, description, dueDate, codeTraceability);
             if (result.ValidationError is not null)
             {
                 return ValidationFailed(result.ValidationError.Field, result.ValidationError.Message);
@@ -604,7 +638,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
             }
 
             var updatedTask = result.Task!;
-            var actualDiff = BuildTaskDetailDiff(task, updatedTask, changedFields);
+            var actualDiff = BuildTaskDetailDiff(beforeTaskDetail, updatedTask, changedFields);
             var auditEntryId = aiAuditRegistry.Record(currentUserName, targetType, updatedTask.Id.ToString(), "update_task_detail", "success", actualDiff);
 
             return PlainText(AiTextContractFormatter.ApplyResult("update_task_detail", targetType, updatedTask.Id.ToString(), changedFields, auditEntryId));
@@ -998,6 +1032,22 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
             : null;
     }
 
+    private static TaskCodeTraceability? GetOptionalCodeTraceability(
+        IReadOnlyDictionary<string, JsonElement> fields,
+        out ValidationError? validationError)
+    {
+        validationError = null;
+
+        if (!fields.TryGetValue("codeTraceability", out var value))
+        {
+            return null;
+        }
+
+        return TaskCodeTraceabilityMapper.TryMap(value, out var codeTraceability, out validationError)
+            ? codeTraceability
+            : null;
+    }
+
     private static IReadOnlyList<string> GetChangedFields(RonFlow.Domain.Task task, IReadOnlyDictionary<string, JsonElement> optionalFields)
     {
         var changedFields = new List<string>();
@@ -1017,10 +1067,31 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
             changedFields.Add("dueDate");
         }
 
+        if (optionalFields.ContainsKey("codeTraceability"))
+        {
+            changedFields.Add("codeTraceability");
+        }
+
         return changedFields.Count == 0 ? ["title"] : changedFields;
     }
 
-    private static IReadOnlyList<string> BuildTaskDetailDiff(RonFlow.Domain.Task task, CreateTaskOutput updatedTask, IReadOnlyList<string> changedFields)
+    private sealed record TaskDetailSnapshot(
+        string Title,
+        string Description,
+        DateOnly? DueDate,
+        string CodeTraceabilitySummary)
+    {
+        public static TaskDetailSnapshot FromTask(RonFlow.Domain.Task task)
+        {
+            return new(
+                task.Title,
+                task.Description,
+                task.DueDate,
+                DescribeTraceability(task.CodeTraceability.ToModel()));
+        }
+    }
+
+    private static IReadOnlyList<string> BuildTaskDetailDiff(TaskDetailSnapshot task, CreateTaskOutput updatedTask, IReadOnlyList<string> changedFields)
     {
         var diff = new List<string>();
 
@@ -1037,10 +1108,23 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
                 case "dueDate":
                     diff.Add($"dueDate: {(task.DueDate.HasValue ? task.DueDate.Value.ToString("yyyy-MM-dd") : "none")} -> {(updatedTask.DueDate.HasValue ? updatedTask.DueDate.Value.ToString("yyyy-MM-dd") : "none")}");
                     break;
+                case "codeTraceability":
+                    diff.Add($"codeTraceability: {task.CodeTraceabilitySummary} -> {DescribeTraceabilityOutput(updatedTask.CodeTraceability)}");
+                    break;
             }
         }
 
         return diff;
+    }
+
+    private static string DescribeTraceability(TaskCodeTraceabilityModel codeTraceability)
+    {
+        return $"api:{codeTraceability.Api.Count}, frontendPages:{codeTraceability.FrontendPages.Count}, frontendComponents:{codeTraceability.FrontendComponents.Count}";
+    }
+
+    private static string DescribeTraceabilityOutput(TaskCodeTraceabilityOutput codeTraceability)
+    {
+        return $"api:{codeTraceability.Api.Count}, frontendPages:{codeTraceability.FrontendPages.Count}, frontendComponents:{codeTraceability.FrontendComponents.Count}";
     }
 
     private static IReadOnlyList<string> GetTaskSubtaskChangedFields(RonFlow.Domain.Task task, CreateTaskOutput updatedTask, Guid subtaskId)
@@ -1098,6 +1182,25 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
     private static IResult PlainText(string content)
     {
         return Results.Text(content, "text/plain; charset=utf-8");
+    }
+
+    private IResult ContractResponse(string textContent, object jsonContent, string? format)
+    {
+        return WantsJson(format)
+            ? Results.Json(jsonContent)
+            : PlainText(textContent);
+    }
+
+    private bool WantsJson(string? format)
+    {
+        if (string.Equals(format, "json", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return Request.Headers.Accept
+            .ToString()
+            .Contains("application/json", StringComparison.OrdinalIgnoreCase);
     }
 
     private static IResult ErrorText(int statusCode, string errorCode, string recoveryHint, string? explicitMessage = null)

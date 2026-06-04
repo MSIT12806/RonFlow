@@ -113,7 +113,8 @@ RonFlow v0.3 baseline 已經可以讓 AI 透過正式 surface 完成主要工作
 1. `AiAuditRegistry` 目前偏向 runtime-level registry；若未來需要跨 session、跨部署、跨版本長期追查 AI 操作，可推進為持久化、可查詢、可保留的 audit read model。
 2. 已用新的 VS Code session 驗證 AI 能從 bootstrap / summary / apply / audit 順利完成任務；若未來要降低 contract 演進風險，可以把這種人工驗證整理成可重跑的 smoke test 或 evaluation scenario。
 3. AI surface 目前可操作 task checklist；project-level DoD template 維護可先保留給人類工程師，讓 AI 負責執行單張 task 的 checklist，這是合理分工，不必急著擴成 AI 專用管理 contract。
-4. `update_task_detail` 的 AI apply contract 目前涵蓋 title、description、due date；其他結構化欄位可依實際需求再評估是否納入 AI surface。
+4. `update_task_detail` 的 AI apply contract 目前涵蓋 title、description、due date 與 codeTraceability；AI 可在完成任務時一併更新程式修改紀錄，並由 apply result / audit entry 回報 `codeTraceability` changed field。
+5. bootstrap、manifest 與 summaries 保留 text/plain contract；需要穩定機器讀取時，可使用 `?format=json` 或 `Accept: application/json` 取得 structured JSON contract。
 
 ## 用 Mermaid 看 RonFlow 的 AI interaction loop
 ```mermaid
