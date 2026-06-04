@@ -7,9 +7,10 @@ RonFlow 是一個以 C# 與 ASP.NET Core 為核心的小型專案管理工具。
 若是第一次進入這個專案，建議固定依照下面順序閱讀：
 
 1. 先看這份 README，理解專案定位、開發流程與啟動方式。
-2. 再看 [docs/specs/ronflow-core-flow-spec.md](docs/specs/ronflow-core-flow-spec.md)，這是目前 RonFlow 行為的 living spec。
-3. 接著看對應的 [code-frontend/tests/e2e](code-frontend/tests/e2e) 驗收測試，確認 spec 哪些已被 acceptance tests 承接、哪些還沒有。
-4. 最後再進入對應的 production code，比對前端畫面、API、application service 與 domain model 是否已經完整落地。
+2. 若你是要接入 RonFlow 的 AI agent，接著看 [docs/RonflowSkills.md](docs/RonflowSkills.md)，取得本地登入入口與 AI bootstrap 起點。
+3. 再看 [docs/specs/ronflow-core-flow-spec.md](docs/specs/ronflow-core-flow-spec.md)，這是目前 RonFlow 行為的 living spec。
+4. 接著看對應的 [code-frontend/tests/e2e](code-frontend/tests/e2e) 驗收測試，確認 spec 哪些已被 acceptance tests 承接、哪些還沒有。
+5. 最後再進入對應的 production code，比對前端畫面、API、application service 與 domain model 是否已經完整落地。
 
 建議工作順序也是同一條鏈：spec -> acceptance tests -> production code，而不是直接從程式碼反推需求。
 
@@ -18,6 +19,7 @@ RonFlow 是一個以 C# 與 ASP.NET Core 為核心的小型專案管理工具。
 以下文件可視為目前較可信的入口與定位方式：
 
 - Canonical product behavior： [docs/specs/ronflow-core-flow-spec.md](docs/specs/ronflow-core-flow-spec.md)
+- AI agent bootstrap entry： [docs/RonflowSkills.md](docs/RonflowSkills.md)
 - Canonical technical explanations： [docs/specs/Wish-願望清單.md](docs/specs/Wish-%E9%A1%98%E6%9C%9B%E6%B8%85%E5%96%AE.md)、[docs/ronflow-tech](docs/ronflow-tech)
 
 若文件之間出現衝突，優先以 active spec 與目前 acceptance tests 為準；devlog 與歷史文件主要用來理解設計思路，不應直接視為目前行為真相。
@@ -26,12 +28,15 @@ RonFlow 是一個以 C# 與 ASP.NET Core 為核心的小型專案管理工具。
 
 RonFlow 採用 spec-first 的開發流程。
 
-1. 團隊決議要增加或修改系統功能時，先修改 spec 文件，明確描述系統應該如何運作。
-2. 接著撰寫驗收測試，以驗收測試對齊 spec 文件。
-3. 之後採用 ATDD 方式開發，先讓驗收測試逐步通過，再完成所有 production code。
-4. 開發與重構期間，程式碼必須持續對齊 spec，而不是反過來把 spec 當成目前程式碼行為的翻譯。
+本專案的日常開發也依賴 RonFlow 本身的專案管理流程。不論是規格調整、功能增修或 Bug 修復，都應先在 RonFlow 中建立對應 task，再依照該 task 內定義的完成步驟往下執行。
 
-這個專案以 spec 作為「系統應該要如何」的指引；預期工作方式是先改 spec，再讓測試與程式碼對齊 spec。
+1. 團隊決議要增加或修改系統功能時，先在 RonFlow 建立對應 task，並確認 task 內的完成步驟與追蹤資訊。
+2. 接著修改 spec 文件，明確描述系統應該如何運作。
+3. 再撰寫驗收測試，以驗收測試對齊 spec 文件。
+4. 之後採用 ATDD 方式開發，先讓驗收測試逐步通過，再完成所有 production code。
+5. 開發與重構期間，程式碼必須持續對齊 spec 與 task 定義的完成順序，而不是反過來把 spec 當成目前程式碼行為的翻譯。
+
+這個專案以 spec 作為「系統應該要如何」的指引，也以 RonFlow task 作為工作編排與追蹤入口；預期工作方式是先開 task、再改 spec，最後讓測試與程式碼對齊 spec。
 
 ## 技術棧
 
