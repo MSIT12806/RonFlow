@@ -1,5 +1,6 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using RonFlow.Application;
 using RonFlow.Api.Contracts;
 
@@ -84,6 +85,8 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("- capability: create_task"));
         Assert.That(payload, Does.Contain("required_fields_path: requiredFields.projectId, requiredFields.title"));
         Assert.That(payload, Does.Contain("\"operation\":\"create_task\""));
+        Assert.That(payload, Does.Contain("optional_inputs: title, description, dueDate, codeTraceability"));
+        Assert.That(payload, Does.Contain("optionalFields.codeTraceability"));
         Assert.That(payload, Does.Contain("- capability: invite_project_member"));
         Assert.That(payload, Does.Contain("- capability: accept_project_invitation"));
         Assert.That(payload, Does.Contain("required_fields_path: requiredFields.invitationId"));
@@ -94,6 +97,34 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("- capability: uncheck_task_subtask"));
         Assert.That(payload, Does.Contain("active_scope_required: yes"));
         Assert.That(payload, Does.Contain("required_inputs: projectId, title"));
+    }
+
+    [Test]
+    public async Task GetCapabilities_WhenJsonFormatIsRequested_ReturnsStructuredManifest()
+    {
+        var response = await Client.GetAsync("/api/ai/capabilities?format=json");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(response.Content.Headers.ContentType?.MediaType, Is.EqualTo("application/json"));
+
+        await using var stream = await response.Content.ReadAsStreamAsync();
+        using var document = await JsonDocument.ParseAsync(stream);
+        var root = document.RootElement;
+
+        Assert.That(root.GetProperty("version").GetString(), Is.EqualTo("RonFlow Capabilities Manifest v1"));
+        Assert.That(root.GetProperty("scopeActivationContract").GetProperty("endpoint").GetString(), Is.EqualTo("POST /api/ai/active-scope"));
+
+        var updateTaskDetail = root
+            .GetProperty("capabilities")
+            .EnumerateArray()
+            .Single(capability => capability.TryGetProperty("operation", out var operation)
+                && operation.GetString() == "update_task_detail");
+
+        Assert.That(updateTaskDetail.GetProperty("targetType").GetString(), Is.EqualTo("task"));
+        Assert.That(updateTaskDetail.GetProperty("activeScopeRequired").GetBoolean(), Is.True);
+        Assert.That(updateTaskDetail.GetProperty("requiredFields").EnumerateArray().Select(item => item.GetString()), Does.Contain("taskId"));
+        Assert.That(updateTaskDetail.GetProperty("optionalFields").EnumerateArray().Select(item => item.GetString()), Does.Contain("codeTraceability"));
+        Assert.That(updateTaskDetail.GetProperty("exampleRequest").GetProperty("optionalFields").TryGetProperty("codeTraceability", out _), Is.True);
     }
 
     [Test]
@@ -155,6 +186,31 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("project_name: AI Project Summary"));
         Assert.That(payload, Does.Contain("next_actions:"));
         Assert.That(payload, Does.Contain("- read_project_board_summary"));
+    }
+
+    [Test]
+    public async Task GetProjectListSummary_WhenJsonFormatIsRequested_ReturnsMachineReadableSummary()
+    {
+        await EnsureKnownUserAsync(Client);
+        var project = await CreateProjectAsync("AI JSON Project Summary");
+
+        var response = await Client.GetAsync("/api/ai/projects/summary?format=json");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(response.Content.Headers.ContentType?.MediaType, Is.EqualTo("application/json"));
+
+        await using var stream = await response.Content.ReadAsStreamAsync();
+        using var document = await JsonDocument.ParseAsync(stream);
+        var root = document.RootElement;
+
+        Assert.That(root.GetProperty("version").GetString(), Is.EqualTo("RonFlow Project List Summary v1"));
+        Assert.That(root.GetProperty("canonicalEndpoint").GetString(), Is.EqualTo("GET /api/ai/projects/summary"));
+        Assert.That(root.GetProperty("projectsCount").GetInt32(), Is.EqualTo(1));
+
+        var projectSummary = root.GetProperty("projects").EnumerateArray().Single();
+        Assert.That(projectSummary.GetProperty("projectId").GetGuid(), Is.EqualTo(project.Id));
+        Assert.That(projectSummary.GetProperty("projectName").GetString(), Is.EqualTo("AI JSON Project Summary"));
+        Assert.That(projectSummary.TryGetProperty("openTaskCount", out _), Is.True);
     }
 
     [Test]
@@ -253,6 +309,9 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain($"task_id: {task.Id}"));
         Assert.That(payload, Does.Contain("title: Build AI Task Summary"));
         Assert.That(payload, Does.Contain("workflow_state_key: Todo"));
+        Assert.That(payload, Does.Contain("code_traceability_summary:"));
+        Assert.That(payload, Does.Contain("category: api"));
+        Assert.That(payload, Does.Contain("item_count: 0"));
         Assert.That(payload, Does.Contain("next_actions:"));
         Assert.That(payload, Does.Contain("- update_task_detail"));
         Assert.That(payload, Does.Contain("recommended_start_work_apply:"));
@@ -262,6 +321,55 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain($"  taskId: {task.Id}"));
         Assert.That(payload, Does.Contain("  targetStateKey: Active"));
         Assert.That(payload, Does.Contain("skip_when: only inspecting, comparing, estimating, clarifying, or explicitly told not to change task state"));
+    }
+
+    [Test]
+    public async Task GetTaskDetailSummary_WhenTaskHasCodeTraceability_IncludesTraceabilitySummary()
+    {
+        await EnsureKnownUserAsync(Client);
+        var project = await CreateProjectAsync("AI Traceability Summary Project");
+        var task = await CreateTaskAsync(project.Id, "Build AI Traceability Summary");
+
+        var acquireLockResponse = await Client.PostAsync($"/api/projects/{project.Id}/tasks/{task.Id}/content-edit-lock", content: null);
+        Assert.That(acquireLockResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var updateResponse = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{task.Id}",
+            new
+            {
+                title = task.Title,
+                description = task.Description,
+                dueDate = (string?)null,
+                codeTraceability = new
+                {
+                    api = new[] { new { changeType = "modified", target = "GET /api/ai/projects/{projectId}/tasks/{taskId}/detail-summary" } },
+                    frontendPages = Array.Empty<object>(),
+                    frontendComponents = new[] { new { changeType = "added", target = "AiJsonContractFormatter" } },
+                },
+            });
+        Assert.That(updateResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var textResponse = await Client.GetAsync($"/api/ai/projects/{project.Id}/tasks/{task.Id}/detail-summary");
+        Assert.That(textResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var textPayload = await textResponse.Content.ReadAsStringAsync();
+        Assert.That(textPayload, Does.Contain("code_traceability_summary:"));
+        Assert.That(textPayload, Does.Contain("category: api"));
+        Assert.That(textPayload, Does.Contain("item_count: 1"));
+        Assert.That(textPayload, Does.Contain("target: GET /api/ai/projects/{projectId}/tasks/{taskId}/detail-summary"));
+        Assert.That(textPayload, Does.Contain("category: frontendComponents"));
+        Assert.That(textPayload, Does.Contain("target: AiJsonContractFormatter"));
+
+        var jsonResponse = await Client.GetAsync($"/api/ai/projects/{project.Id}/tasks/{task.Id}/detail-summary?format=json");
+        Assert.That(jsonResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        await using var stream = await jsonResponse.Content.ReadAsStreamAsync();
+        using var document = await JsonDocument.ParseAsync(stream);
+        var summary = document.RootElement.GetProperty("codeTraceabilitySummary");
+
+        Assert.That(summary.GetProperty("api").GetProperty("itemCount").GetInt32(), Is.EqualTo(1));
+        Assert.That(summary.GetProperty("frontendPages").GetProperty("itemCount").GetInt32(), Is.EqualTo(0));
+        Assert.That(summary.GetProperty("frontendComponents").GetProperty("itemCount").GetInt32(), Is.EqualTo(1));
     }
 
     [Test]
@@ -723,7 +831,7 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
 
         Assert.That(applyResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
 
-    GetRequiredService<ProcessAiAuditProjectionService>().ProcessPending();
+        GetRequiredService<ProcessAiAuditProjectionService>().ProcessPending();
 
         var queryResponse = await sessionClient.GetAsync($"/api/ai/audit-entries?sessionId={sessionId}&requestedChange=update_task_detail");
         Assert.That(queryResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
@@ -737,6 +845,69 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
     }
 
     [Test]
+    public async Task ApplyUpdateTaskDetail_WhenCodeTraceabilityIsProvided_UpdatesTraceabilityAndReportsChangedField()
+    {
+        using var sessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-ai-apply-update-task-traceability");
+
+        await EnsureKnownUserAsync(sessionClient);
+        await ActivateSessionAsync(sessionClient);
+
+        var project = await CreateProjectAsync(sessionClient, "AI Update Traceability Project");
+        var task = await CreateTaskAsync(sessionClient, project.Id, "Original AI Traceability Task");
+
+        var activateResponse = await sessionClient.PostAsJsonAsync("/api/ai/active-scope", new { projectId = project.Id });
+        Assert.That(activateResponse.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
+
+        var response = await sessionClient.PostAsJsonAsync("/api/ai/apply", new
+        {
+            operation = "update_task_detail",
+            targetType = "task",
+            targetId = task.Id,
+            requiredFields = new
+            {
+                taskId = task.Id,
+            },
+            optionalFields = new
+            {
+                codeTraceability = new
+                {
+                    api = new[] { new { changeType = "modified", target = "POST /api/ai/apply update_task_detail" } },
+                    frontendPages = Array.Empty<object>(),
+                    frontendComponents = new[] { new { changeType = "added", target = "AiJsonContractFormatter" } },
+                },
+            },
+            note = "update code traceability from ai apply",
+        });
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var payload = await response.Content.ReadAsStringAsync();
+
+        Assert.That(payload, Does.Contain("operation: update_task_detail"));
+        Assert.That(payload, Does.Contain("- codeTraceability"));
+
+        var detailResponse = await sessionClient.GetAsync($"/api/projects/{project.Id}/tasks/{task.Id}");
+        Assert.That(detailResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var detail = await detailResponse.Content.ReadFromJsonAsync<TaskDetailResponse>();
+        Assert.That(detail, Is.Not.Null);
+        Assert.That(detail!.CodeTraceability.Api.Single().Target, Is.EqualTo("POST /api/ai/apply update_task_detail"));
+        Assert.That(detail.CodeTraceability.FrontendComponents.Single().Target, Is.EqualTo("AiJsonContractFormatter"));
+
+        var auditEntryId = payload
+            .Split(new[] { "\r\n", "\n" }, StringSplitOptions.None)
+            .Single(line => line.StartsWith("audit_entry_id:", StringComparison.Ordinal))
+            .Substring("audit_entry_id:".Length)
+            .Trim();
+
+        GetRequiredService<ProcessAiAuditProjectionService>().ProcessPending();
+
+        var auditResponse = await sessionClient.GetAsync($"/api/ai/audit-entries/{auditEntryId}");
+        Assert.That(auditResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var auditPayload = await auditResponse.Content.ReadAsStringAsync();
+        Assert.That(auditPayload, Does.Contain("codeTraceability: api:0, frontendPages:0, frontendComponents:0 -> api:1, frontendPages:0, frontendComponents:1"));
+    }    [Test]
     public async Task ApplyCheckAndUncheckTaskSubtask_WhenScopeIsActive_TogglesChecklistItem()
     {
         using var sessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-ai-apply-toggle-subtask");

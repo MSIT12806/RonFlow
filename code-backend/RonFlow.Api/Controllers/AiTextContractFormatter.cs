@@ -216,11 +216,11 @@ internal static class AiTextContractFormatter
             "  category: write",
             "  active_scope_required: yes",
             "  required_inputs: taskId",
-            "  optional_inputs: title, description, dueDate",
+            "  optional_inputs: title, description, dueDate, codeTraceability",
             "  apply_endpoint: POST /api/ai/apply",
             "  required_fields_path: requiredFields.taskId",
-            "  optional_fields_path: optionalFields.title, optionalFields.description, optionalFields.dueDate",
-            "  apply_request_example: {\"operation\":\"update_task_detail\",\"targetType\":\"task\",\"targetId\":\"<task-id>\",\"requiredFields\":{\"taskId\":\"<task-id>\"},\"optionalFields\":{\"title\":\"<new-title>\"},\"note\":\"update task detail\"}",
+            "  optional_fields_path: optionalFields.title, optionalFields.description, optionalFields.dueDate, optionalFields.codeTraceability",
+            "  apply_request_example: {\"operation\":\"update_task_detail\",\"targetType\":\"task\",\"targetId\":\"<task-id>\",\"requiredFields\":{\"taskId\":\"<task-id>\"},\"optionalFields\":{\"title\":\"<new-title>\",\"codeTraceability\":{\"api\":[{\"changeType\":\"modified\",\"target\":\"GET /api/ai/capabilities\"}],\"frontendPages\":[],\"frontendComponents\":[]}},\"note\":\"update task detail\"}",
             string.Empty,
             "- capability: check_task_subtask",
             "  category: write",
@@ -499,6 +499,10 @@ internal static class AiTextContractFormatter
         builder.AppendLine($"workflow_state_key: {workflowStateKey}");
         builder.AppendLine($"workflow_state_name: {task.CurrentState.Label}");
         builder.AppendLine($"lifecycle_state: {NormalizeLifecycleState(task.LifecycleState)}");
+        builder.AppendLine("code_traceability_summary:");
+        AppendTraceabilitySummary(builder, "api", task.CodeTraceability.Api);
+        AppendTraceabilitySummary(builder, "frontendPages", task.CodeTraceability.FrontendPages);
+        AppendTraceabilitySummary(builder, "frontendComponents", task.CodeTraceability.FrontendComponents);
         builder.AppendLine("subtasks:");
 
         foreach (var subtask in task.Subtasks.OrderBy(subtask => subtask.Order))
@@ -665,5 +669,21 @@ internal static class AiTextContractFormatter
             TaskLifecycleState.Trashed => "trashed",
             _ => lifecycleState.ToString(),
         };
+    }
+
+    private static void AppendTraceabilitySummary(
+        StringBuilder builder,
+        string category,
+        IReadOnlyList<TaskCodeTraceabilityItemView> items)
+    {
+        builder.AppendLine($"- category: {category}");
+        builder.AppendLine($"  item_count: {items.Count}");
+        builder.AppendLine("  targets:");
+
+        foreach (var item in items)
+        {
+            builder.AppendLine($"  - change_type: {item.ChangeType}");
+            builder.AppendLine($"    target: {item.Target}");
+        }
     }
 }
