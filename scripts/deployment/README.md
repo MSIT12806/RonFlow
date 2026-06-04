@@ -48,6 +48,40 @@ pwsh -NoLogo -NoProfile -File .\scripts\deployment\Deploy-LocalhostSites.ps1 -St
 
 這條路徑需要系統管理員權限，因為它會直接操作 IIS site 與 app pool。
 
+## 以排程工作執行完整 IIS 部署
+
+若一般 VS Code terminal 沒有系統管理員權限，可以先安裝一個本機排程工作。安裝時會要求 UAC 同意；安裝完成後，之後可從一般 terminal 觸發完整 localhost 部署，並讓部署流程具備 IIS stop/start 權限。
+
+安裝排程工作：
+
+```powershell
+pwsh -NoLogo -NoProfile -File .\scripts\deployment\Install-LocalhostDeployScheduledTask.ps1
+```
+
+觸發完整部署：
+
+```powershell
+pwsh -NoLogo -NoProfile -File .\scripts\deployment\Invoke-LocalhostDeployScheduledTask.ps1
+```
+
+查看最近一次執行結果：
+
+```powershell
+pwsh -NoLogo -NoProfile -File .\scripts\deployment\Invoke-LocalhostDeployScheduledTask.ps1 -ShowLastRun
+```
+
+排程工作預設會執行：
+
+```powershell
+Deploy-LocalhostSites.ps1 -EnsureIisApplications -StopIisHosting -SkipFrontendInstall
+```
+
+執行紀錄會寫到：
+
+```powershell
+$env:LOCALAPPDATA\RonFlow\localhost-deploy\latest.log
+```
+
 ## 成功訊號
 
 腳本成功完成時，會輸出：
