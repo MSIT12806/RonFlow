@@ -315,6 +315,9 @@ canonical_entrypoints:
 - GET /api/ai/session-summary
 - GET /api/ai/projects/summary
 - GET /api/ai/invitations/summary
+- GET /api/ai/projects/{projectId}/board-summary
+- GET /api/ai/projects/{projectId}/current-work-summary
+- GET /api/ai/projects/{projectId}/tasks/{taskId}/detail-summary
 - POST /api/ai/active-scope
 - POST /api/ai/apply
 - GET /api/ai/audit-entries/{auditEntryId}
@@ -360,7 +363,7 @@ login_contract:
 3. bootstrap 必須完整列出 `Project、Board、Task、Session、Active Scope`。
 4. bootstrap 必須完整列出六個第一步入口：manifest、glossary、workflow guidance、session / scope summary、project list summary、invitation inbox summary。
 5. bootstrap 必須明確揭露 localhost canonical base paths，並區分 UI root 與 API base path。
-6. bootstrap 必須明確揭露 canonical entrypoints，包括 `POST /api/ai/active-scope` 與 `POST /api/ai/apply`。
+6. bootstrap 必須明確揭露 canonical entrypoints，包括 scope-bound summaries 的 canonical endpoint templates、`POST /api/ai/active-scope` 與 `POST /api/ai/apply`。
 7. bootstrap 必須說明 RonAuth login request 使用 `userName`，不是 `email`。
 8. bootstrap 必須完整列出四個需要先問人的情況。
 ```
@@ -393,6 +396,7 @@ Feature: AI bootstrap
 		And 回應應包含 `6. 視需要讀取 invitation inbox summary`
 		And 回應應包含 `ronflow_api_base_url: http://localhost/ronflow-api/api`
 		And 回應應包含 `endpoint: POST http://localhost/ronauth-api/api/auth/login`
+		And 回應應包含 `GET /api/ai/projects/{projectId}/board-summary`
 ```
 
 ### 7.1.1 AI Glossary
@@ -460,34 +464,36 @@ RonFlow AI Glossary v1
 4. operation category（read / write）
 5. prerequisites
 6. required inputs
-7. read endpoint 或 apply endpoint
-8. apply request body shape 與 required input location
-9. expected output shape
-10. possible error codes
-11. 是否需要 active scope
+7. read endpoint 或 endpoint template / apply endpoint
+8. required route params 與 route param sources
+9. apply request body shape 與 required input location
+10. expected output shape
+11. possible error codes
+12. 是否需要 active scope
 ```
 
 **Current Capability Coverage**
 
 ```text
-1. read project list summary
-2. read project board summary
-3. read task detail summary
-4. read current work summary
-5. create project
-6. create task
-7. update task detail
-8. move task state
-9. reorder task
-10. archive task
-11. restore archived task
-12. move task to trash
-13. restore trashed task
-14. read audit entry
-15. read invitation inbox summary
-16. invite project member
-17. accept project invitation
-18. reject project invitation
+1. read session summary
+2. read project list summary
+3. read project board summary
+4. read task detail summary
+5. read current work summary
+6. create project
+7. create task
+8. update task detail
+9. move task state
+10. reorder task
+11. archive task
+12. restore archived task
+13. move task to trash
+14. restore trashed task
+15. read audit entry
+16. read invitation inbox summary
+17. invite project member
+18. accept project invitation
+19. reject project invitation
 ```
 
 **Expected Behavior**
@@ -515,36 +521,66 @@ write_request_contract:
 	body_shape: operation, targetType, targetId, requiredFields, optionalFields, note
 	required_input_location: requiredFields.<inputName>
 
+- capability: read_session_summary
+	category: read
+	active_scope_required: no
+	required_inputs: none
+	read_endpoint: GET /api/ai/session-summary
+	route_params: none
+	yields: active_scope, available_scopes
+
 - capability: read_task_detail_summary
 	category: read
 	active_scope_required: yes
 	required_inputs: projectId, taskId
+	read_endpoint: GET /api/ai/projects/{projectId}/tasks/{taskId}/detail-summary
+	route_params: projectId, taskId
+	route_param_sources:
+	- projectId <- read_project_list_summary.project_id or read_session_summary.active_scope
+	- taskId <- read_project_board_summary.visible_tasks.task_id or read_current_work_summary.open_tasks.task_id
 
 - capability: read_current_work_summary
 	category: read
 	active_scope_required: yes
 	required_inputs: projectId
+	read_endpoint: GET /api/ai/projects/{projectId}/current-work-summary
+	route_params: projectId
+	route_param_sources:
+	- projectId <- read_project_list_summary.project_id or read_session_summary.active_scope
 
 - capability: read_project_list_summary
 	category: read
 	active_scope_required: no
 	required_inputs: none
+	read_endpoint: GET /api/ai/projects/summary
+	route_params: none
+	yields: project_id
 
 - capability: read_project_board_summary
 	category: read
 	active_scope_required: yes
 	required_inputs: projectId
+	read_endpoint: GET /api/ai/projects/{projectId}/board-summary
+	route_params: projectId
+	route_param_sources:
+	- projectId <- read_project_list_summary.project_id or read_session_summary.active_scope
 
 - capability: read_audit_entry
 	category: read
 	active_scope_required: yes
 	required_inputs: auditEntryId
+	read_endpoint: GET /api/ai/audit-entries/{auditEntryId}
+	route_params: auditEntryId
+	route_param_sources:
+	- auditEntryId <- apply_result.audit_entry_id
 
 - capability: read_invitation_inbox_summary
 	category: read
 	active_scope_required: no
 	required_inputs: none
 	read_endpoint: GET /api/ai/invitations/summary
+	route_params: none
+	yields: invitation_id, project_id
 
 - capability: create_project
 	category: write
@@ -645,9 +681,11 @@ write_request_contract:
 4. `create_task` 的 `required_inputs` 必須至少包含 `projectId, title`。
 5. `update_task_detail` 必須將 `title, description, dueDate` 列為 optional_inputs。
 6. manifest 必須說明 `POST /api/ai/apply` 的 body shape，且 required inputs 必須放在 `requiredFields.<inputName>`。
-7. invitation 相關 capabilities 必須列出 invitation inbox read endpoint 與 accept / reject apply request example。
-8. manifest 必須明確揭露 `POST /api/ai/active-scope` 的 endpoint、body shape、成功狀態與 recovery path。
-9. `create_task` 這類常用 write capability 必須提供 canonical apply request example。
+7. 每個 read capability 必須揭露 canonical `read_endpoint` 或 endpoint template。
+8. 對需要 path params 的 read capability，manifest 必須揭露 `route_params` 與 `route_param_sources`。
+9. invitation 相關 capabilities 必須列出 invitation inbox read endpoint 與 accept / reject apply request example。
+10. manifest 必須明確揭露 `POST /api/ai/active-scope` 的 endpoint、body shape、成功狀態與 recovery path。
+11. `create_task` 這類常用 write capability 必須提供 canonical apply request example。
 ```
 
 **Testability**
@@ -673,6 +711,7 @@ Feature: Capabilities manifest
 		And 回應應包含 `- capability: create_task`
 		And 回應應包含 `active_scope_required: yes`
 		And 回應應包含 `required_inputs: projectId, title`
+		And 回應應包含 `read_endpoint: GET /api/ai/projects/{projectId}/current-work-summary`
 ```
 
 ### 7.3 Session / Scope Awareness
@@ -1308,6 +1347,17 @@ recommended_order:
 5. apply
 6. inspect result
 
+canonical_discovery_path:
+- login -> POST http://localhost/ronauth-api/api/auth/login
+- activate session -> POST /api/session/activate with X-RonFlow-Session-Id
+- bootstrap -> GET /api/ai/bootstrap
+- discover contracts -> GET /api/ai/capabilities, GET /api/ai/glossary, GET /api/ai/workflow-guidance
+- inspect session -> GET /api/ai/session-summary
+- discover projects -> GET /api/ai/projects/summary -> yields projectId
+- activate target project scope -> POST /api/ai/active-scope with projectId
+- inspect scoped work -> GET /api/ai/projects/{projectId}/board-summary or GET /api/ai/projects/{projectId}/current-work-summary -> yields taskId
+- inspect task detail -> GET /api/ai/projects/{projectId}/tasks/{taskId}/detail-summary
+
 checklist_rules:
 - if task detail summary contains subtasks, treat them as the execution plan before declaring the task complete
 - use check_task_subtask when one checklist item is finished
@@ -1337,9 +1387,10 @@ ask_human_when:
 
 ```text
 1. workflow guidance 第一行必須是 `RonFlow Workflow Guidance v1`。
-2. guidance 必須包含 `recommended_order:`、`checklist_rules:` 與 `ask_human_when:` 三個區塊。
+2. guidance 必須包含 `recommended_order:`、`canonical_discovery_path:`、`checklist_rules:` 與 `ask_human_when:` 四個區塊。
 3. `recommended_order` 必須完整列出 read summary、confirm target object、confirm required fields、prepare write request、apply、inspect result。
-4. `checklist_rules` 必須明確說明 AI 應逐項勾選 checklist，且在未完成前不得直接宣告 task 完成。
+4. `canonical_discovery_path` 必須明確揭露 projectId 與 taskId 的取得路徑，不得要求 AI 自行猜測 summary endpoint。
+5. `checklist_rules` 必須明確說明 AI 應逐項勾選 checklist，且在未完成前不得直接宣告 task 完成。
 ```
 
 **Testability**
@@ -1365,6 +1416,7 @@ Feature: Workflow guidance
 		And 回應應包含 `1. read summary`
 		And 回應應包含 `4. prepare write request`
 		And 回應應包含 `6. inspect result`
+		And 回應應包含 `discover projects -> GET /api/ai/projects/summary -> yields projectId`
 ```
 
 ---

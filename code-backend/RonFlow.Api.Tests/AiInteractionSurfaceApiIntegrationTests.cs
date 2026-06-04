@@ -22,6 +22,9 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("ronauth_api_base_url: http://localhost/ronauth-api/api/auth"));
         Assert.That(payload, Does.Contain("serves the UI shell"));
         Assert.That(payload, Does.Contain("canonical_entrypoints:"));
+        Assert.That(payload, Does.Contain("- GET /api/ai/projects/{projectId}/board-summary"));
+        Assert.That(payload, Does.Contain("- GET /api/ai/projects/{projectId}/current-work-summary"));
+        Assert.That(payload, Does.Contain("- GET /api/ai/projects/{projectId}/tasks/{taskId}/detail-summary"));
         Assert.That(payload, Does.Contain("- POST /api/ai/active-scope"));
         Assert.That(payload, Does.Contain("- POST /api/ai/apply"));
         Assert.That(payload, Does.Contain("login_contract:"));
@@ -65,8 +68,16 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("success_status: 204 No Content"));
         Assert.That(payload, Does.Contain("apply_endpoint: POST /api/ai/apply"));
         Assert.That(payload, Does.Contain("required_input_location: requiredFields.<inputName>"));
+        Assert.That(payload, Does.Contain("- capability: read_session_summary"));
+        Assert.That(payload, Does.Contain("read_endpoint: GET /api/ai/session-summary"));
         Assert.That(payload, Does.Contain("- capability: read_current_work_summary"));
+        Assert.That(payload, Does.Contain("read_endpoint: GET /api/ai/projects/{projectId}/current-work-summary"));
+        Assert.That(payload, Does.Contain("route_params: projectId"));
+        Assert.That(payload, Does.Contain("- projectId <- read_project_list_summary.project_id or read_session_summary.active_scope"));
+        Assert.That(payload, Does.Contain("read_endpoint: GET /api/ai/projects/{projectId}/tasks/{taskId}/detail-summary"));
+        Assert.That(payload, Does.Contain("- taskId <- read_project_board_summary.visible_tasks.task_id or read_current_work_summary.open_tasks.task_id"));
         Assert.That(payload, Does.Contain("- capability: read_audit_entry"));
+        Assert.That(payload, Does.Contain("read_endpoint: GET /api/ai/audit-entries/{auditEntryId}"));
         Assert.That(payload, Does.Contain("- capability: read_invitation_inbox_summary"));
         Assert.That(payload, Does.Contain("read_endpoint: GET /api/ai/invitations/summary"));
         Assert.That(payload, Does.Contain("- capability: create_task"));
@@ -97,6 +108,9 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("1. read summary"));
         Assert.That(payload, Does.Contain("4. prepare write request"));
         Assert.That(payload, Does.Contain("6. inspect result"));
+        Assert.That(payload, Does.Contain("canonical_discovery_path:"));
+        Assert.That(payload, Does.Contain("- discover projects -> GET /api/ai/projects/summary -> yields projectId"));
+        Assert.That(payload, Does.Contain("- inspect scoped work -> GET /api/ai/projects/{projectId}/board-summary or GET /api/ai/projects/{projectId}/current-work-summary -> yields taskId"));
         Assert.That(payload, Does.Contain("checklist_rules:"));
         Assert.That(payload, Does.Contain("- use check_task_subtask when one checklist item is finished"));
         Assert.That(payload, Does.Contain("invitation_rules:"));
