@@ -131,10 +131,62 @@
       </AsyncStateBoundary>
     </section>
 
-    <section v-else class="board-empty-state reports-placeholder-state">
-      <p class="eyebrow">Cycle Time / Lead Time</p>
-      <h3>週期時間報表將在下一批交付。</h3>
-      <p class="empty-copy">這裡會顯示 task 從建立到完成、或從進入 Active 到 Done 的統計結果。</p>
+    <section v-else class="reports-section">
+      <div class="traceability-filter-bar">
+        <label>
+          完成起日
+          <input :value="localCycleRange.completedFrom" type="date" aria-label="完成起日" @input="onCycleRangeChange('completedFrom', $event)" />
+        </label>
+
+        <label>
+          完成迄日
+          <input :value="localCycleRange.completedTo" type="date" aria-label="完成迄日" @input="onCycleRangeChange('completedTo', $event)" />
+        </label>
+
+        <span class="task-meta">最後更新時間：{{ formatLastUpdatedAt(cycleReport?.lastUpdatedAt ?? null) }}</span>
+      </div>
+
+      <AsyncStateBoundary
+        :is-loading="isLoadingCycle"
+        :error-message="cycleErrorMessage"
+        loading-message="正在載入週期時間報表..."
+      >
+        <div v-if="!cycleReport || isCycleReportEmpty" class="board-empty-state reports-placeholder-state">
+          <p class="eyebrow">Cycle Time / Lead Time</p>
+          <h3>目前沒有落在此區間的已完成任務。</h3>
+          <p class="empty-copy">完成任務後，這裡會顯示 task 從建立到完成，以及從進入 Active 到 Done 的統計結果。</p>
+        </div>
+
+        <div v-else class="traceability-result-list reports-result-list">
+          <article class="lifecycle-task-card reports-bucket-card" data-testid="cycle-time-lead-time-card">
+            <div class="lifecycle-task-copy">
+              <strong>Lead Time</strong>
+              <span class="task-meta">樣本數 {{ cycleReport.leadTime.sampleCount }}</span>
+            </div>
+
+            <dl class="lifecycle-task-details traceability-result-details reports-bucket-details">
+              <div><dt>平均值</dt><dd>{{ formatDuration(cycleReport.leadTime.averageHours) }}</dd></div>
+              <div><dt>中位數</dt><dd>{{ formatDuration(cycleReport.leadTime.medianHours) }}</dd></div>
+              <div><dt>p90</dt><dd>{{ formatDuration(cycleReport.leadTime.p90Hours) }}</dd></div>
+              <div><dt>區間</dt><dd>{{ cycleReport.completedFrom }} ~ {{ cycleReport.completedTo }}</dd></div>
+            </dl>
+          </article>
+
+          <article class="lifecycle-task-card reports-bucket-card" data-testid="cycle-time-cycle-time-card">
+            <div class="lifecycle-task-copy">
+              <strong>Cycle Time</strong>
+              <span class="task-meta">樣本數 {{ cycleReport.cycleTime.sampleCount }}</span>
+            </div>
+
+            <dl class="lifecycle-task-details traceability-result-details reports-bucket-details">
+              <div><dt>平均值</dt><dd>{{ formatDuration(cycleReport.cycleTime.averageHours) }}</dd></div>
+              <div><dt>中位數</dt><dd>{{ formatDuration(cycleReport.cycleTime.medianHours) }}</dd></div>
+              <div><dt>p90</dt><dd>{{ formatDuration(cycleReport.cycleTime.p90Hours) }}</dd></div>
+              <div><dt>說明</dt><dd>僅計算曾進入 Active 並最終完成的任務</dd></div>
+            </dl>
+          </article>
+        </div>
+      </AsyncStateBoundary>
     </section>
   </section>
 </template>
@@ -142,39 +194,59 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import AsyncStateBoundary from './bases/AsyncStateBoundary.vue'
-import type { TaskAgingReportResponse, WorkflowThroughputReportResponse } from '../api/ronflowApi'
+import type { CycleTimeReportResponse, TaskAgingReportResponse, WorkflowThroughputReportResponse } from '../api/ronflowApi'
 
 const props = defineProps<{
   activeProjectName: string | null
   report: WorkflowThroughputReportResponse | null
   agingReport: TaskAgingReportResponse | null
+  cycleReport: CycleTimeReportResponse | null
   agingThresholds: {
     todoThresholdDays: number
     activeThresholdDays: number
     reviewThresholdDays: number
   }
+  cycleRange: {
+    completedFrom: string
+    completedTo: string
+  }
   bucketType: 'day' | 'week'
   isLoading: boolean
   isLoadingAging: boolean
+  isLoadingCycle: boolean
   errorMessage: string
   agingErrorMessage: string
+  cycleErrorMessage: string
 }>()
 
 const emit = defineEmits<{
   (event: 'back-to-board'): void
   (event: 'change-bucket', bucket: 'day' | 'week'): void
   (event: 'change-task-aging-thresholds', thresholds: { todoThresholdDays: number; activeThresholdDays: number; reviewThresholdDays: number }): void
+  (event: 'change-cycle-range', range: { completedFrom: string; completedTo: string }): void
   (event: 'open-task-detail', taskId: string, taskTitle: string): void
 }>()
 
 const activeTab = ref<'workflow' | 'aging' | 'cycle'>('workflow')
 const localThresholds = ref({ ...props.agingThresholds })
+const localCycleRange = ref({ ...props.cycleRange })
 
 watch(() => props.agingThresholds, (nextValue) => {
   localThresholds.value = { ...nextValue }
 }, { deep: true })
 
+watch(() => props.cycleRange, (nextValue) => {
+  localCycleRange.value = { ...nextValue }
+}, { deep: true })
+
 const formattedLastUpdatedAt = computed(() => formatLastUpdatedAt(props.report?.lastUpdatedAt ?? null))
+const isCycleReportEmpty = computed(() => {
+  if (!props.cycleReport) {
+    return true
+  }
+
+  return props.cycleReport.leadTime.sampleCount === 0 && props.cycleReport.cycleTime.sampleCount === 0
+})
 
 function formatLastUpdatedAt(value: string | null) {
   if (!value) {
@@ -214,9 +286,26 @@ function onThresholdChange(
   emit('change-task-aging-thresholds', { ...localThresholds.value })
 }
 
+function onCycleRangeChange(key: 'completedFrom' | 'completedTo', event: Event) {
+  localCycleRange.value = {
+    ...localCycleRange.value,
+    [key]: (event.target as HTMLInputElement).value,
+  }
+
+  emit('change-cycle-range', { ...localCycleRange.value })
+}
+
 function formatBucketStart(value: string) {
   return props.bucketType === 'day'
     ? `${value}`
     : `${value} 起`
+}
+
+function formatDuration(value: number | null) {
+  if (value === null) {
+    return '資料不足'
+  }
+
+  return `${value.toFixed(1)} 小時`
 }
 </script>

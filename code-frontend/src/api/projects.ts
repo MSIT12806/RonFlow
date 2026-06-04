@@ -1,5 +1,6 @@
 import { apiPath, request } from './request'
 import type {
+  CycleTimeReportResponse,
   ProjectBoardResponse,
   ProjectCodeTraceabilityResponse,
   ProjectInvitationListResponse,
@@ -47,6 +48,18 @@ export async function getTaskAgingReport(projectId: string, thresholds: {
   })
 
   return request<TaskAgingReportResponse>(apiPath(`/projects/${projectId}/reports/task-aging?${query.toString()}`))
+}
+
+export async function getCycleTimeReport(projectId: string, range: {
+  completedFrom: string
+  completedTo: string
+}) {
+  const query = new URLSearchParams({
+    completedFrom: range.completedFrom,
+    completedTo: range.completedTo,
+  })
+
+  return request<CycleTimeReportResponse>(apiPath(`/projects/${projectId}/reports/cycle-time?${query.toString()}`))
 }
 
 export async function getProjectSubtaskTemplates(projectId: string) {

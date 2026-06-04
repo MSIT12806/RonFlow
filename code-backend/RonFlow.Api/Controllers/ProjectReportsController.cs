@@ -90,4 +90,36 @@ public sealed class ProjectReportsController : AuthenticatedControllerBase
 
         return null;
     }
+
+    [HttpGet("cycle-time")]
+    [ProducesResponseType<CycleTimeReportResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public IResult GetCycleTime(
+        Guid projectId,
+        [FromQuery] DateOnly? completedFrom,
+        [FromQuery] DateOnly? completedTo,
+        [FromServices] GetCycleTimeReportQueryService queryService)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        if (completedFrom is not null && completedTo is not null && completedFrom > completedTo)
+        {
+            return ValidationResults.FromError(new ValidationError("completedFrom", "completedFrom 不可晚於 completedTo"));
+        }
+
+        var result = queryService.Get(currentUserId, projectId, completedFrom, completedTo);
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
+        }
+
+        return result.NotFound
+            ? Results.NotFound()
+            : Results.Ok(CycleTimeReportResponse.FromView(result.Resource!));
+    }
 }

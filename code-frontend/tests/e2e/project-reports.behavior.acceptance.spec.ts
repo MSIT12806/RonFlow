@@ -3,8 +3,33 @@ import {
   createScenarioData,
   dragTaskToColumn,
   openProjectReportsView,
+  openProjectFromList,
   setupTaskBoard,
 } from './support/ronflowTestHelpers'
+import {
+  createProjectThroughApi,
+  createTaskThroughApi,
+  moveTaskStateThroughApi,
+  registerRonFlowApiUser,
+} from './support/ronflowApiTestHelpers'
+import { createRonFlowAuthUser, loginAndEnterWorkspace } from './support/ronflowAuthTestHelpers'
+
+async function setupCompletedTaskBoardThroughApi(
+  request: Parameters<typeof test>[0]['request'],
+  page: Parameters<typeof test>[0]['page'],
+  projectName: string,
+  taskTitle: string,
+) {
+  const userSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('cycle-report-owner'))
+  const project = await createProjectThroughApi(request, userSession, projectName)
+  const task = await createTaskThroughApi(request, userSession, project.id, taskTitle)
+
+  await moveTaskStateThroughApi(request, userSession, project.id, task.id, 'active')
+  await moveTaskStateThroughApi(request, userSession, project.id, task.id, 'done')
+
+  await loginAndEnterWorkspace(page, userSession.user)
+  await openProjectFromList(page, projectName)
+}
 
 test.describe('RonFlow UI/UX 驗收規格 - Project Reports Behavior', () => {
   test('使用者完成 workflow 流轉後，可以在工作流量報表看到對應統計', async ({ page }, testInfo) => {
@@ -42,5 +67,19 @@ test.describe('RonFlow UI/UX 驗收規格 - Project Reports Behavior', () => {
     await agingItem.click()
     await expect(page.getByRole('dialog', { name: '任務詳細資訊' })).toBeVisible()
     await expect(page.getByRole('dialog', { name: '任務詳細資訊' })).toContainText(taskTitle)
+  })
+
+  test('使用者可以在週期時間報表查看 lead time 與 cycle time 指標', async ({ page, request }, testInfo) => {
+    const { projectName, taskTitle } = createScenarioData(testInfo)
+
+    await setupCompletedTaskBoardThroughApi(request, page, projectName, taskTitle)
+    await openProjectReportsView(page)
+
+    await page.getByRole('button', { name: '週期時間', exact: true }).click()
+
+    await expect(page.getByTestId('cycle-time-lead-time-card')).toContainText('樣本數 1')
+    await expect(page.getByTestId('cycle-time-lead-time-card')).toContainText('平均值')
+    await expect(page.getByTestId('cycle-time-cycle-time-card')).toContainText('樣本數 1')
+    await expect(page.getByTestId('cycle-time-cycle-time-card')).toContainText('p90')
   })
 })

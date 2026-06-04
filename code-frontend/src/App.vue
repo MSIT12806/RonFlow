@@ -133,15 +133,20 @@
             :active-project-name="activeProject?.name ?? null"
             :report="workflowThroughputReport"
             :aging-report="taskAgingReport"
+            :cycle-report="cycleTimeReport"
             :aging-thresholds="taskAgingThresholds"
+            :cycle-range="cycleTimeRange"
             :bucket-type="workflowThroughputBucket"
             :is-loading="isLoadingWorkflowThroughput"
             :is-loading-aging="isLoadingTaskAging"
+            :is-loading-cycle="isLoadingCycleTime"
             :error-message="workflowThroughputError"
             :aging-error-message="taskAgingError"
+            :cycle-error-message="cycleTimeError"
             @back-to-board="openBoardView"
             @change-bucket="loadWorkflowThroughputReport"
             @change-task-aging-thresholds="loadTaskAgingReport"
+            @change-cycle-range="loadCycleTimeReport"
             @open-task-detail="onOpenTaskDetail"
           />
         </section>
@@ -235,6 +240,7 @@ import RonAuthEntryPanel from './components/RonAuthEntryPanel.vue'
 import TaskDetailModal from './components/TaskDetailModal.vue'
 import type { PasswordLoginInput, RegisterUserInput } from './api/ronauth'
 import type {
+  CycleTimeReportResponse,
   ProjectCodeTraceabilityItemResponse,
   ProjectSubtaskTemplateResponse,
   TaskAgingReportResponse,
@@ -253,6 +259,21 @@ import {
 import { onRonFlowSessionInvalidated } from './ronflowSession'
 
 type WorkspaceView = 'board' | 'members' | 'invitations' | 'archived' | 'trash' | 'codeTraceability' | 'reports'
+
+function formatDateInput(value: Date) {
+  return value.toISOString().slice(0, 10)
+}
+
+function createDefaultCycleTimeRange() {
+  const completedTo = new Date()
+  const completedFrom = new Date(completedTo)
+  completedFrom.setDate(completedFrom.getDate() - 29)
+
+  return {
+    completedFrom: formatDateInput(completedFrom),
+    completedTo: formatDateInput(completedTo),
+  }
+}
 
 const showAsyncStatePlayground = import.meta.env.DEV
   && new URLSearchParams(window.location.search).get('playground') === 'async-states'
@@ -282,6 +303,10 @@ const taskAgingThresholds = ref({
 })
 const isLoadingTaskAging = ref(false)
 const taskAgingError = ref('')
+const cycleTimeReport = ref<CycleTimeReportResponse | null>(null)
+const cycleTimeRange = ref(createDefaultCycleTimeRange())
+const isLoadingCycleTime = ref(false)
+const cycleTimeError = ref('')
 
 const projectQueryService = new ProjectQueryService()
 const projectCommandService = new ProjectCommandService()
@@ -419,6 +444,7 @@ async function pollWorkspace() {
     if (currentWorkspaceView.value === 'reports') {
       await loadWorkflowThroughputReport(workflowThroughputBucket.value, true)
       await loadTaskAgingReport(taskAgingThresholds.value, true)
+      await loadCycleTimeReport(cycleTimeRange.value, true)
     }
 
     await refreshInvitationInboxCount()
@@ -542,6 +568,7 @@ async function openReportsView() {
   await Promise.all([
     loadWorkflowThroughputReport(workflowThroughputBucket.value),
     loadTaskAgingReport(taskAgingThresholds.value),
+    loadCycleTimeReport(cycleTimeRange.value),
   ])
 }
 
@@ -592,6 +619,33 @@ async function loadTaskAgingReport(
   } finally {
     if (!silent) {
       isLoadingTaskAging.value = false
+    }
+  }
+}
+
+async function loadCycleTimeReport(
+  range: { completedFrom: string; completedTo: string },
+  silent = false,
+) {
+  if (!activeProjectId.value) {
+    return
+  }
+
+  cycleTimeRange.value = { ...range }
+
+  if (!silent) {
+    isLoadingCycleTime.value = true
+  }
+
+  cycleTimeError.value = ''
+
+  try {
+    cycleTimeReport.value = await projectQueryService.getCycleTime(activeProjectId.value, cycleTimeRange.value)
+  } catch {
+    cycleTimeError.value = '無法載入週期時間報表，請稍後再試。'
+  } finally {
+    if (!silent) {
+      isLoadingCycleTime.value = false
     }
   }
 }

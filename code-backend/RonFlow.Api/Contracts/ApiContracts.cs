@@ -541,3 +541,35 @@ public sealed record TaskAgingReportResponse(
             view.Items.Select(TaskAgingTaskItemResponse.FromView).ToArray());
     }
 }
+
+public sealed record CycleTimeMetricSummaryResponse(
+    int SampleCount,
+    double? AverageHours,
+    double? MedianHours,
+    double? P90Hours)
+{
+    public static CycleTimeMetricSummaryResponse FromView(CycleTimeMetricSummaryView view)
+    {
+        return new(view.SampleCount, view.AverageHours, view.MedianHours, view.P90Hours);
+    }
+}
+
+public sealed record CycleTimeReportResponse(
+    Guid ProjectId,
+    DateOnly CompletedFrom,
+    DateOnly CompletedTo,
+    DateTimeOffset LastUpdatedAt,
+    CycleTimeMetricSummaryResponse LeadTime,
+    CycleTimeMetricSummaryResponse CycleTime)
+{
+    public static CycleTimeReportResponse FromView(CycleTimeReportView view)
+    {
+        return new(
+            view.ProjectId,
+            view.CompletedFrom,
+            view.CompletedTo,
+            view.LastUpdatedAt,
+            CycleTimeMetricSummaryResponse.FromView(view.LeadTime),
+            CycleTimeMetricSummaryResponse.FromView(view.CycleTime));
+    }
+}

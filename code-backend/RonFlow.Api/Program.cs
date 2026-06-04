@@ -114,6 +114,7 @@ public partial class Program
         builder.Services.AddSingleton<GetTaskDetailQueryService>();
         builder.Services.AddSingleton<GetWorkflowThroughputReportQueryService>();
         builder.Services.AddSingleton<GetTaskAgingReportQueryService>();
+        builder.Services.AddSingleton<GetCycleTimeReportQueryService>();
         builder.Services.AddSingleton<GetArchivedTasksQueryService>();
         builder.Services.AddSingleton<GetTrashedTasksQueryService>();
         builder.Services.AddHostedService<ReminderNotificationBackgroundService>();

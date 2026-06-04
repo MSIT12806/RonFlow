@@ -30,7 +30,7 @@
 - [x] reporting / projection（第一批）
     - 已完成 workflow throughput 報表的第一批 projection slice，包含 event-like source、outbox、background consumer、projection store、query API 與 reports page
     - 已完成 Task Aging 報表，利用 task activity timeline 在 query side 計算目前 state 的停留時間，並可直接從報表開啟 Task Detail Drawer
-    - Cycle Time / Lead Time 仍是後續延伸
+    - 已完成 Cycle Time / Lead Time 報表，利用 createdAt、completedAt 與 activity timeline 在 query side 計算統計值與資料不足狀態
     - 實踐細節見 [RonFlow 的 reporting / projection 實踐](../ronflow-tech/ronflow-reporting-projection.md)
 - [x] Task mutation lock policy 與 aggregate execution result
     - lock 規則不再散落在各個 command service 手寫判斷，而是由 domain 中的 `TaskMutationLockPolicy` 定義各 mutation 的 lock requirement

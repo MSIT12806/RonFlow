@@ -152,6 +152,22 @@ export type TaskAgingReportResponse = {
   items: TaskAgingTaskItemResponse[]
 }
 
+export type CycleTimeMetricSummaryResponse = {
+  sampleCount: number
+  averageHours: number | null
+  medianHours: number | null
+  p90Hours: number | null
+}
+
+export type CycleTimeReportResponse = {
+  projectId: string
+  completedFrom: string
+  completedTo: string
+  lastUpdatedAt: string
+  leadTime: CycleTimeMetricSummaryResponse
+  cycleTime: CycleTimeMetricSummaryResponse
+}
+
 export type ProjectResponse = {
   id: string
   name: string

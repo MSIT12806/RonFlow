@@ -1,4 +1,5 @@
 import {
+  getCycleTimeReport,
   getInvitationInbox,
   getProjectBoard,
   getProjectCodeTraceability,
@@ -9,6 +10,7 @@ import {
   getWorkflowThroughputReport,
   getProjects,
   type ProjectBoardResponse,
+  type CycleTimeReportResponse,
   type ProjectCodeTraceabilityResponse,
   type ProjectInvitationListResponse,
   type ProjectListResponse,
@@ -41,6 +43,13 @@ export class ProjectQueryService {
     reviewThresholdDays: number
   }): Promise<TaskAgingReportResponse> {
     return getTaskAgingReport(projectId, thresholds)
+  }
+
+  async getCycleTime(projectId: string, range: {
+    completedFrom: string
+    completedTo: string
+  }): Promise<CycleTimeReportResponse> {
+    return getCycleTimeReport(projectId, range)
   }
 
   async getSubtaskTemplates(projectId: string): Promise<ProjectSubtaskTemplateListResponse> {
