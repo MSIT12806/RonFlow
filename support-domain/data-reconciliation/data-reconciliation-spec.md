@@ -1,4 +1,4 @@
-# 資料收斂 Support Domain Spec
+# 資料收斂支援領域規格
 
 ## 1. 規格目的
 
@@ -38,7 +38,7 @@
 
 ---
 
-## 3. Ubiquitous Language
+## 3. 通用語言
 
 | 概念 | 說明 |
 |---|---|
@@ -59,7 +59,7 @@
 
 ---
 
-## 4. Domain Principles
+## 4. 領域原則
 
 ### 4.1 尊重 Aggregate Root
 
@@ -96,7 +96,7 @@ MVP 不建立 backup snapshot。
 
 apply 前，console 必須清楚印出 target database path 與 planned destructive operations。operator 需要自行在工具外保留 backup，或透過 Git/database snapshot 管理復原點。
 
-### 4.4 Human Review Is a Feature
+### 4.4 人類 review 是功能的一部分
 
 資料收斂是低頻但重要的 operator workflow，應該被設計成需要人類 review。
 
@@ -108,7 +108,7 @@ inspect -> generate plan -> review console output -> apply explicitly -> verify
 
 ---
 
-## 5. Initial Product Recipe
+## 5. 初始產品 Recipe
 
 ### 5.1 RonFlow Recipe
 
@@ -132,7 +132,7 @@ Recipe 必須優先採用 aggregate-aware JSON/model rewriting，而不是 blind
 
 ---
 
-## 6. Use Cases
+## 6. 使用案例
 
 ### 6.1 Remap RonFlow User Id
 
@@ -193,7 +193,7 @@ Subtask template policies：
 5. Conflicting project metadata 會在 apply 前被印出。
 6. 如果 project id A 被 discard，target database 中的 source project aggregate 會被 physical delete。
 
-Open question：
+待釐清問題：
 
 1. 如果 project A 與 project B 都有標題與日期相似的 tasks，MVP 應該保留兩邊 tasks，還是提供 task-level duplicate detection？
 
@@ -236,9 +236,9 @@ Identity match candidates：
 
 ---
 
-## 7. Interface Strategy
+## 7. 介面策略
 
-### 7.1 MVP Interface
+### 7.1 MVP 介面
 
 MVP 應該是 console/CLI tool。
 
@@ -249,7 +249,7 @@ MVP 應該是 console/CLI tool。
 3. Dry-run 與 apply output 可以在需要時複製到 RonFlow task。
 4. CLI 可以避免在 domain 穩定前，先替 RonFlow 加上一個敏感的 mutation surface。
 
-Example shape：
+命令範例：
 
 ```text
 ron-data-reconcile plan ronflow user-id \
@@ -282,7 +282,7 @@ UI 不應該繞過 CLI 使用的 plan/apply engine。
 
 ---
 
-## 8. Non-Functional Requirements
+## 8. 非功能性需求
 
 ### 8.1 Safety
 
