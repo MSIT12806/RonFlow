@@ -2,5 +2,6 @@
   <Project Path="RonFlow.Application/RonFlow.Application.csproj" />
   <Project Path="RonFlow.Domain/RonFlow.Domain.csproj" />
   <Project Path="RonFlow.Infrastructure/RonFlow.Infrastructure.csproj" />
+  <Project Path="RonFlow.Infrastructure.Tests/RonFlow.Infrastructure.Tests.csproj" />
   <Project Path="RonFlow.Observability/RonFlow.Observability.csproj" />
 </Solution>

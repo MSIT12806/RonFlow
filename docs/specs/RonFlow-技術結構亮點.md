@@ -32,6 +32,10 @@
     - 已完成 Task Aging 報表，利用 task activity timeline 在 query side 計算目前 state 的停留時間，並可直接從報表開啟 Task Detail Drawer
     - 已完成 Cycle Time / Lead Time 報表，利用 createdAt、completedAt 與 activity timeline 在 query side 計算統計值與資料不足狀態
     - 實踐細節見 [RonFlow 的 reporting / projection 實踐](../ronflow-tech/ronflow-reporting-projection.md)
+- [ ] SQLite-to-Git persistence sync
+    - 單一使用者、多裝置的 personal sync 模式
+    - runtime SQLite 與獨立 Git repository 之間的 snapshot / commit / push 流程
+    - spec: [RonFlow Database Git Sync Spec](./ronflow-database-git-sync-spec.md)
 - [x] Task mutation lock policy 與 aggregate execution result
     - lock 規則不再散落在各個 command service 手寫判斷，而是由 domain 中的 `TaskMutationLockPolicy` 定義各 mutation 的 lock requirement
     - application 層的 `TaskMutationGuard` 將 runtime lock 狀態轉成 `TaskMutationAuthorization`
