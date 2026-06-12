@@ -170,7 +170,10 @@ VALUES (
         command.Parameters.AddWithValue("$resultStatus", source.ResultStatus);
         command.Parameters.AddWithValue("$actualDiffText", JoinDiff(source.ActualDiff));
         command.Parameters.AddWithValue("$occurredAt", source.OccurredAt.ToString("O"));
-        command.ExecuteNonQuery();
+        if (command.ExecuteNonQuery() > 0)
+        {
+            store.NotifyChanged("ai audit outbox enqueued");
+        }
     }
 
     public IReadOnlyList<AiAuditProjectionSource> GetPending(int maxCount)
@@ -225,7 +228,10 @@ LIMIT $limit";
         command.CommandText = "UPDATE AiAuditOutbox SET ProcessedAt = $processedAt WHERE MessageId = $messageId";
         command.Parameters.AddWithValue("$processedAt", processedAt.ToString("O"));
         command.Parameters.AddWithValue("$messageId", messageId.ToString());
-        command.ExecuteNonQuery();
+        if (command.ExecuteNonQuery() > 0)
+        {
+            store.NotifyChanged("ai audit outbox processed");
+        }
     }
 
     private static string JoinDiff(IReadOnlyList<string> diff)
@@ -299,7 +305,10 @@ ON CONFLICT(AuditEntryId) DO UPDATE SET
         command.Parameters.AddWithValue("$actualDiffText", string.Join('\n', entry.ActualDiff));
         command.Parameters.AddWithValue("$occurredAt", entry.OccurredAt.ToString("O"));
         command.Parameters.AddWithValue("$projectedAt", projectedAt.ToString("O"));
-        command.ExecuteNonQuery();
+        if (command.ExecuteNonQuery() > 0)
+        {
+            store.NotifyChanged("ai audit read model upserted");
+        }
     }
 
     public AiAuditEntry? Get(Guid auditEntryId)

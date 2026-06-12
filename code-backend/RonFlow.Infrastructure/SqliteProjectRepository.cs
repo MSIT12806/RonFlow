@@ -49,7 +49,10 @@ public sealed class SqliteProjectRepository(SqliteCoreFlowStore store) : IProjec
         command.CommandText = "INSERT INTO Projects (Id, Data) VALUES ($id, $data)";
         command.Parameters.AddWithValue("$id", project.Id.ToString());
         command.Parameters.AddWithValue("$data", CoreFlowJsonSerializer.Serialize(project));
-        command.ExecuteNonQuery();
+        if (command.ExecuteNonQuery() > 0)
+        {
+            store.NotifyChanged("project added");
+        }
     }
 
     public void Update(Project project)
@@ -59,6 +62,9 @@ public sealed class SqliteProjectRepository(SqliteCoreFlowStore store) : IProjec
         command.CommandText = "UPDATE Projects SET Data = $data WHERE Id = $id";
         command.Parameters.AddWithValue("$id", project.Id.ToString());
         command.Parameters.AddWithValue("$data", CoreFlowJsonSerializer.Serialize(project));
-        command.ExecuteNonQuery();
+        if (command.ExecuteNonQuery() > 0)
+        {
+            store.NotifyChanged("project updated");
+        }
     }
 }

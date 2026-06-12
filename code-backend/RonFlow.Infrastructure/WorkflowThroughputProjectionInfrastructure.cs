@@ -203,7 +203,10 @@ ORDER BY OccurredAt";
         command.CommandText = "UPDATE WorkflowThroughputOutbox SET ProcessedAt = $processedAt WHERE MessageId = $messageId";
         command.Parameters.AddWithValue("$processedAt", processedAt.ToString("O"));
         command.Parameters.AddWithValue("$messageId", messageId.ToString());
-        command.ExecuteNonQuery();
+        if (command.ExecuteNonQuery() > 0)
+        {
+            store.NotifyChanged("workflow throughput outbox processed");
+        }
     }
 
     private void Add(WorkflowThroughputProjectionSource source)
@@ -219,7 +222,10 @@ VALUES ($messageId, $projectId, $taskId, $eventType, $stateKey, $occurredAt, NUL
         command.Parameters.AddWithValue("$eventType", source.EventType);
         command.Parameters.AddWithValue("$stateKey", (object?)source.StateKey ?? DBNull.Value);
         command.Parameters.AddWithValue("$occurredAt", source.OccurredAt.ToString("O"));
-        command.ExecuteNonQuery();
+        if (command.ExecuteNonQuery() > 0)
+        {
+            store.NotifyChanged("workflow throughput outbox enqueued");
+        }
     }
 }
 
@@ -270,7 +276,11 @@ WHERE ProjectId = $projectId AND BucketType = $bucketType AND BucketStart = $buc
             timestampOnlyCommand.Parameters.AddWithValue("$projectId", source.ProjectId.ToString());
             timestampOnlyCommand.Parameters.AddWithValue("$bucketType", bucketType.ToContractValue());
             timestampOnlyCommand.Parameters.AddWithValue("$bucketStart", bucketStart);
-            timestampOnlyCommand.ExecuteNonQuery();
+            if (timestampOnlyCommand.ExecuteNonQuery() > 0)
+            {
+                store.NotifyChanged("workflow throughput projection applied");
+            }
+
             return;
         }
 
@@ -284,7 +294,10 @@ WHERE ProjectId = $projectId AND BucketType = $bucketType AND BucketStart = $buc
         updateCommand.Parameters.AddWithValue("$projectId", source.ProjectId.ToString());
         updateCommand.Parameters.AddWithValue("$bucketType", bucketType.ToContractValue());
         updateCommand.Parameters.AddWithValue("$bucketStart", bucketStart);
-        updateCommand.ExecuteNonQuery();
+        if (updateCommand.ExecuteNonQuery() > 0)
+        {
+            store.NotifyChanged("workflow throughput projection applied");
+        }
     }
 
     public WorkflowThroughputReportView GetReport(Guid projectId, ReportingBucketType bucketType)

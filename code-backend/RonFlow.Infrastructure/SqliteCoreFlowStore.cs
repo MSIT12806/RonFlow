@@ -5,9 +5,16 @@ namespace RonFlow.Infrastructure;
 public sealed class SqliteCoreFlowStore
 {
     private readonly string connectionString;
+    private readonly IDatabaseSyncCoordinator databaseSync;
 
     public SqliteCoreFlowStore(string databasePath)
+        : this(databasePath, NoOpDatabaseSyncCoordinator.Instance)
     {
+    }
+
+    public SqliteCoreFlowStore(string databasePath, IDatabaseSyncCoordinator databaseSync)
+    {
+        this.databaseSync = databaseSync;
         var fullPath = Path.GetFullPath(databasePath);
         var directory = Path.GetDirectoryName(fullPath);
 
@@ -30,6 +37,11 @@ public sealed class SqliteCoreFlowStore
         var connection = new SqliteConnection(connectionString);
         connection.Open();
         return connection;
+    }
+
+    public void NotifyChanged(string reason)
+    {
+        databaseSync.PushAfterMutation(reason);
     }
 
     private void EnsureInitialized()

@@ -33,7 +33,10 @@ VALUES ($endpoint, $data)
 ON CONFLICT(Endpoint) DO UPDATE SET Data = excluded.Data;";
         command.Parameters.AddWithValue("$endpoint", subscription.Endpoint);
         command.Parameters.AddWithValue("$data", CoreFlowJsonSerializer.Serialize(subscription));
-        command.ExecuteNonQuery();
+        if (command.ExecuteNonQuery() > 0)
+        {
+            store.NotifyChanged("push subscription upserted");
+        }
     }
 
     public void Remove(string endpoint)
@@ -42,6 +45,9 @@ ON CONFLICT(Endpoint) DO UPDATE SET Data = excluded.Data;";
         using var command = connection.CreateCommand();
         command.CommandText = "DELETE FROM PushSubscriptions WHERE Endpoint = $endpoint";
         command.Parameters.AddWithValue("$endpoint", endpoint);
-        command.ExecuteNonQuery();
+        if (command.ExecuteNonQuery() > 0)
+        {
+            store.NotifyChanged("push subscription removed");
+        }
     }
 }

@@ -67,7 +67,10 @@ public sealed class SqliteTaskRepository(SqliteCoreFlowStore store) : ITaskRepos
         command.CommandText = "INSERT INTO Tasks (Id, Data) VALUES ($id, $data)";
         command.Parameters.AddWithValue("$id", task.Id.ToString());
         command.Parameters.AddWithValue("$data", CoreFlowJsonSerializer.Serialize(task));
-        command.ExecuteNonQuery();
+        if (command.ExecuteNonQuery() > 0)
+        {
+            store.NotifyChanged("task added");
+        }
     }
 
     public void Update(DomainTask task)
@@ -77,6 +80,9 @@ public sealed class SqliteTaskRepository(SqliteCoreFlowStore store) : ITaskRepos
         command.CommandText = "UPDATE Tasks SET Data = $data WHERE Id = $id";
         command.Parameters.AddWithValue("$id", task.Id.ToString());
         command.Parameters.AddWithValue("$data", CoreFlowJsonSerializer.Serialize(task));
-        command.ExecuteNonQuery();
+        if (command.ExecuteNonQuery() > 0)
+        {
+            store.NotifyChanged("task updated");
+        }
     }
 }

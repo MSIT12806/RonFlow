@@ -38,7 +38,10 @@ ON CONFLICT(UserId) DO UPDATE SET
         command.Parameters.AddWithValue("$userId", user.UserId.ToString());
         command.Parameters.AddWithValue("$userName", user.UserName);
         command.Parameters.AddWithValue("$email", user.Email);
-        command.ExecuteNonQuery();
+        if (command.ExecuteNonQuery() > 0)
+        {
+            store.NotifyChanged("known user upserted");
+        }
     }
 
     public UserDirectorySyncTimings SynchronizeCurrentUser(KnownUser user)
@@ -61,7 +64,10 @@ ON CONFLICT(UserId) DO UPDATE SET
         {
             using (command)
             {
-                command.ExecuteNonQuery();
+                if (command.ExecuteNonQuery() > 0)
+                {
+                    store.NotifyChanged("current user synchronized");
+                }
             }
         }
         saveStopwatch.Stop();

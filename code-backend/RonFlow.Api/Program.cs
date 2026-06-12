@@ -166,7 +166,14 @@ public partial class Program
             ? Path.Combine(builder.Environment.ContentRootPath, "App_Data", "ronflow.db")
             : ResolveDatabasePath(builder.Environment.ContentRootPath, configuredDatabasePath);
 
-        builder.Services.AddSingleton(new SqliteCoreFlowStore(databasePath));
+        var databaseSyncOptions = CreateDatabaseSyncOptions(builder.Environment.ContentRootPath, builder.Configuration, databasePath);
+        IDatabaseSyncCoordinator databaseSyncCoordinator = databaseSyncOptions.Enabled
+            ? new DatabaseSyncCoordinator(databaseSyncOptions, new SqliteDatabaseSnapshotStore(), new GitDatabaseRepositorySync(databaseSyncOptions))
+            : NoOpDatabaseSyncCoordinator.Instance;
+        databaseSyncCoordinator.PullBeforeOpen();
+
+        builder.Services.AddSingleton(databaseSyncCoordinator);
+        builder.Services.AddSingleton(new SqliteCoreFlowStore(databasePath, databaseSyncCoordinator));
         builder.Services.AddSingleton<IProjectRepository, SqliteProjectRepository>();
         builder.Services.AddSingleton<ITaskRepository, SqliteTaskRepository>();
         builder.Services.AddSingleton<IPushSubscriptionRepository, SqlitePushSubscriptionRepository>();
@@ -199,6 +206,32 @@ public partial class Program
         return Path.IsPathRooted(configuredDatabasePath)
             ? configuredDatabasePath
             : Path.Combine(contentRootPath, configuredDatabasePath);
+    }
+
+    private static DatabaseSyncOptions CreateDatabaseSyncOptions(
+        string contentRootPath,
+        ConfigurationManager configuration,
+        string databasePath)
+    {
+        var section = configuration.GetSection("Persistence:DatabaseGitSync");
+        var enabled = section.GetValue<bool>("Enabled");
+        var configuredRepositoryPath = section["RepositoryPath"];
+        var repositoryPath = string.IsNullOrWhiteSpace(configuredRepositoryPath)
+            ? Path.Combine(contentRootPath, "App_Data", "ronflow-db-repository")
+            : ResolveDatabasePath(contentRootPath, configuredRepositoryPath);
+        var configuredBranch = section["Branch"];
+        var configuredDatabaseFileName = section["DatabaseFileName"];
+        var configuredRemoteUrl = section["RemoteUrl"];
+
+        return new DatabaseSyncOptions
+        {
+            Enabled = enabled,
+            RuntimeDatabasePath = databasePath,
+            RepositoryPath = repositoryPath,
+            RemoteUrl = string.IsNullOrWhiteSpace(configuredRemoteUrl) ? null : configuredRemoteUrl,
+            Branch = string.IsNullOrWhiteSpace(configuredBranch) ? "main" : configuredBranch,
+            DatabaseFileName = string.IsNullOrWhiteSpace(configuredDatabaseFileName) ? "ronflow.db" : configuredDatabaseFileName,
+        };
     }
 }
 
