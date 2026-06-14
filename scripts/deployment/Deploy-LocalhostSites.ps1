@@ -654,6 +654,7 @@ Write-BuildInfoFile -TargetPath $RonAuthTargetPath -Application 'RonAuth.Api' -V
 
 Write-Step "Publishing RonFlow API to $RonFlowApiTargetPath"
 Publish-DotnetSite -ProjectPath $ronFlowApiProjectPath -TargetPath $RonFlowApiTargetPath -DisplayName 'RonFlow API'
+Ensure-Directory -Path (Join-Path $RonFlowApiTargetPath 'logs')
 Write-BuildInfoFile -TargetPath $RonFlowApiTargetPath -Application 'RonFlow.Api' -Version $resolvedBuildVersion -UpdatedAtUtc $resolvedBuildUpdatedAtUtc -SourceRevision $ronFlowSourceRevision
 
 if ($ApiAccessMode -eq 'IisApplications' -and $EnsureIisApplications.IsPresent) {

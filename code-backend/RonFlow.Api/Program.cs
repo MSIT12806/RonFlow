@@ -167,13 +167,22 @@ public partial class Program
             : ResolveDatabasePath(builder.Environment.ContentRootPath, configuredDatabasePath);
 
         var databaseSyncOptions = CreateDatabaseSyncOptions(builder.Environment.ContentRootPath, builder.Configuration, databasePath);
-        IDatabaseSyncCoordinator databaseSyncCoordinator = databaseSyncOptions.Enabled
-            ? new DatabaseSyncCoordinator(databaseSyncOptions, new SqliteDatabaseSnapshotStore(), new GitDatabaseRepositorySync(databaseSyncOptions))
-            : NoOpDatabaseSyncCoordinator.Instance;
-        databaseSyncCoordinator.PullBeforeOpen();
+        builder.Services.AddSingleton(databaseSyncOptions);
+        builder.Services.AddSingleton<IDatabaseSyncCoordinator>(serviceProvider =>
+        {
+            IDatabaseSyncCoordinator databaseSyncCoordinator = databaseSyncOptions.Enabled
+                ? new DatabaseSyncCoordinator(
+                    databaseSyncOptions,
+                    new SqliteDatabaseSnapshotStore(),
+                    new GitDatabaseRepositorySync(databaseSyncOptions),
+                    serviceProvider.GetRequiredService<ILogger<DatabaseSyncCoordinator>>())
+                : NoOpDatabaseSyncCoordinator.Instance;
 
-        builder.Services.AddSingleton(databaseSyncCoordinator);
-        builder.Services.AddSingleton(new SqliteCoreFlowStore(databasePath, databaseSyncCoordinator));
+            databaseSyncCoordinator.PullBeforeOpen();
+            return databaseSyncCoordinator;
+        });
+        builder.Services.AddSingleton(serviceProvider =>
+            new SqliteCoreFlowStore(databasePath, serviceProvider.GetRequiredService<IDatabaseSyncCoordinator>()));
         builder.Services.AddSingleton<IProjectRepository, SqliteProjectRepository>();
         builder.Services.AddSingleton<ITaskRepository, SqliteTaskRepository>();
         builder.Services.AddSingleton<IPushSubscriptionRepository, SqlitePushSubscriptionRepository>();
@@ -222,6 +231,7 @@ public partial class Program
         var configuredBranch = section["Branch"];
         var configuredDatabaseFileName = section["DatabaseFileName"];
         var configuredRemoteUrl = section["RemoteUrl"];
+        var configuredGitCommandTimeoutSeconds = section.GetValue<int?>("GitCommandTimeoutSeconds");
 
         return new DatabaseSyncOptions
         {
@@ -231,6 +241,7 @@ public partial class Program
             RemoteUrl = string.IsNullOrWhiteSpace(configuredRemoteUrl) ? null : configuredRemoteUrl,
             Branch = string.IsNullOrWhiteSpace(configuredBranch) ? "main" : configuredBranch,
             DatabaseFileName = string.IsNullOrWhiteSpace(configuredDatabaseFileName) ? "ronflow.db" : configuredDatabaseFileName,
+            GitCommandTimeoutSeconds = configuredGitCommandTimeoutSeconds.GetValueOrDefault(30),
         };
     }
 }

@@ -1,10 +1,13 @@
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 using Microsoft.Data.Sqlite;
 
 namespace RonFlow.Infrastructure;
 
 public sealed class DatabaseSyncOptions
 {
+    private const int DefaultGitCommandTimeoutSeconds = 30;
+
     public bool Enabled { get; init; }
 
     public string RuntimeDatabasePath { get; init; } = string.Empty;
@@ -16,6 +19,10 @@ public sealed class DatabaseSyncOptions
     public string Branch { get; init; } = "main";
 
     public string DatabaseFileName { get; init; } = "ronflow.db";
+
+    public int GitCommandTimeoutSeconds { get; init; } = DefaultGitCommandTimeoutSeconds;
+
+    public TimeSpan GitCommandTimeout => TimeSpan.FromSeconds(Math.Max(1, GitCommandTimeoutSeconds));
 }
 
 public interface IDatabaseSyncCoordinator
@@ -45,7 +52,8 @@ public sealed class NoOpDatabaseSyncCoordinator : IDatabaseSyncCoordinator
 public sealed class DatabaseSyncCoordinator(
     DatabaseSyncOptions options,
     IDatabaseSnapshotStore snapshotStore,
-    IDatabaseRepositorySync repositorySync) : IDatabaseSyncCoordinator
+    IDatabaseRepositorySync repositorySync,
+    ILogger<DatabaseSyncCoordinator>? logger = null) : IDatabaseSyncCoordinator
 {
     private readonly object syncRoot = new();
 
@@ -58,7 +66,7 @@ public sealed class DatabaseSyncCoordinator(
 
         lock (syncRoot)
         {
-            TryRun(() =>
+            TryRun("pull database snapshot before opening runtime database", () =>
             {
                 repositorySync.EnsureReady();
                 repositorySync.Pull();
@@ -81,7 +89,7 @@ public sealed class DatabaseSyncCoordinator(
 
         lock (syncRoot)
         {
-            TryRun(() =>
+            TryRun($"push database snapshot after mutation '{reason}'", () =>
             {
                 repositorySync.EnsureReady();
                 snapshotStore.WriteSnapshot(options.RuntimeDatabasePath, GetRepositoryDatabasePath());
@@ -102,16 +110,69 @@ public sealed class DatabaseSyncCoordinator(
             : $"Sync RonFlow database: {reason}";
     }
 
-    private static void TryRun(Action action)
+    private void TryRun(string operation, Action action)
     {
+        WriteDiagnosticLog($"Starting: {operation}");
         try
         {
             action();
+            WriteDiagnosticLog($"Completed: {operation}");
+        }
+        catch (Exception exception)
+        {
+            // Sync must not make a successful local persistence mutation fail.
+            WriteDiagnosticLog($"Failed: {operation}{Environment.NewLine}{exception}");
+            logger?.LogWarning(
+                exception,
+                "RonFlow database Git sync failed while trying to {Operation}. RuntimeDatabasePath: {RuntimeDatabasePath}; RepositoryPath: {RepositoryPath}; RemoteUrl: {RemoteUrl}; Branch: {Branch}; DatabaseFileName: {DatabaseFileName}",
+                operation,
+                options.RuntimeDatabasePath,
+                options.RepositoryPath,
+                RedactSensitiveText(options.RemoteUrl),
+                options.Branch,
+                options.DatabaseFileName);
+        }
+    }
+
+    private void WriteDiagnosticLog(string message)
+    {
+        try
+        {
+            var runtimeDirectory = Path.GetDirectoryName(Path.GetFullPath(options.RuntimeDatabasePath));
+            if (string.IsNullOrWhiteSpace(runtimeDirectory))
+            {
+                return;
+            }
+
+            Directory.CreateDirectory(runtimeDirectory);
+            var logPath = Path.Combine(runtimeDirectory, "database-git-sync.log");
+            var line = $"[{DateTimeOffset.UtcNow:O}] {message}{Environment.NewLine}";
+            File.AppendAllText(logPath, line);
         }
         catch
         {
-            // Sync must not make a successful local persistence mutation fail.
+            // Diagnostic logging must not affect local persistence.
         }
+    }
+
+    private static string? RedactSensitiveText(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return value;
+        }
+
+        var redacted = System.Text.RegularExpressions.Regex.Replace(
+            value,
+            @"https://[^@\s]+@github\.com",
+            "https://***@github.com",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        return System.Text.RegularExpressions.Regex.Replace(
+            redacted,
+            @"github_pat_[A-Za-z0-9_]+",
+            "github_pat_***",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     }
 }
 
@@ -190,55 +251,67 @@ public interface IDatabaseRepositorySync
 
 public sealed class GitDatabaseRepositorySync(DatabaseSyncOptions options) : IDatabaseRepositorySync
 {
+    private const string CommitAuthorName = "RonFlow DB Sync";
+    private const string CommitAuthorEmail = "ronflow-db-sync@localhost";
+
     public void EnsureReady()
     {
         if (Directory.Exists(Path.Combine(options.RepositoryPath, ".git")))
         {
+            EnsureCommitIdentity();
             return;
         }
 
         if (!string.IsNullOrWhiteSpace(options.RemoteUrl))
         {
             EnsureParentDirectory(options.RepositoryPath);
-            RunGit(Path.GetDirectoryName(Path.GetFullPath(options.RepositoryPath))!, "clone", "--branch", options.Branch, options.RemoteUrl, options.RepositoryPath);
+            RunGit(Path.GetDirectoryName(Path.GetFullPath(options.RepositoryPath))!, options.GitCommandTimeout, "clone", "--branch", options.Branch, options.RemoteUrl, options.RepositoryPath);
+            EnsureCommitIdentity();
             return;
         }
 
         Directory.CreateDirectory(options.RepositoryPath);
-        RunGit(options.RepositoryPath, "init", "--initial-branch", options.Branch);
+        RunGit(options.RepositoryPath, options.GitCommandTimeout, "init", "--initial-branch", options.Branch);
+        EnsureCommitIdentity();
     }
 
     public void Pull()
     {
         if (HasRemote())
         {
-            RunGit(options.RepositoryPath, "pull", "--ff-only", "origin", options.Branch);
+            RunGit(options.RepositoryPath, options.GitCommandTimeout, "pull", "--ff-only", "origin", options.Branch);
         }
     }
 
     public void CommitAndPush(string relativePath, string message)
     {
-        RunGit(options.RepositoryPath, "add", relativePath);
+        RunGit(options.RepositoryPath, options.GitCommandTimeout, "add", relativePath);
 
-        var status = RunGit(options.RepositoryPath, "status", "--porcelain", "--", relativePath);
+        var status = RunGit(options.RepositoryPath, options.GitCommandTimeout, "status", "--porcelain", "--", relativePath);
         if (string.IsNullOrWhiteSpace(status.StandardOutput))
         {
             return;
         }
 
-        RunGit(options.RepositoryPath, "commit", "-m", message);
+        RunGit(options.RepositoryPath, options.GitCommandTimeout, "commit", "-m", message);
 
         if (HasRemote())
         {
-            RunGit(options.RepositoryPath, "push", "origin", options.Branch);
+            RunGit(options.RepositoryPath, options.GitCommandTimeout, "push", "origin", options.Branch);
         }
     }
 
     private bool HasRemote()
     {
-        return RunGit(options.RepositoryPath, "remote").StandardOutput
+        return RunGit(options.RepositoryPath, options.GitCommandTimeout, "remote").StandardOutput
             .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Contains("origin", StringComparer.OrdinalIgnoreCase);
+    }
+
+    private void EnsureCommitIdentity()
+    {
+        RunGit(options.RepositoryPath, options.GitCommandTimeout, "config", "user.name", CommitAuthorName);
+        RunGit(options.RepositoryPath, options.GitCommandTimeout, "config", "user.email", CommitAuthorEmail);
     }
 
     private static void EnsureParentDirectory(string path)
@@ -250,7 +323,7 @@ public sealed class GitDatabaseRepositorySync(DatabaseSyncOptions options) : IDa
         }
     }
 
-    private static GitResult RunGit(string workingDirectory, params string[] arguments)
+    private static GitResult RunGit(string workingDirectory, TimeSpan timeout, params string[] arguments)
     {
         var processStartInfo = new ProcessStartInfo("git")
         {
@@ -259,6 +332,9 @@ public sealed class GitDatabaseRepositorySync(DatabaseSyncOptions options) : IDa
             RedirectStandardError = true,
             UseShellExecute = false,
         };
+        processStartInfo.Environment["GIT_TERMINAL_PROMPT"] = "0";
+        processStartInfo.Environment["GCM_INTERACTIVE"] = "Never";
+        processStartInfo.Environment["GCM_MODAL_PROMPT"] = "false";
 
         foreach (var argument in arguments)
         {
@@ -267,16 +343,55 @@ public sealed class GitDatabaseRepositorySync(DatabaseSyncOptions options) : IDa
 
         using var process = Process.Start(processStartInfo)
             ?? throw new InvalidOperationException("Failed to start git.");
-        var standardOutput = process.StandardOutput.ReadToEnd();
-        var standardError = process.StandardError.ReadToEnd();
-        process.WaitForExit();
+        var standardOutputTask = process.StandardOutput.ReadToEndAsync();
+        var standardErrorTask = process.StandardError.ReadToEndAsync();
+        if (!process.WaitForExit(timeout))
+        {
+            try
+            {
+                process.Kill(entireProcessTree: true);
+            }
+            catch
+            {
+            }
+
+            throw new TimeoutException($"git {FormatGitArguments(arguments)} timed out after {timeout.TotalSeconds:0} seconds.");
+        }
+
+        var standardOutput = standardOutputTask.GetAwaiter().GetResult();
+        var standardError = standardErrorTask.GetAwaiter().GetResult();
 
         if (process.ExitCode != 0)
         {
-            throw new InvalidOperationException($"git {string.Join(' ', arguments)} failed: {standardError}");
+            throw new InvalidOperationException($"git {FormatGitArguments(arguments)} failed: {RedactSensitiveText(standardError)}");
         }
 
         return new GitResult(standardOutput, standardError);
+    }
+
+    private static string FormatGitArguments(IEnumerable<string> arguments)
+    {
+        return RedactSensitiveText(string.Join(' ', arguments));
+    }
+
+    private static string RedactSensitiveText(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return value;
+        }
+
+        var redacted = System.Text.RegularExpressions.Regex.Replace(
+            value,
+            @"https://[^@\s]+@github\.com",
+            "https://***@github.com",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        return System.Text.RegularExpressions.Regex.Replace(
+            redacted,
+            @"github_pat_[A-Za-z0-9_]+",
+            "github_pat_***",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     }
 
     private sealed record GitResult(string StandardOutput, string StandardError);
