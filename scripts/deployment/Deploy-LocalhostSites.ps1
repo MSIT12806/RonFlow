@@ -4,6 +4,7 @@ param(
   [string]$DeploymentRoot = 'C:\inetpub',
   [string]$RonAuthTargetPath,
   [string]$RonFlowApiTargetPath,
+  [string]$RonFlowDiagnosticsApiTargetPath,
   [string]$RonFlowWebTargetPath,
   [ValidateSet('IisApplications', 'DirectPorts')]
   [string]$ApiAccessMode = 'IisApplications',
@@ -11,11 +12,14 @@ param(
   [string]$IisAppPoolName = 'DefaultAppPool',
   [string]$RonAuthAppPoolName,
   [string]$RonFlowApiAppPoolName,
+  [string]$RonFlowDiagnosticsApiAppPoolName,
   [string]$RonAuthAppPath = '/ronauth-api',
   [string]$RonFlowApiAppPath = '/ronflow-api',
+  [string]$RonFlowDiagnosticsApiAppPath = '/ronflow-diagnostics-api',
   [switch]$EnsureIisApplications,
   [string]$RonAuthOrigin = 'http://localhost:5136',
   [string]$RonFlowApiOrigin = 'http://localhost:5078',
+  [string]$RonFlowDiagnosticsApiOrigin = 'http://localhost:5088',
   [string]$RonFlowWebOrigin = 'http://localhost',
   [string]$BuildVersion,
   [string]$BuildUpdatedAtUtc,
@@ -32,6 +36,7 @@ $workspaceRoot = Split-Path -Parent $repoRoot
 $ronAuthRepoRoot = Join-Path $workspaceRoot 'RonAuth'
 $ronAuthProjectPath = Join-Path $ronAuthRepoRoot 'code-backend\RonAuth.Api\RonAuth.Api.csproj'
 $ronFlowApiProjectPath = Join-Path $repoRoot 'code-backend\RonFlow.Api\RonFlow.Api.csproj'
+$ronFlowDiagnosticsApiProjectPath = Join-Path $repoRoot 'code-backend\RonFlow.Diagnostics.Api\RonFlow.Diagnostics.Api.csproj'
 $frontendRoot = Join-Path $repoRoot 'code-frontend'
 $frontendDistPath = Join-Path $frontendRoot 'dist'
 $resolvedBuildVersion = if ([string]::IsNullOrWhiteSpace($BuildVersion)) {
@@ -65,6 +70,10 @@ if (-not $PSBoundParameters.ContainsKey('RonFlowApiTargetPath')) {
   $RonFlowApiTargetPath = Join-Path $DeploymentRoot 'ronflow-api'
 }
 
+if (-not $PSBoundParameters.ContainsKey('RonFlowDiagnosticsApiTargetPath')) {
+  $RonFlowDiagnosticsApiTargetPath = Join-Path $DeploymentRoot 'ronflow-diagnostics-api'
+}
+
 if (-not $PSBoundParameters.ContainsKey('RonFlowWebTargetPath')) {
   $RonFlowWebTargetPath = Join-Path $DeploymentRoot 'ronflow-web'
 }
@@ -72,6 +81,7 @@ if (-not $PSBoundParameters.ContainsKey('RonFlowWebTargetPath')) {
 $DeploymentRoot = Get-AbsolutePath -Path $DeploymentRoot
 $RonAuthTargetPath = Get-AbsolutePath -Path $RonAuthTargetPath
 $RonFlowApiTargetPath = Get-AbsolutePath -Path $RonFlowApiTargetPath
+$RonFlowDiagnosticsApiTargetPath = Get-AbsolutePath -Path $RonFlowDiagnosticsApiTargetPath
 $RonFlowWebTargetPath = Get-AbsolutePath -Path $RonFlowWebTargetPath
 
 if ([string]::IsNullOrWhiteSpace($RonAuthAppPoolName)) {
@@ -80,6 +90,10 @@ if ([string]::IsNullOrWhiteSpace($RonAuthAppPoolName)) {
 
 if ([string]::IsNullOrWhiteSpace($RonFlowApiAppPoolName)) {
   $RonFlowApiAppPoolName = $IisAppPoolName
+}
+
+if ([string]::IsNullOrWhiteSpace($RonFlowDiagnosticsApiAppPoolName)) {
+  $RonFlowDiagnosticsApiAppPoolName = $IisAppPoolName
 }
 
 $frontendApiBaseUrl = if ($ApiAccessMode -eq 'IisApplications') {
@@ -538,16 +552,19 @@ function Test-HttpStatusCode {
 function Assert-IisApplicationHealth {
   param(
     [Parameter(Mandatory = $true)][string]$RonAuthHealthUri,
-    [Parameter(Mandatory = $true)][string]$RonFlowHealthUri
+    [Parameter(Mandatory = $true)][string]$RonFlowHealthUri,
+    [Parameter(Mandatory = $true)][string]$RonFlowDiagnosticsHealthUri
   )
 
   $ronAuthStatusCode = Test-HttpStatusCode -Uri $RonAuthHealthUri -Method 'OPTIONS'
   $ronFlowStatusCode = Test-HttpStatusCode -Uri $RonFlowHealthUri
+  $ronFlowDiagnosticsStatusCode = Test-HttpStatusCode -Uri $RonFlowDiagnosticsHealthUri
 
   $ronAuthHealthy = $ronAuthStatusCode -in @(200, 204, 400, 401, 405, 415)
   $ronFlowHealthy = $ronFlowStatusCode -in @(200, 401)
+  $ronFlowDiagnosticsHealthy = $ronFlowDiagnosticsStatusCode -eq 200
 
-  if ($ronAuthHealthy -and $ronFlowHealthy) {
+  if ($ronAuthHealthy -and $ronFlowHealthy -and $ronFlowDiagnosticsHealthy) {
     return
   }
 
@@ -556,6 +573,7 @@ function Assert-IisApplicationHealth {
 Localhost IIS health checks failed after deployment.
 RonAuth endpoint: $RonAuthHealthUri -> HTTP $ronAuthStatusCode
 RonFlow endpoint: $RonFlowHealthUri -> HTTP $ronFlowStatusCode
+RonFlow Diagnostics endpoint: $RonFlowDiagnosticsHealthUri -> HTTP $ronFlowDiagnosticsStatusCode
 
 If these endpoints are still returning 503, the IIS application bindings may need to be reapplied or the IIS app pool may need an elevated recycle.
 Re-run the deployment from an elevated PowerShell 7 session with:
@@ -630,13 +648,14 @@ $npmPath = Get-RequiredCommand -Name 'npm'
 $gitPath = Get-Command git -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -ErrorAction SilentlyContinue
 $ronFlowSourceRevision = Try-ResolveGitRevision -RepositoryPath $repoRoot
 $ronAuthSourceRevision = Try-ResolveGitRevision -RepositoryPath $ronAuthRepoRoot
-$managedIisAppPools = @($RonAuthAppPoolName, $RonFlowApiAppPoolName) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
+$managedIisAppPools = @($RonAuthAppPoolName, $RonFlowApiAppPoolName, $RonFlowDiagnosticsApiAppPoolName) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
 $iisHostingStopped = $false
 
 if (-not $SkipApiStart.IsPresent) {
   Write-Step 'Stopping published API processes before publish'
   Stop-ProcessesOnPort -Port 5136
   Stop-ProcessesOnPort -Port 5078
+  Stop-ProcessesOnPort -Port 5088
 }
 
 if ($ApiAccessMode -eq 'IisApplications' -and $StopIisHosting.IsPresent) {
@@ -656,15 +675,21 @@ Write-Step "Publishing RonFlow API to $RonFlowApiTargetPath"
 Publish-DotnetSite -ProjectPath $ronFlowApiProjectPath -TargetPath $RonFlowApiTargetPath -DisplayName 'RonFlow API'
 Write-BuildInfoFile -TargetPath $RonFlowApiTargetPath -Application 'RonFlow.Api' -Version $resolvedBuildVersion -UpdatedAtUtc $resolvedBuildUpdatedAtUtc -SourceRevision $ronFlowSourceRevision
 
+Write-Step "Publishing RonFlow Diagnostics API to $RonFlowDiagnosticsApiTargetPath"
+Publish-DotnetSite -ProjectPath $ronFlowDiagnosticsApiProjectPath -TargetPath $RonFlowDiagnosticsApiTargetPath -DisplayName 'RonFlow Diagnostics API'
+Write-BuildInfoFile -TargetPath $RonFlowDiagnosticsApiTargetPath -Application 'RonFlow.Diagnostics.Api' -Version $resolvedBuildVersion -UpdatedAtUtc $resolvedBuildUpdatedAtUtc -SourceRevision $ronFlowSourceRevision
+
 if ($ApiAccessMode -eq 'IisApplications' -and $EnsureIisApplications.IsPresent) {
   Write-Step 'Configuring IIS applications for path-based API access'
   Ensure-IisApplication -SiteName $IisSiteName -ApplicationPath $RonAuthAppPath -PhysicalPath $RonAuthTargetPath -AppPoolName $RonAuthAppPoolName
   Ensure-IisApplication -SiteName $IisSiteName -ApplicationPath $RonFlowApiAppPath -PhysicalPath $RonFlowApiTargetPath -AppPoolName $RonFlowApiAppPoolName
+  Ensure-IisApplication -SiteName $IisSiteName -ApplicationPath $RonFlowDiagnosticsApiAppPath -PhysicalPath $RonFlowDiagnosticsApiTargetPath -AppPoolName $RonFlowDiagnosticsApiAppPoolName
 }
 elseif (-not $SkipApiStart.IsPresent) {
   Write-Step 'Starting published API processes'
   Start-PublishedApi -TargetPath $RonAuthTargetPath -ExecutableName 'RonAuth.Api.exe' -Urls $RonAuthOrigin -ServiceName 'RonAuth.Api' -Port 5136
   Start-PublishedApi -TargetPath $RonFlowApiTargetPath -ExecutableName 'RonFlow.Api.exe' -Urls $RonFlowApiOrigin -ServiceName 'RonFlow.Api' -Port 5078
+  Start-PublishedApi -TargetPath $RonFlowDiagnosticsApiTargetPath -ExecutableName 'RonFlow.Diagnostics.Api.exe' -Urls $RonFlowDiagnosticsApiOrigin -ServiceName 'RonFlow.Diagnostics.Api' -Port 5088
 }
 
 Deploy-FrontendSite
@@ -678,20 +703,22 @@ if ($ApiAccessMode -eq 'IisApplications') {
   Write-Step 'Verifying IIS-hosted localhost API health'
   Assert-IisApplicationHealth `
     -RonAuthHealthUri ($RonFlowWebOrigin.TrimEnd('/') + $RonAuthAppPath + '/api/auth/login') `
-    -RonFlowHealthUri ($RonFlowWebOrigin.TrimEnd('/') + $RonFlowApiAppPath + '/api/ai/bootstrap')
+    -RonFlowHealthUri ($RonFlowWebOrigin.TrimEnd('/') + $RonFlowApiAppPath + '/api/ai/bootstrap') `
+    -RonFlowDiagnosticsHealthUri ($RonFlowWebOrigin.TrimEnd('/') + $RonFlowDiagnosticsApiAppPath + '/api/health')
 }
 
 Write-Host ''
 Write-Host 'Deployment completed.' -ForegroundColor Green
 Write-Host "RonAuth API:    $RonAuthTargetPath" -ForegroundColor Green
 Write-Host "RonFlow API:    $RonFlowApiTargetPath" -ForegroundColor Green
+Write-Host "RonFlow Diagnostics API: $RonFlowDiagnosticsApiTargetPath" -ForegroundColor Green
 Write-Host "RonFlow Frontend: $RonFlowWebTargetPath" -ForegroundColor Green
 Write-Host "Build version:  $resolvedBuildVersion" -ForegroundColor Green
 Write-Host "Updated at UTC: $($resolvedBuildUpdatedAtUtc.ToString('O'))" -ForegroundColor Green
 Write-Host "Frontend origin: $RonFlowWebOrigin" -ForegroundColor Green
 Write-Host ''
 if ($ApiAccessMode -eq 'IisApplications') {
-  Write-Host "Frontend now calls $RonFlowApiAppPath and $RonAuthAppPath on the same localhost site." -ForegroundColor Yellow
+  Write-Host "Frontend now calls $RonFlowApiAppPath and $RonAuthAppPath on the same localhost site. Diagnostics API is available at $RonFlowDiagnosticsApiAppPath." -ForegroundColor Yellow
 }
 else {
   Write-Host 'Frontend now calls the API origins directly, so IIS URL Rewrite is no longer required for localhost deployment.' -ForegroundColor Yellow
