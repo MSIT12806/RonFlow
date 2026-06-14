@@ -12,7 +12,11 @@ public partial class Program
         builder.Services.Configure<DiagnosticsOptions>(builder.Configuration.GetSection(DiagnosticsOptions.SectionName));
         builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
         builder.Services.AddSingleton<ILogRedactor, LogRedactor>();
-        builder.Services.AddSingleton<ILogSourceReader, FileLogSourceReader>();
+        builder.Services.AddSingleton<ILogSourceProvider, FileLogSourceProvider>();
+        builder.Services.AddHttpClient<CentralizedLogSourceProvider>();
+        builder.Services.AddSingleton<ILogSourceProvider>(serviceProvider =>
+            serviceProvider.GetRequiredService<CentralizedLogSourceProvider>());
+        builder.Services.AddSingleton<ILogSourceReader, LogSourceReader>();
         builder.Services.AddSingleton<IGitRepositoryInspector, GitRepositoryInspector>();
         builder.Services.AddSingleton<IBuildInfoReader, BuildInfoReader>();
         builder.Services.AddHttpClient<IConfiguredHealthCheckRunner, ConfiguredHealthCheckRunner>();

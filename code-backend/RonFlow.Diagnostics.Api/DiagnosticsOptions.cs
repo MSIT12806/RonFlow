@@ -17,9 +17,37 @@ public sealed class DiagnosticsOptions
 
 public sealed class LogSourceOptions
 {
+    public LogSourceProviderKind Provider { get; init; } = LogSourceProviderKind.File;
+
     public string PathPattern { get; init; } = string.Empty;
 
     public string DisplayName { get; init; } = string.Empty;
+
+    public CentralizedLogSourceOptions Centralized { get; init; } = new();
+}
+
+public enum LogSourceProviderKind
+{
+    File,
+    Elasticsearch,
+    OpenSearch,
+}
+
+public sealed class CentralizedLogSourceOptions
+{
+    public string Endpoint { get; init; } = string.Empty;
+
+    public string IndexPattern { get; init; } = string.Empty;
+
+    public string QueryPattern { get; init; } = string.Empty;
+
+    public string ServiceName { get; init; } = string.Empty;
+
+    public string Environment { get; init; } = string.Empty;
+
+    public int TimeRangeMinutes { get; init; } = 60;
+
+    public int? MaxTailLines { get; init; }
 }
 
 public sealed class GitRepositoryOptions

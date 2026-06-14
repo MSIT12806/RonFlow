@@ -63,16 +63,32 @@ Example:
   "Diagnostics": {
     "LogSources": {
       "ronflow-api-stdout": {
+        "Provider": "File",
         "PathPattern": "C:\\inetpub\\ronflow-api\\logs\\stdout*.log",
         "DisplayName": "RonFlow API stdout"
       },
       "ronauth-api-stdout": {
+        "Provider": "File",
         "PathPattern": "C:\\inetpub\\ronauth-api\\logs\\stdout*.log",
         "DisplayName": "RonAuth API stdout"
       },
       "database-git-sync": {
+        "Provider": "File",
         "PathPattern": "C:\\inetpub\\ronflow-api\\App_Data\\database-git-sync.log",
         "DisplayName": "RonFlow database Git sync"
+      },
+      "ronflow-api-centralized": {
+        "Provider": "Elasticsearch",
+        "DisplayName": "RonFlow API centralized logs",
+        "Centralized": {
+          "Endpoint": "https://logs.example.internal",
+          "IndexPattern": "ronflow-*",
+          "QueryPattern": "level:ERROR OR level:WARN",
+          "ServiceName": "ronflow-api",
+          "Environment": "localhost",
+          "TimeRangeMinutes": 60,
+          "MaxTailLines": 500
+        }
       }
     },
     "GitRepositories": {
@@ -106,6 +122,27 @@ Example:
 ```
 
 `database-git-sync` and `ronflow-db` are examples of configured sources. They must not be hard-coded into the diagnostics application.
+
+### 5.1 Log Provider Model
+
+`Diagnostics:LogSources:*:Provider` selects the log backend. The default is `File`, preserving the original localhost IIS behavior.
+
+Supported initial providers:
+
+- `File`: reads the newest local file matched by `PathPattern`.
+- `Elasticsearch` / `OpenSearch`: sends a bounded `_search` request to a centralized backend described by `Centralized`.
+
+Centralized provider settings:
+
+- `Endpoint`: base URL of the centralized log platform.
+- `IndexPattern`: index or data stream pattern used in the `_search` path.
+- `QueryPattern`: optional backend query string.
+- `ServiceName`: optional `service.name` filter.
+- `Environment`: optional `service.environment` filter.
+- `TimeRangeMinutes`: relative time window, bounded to at least one minute.
+- `MaxTailLines`: optional provider-specific cap, still subject to bounded query behavior.
+
+Provider implementations must keep the `/api/logs` and `/api/logs/{sourceKey}` response shape stable. Centralized providers return `fileName` and `lastWriteTimeUtc` as `null`, because the backing data is no longer a local file. Provider errors should be returned as structured log tail results with redaction applied, not unhandled exceptions.
 
 ## 6. API Surface
 
@@ -338,6 +375,8 @@ Unit or integration tests should cover:
 6. Git command timeout or failure returns a structured error.
 7. Build-info reader handles missing and valid JSON files.
 8. Health check runner treats configured expected status codes as success.
+9. Centralized log provider maps service/environment/time range/tail settings into a bounded backend query.
+10. Centralized log provider failures return structured redacted errors.
 
 ## 11. Acceptance Criteria
 
@@ -351,4 +390,4 @@ Unit or integration tests should cover:
 8. Configured HTTP health checks can be queried.
 9. The app can be deployed to localhost IIS independently from RonFlow API and RonAuth API.
 10. Database Git sync information can be supported only by configuration, without hard-coded dependency on the database Git sync implementation.
-
+11. File and centralized log sources can be configured without changing the API route surface.
