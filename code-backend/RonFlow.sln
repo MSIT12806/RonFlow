@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RonFlow.Application", "RonF
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RonFlow.Infrastructure", "RonFlow.Infrastructure\RonFlow.Infrastructure.csproj", "{094D6264-1D99-47DF-AD5E-970978C1D77B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RonFlow.Testing.Infrastructure", "RonFlow.Testing.Infrastructure\RonFlow.Testing.Infrastructure.csproj", "{B08B913B-B4CA-49A9-9E72-51C5236515C9}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RonAuth.Api", "..\..\RonAuth\code-backend\RonAuth.Api\RonAuth.Api.csproj", "{132B30D1-666B-C9B3-7A40-70AD0CB772AD}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RonFlow.Observability", "RonFlow.Observability\RonFlow.Observability.csproj", "{A2B62387-513D-4514-ABBD-A9CE18D1C13D}"
@@ -87,6 +89,18 @@ Global
 		{094D6264-1D99-47DF-AD5E-970978C1D77B}.Release|x64.Build.0 = Release|Any CPU
 		{094D6264-1D99-47DF-AD5E-970978C1D77B}.Release|x86.ActiveCfg = Release|Any CPU
 		{094D6264-1D99-47DF-AD5E-970978C1D77B}.Release|x86.Build.0 = Release|Any CPU
+		{B08B913B-B4CA-49A9-9E72-51C5236515C9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B08B913B-B4CA-49A9-9E72-51C5236515C9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B08B913B-B4CA-49A9-9E72-51C5236515C9}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B08B913B-B4CA-49A9-9E72-51C5236515C9}.Debug|x64.Build.0 = Debug|Any CPU
+		{B08B913B-B4CA-49A9-9E72-51C5236515C9}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B08B913B-B4CA-49A9-9E72-51C5236515C9}.Debug|x86.Build.0 = Debug|Any CPU
+		{B08B913B-B4CA-49A9-9E72-51C5236515C9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B08B913B-B4CA-49A9-9E72-51C5236515C9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B08B913B-B4CA-49A9-9E72-51C5236515C9}.Release|x64.ActiveCfg = Release|Any CPU
+		{B08B913B-B4CA-49A9-9E72-51C5236515C9}.Release|x64.Build.0 = Release|Any CPU
+		{B08B913B-B4CA-49A9-9E72-51C5236515C9}.Release|x86.ActiveCfg = Release|Any CPU
+		{B08B913B-B4CA-49A9-9E72-51C5236515C9}.Release|x86.Build.0 = Release|Any CPU
 		{132B30D1-666B-C9B3-7A40-70AD0CB772AD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{132B30D1-666B-C9B3-7A40-70AD0CB772AD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{132B30D1-666B-C9B3-7A40-70AD0CB772AD}.Debug|x64.ActiveCfg = Debug|Any CPU

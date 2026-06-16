@@ -26,6 +26,7 @@
     <ProjectReference Include="..\RonFlow.Api\RonFlow.Api.csproj" />
     <ProjectReference Include="..\RonFlow.Application\RonFlow.Application.csproj" />
     <ProjectReference Include="..\RonFlow.Domain\RonFlow.Domain.csproj" />
+    <ProjectReference Include="..\RonFlow.Testing.Infrastructure\RonFlow.Testing.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

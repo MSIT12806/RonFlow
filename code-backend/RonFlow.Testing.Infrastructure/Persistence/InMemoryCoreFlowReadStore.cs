@@ -1,6 +1,6 @@
 using RonFlow.Domain;
 
-namespace RonFlow.Infrastructure;
+namespace RonFlow.Testing.Infrastructure;
 
 public sealed class InMemoryCoreFlowReadStore(IProjectRepository projectRepository, ITaskRepository taskRepository) : ICoreFlowReadStore
 {
