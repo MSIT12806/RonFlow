@@ -20,7 +20,7 @@ RonFlow 是一個以 C# 與 ASP.NET Core 為核心的小型專案管理工具。
 
 - Canonical product behavior： [docs/specs/ronflow-core-flow-spec.md](docs/specs/ronflow-core-flow-spec.md)
 - AI agent bootstrap entry： [docs/RonflowSkills.md](docs/RonflowSkills.md)
-- Canonical technical explanations： [docs/specs/Wish-願望清單.md](docs/specs/Wish-%E9%A1%98%E6%9C%9B%E6%B8%85%E5%96%AE.md)、[docs/ronflow-tech](docs/ronflow-tech)
+- Canonical technical explanations： [docs/ronflow-tech/ronflow-technical-structure-highlights.md](docs/ronflow-tech/ronflow-technical-structure-highlights.md)、[docs/ronflow-tech](docs/ronflow-tech)
 
 若文件之間出現衝突，優先以 active spec 與目前 acceptance tests 為準；devlog 與歷史文件主要用來理解設計思路，不應直接視為目前行為真相。
 

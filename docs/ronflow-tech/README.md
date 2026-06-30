@@ -2,7 +2,7 @@
 
 這個目錄用來整理 RonFlow 的技術實踐文章。
 
-它和 [RonFlow 技術結構亮點](../specs/RonFlow-%E6%8A%80%E8%A1%93%E7%B5%90%E6%A7%8B%E4%BA%AE%E9%BB%9E.md) 是互相對應的：
+它和 [RonFlow 技術結構亮點](./ronflow-technical-structure-highlights.md) 是互相對應的：
 - 「技術結構亮點」負責回答 RonFlow 有哪些值得展現的工程結構
 - `ronflow-tech` 負責把其中重要項目的實踐細節、設計取捨與落地方式寫清楚
 
@@ -17,6 +17,7 @@
 - RonFlow 實際是怎麼落地的
 
 ## 文章索引
+- RonFlow 技術結構亮點：`ronflow-technical-structure-highlights.md`
 - RonFlow 的 spec-first + acceptance-first Outside-In 開發流程：`ronflow-spec-first-outside-in.md`
 - RonFlow 的 Clean Architecture 實踐：`ronflow-clean-architecture.md`
 - RonFlow 的 DDD 實踐：`ronflow-ddd.md`
