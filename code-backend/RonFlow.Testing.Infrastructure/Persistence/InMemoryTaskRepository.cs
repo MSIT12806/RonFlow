@@ -1,7 +1,7 @@
 using RonFlow.Domain;
 using DomainTask = RonFlow.Domain.Task;
 
-namespace RonFlow.Infrastructure;
+namespace RonFlow.Testing.Infrastructure;
 
 public sealed class InMemoryTaskRepository : ITaskRepository
 {
