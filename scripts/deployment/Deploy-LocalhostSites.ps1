@@ -495,6 +495,7 @@ function Get-AppCmdPath {
 function Invoke-AppCmd {
   param(
     [Parameter(Mandatory = $true)][string[]]$Arguments,
+    [int[]]$AllowedExitCodes = @(),
     [switch]$IgnoreErrors
   )
 
@@ -505,7 +506,16 @@ function Invoke-AppCmd {
 
   $output = & $appCmdPath @Arguments 2>&1
   $exitCode = $LASTEXITCODE
-  if ($exitCode -ne 0 -and -not $IgnoreErrors.IsPresent) {
+  if ($exitCode -ne 0 -and $exitCode -in $AllowedExitCodes) {
+    $commandText = "$appCmdPath $($Arguments -join ' ')"
+    $outputText = ($output | Out-String).Trim()
+    Write-Host "IIS appcmd command was already in the requested state. Exit code $exitCode. Command: $commandText" -ForegroundColor Yellow
+    if (-not [string]::IsNullOrWhiteSpace($outputText)) {
+      Write-Host $outputText -ForegroundColor DarkYellow
+    }
+  }
+
+  if ($exitCode -ne 0 -and $exitCode -notin $AllowedExitCodes -and -not $IgnoreErrors.IsPresent) {
     $commandText = "$appCmdPath $($Arguments -join ' ')"
     $outputText = ($output | Out-String).Trim()
     if ([string]::IsNullOrWhiteSpace($outputText)) {
@@ -567,12 +577,12 @@ function Stop-IisHosting {
   }
 
   if (Test-IisSiteExists -SiteName $SiteName) {
-    Invoke-AppCmd -Arguments @('stop', 'site', "/site.name:$SiteName") | Out-Null
+    Invoke-AppCmd -Arguments @('stop', 'site', "/site.name:$SiteName") -AllowedExitCodes @(1062) | Out-Null
   }
 
   foreach ($appPoolName in $AppPoolNames) {
     if (Test-IisAppPoolExists -AppPoolName $appPoolName) {
-      Invoke-AppCmd -Arguments @('stop', 'apppool', "/apppool.name:$appPoolName") | Out-Null
+      Invoke-AppCmd -Arguments @('stop', 'apppool', "/apppool.name:$appPoolName") -AllowedExitCodes @(1062) | Out-Null
     }
   }
 
@@ -596,12 +606,12 @@ function Start-IisHosting {
 
   foreach ($appPoolName in $AppPoolNames) {
     if (Test-IisAppPoolExists -AppPoolName $appPoolName) {
-      Invoke-AppCmd -Arguments @('start', 'apppool', "/apppool.name:$appPoolName") | Out-Null
+      Invoke-AppCmd -Arguments @('start', 'apppool', "/apppool.name:$appPoolName") -AllowedExitCodes @(183) | Out-Null
     }
   }
 
   if (Test-IisSiteExists -SiteName $SiteName) {
-    Invoke-AppCmd -Arguments @('start', 'site', "/site.name:$SiteName") | Out-Null
+    Invoke-AppCmd -Arguments @('start', 'site', "/site.name:$SiteName") -AllowedExitCodes @(183) | Out-Null
   }
 }
 
@@ -652,6 +662,22 @@ $repairCommand
 "@
 }
 
+function Ensure-IisSiteRoot {
+  param(
+    [Parameter(Mandatory = $true)][string]$SiteName,
+    [Parameter(Mandatory = $true)][string]$PhysicalPath,
+    [Parameter(Mandatory = $true)][string]$AppPoolName
+  )
+
+  if (-not (Test-IisSiteExists -SiteName $SiteName)) {
+    throw "IIS site not found: $SiteName"
+  }
+
+  $rootAppName = "$SiteName/"
+  Invoke-AppCmd -Arguments @('set', 'app', $rootAppName, "/applicationPool:$AppPoolName") | Out-Null
+  Invoke-AppCmd -Arguments @('set', 'vdir', $rootAppName, "/physicalPath:$PhysicalPath") | Out-Null
+}
+
 function Ensure-IisApplication {
   param(
     [Parameter(Mandatory = $true)][string]$SiteName,
@@ -677,7 +703,8 @@ function Ensure-IisApplication {
   $appName = "$SiteName$ApplicationPath"
   $existingApp = Invoke-AppCmd -Arguments @('list', 'app', $appName) -IgnoreErrors
   if ($existingApp.ExitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace(($existingApp.Output | Out-String))) {
-    Invoke-AppCmd -Arguments @('set', 'app', $appName, "/physicalPath:$PhysicalPath", "/applicationPool:$AppPoolName") | Out-Null
+    Invoke-AppCmd -Arguments @('set', 'app', $appName, "/applicationPool:$AppPoolName") | Out-Null
+    Invoke-AppCmd -Arguments @('set', 'vdir', "$appName/", "/physicalPath:$PhysicalPath") | Out-Null
   }
   else {
     Invoke-AppCmd -Arguments @('add', 'app', "/site.name:$SiteName", "/path:$ApplicationPath", "/physicalPath:$PhysicalPath", "/applicationPool:$AppPoolName") | Out-Null
@@ -755,6 +782,7 @@ Write-BuildInfoFile -TargetPath $RonFlowApiTargetPath -Application 'RonFlow.Api'
 
 if ($ApiAccessMode -eq 'IisApplications' -and $EnsureIisApplications.IsPresent) {
   Write-Step 'Configuring IIS applications for path-based API access'
+  Ensure-IisSiteRoot -SiteName $IisSiteName -PhysicalPath $RonFlowWebTargetPath -AppPoolName $IisAppPoolName
   Ensure-IisApplication -SiteName $IisSiteName -ApplicationPath $RonAuthAppPath -PhysicalPath $RonAuthTargetPath -AppPoolName $RonAuthAppPoolName
   Ensure-IisApplication -SiteName $IisSiteName -ApplicationPath $RonFlowApiAppPath -PhysicalPath $RonFlowApiTargetPath -AppPoolName $RonFlowApiAppPoolName
 }
