@@ -33,7 +33,23 @@ function Resolve-PwshPath {
   param([string]$RequestedPath)
 
   if (-not [string]::IsNullOrWhiteSpace($RequestedPath)) {
-    return [System.IO.Path]::GetFullPath($RequestedPath)
+    $resolvedPath = [System.IO.Path]::GetFullPath($RequestedPath)
+    if (-not (Test-Path -LiteralPath $resolvedPath)) {
+      throw "Requested PowerShell 7 path not found: $resolvedPath"
+    }
+
+    return $resolvedPath
+  }
+
+  $candidatePaths = @(
+    (Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe'),
+    (Join-Path $env:ProgramFiles 'PowerShell\7-preview\pwsh.exe')
+  )
+
+  foreach ($candidatePath in $candidatePaths) {
+    if (Test-Path -LiteralPath $candidatePath) {
+      return $candidatePath
+    }
   }
 
   $command = Get-Command pwsh -ErrorAction Stop
@@ -110,6 +126,11 @@ if (-not (Test-IsElevated)) {
   )
 
   Write-Host 'Requesting elevation to register the RonFlow localhost deployment scheduled task...'
+  if ($transcriptStarted) {
+    Stop-Transcript | Out-Null
+    $transcriptStarted = $false
+  }
+
   $process = Start-Process -FilePath $elevatedHostPath -ArgumentList $arguments -Verb RunAs -Wait -PassThru -WorkingDirectory (Split-Path -Parent $scriptPath)
   if ($process.ExitCode -ne 0) {
     throw "Elevated scheduled task installation failed with exit code $($process.ExitCode)."

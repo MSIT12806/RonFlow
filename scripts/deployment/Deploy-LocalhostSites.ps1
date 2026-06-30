@@ -156,6 +156,61 @@ function Ensure-Directory {
   }
 }
 
+function Get-ElevatedDeployCommand {
+  return 'pwsh -NoLogo -NoProfile -File .\scripts\deployment\Deploy-LocalhostSites.ps1 -EnsureIisApplications -StopIisHosting -SkipFrontendInstall'
+}
+
+function Test-DirectoryWritable {
+  param([Parameter(Mandatory = $true)][string]$Path)
+
+  try {
+    Ensure-Directory -Path $Path
+    $probePath = Join-Path $Path ('.ronflow-deploy-write-test-' + [Guid]::NewGuid().ToString('N') + '.tmp')
+    Set-Content -LiteralPath $probePath -Value 'write-test' -Encoding ASCII
+    Remove-Item -LiteralPath $probePath -Force
+    return $true
+  }
+  catch {
+    return $false
+  }
+}
+
+function Assert-DeploymentTargetsWritable {
+  $targetPaths = @($RonAuthTargetPath, $RonFlowApiTargetPath, $RonFlowWebTargetPath)
+  $blockedPaths = @()
+
+  foreach ($targetPath in $targetPaths) {
+    if (-not (Test-DirectoryWritable -Path $targetPath)) {
+      $blockedPaths += $targetPath
+    }
+  }
+
+  if ($blockedPaths.Count -eq 0) {
+    return
+  }
+
+  $blockedPathList = ($blockedPaths | ForEach-Object { "- $_" }) -join [Environment]::NewLine
+  $repairCommand = Get-ElevatedDeployCommand
+  throw @"
+Deployment target is not writable for the current PowerShell session.
+
+Blocked paths:
+$blockedPathList
+
+This is a deployment permission problem, not a build failure. The default localhost deployment writes under C:\inetpub, which is often writable only by Administrators.
+
+Use one of these durable fixes:
+1. Run the deployment from an elevated PowerShell 7 session:
+$repairCommand
+
+2. Install the elevated scheduled task once, then invoke it from a normal terminal:
+pwsh -NoLogo -NoProfile -File .\scripts\deployment\Install-LocalhostDeployScheduledTask.ps1
+pwsh -NoLogo -NoProfile -File .\scripts\deployment\Invoke-LocalhostDeployScheduledTask.ps1
+
+3. If you intentionally want non-elevated deployments to C:\inetpub, grant the current user Modify permission on the three target folders.
+"@
+}
+
 function New-AppOfflineMarker {
   param([Parameter(Mandatory = $true)][string]$TargetPath)
 
@@ -437,6 +492,40 @@ function Get-AppCmdPath {
   return Join-Path $env:SystemRoot 'System32\inetsrv\appcmd.exe'
 }
 
+function Invoke-AppCmd {
+  param(
+    [Parameter(Mandatory = $true)][string[]]$Arguments,
+    [switch]$IgnoreErrors
+  )
+
+  $appCmdPath = Get-AppCmdPath
+  if (-not (Test-Path -LiteralPath $appCmdPath)) {
+    throw "appcmd.exe not found: $appCmdPath"
+  }
+
+  $output = & $appCmdPath @Arguments 2>&1
+  $exitCode = $LASTEXITCODE
+  if ($exitCode -ne 0 -and -not $IgnoreErrors.IsPresent) {
+    $commandText = "$appCmdPath $($Arguments -join ' ')"
+    $outputText = ($output | Out-String).Trim()
+    if ([string]::IsNullOrWhiteSpace($outputText)) {
+      $outputText = '<no output>'
+    }
+
+    throw @"
+IIS appcmd command failed with exit code $exitCode.
+Command: $commandText
+Output:
+$outputText
+"@
+  }
+
+  return [pscustomobject]@{
+    ExitCode = $exitCode
+    Output = $output
+  }
+}
+
 function Test-IisSiteExists {
   param([Parameter(Mandatory = $true)][string]$SiteName)
 
@@ -445,8 +534,8 @@ function Test-IisSiteExists {
     return $false
   }
 
-  & $appCmdPath list site $SiteName 2>$null | Out-Null
-  return $LASTEXITCODE -eq 0
+  $result = Invoke-AppCmd -Arguments @('list', 'site', $SiteName) -IgnoreErrors
+  return $result.ExitCode -eq 0
 }
 
 function Test-IisAppPoolExists {
@@ -457,8 +546,8 @@ function Test-IisAppPoolExists {
     return $false
   }
 
-  & $appCmdPath list apppool $AppPoolName 2>$null | Out-Null
-  return $LASTEXITCODE -eq 0
+  $result = Invoke-AppCmd -Arguments @('list', 'apppool', $AppPoolName) -IgnoreErrors
+  return $result.ExitCode -eq 0
 }
 
 function Stop-IisHosting {
@@ -478,12 +567,12 @@ function Stop-IisHosting {
   }
 
   if (Test-IisSiteExists -SiteName $SiteName) {
-    & $appCmdPath stop site /site.name:$SiteName | Out-Null
+    Invoke-AppCmd -Arguments @('stop', 'site', "/site.name:$SiteName") | Out-Null
   }
 
   foreach ($appPoolName in $AppPoolNames) {
     if (Test-IisAppPoolExists -AppPoolName $appPoolName) {
-      & $appCmdPath stop apppool /apppool.name:$appPoolName | Out-Null
+      Invoke-AppCmd -Arguments @('stop', 'apppool', "/apppool.name:$appPoolName") | Out-Null
     }
   }
 
@@ -507,12 +596,12 @@ function Start-IisHosting {
 
   foreach ($appPoolName in $AppPoolNames) {
     if (Test-IisAppPoolExists -AppPoolName $appPoolName) {
-      & $appCmdPath start apppool /apppool.name:$appPoolName | Out-Null
+      Invoke-AppCmd -Arguments @('start', 'apppool', "/apppool.name:$appPoolName") | Out-Null
     }
   }
 
   if (Test-IisSiteExists -SiteName $SiteName) {
-    & $appCmdPath start site /site.name:$SiteName | Out-Null
+    Invoke-AppCmd -Arguments @('start', 'site', "/site.name:$SiteName") | Out-Null
   }
 }
 
@@ -551,7 +640,7 @@ function Assert-IisApplicationHealth {
     return
   }
 
-  $repairCommand = 'pwsh -NoLogo -NoProfile -File .\scripts\deployment\Deploy-LocalhostSites.ps1 -EnsureIisApplications -StopIisHosting -SkipFrontendInstall'
+  $repairCommand = Get-ElevatedDeployCommand
   throw @"
 Localhost IIS health checks failed after deployment.
 RonAuth endpoint: $RonAuthHealthUri -> HTTP $ronAuthStatusCode
@@ -581,17 +670,23 @@ function Ensure-IisApplication {
   }
 
   if (-not (Test-IisAppPoolExists -AppPoolName $AppPoolName)) {
-    & $appCmdPath add apppool /name:$AppPoolName /managedRuntimeVersion:"" /managedPipelineMode:Integrated | Out-Null
-    & $appCmdPath set apppool /apppool.name:$AppPoolName /processModel.identityType:ApplicationPoolIdentity | Out-Null
+    Invoke-AppCmd -Arguments @('add', 'apppool', "/name:$AppPoolName", '/managedRuntimeVersion:', '/managedPipelineMode:Integrated') | Out-Null
+    Invoke-AppCmd -Arguments @('set', 'apppool', "/apppool.name:$AppPoolName", '/processModel.identityType:ApplicationPoolIdentity') | Out-Null
   }
 
-  $existingApp = & $appCmdPath list app "$SiteName$ApplicationPath" 2>$null
-  if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($existingApp)) {
-    & $appCmdPath set app "$SiteName$ApplicationPath" /physicalPath:$PhysicalPath /applicationPool:$AppPoolName | Out-Null
-    return
+  $appName = "$SiteName$ApplicationPath"
+  $existingApp = Invoke-AppCmd -Arguments @('list', 'app', $appName) -IgnoreErrors
+  if ($existingApp.ExitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace(($existingApp.Output | Out-String))) {
+    Invoke-AppCmd -Arguments @('set', 'app', $appName, "/physicalPath:$PhysicalPath", "/applicationPool:$AppPoolName") | Out-Null
+  }
+  else {
+    Invoke-AppCmd -Arguments @('add', 'app', "/site.name:$SiteName", "/path:$ApplicationPath", "/physicalPath:$PhysicalPath", "/applicationPool:$AppPoolName") | Out-Null
   }
 
-  & $appCmdPath add app /site.name:$SiteName /path:$ApplicationPath /physicalPath:$PhysicalPath /applicationPool:$AppPoolName | Out-Null
+  $verifiedApp = Invoke-AppCmd -Arguments @('list', 'app', $appName) -IgnoreErrors
+  if ($verifiedApp.ExitCode -ne 0 -or [string]::IsNullOrWhiteSpace(($verifiedApp.Output | Out-String))) {
+    throw "Failed to verify IIS application after configuration: $appName"
+  }
 }
 
 function Deploy-FrontendSite {
@@ -632,6 +727,8 @@ $ronFlowSourceRevision = Try-ResolveGitRevision -RepositoryPath $repoRoot
 $ronAuthSourceRevision = Try-ResolveGitRevision -RepositoryPath $ronAuthRepoRoot
 $managedIisAppPools = @($RonAuthAppPoolName, $RonFlowApiAppPoolName) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
 $iisHostingStopped = $false
+
+Assert-DeploymentTargetsWritable
 
 if (-not $SkipApiStart.IsPresent) {
   Write-Step 'Stopping published API processes before publish'
