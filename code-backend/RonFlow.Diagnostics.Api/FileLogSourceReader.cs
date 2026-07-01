@@ -389,12 +389,12 @@ public sealed class CentralizedLogSourceProvider(HttpClient httpClient, ILogReda
 
         if (!string.IsNullOrWhiteSpace(source.ServiceName))
         {
-            filters.Add(new { term = new Dictionary<string, string> { ["service.name"] = source.ServiceName } });
+            filters.Add(BuildExactStringFilter(source.ServiceName, "service.name", "service_name"));
         }
 
         if (!string.IsNullOrWhiteSpace(source.Environment))
         {
-            filters.Add(new { term = new Dictionary<string, string> { ["service.environment"] = source.Environment } });
+            filters.Add(BuildExactStringFilter(source.Environment, "service.environment", "service_environment"));
         }
 
         if (!string.IsNullOrWhiteSpace(source.QueryPattern))
@@ -412,6 +412,27 @@ public sealed class CentralizedLogSourceProvider(HttpClient httpClient, ILogReda
                 {
                     filter = filters,
                 },
+            },
+        };
+    }
+
+    private static object BuildExactStringFilter(string value, params string[] fieldNames)
+    {
+        var should = fieldNames
+            .SelectMany(fieldName => new object[]
+            {
+                new { term = new Dictionary<string, string> { [fieldName] = value } },
+                new { term = new Dictionary<string, string> { [$"{fieldName}.keyword"] = value } },
+                new { match_phrase = new Dictionary<string, string> { [fieldName] = value } },
+            })
+            .ToArray();
+
+        return new
+        {
+            @bool = new
+            {
+                should,
+                minimum_should_match = 1,
             },
         };
     }

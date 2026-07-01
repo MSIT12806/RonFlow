@@ -1,0 +1,58 @@
+name: ronflow-centralized-logging
+
+services:
+  opensearch:
+    image: opensearchproject/opensearch:2.15.0
+    container_name: ronflow-opensearch
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+      bootstrap.memory_lock: "true"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  dashboards:
+    image: opensearchproject/opensearch-dashboards:2.15.0
+    container_name: ronflow-opensearch-dashboards
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
+    ports:
+      - "5601:5601"
+
+  fluent-bit:
+    image: cr.fluentbit.io/fluent/fluent-bit:3.1.9
+    container_name: ronflow-fluent-bit
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    volumes:
+      - ./fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - ./fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+      - ./fluent-bit/redact.lua:/fluent-bit/etc/redact.lua:ro
+      - ./sample-logs:/ronflow/sample-logs:ro
+      - C:/inetpub/ronflow-api/logs:/ronflow/iis/ronflow-api/logs:ro
+      - C:/inetpub/ronauth-api/logs:/ronflow/iis/ronauth-api/logs:ro
+      - C:/inetpub/ronflow-api/App_Data:/ronflow/iis/ronflow-api/app-data:ro
+
+volumes:
+  opensearch-data:
