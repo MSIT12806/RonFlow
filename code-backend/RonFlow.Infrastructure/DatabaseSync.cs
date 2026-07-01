@@ -16,6 +16,8 @@ public sealed class DatabaseSyncOptions
 
     public string? RemoteUrl { get; init; }
 
+    public string? AccessToken { get; init; }
+
     public string Branch { get; init; } = "main";
 
     public string DatabaseFileName { get; init; } = "ronflow.db";
@@ -265,7 +267,8 @@ public sealed class GitDatabaseRepositorySync(DatabaseSyncOptions options) : IDa
         if (!string.IsNullOrWhiteSpace(options.RemoteUrl))
         {
             EnsureParentDirectory(options.RepositoryPath);
-            RunGit(Path.GetDirectoryName(Path.GetFullPath(options.RepositoryPath))!, options.GitCommandTimeout, "clone", "--branch", options.Branch, options.RemoteUrl, options.RepositoryPath);
+            RunGit(Path.GetDirectoryName(Path.GetFullPath(options.RepositoryPath))!, options.GitCommandTimeout, "clone", "--branch", options.Branch, GetRemoteUrlForGitCommand()!, options.RepositoryPath);
+            RunGit(options.RepositoryPath, options.GitCommandTimeout, "remote", "set-url", "origin", options.RemoteUrl);
             EnsureCommitIdentity();
             return;
         }
@@ -277,7 +280,12 @@ public sealed class GitDatabaseRepositorySync(DatabaseSyncOptions options) : IDa
 
     public void Pull()
     {
-        if (HasRemote())
+        var remoteUrl = GetRemoteUrlForGitCommand();
+        if (!string.IsNullOrWhiteSpace(remoteUrl))
+        {
+            RunGit(options.RepositoryPath, options.GitCommandTimeout, "pull", "--ff-only", remoteUrl, options.Branch);
+        }
+        else if (HasRemote())
         {
             RunGit(options.RepositoryPath, options.GitCommandTimeout, "pull", "--ff-only", "origin", options.Branch);
         }
@@ -295,7 +303,12 @@ public sealed class GitDatabaseRepositorySync(DatabaseSyncOptions options) : IDa
 
         RunGit(options.RepositoryPath, options.GitCommandTimeout, "commit", "-m", message);
 
-        if (HasRemote())
+        var remoteUrl = GetRemoteUrlForGitCommand();
+        if (!string.IsNullOrWhiteSpace(remoteUrl))
+        {
+            RunGit(options.RepositoryPath, options.GitCommandTimeout, "push", remoteUrl, options.Branch);
+        }
+        else if (HasRemote())
         {
             RunGit(options.RepositoryPath, options.GitCommandTimeout, "push", "origin", options.Branch);
         }
@@ -306,6 +319,33 @@ public sealed class GitDatabaseRepositorySync(DatabaseSyncOptions options) : IDa
         return RunGit(options.RepositoryPath, options.GitCommandTimeout, "remote").StandardOutput
             .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Contains("origin", StringComparer.OrdinalIgnoreCase);
+    }
+
+    private string? GetRemoteUrlForGitCommand()
+    {
+        if (string.IsNullOrWhiteSpace(options.RemoteUrl))
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(options.AccessToken))
+        {
+            return options.RemoteUrl;
+        }
+
+        if (!Uri.TryCreate(options.RemoteUrl, UriKind.Absolute, out var remoteUri) ||
+            !string.Equals(remoteUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            return options.RemoteUrl;
+        }
+
+        var builder = new UriBuilder(remoteUri)
+        {
+            UserName = "x-access-token",
+            Password = options.AccessToken,
+        };
+
+        return builder.Uri.AbsoluteUri;
     }
 
     private void EnsureCommitIdentity()

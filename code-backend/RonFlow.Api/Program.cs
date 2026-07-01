@@ -232,6 +232,7 @@ public partial class Program
         var configuredBranch = section["Branch"];
         var configuredDatabaseFileName = section["DatabaseFileName"];
         var configuredRemoteUrl = section["RemoteUrl"];
+        var configuredAccessToken = section["AccessToken"];
         var configuredGitCommandTimeoutSeconds = section.GetValue<int?>("GitCommandTimeoutSeconds");
 
         return new DatabaseSyncOptions
@@ -240,6 +241,7 @@ public partial class Program
             RuntimeDatabasePath = databasePath,
             RepositoryPath = repositoryPath,
             RemoteUrl = string.IsNullOrWhiteSpace(configuredRemoteUrl) ? null : configuredRemoteUrl,
+            AccessToken = string.IsNullOrWhiteSpace(configuredAccessToken) ? null : configuredAccessToken,
             Branch = string.IsNullOrWhiteSpace(configuredBranch) ? "main" : configuredBranch,
             DatabaseFileName = string.IsNullOrWhiteSpace(configuredDatabaseFileName) ? "ronflow.db" : configuredDatabaseFileName,
             GitCommandTimeoutSeconds = configuredGitCommandTimeoutSeconds.GetValueOrDefault(30),
