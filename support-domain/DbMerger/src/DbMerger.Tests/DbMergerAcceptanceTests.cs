@@ -137,6 +137,38 @@ public sealed class DbMergerAcceptanceTests
     }
 
     [Test]
+    public void Merge_RonFlowSameIdentityConflict_WithLocalWin_SucceedsAndWritesLocalRow()
+    {
+        using var temp = new TempDirectory();
+        var localPath = temp.DatabasePath("local.db");
+        var remotePath = temp.DatabasePath("remote.db");
+        var outputPath = temp.DatabasePath("merged.db");
+        CreateRonFlowCoreDatabase(
+            localPath,
+            projects: [new KeyedJsonRecord("shared-project", """{"id":"shared-project","name":"local"}""")],
+            tasks: []);
+        CreateRonFlowCoreDatabase(
+            remotePath,
+            projects: [new KeyedJsonRecord("shared-project", """{"id":"shared-project","name":"remote"}""")],
+            tasks: []);
+
+        var result = new DbMergeService().Merge(new DbMergeRequest(
+            localPath,
+            remotePath,
+            outputPath,
+            DbMergeRecipeIds.RonFlow,
+            ConflictResolutionPolicy.LocalWin()));
+
+        Assert.That(result.Status, Is.EqualTo(DbMergeStatus.Succeeded));
+        Assert.That(ReadKeyedJsonRecords(outputPath, "Projects", "Id"), Is.EqualTo(new[]
+        {
+            new KeyedJsonRecord("shared-project", """{"id":"shared-project","name":"local"}"""),
+        }));
+        Assert.That(result.Report.ConflictEntries.Single().AppliedPolicy, Is.EqualTo(ConflictResolutionKind.LocalWin));
+        Assert.That(result.Report.ConflictEntries.Single().Outcome, Is.EqualTo("UseLocal"));
+    }
+
+    [Test]
     public void Merge_DoesNotModifyInputSnapshots()
     {
         using var temp = new TempDirectory();

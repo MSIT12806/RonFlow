@@ -199,7 +199,7 @@ public sealed class DbMergeService
         WriteRonFlowTables(request.OutputSnapshotPath, mergedUsers, mergedTables);
 
         return new DbMergeResult(
-            conflicts.Count == 0 ? DbMergeStatus.Succeeded : DbMergeStatus.CompletedWithUnresolvedConflicts,
+            conflicts.Any(conflict => conflict.Outcome == "Unresolved") ? DbMergeStatus.CompletedWithUnresolvedConflicts : DbMergeStatus.Succeeded,
             request.OutputSnapshotPath,
             new DbMergeReport(
                 request.RecipeId,
