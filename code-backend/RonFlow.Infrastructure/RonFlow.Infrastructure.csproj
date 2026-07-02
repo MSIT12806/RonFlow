@@ -15,6 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\RonFlow.Application\RonFlow.Application.csproj" />
     <ProjectReference Include="..\RonFlow.Domain\RonFlow.Domain.csproj" />
+    <ProjectReference Include="..\..\support-domain\DbMerger\src\DbMerger.Domain\DbMerger.Domain.csproj" />
   </ItemGroup>
 
 </Project>

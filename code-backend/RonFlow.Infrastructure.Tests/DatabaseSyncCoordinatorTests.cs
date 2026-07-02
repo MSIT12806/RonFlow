@@ -5,7 +5,34 @@ namespace RonFlow.Infrastructure.Tests;
 public sealed class DatabaseSyncCoordinatorTests
 {
     [Test]
-    public void PullBeforeOpen_WhenRepositoryDatabaseExists_PullsAndRestoresSnapshot()
+    public void PullBeforeOpen_WhenRuntimeAndRepositoryDatabasesExist_PullsMergesCommitsPushesAndRestoresMergedSnapshot()
+    {
+        using var temp = new TempDirectory();
+        var repositoryPath = Path.Combine(temp.Path, "repo");
+        var runtimeDatabasePath = Path.Combine(temp.Path, "runtime", "ronflow.db");
+        var repositoryDatabasePath = Path.Combine(repositoryPath, "ronflow.db");
+        Directory.CreateDirectory(repositoryPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(runtimeDatabasePath)!);
+        File.WriteAllText(runtimeDatabasePath, "runtime snapshot");
+        File.WriteAllText(repositoryDatabasePath, "snapshot");
+        var repositorySync = new RecordingRepositorySync();
+        var snapshotStore = new RecordingSnapshotStore();
+        var snapshotMerger = new RecordingSnapshotMerger();
+        var coordinator = CreateCoordinator(repositoryPath, runtimeDatabasePath, snapshotStore, repositorySync, snapshotMerger);
+
+        coordinator.PullBeforeOpen();
+
+        Assert.That(repositorySync.Calls, Is.EqualTo(["EnsureReady", "Pull", "Commit:ronflow.db:Sync RonFlow database: startup local snapshot", "Push"]));
+        Assert.That(snapshotStore.WrittenSnapshots.Single().RuntimeDatabasePath, Is.EqualTo(runtimeDatabasePath));
+        Assert.That(snapshotMerger.Merges, Has.Count.EqualTo(1));
+        Assert.That(snapshotMerger.Merges.Single().RemoteSnapshotPath, Is.EqualTo(repositoryDatabasePath));
+        Assert.That(snapshotStore.RestoredSnapshots, Has.Count.EqualTo(2));
+        Assert.That(snapshotStore.RestoredSnapshots[0].RuntimeDatabasePath, Is.EqualTo(repositoryDatabasePath));
+        Assert.That(snapshotStore.RestoredSnapshots[1].RuntimeDatabasePath, Is.EqualTo(runtimeDatabasePath));
+    }
+
+    [Test]
+    public void PullBeforeOpen_WhenRuntimeDatabaseDoesNotExist_PullsPushesAndRestoresRepositorySnapshot()
     {
         using var temp = new TempDirectory();
         var repositoryPath = Path.Combine(temp.Path, "repo");
@@ -20,24 +47,32 @@ public sealed class DatabaseSyncCoordinatorTests
         coordinator.PullBeforeOpen();
 
         Assert.That(repositorySync.Calls, Is.EqualTo(["EnsureReady", "Pull"]));
+        Assert.That(snapshotStore.WrittenSnapshots, Is.Empty);
         Assert.That(snapshotStore.RestoredSnapshots, Is.EqualTo([(repositoryDatabasePath, runtimeDatabasePath)]));
     }
 
     [Test]
-    public void PushAfterMutation_WritesSnapshotAndCommitsDatabaseFile()
+    public void PushAfterMutation_WritesSnapshotCommitsPullsThenPushesDatabaseFile()
     {
         using var temp = new TempDirectory();
         var repositoryPath = Path.Combine(temp.Path, "repo");
         var runtimeDatabasePath = Path.Combine(temp.Path, "runtime", "ronflow.db");
+        var repositoryDatabasePath = Path.Combine(repositoryPath, "ronflow.db");
         Directory.CreateDirectory(repositoryPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(runtimeDatabasePath)!);
+        File.WriteAllText(runtimeDatabasePath, "runtime snapshot");
+        File.WriteAllText(repositoryDatabasePath, "snapshot");
         var repositorySync = new RecordingRepositorySync();
         var snapshotStore = new RecordingSnapshotStore();
-        var coordinator = CreateCoordinator(repositoryPath, runtimeDatabasePath, snapshotStore, repositorySync);
+        var snapshotMerger = new RecordingSnapshotMerger();
+        var coordinator = CreateCoordinator(repositoryPath, runtimeDatabasePath, snapshotStore, repositorySync, snapshotMerger);
 
         coordinator.PushAfterMutation("task updated");
 
-        Assert.That(repositorySync.Calls, Is.EqualTo(["EnsureReady", "CommitAndPush:ronflow.db:Sync RonFlow database: task updated"]));
-        Assert.That(snapshotStore.WrittenSnapshots, Is.EqualTo([(runtimeDatabasePath, Path.Combine(repositoryPath, "ronflow.db"))]));
+        Assert.That(repositorySync.Calls, Is.EqualTo(["EnsureReady", "Pull", "Commit:ronflow.db:Sync RonFlow database: task updated", "Push"]));
+        Assert.That(snapshotStore.WrittenSnapshots.Single().RuntimeDatabasePath, Is.EqualTo(runtimeDatabasePath));
+        Assert.That(snapshotMerger.Merges.Single().RemoteSnapshotPath, Is.EqualTo(repositoryDatabasePath));
+        Assert.That(snapshotStore.RestoredSnapshots.Single().RuntimeDatabasePath, Is.EqualTo(repositoryDatabasePath));
     }
 
     [Test]
@@ -67,7 +102,27 @@ public sealed class DatabaseSyncCoordinatorTests
                 RuntimeDatabasePath = runtimeDatabasePath,
             },
             snapshotStore,
-            repositorySync);
+            repositorySync,
+            new RecordingSnapshotMerger());
+    }
+
+    private static DatabaseSyncCoordinator CreateCoordinator(
+        string repositoryPath,
+        string runtimeDatabasePath,
+        IDatabaseSnapshotStore snapshotStore,
+        IDatabaseRepositorySync repositorySync,
+        IDatabaseSnapshotMerger snapshotMerger)
+    {
+        return new DatabaseSyncCoordinator(
+            new DatabaseSyncOptions
+            {
+                Enabled = true,
+                RepositoryPath = repositoryPath,
+                RuntimeDatabasePath = runtimeDatabasePath,
+            },
+            snapshotStore,
+            repositorySync,
+            snapshotMerger);
     }
 
     private sealed class RecordingSnapshotStore : IDatabaseSnapshotStore
@@ -101,9 +156,25 @@ public sealed class DatabaseSyncCoordinatorTests
             Calls.Add("Pull");
         }
 
-        public void CommitAndPush(string relativePath, string message)
+        public void Commit(string relativePath, string message)
         {
-            Calls.Add($"CommitAndPush:{relativePath}:{message}");
+            Calls.Add($"Commit:{relativePath}:{message}");
+        }
+
+        public void Push()
+        {
+            Calls.Add("Push");
+        }
+    }
+
+    private sealed class RecordingSnapshotMerger : IDatabaseSnapshotMerger
+    {
+        public List<(string LocalSnapshotPath, string RemoteSnapshotPath, string OutputSnapshotPath)> Merges { get; } = [];
+
+        public DatabaseSnapshotMergeResult Merge(string localSnapshotPath, string remoteSnapshotPath, string outputSnapshotPath)
+        {
+            Merges.Add((localSnapshotPath, remoteSnapshotPath, outputSnapshotPath));
+            return DatabaseSnapshotMergeResult.Success("merged");
         }
     }
 
@@ -132,7 +203,12 @@ public sealed class DatabaseSyncCoordinatorTests
             throw new InvalidOperationException("Repository failed.");
         }
 
-        public void CommitAndPush(string relativePath, string message)
+        public void Commit(string relativePath, string message)
+        {
+            throw new InvalidOperationException("Repository failed.");
+        }
+
+        public void Push()
         {
             throw new InvalidOperationException("Repository failed.");
         }

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using DbMerger.Domain;
 using Microsoft.Extensions.Logging;
 using Microsoft.Data.Sqlite;
 
@@ -55,6 +56,7 @@ public sealed class DatabaseSyncCoordinator(
     DatabaseSyncOptions options,
     IDatabaseSnapshotStore snapshotStore,
     IDatabaseRepositorySync repositorySync,
+    IDatabaseSnapshotMerger snapshotMerger,
     ILogger<DatabaseSyncCoordinator>? logger = null) : IDatabaseSyncCoordinator
 {
     private readonly object syncRoot = new();
@@ -68,16 +70,41 @@ public sealed class DatabaseSyncCoordinator(
 
         lock (syncRoot)
         {
-            TryRun("pull database snapshot before opening runtime database", () =>
+            TryRun("synchronize database snapshot before opening runtime database", () =>
             {
                 repositorySync.EnsureReady();
+                var localSnapshotPath = TryCreateRuntimeSnapshot();
                 repositorySync.Pull();
 
                 var repositoryDatabasePath = GetRepositoryDatabasePath();
-                if (File.Exists(repositoryDatabasePath))
+                if (localSnapshotPath is not null && File.Exists(repositoryDatabasePath))
                 {
-                    snapshotStore.RestoreSnapshot(repositoryDatabasePath, options.RuntimeDatabasePath);
+                    var mergedSnapshotPath = CreateTemporarySnapshotPath("merged");
+                    var mergeResult = snapshotMerger.Merge(localSnapshotPath, repositoryDatabasePath, mergedSnapshotPath);
+                    if (!mergeResult.Succeeded)
+                    {
+                        throw new InvalidOperationException($"Database snapshot merge failed: {mergeResult.Message}");
+                    }
+
+                    snapshotStore.RestoreSnapshot(mergedSnapshotPath, repositoryDatabasePath);
+                    repositorySync.Commit(options.DatabaseFileName, CreateCommitMessage("startup local snapshot"));
+                    repositorySync.Push();
+                    snapshotStore.RestoreSnapshot(mergedSnapshotPath, options.RuntimeDatabasePath);
+                    DeleteTemporarySnapshot(localSnapshotPath);
+                    DeleteTemporarySnapshot(mergedSnapshotPath);
+                    return;
                 }
+
+                if (localSnapshotPath is not null)
+                {
+                    snapshotStore.RestoreSnapshot(localSnapshotPath, repositoryDatabasePath);
+                    repositorySync.Commit(options.DatabaseFileName, CreateCommitMessage("startup local snapshot"));
+                    repositorySync.Push();
+                    DeleteTemporarySnapshot(localSnapshotPath);
+                    return;
+                }
+
+                RestoreRepositorySnapshotIfExists();
             });
         }
     }
@@ -94,15 +121,90 @@ public sealed class DatabaseSyncCoordinator(
             TryRun($"push database snapshot after mutation '{reason}'", () =>
             {
                 repositorySync.EnsureReady();
-                snapshotStore.WriteSnapshot(options.RuntimeDatabasePath, GetRepositoryDatabasePath());
-                repositorySync.CommitAndPush(options.DatabaseFileName, CreateCommitMessage(reason));
+                var localSnapshotPath = TryCreateRuntimeSnapshot();
+                if (localSnapshotPath is null)
+                {
+                    return;
+                }
+
+                repositorySync.Pull();
+
+                var repositoryDatabasePath = GetRepositoryDatabasePath();
+                if (File.Exists(repositoryDatabasePath))
+                {
+                    var mergedSnapshotPath = CreateTemporarySnapshotPath("merged");
+                    var mergeResult = snapshotMerger.Merge(localSnapshotPath, repositoryDatabasePath, mergedSnapshotPath);
+                    if (!mergeResult.Succeeded)
+                    {
+                        throw new InvalidOperationException($"Database snapshot merge failed: {mergeResult.Message}");
+                    }
+
+                    snapshotStore.RestoreSnapshot(mergedSnapshotPath, repositoryDatabasePath);
+                    repositorySync.Commit(options.DatabaseFileName, CreateCommitMessage(reason));
+                    repositorySync.Push();
+                    DeleteTemporarySnapshot(localSnapshotPath);
+                    DeleteTemporarySnapshot(mergedSnapshotPath);
+                    return;
+                }
+
+                snapshotStore.RestoreSnapshot(localSnapshotPath, repositoryDatabasePath);
+                repositorySync.Commit(options.DatabaseFileName, CreateCommitMessage(reason));
+                repositorySync.Push();
+                DeleteTemporarySnapshot(localSnapshotPath);
             });
+        }
+    }
+
+    private string? TryCreateRuntimeSnapshot()
+    {
+        if (!File.Exists(options.RuntimeDatabasePath))
+        {
+            return null;
+        }
+
+        var snapshotPath = CreateTemporarySnapshotPath("local");
+        snapshotStore.WriteSnapshot(options.RuntimeDatabasePath, snapshotPath);
+        return snapshotPath;
+    }
+
+    private void RestoreRepositorySnapshotIfExists()
+    {
+        var repositoryDatabasePath = GetRepositoryDatabasePath();
+        if (File.Exists(repositoryDatabasePath))
+        {
+            snapshotStore.RestoreSnapshot(repositoryDatabasePath, options.RuntimeDatabasePath);
         }
     }
 
     private string GetRepositoryDatabasePath()
     {
         return Path.Combine(options.RepositoryPath, options.DatabaseFileName);
+    }
+
+    private string CreateTemporarySnapshotPath(string suffix)
+    {
+        var runtimeDirectory = Path.GetDirectoryName(Path.GetFullPath(options.RuntimeDatabasePath));
+        var directory = string.IsNullOrWhiteSpace(runtimeDirectory)
+            ? Path.GetFullPath(options.RepositoryPath)
+            : runtimeDirectory;
+
+        Directory.CreateDirectory(directory);
+        return Path.Combine(directory, $"database-git-sync-{suffix}-{Guid.NewGuid():N}.db");
+    }
+
+    private static void DeleteTemporarySnapshot(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch
+        {
+            // Temporary cleanup must not hide sync results or failures.
+        }
     }
 
     private static string CreateCommitMessage(string reason)
@@ -248,7 +350,46 @@ public interface IDatabaseRepositorySync
 
     void Pull();
 
-    void CommitAndPush(string relativePath, string message);
+    void Commit(string relativePath, string message);
+
+    void Push();
+}
+
+public interface IDatabaseSnapshotMerger
+{
+    DatabaseSnapshotMergeResult Merge(string localSnapshotPath, string remoteSnapshotPath, string outputSnapshotPath);
+}
+
+public sealed record DatabaseSnapshotMergeResult(bool Succeeded, string Message)
+{
+    public static DatabaseSnapshotMergeResult Success(string message)
+    {
+        return new DatabaseSnapshotMergeResult(true, message);
+    }
+
+    public static DatabaseSnapshotMergeResult Failed(string message)
+    {
+        return new DatabaseSnapshotMergeResult(false, message);
+    }
+}
+
+public sealed class DbMergerDatabaseSnapshotMerger : IDatabaseSnapshotMerger
+{
+    private readonly DbMergeService mergeService = new();
+
+    public DatabaseSnapshotMergeResult Merge(string localSnapshotPath, string remoteSnapshotPath, string outputSnapshotPath)
+    {
+        var result = mergeService.Merge(new DbMergeRequest(
+            localSnapshotPath,
+            remoteSnapshotPath,
+            outputSnapshotPath,
+            DbMergeRecipeIds.RonFlow,
+            ConflictResolutionPolicy.LocalWin()));
+
+        return result.Status == DbMergeStatus.Succeeded
+            ? DatabaseSnapshotMergeResult.Success($"DbMerger completed with {result.Report.ConflictEntries.Count} conflicts.")
+            : DatabaseSnapshotMergeResult.Failed(result.ErrorMessage ?? "DbMerger failed.");
+    }
 }
 
 public sealed class GitDatabaseRepositorySync(DatabaseSyncOptions options) : IDatabaseRepositorySync
@@ -283,15 +424,15 @@ public sealed class GitDatabaseRepositorySync(DatabaseSyncOptions options) : IDa
         var remoteUrl = GetRemoteUrlForGitCommand();
         if (!string.IsNullOrWhiteSpace(remoteUrl))
         {
-            RunGit(options.RepositoryPath, options.GitCommandTimeout, "pull", "--ff-only", remoteUrl, options.Branch);
+            RunGit(options.RepositoryPath, options.GitCommandTimeout, "pull", "--no-rebase", "--no-edit", remoteUrl, options.Branch);
         }
         else if (HasRemote())
         {
-            RunGit(options.RepositoryPath, options.GitCommandTimeout, "pull", "--ff-only", "origin", options.Branch);
+            RunGit(options.RepositoryPath, options.GitCommandTimeout, "pull", "--no-rebase", "--no-edit", "origin", options.Branch);
         }
     }
 
-    public void CommitAndPush(string relativePath, string message)
+    public void Commit(string relativePath, string message)
     {
         RunGit(options.RepositoryPath, options.GitCommandTimeout, "add", relativePath);
 
@@ -302,7 +443,10 @@ public sealed class GitDatabaseRepositorySync(DatabaseSyncOptions options) : IDa
         }
 
         RunGit(options.RepositoryPath, options.GitCommandTimeout, "commit", "-m", message);
+    }
 
+    public void Push()
+    {
         var remoteUrl = GetRemoteUrlForGitCommand();
         if (!string.IsNullOrWhiteSpace(remoteUrl))
         {

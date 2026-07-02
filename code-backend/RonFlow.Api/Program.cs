@@ -176,6 +176,7 @@ public partial class Program
                     databaseSyncOptions,
                     new SqliteDatabaseSnapshotStore(),
                     new GitDatabaseRepositorySync(databaseSyncOptions),
+                    new DbMergerDatabaseSnapshotMerger(),
                     serviceProvider.GetRequiredService<ILogger<DatabaseSyncCoordinator>>())
                 : NoOpDatabaseSyncCoordinator.Instance;
 

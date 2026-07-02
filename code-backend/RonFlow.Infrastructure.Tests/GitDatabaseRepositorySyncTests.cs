@@ -6,7 +6,7 @@ namespace RonFlow.Infrastructure.Tests;
 public sealed class GitDatabaseRepositorySyncTests
 {
     [Test]
-    public void CommitAndPush_CommitsChangedDatabaseFile()
+    public void Commit_CommitsChangedDatabaseFile()
     {
         using var temp = new TempDirectory();
         var repositoryPath = Path.Combine(temp.Path, "repo");
@@ -22,7 +22,7 @@ public sealed class GitDatabaseRepositorySyncTests
         RunGit(repositoryPath, "config", "user.name", "RonFlow Test");
         File.WriteAllText(Path.Combine(repositoryPath, "ronflow.db"), "database snapshot");
 
-        sync.CommitAndPush("ronflow.db", "Sync database");
+        sync.Commit("ronflow.db", "Sync database");
 
         Assert.That(ShowGitFile(repositoryPath, "ronflow.db"), Is.EqualTo("database snapshot"));
     }
