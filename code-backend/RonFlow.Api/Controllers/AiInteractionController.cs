@@ -1207,9 +1207,14 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
 
     private static int CountOpenTasks(ProjectBoardView? board)
     {
-        return board?.Columns
+        if (board is null)
+        {
+            return 0;
+        }
+
+        return board.TaskTree.Count + board.Columns
             .Where(column => !column.IsCompletedState)
-            .Sum(column => column.Tasks.Count) ?? 0;
+            .Sum(column => column.Tasks.Count);
     }
 
     private static IResult PlainText(string content)

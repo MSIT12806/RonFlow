@@ -195,13 +195,15 @@ public sealed record ProjectResponse(
 public sealed record ProjectBoardResponse(
     Guid ProjectId,
     string ProjectName,
+    IReadOnlyList<BoardTaskCardResponse> TaskTree,
     IReadOnlyList<BoardColumnResponse> Columns)
 {
     public static ProjectBoardResponse FromView(ProjectBoardView view)
     {
         var columns = view.Columns.Select(BoardColumnResponse.FromView).ToArray();
+        var taskTree = view.TaskTree.Select(BoardTaskCardResponse.FromView).ToArray();
 
-        return new(view.ProjectId, view.ProjectName, columns);
+        return new(view.ProjectId, view.ProjectName, taskTree, columns);
     }
 }
 
@@ -347,6 +349,7 @@ public sealed record TaskDetailResponse(
     string Title,
     string Description,
     WorkflowStateResponse CurrentState,
+    bool IsInFlow,
     string LifecycleState,
     DateOnly? DueDate,
     DateTimeOffset CreatedAt,
@@ -365,6 +368,7 @@ public sealed record TaskDetailResponse(
             output.Title,
             output.Description,
             WorkflowStateResponse.FromOutput(output.CurrentState),
+            output.IsInFlow,
             ToTaskLifecycleStateResponse(output.LifecycleState),
             output.DueDate,
             output.CreatedAt,
@@ -384,6 +388,7 @@ public sealed record TaskDetailResponse(
             view.Title,
             view.Description,
             WorkflowStateResponse.FromView(view.CurrentState),
+            view.IsInFlow,
             ToTaskLifecycleStateResponse(view.LifecycleState),
             view.DueDate,
             view.CreatedAt,

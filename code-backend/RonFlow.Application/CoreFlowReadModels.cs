@@ -31,6 +31,7 @@ public sealed record ProjectView(
 public sealed record ProjectBoardView(
     Guid ProjectId,
     string ProjectName,
+    IReadOnlyList<BoardTaskCardView> TaskTree,
     IReadOnlyList<BoardColumnView> Columns);
 
 public sealed record BoardColumnView(
@@ -71,6 +72,7 @@ public sealed record TaskDetailView(
     string Title,
     string Description,
     WorkflowStateView CurrentState,
+    bool IsInFlow,
     TaskLifecycleState LifecycleState,
     DateOnly? DueDate,
     DateTimeOffset CreatedAt,
@@ -133,12 +135,19 @@ internal static class CoreFlowReadModelFactory
                 "目前沒有任務",
                 board.Tasks
                     .Where(task => task.LifecycleState == TaskLifecycleState.ActiveRecord)
+                    .Where(task => task.IsInFlow)
                     .Where(task => task.CurrentState.Key == state.Key)
                     .Select(CreateBoardTaskCard)
                     .ToArray()))
             .ToArray();
 
-        return new ProjectBoardView(board.ProjectId, board.ProjectName, columns);
+        var taskTree = board.Tasks
+            .Where(task => task.LifecycleState == TaskLifecycleState.ActiveRecord)
+            .Where(task => task.IsInFlow is false)
+            .Select(CreateBoardTaskCard)
+            .ToArray();
+
+        return new ProjectBoardView(board.ProjectId, board.ProjectName, taskTree, columns);
     }
 
     public static TaskDetailView CreateTaskDetail(TaskModel task)
@@ -149,6 +158,7 @@ internal static class CoreFlowReadModelFactory
             task.Title,
             task.Description,
             CreateWorkflowState(task.CurrentState),
+            task.IsInFlow,
             task.LifecycleState,
             task.DueDate,
             task.CreatedAt,

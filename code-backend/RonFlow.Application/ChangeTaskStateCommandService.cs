@@ -52,6 +52,7 @@ public sealed class ChangeTaskStateCommandService(
 
         var changedAt = timeProvider.GetUtcNow();
         var wasCompleted = task.CurrentState.IsCompletedState;
+        var wasInFlow = task.IsInFlow;
         var mutationResult = task.ChangeState(
             taskMutationGuard.Authorize(currentUserId, taskId, TaskMutationKind.ChangeWorkflowState),
             targetState,
@@ -63,6 +64,11 @@ public sealed class ChangeTaskStateCommandService(
         }
 
         taskRepository.Update(task);
+        if (!wasInFlow)
+        {
+            workflowThroughputProjectionOutbox.EnqueueTaskCreated(project.Id, task.Id, changedAt);
+        }
+
         workflowThroughputProjectionOutbox.EnqueueTaskStateChanged(project.Id, task.Id, targetState.Key, changedAt);
         if (!wasCompleted && targetState.IsCompletedState)
         {

@@ -14,6 +14,7 @@ function createTask(overrides: Partial<TaskDetailResponse> = {}): TaskDetailResp
       isInitialState: false,
       isCompletedState: false,
     },
+    isInFlow: true,
     dueDate: '2026-05-20',
     lifecycleState: 'activeRecord',
     createdAt: '2026-05-12T08:00:00.000Z',
@@ -332,6 +333,67 @@ describe('TaskDetailModal', () => {
         },
       ],
     }]])
+  })
+
+  it('omits blank new subtasks from save payload', async () => {
+    const wrapper = mount(TaskDetailModal, {
+      props: {
+        isOpen: true,
+        isLoading: false,
+        isSaving: false,
+        isEditing: true,
+        errorMessage: '',
+        saveErrorMessage: '',
+        titleValidationError: '',
+        reminderDatetimeValidationError: '',
+        reminderDeliveryStatusMessage: '',
+        canEnableReminderDelivery: true,
+        isEnablingReminderDelivery: false,
+        mode: 'active',
+        displayTitle: '補上 Drawer 編輯測試',
+        task: createTask(),
+        formatTimelineTime: (occurredAt: string) => occurredAt,
+      },
+      global: {
+        stubs: {
+          BaseModalShell: {
+            template: '<div><slot /></div>',
+          },
+          AsyncStateBoundary: {
+            template: '<div><slot /></div>',
+          },
+          ApiCommandResourceView: {
+            template: '<div data-testid="command-resource-view"></div>',
+          },
+          DatePicker: {
+            template: '<input />',
+          },
+          InputText: {
+            template: '<input />',
+          },
+          Textarea: {
+            template: '<textarea></textarea>',
+          },
+        },
+      },
+    })
+
+    const addSubtaskButton = wrapper.findAll('button').find((button) => button.text() === '新增完成條件')
+    expect(addSubtaskButton).toBeDefined()
+
+    await addSubtaskButton!.trigger('click')
+    await wrapper.get('button.primary-button').trigger('click')
+
+    const savePayload = wrapper.emitted('save')?.[0]?.[0] as { subtasks: Array<{ id: string | null; title: string; order: number }> }
+
+    expect(savePayload.subtasks).toEqual([
+      {
+        id: 'subtask-1',
+        title: '需求已釐清',
+        isChecked: false,
+        order: 0,
+      },
+    ])
   })
 
   it('stacks the task description label above the input area', () => {

@@ -3,6 +3,7 @@ import {
   ApiRequestError,
   ApiValidationError,
   type BoardColumnResponse,
+  type BoardTaskCardResponse,
   type LifecycleTaskListItemResponse,
   type ProjectListItemResponse,
   type TaskCodeTraceabilityChangeType,
@@ -227,6 +228,7 @@ export function useRonFlowBoard() {
   )
 
   const activeColumns = computed<BoardColumnResponse[]>(() => activeBoard.value?.columns ?? [])
+  const activeTaskTree = computed<BoardTaskCardResponse[]>(() => activeBoard.value?.taskTree ?? [])
 
   function setSelectedTaskCanEnterEdit(canEnterEdit: boolean) {
     if (!selectedTask.value) {
@@ -846,6 +848,7 @@ export function useRonFlowBoard() {
     activeProjectId,
     activeProject,
     activeColumns,
+    activeTaskTree,
     selectedTask,
     taskDetailDisplayTitle,
     taskDetailMode,

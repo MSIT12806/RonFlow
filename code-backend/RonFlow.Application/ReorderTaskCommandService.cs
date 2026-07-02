@@ -31,7 +31,7 @@ public sealed class ReorderTaskCommandService(
             return ReorderTaskResult.NotFound();
         }
 
-        if (task.CurrentState.Key != targetTask.CurrentState.Key || task.Id == targetTask.Id)
+        if (task.IsInFlow is false || targetTask.IsInFlow is false || task.CurrentState.Key != targetTask.CurrentState.Key || task.Id == targetTask.Id)
         {
             return ReorderTaskResult.Success(CoreFlowCommandOutputFactory.CreateTask(task.ToModel()));
         }
@@ -39,6 +39,7 @@ public sealed class ReorderTaskCommandService(
         var changedAt = timeProvider.GetUtcNow();
         var tasksInState = taskRepository.GetByProjectId(projectId)
             .Where(projectTask => projectTask.CurrentState.Key == task.CurrentState.Key)
+            .Where(projectTask => projectTask.IsInFlow)
             .OrderBy(projectTask => projectTask.SortOrder)
             .ToList();
 

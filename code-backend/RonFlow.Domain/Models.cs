@@ -30,6 +30,7 @@ public sealed record TaskModel(
     string Title,
     string Description,
     WorkflowStateModel CurrentState,
+    bool IsInFlow,
     TaskLifecycleState LifecycleState,
     DateOnly? DueDate,
     DateTimeOffset CreatedAt,

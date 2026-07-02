@@ -166,6 +166,7 @@ internal static class CoreFlowJsonSerializer
         writer.WriteString("description", task.Description);
         writer.WritePropertyName("currentState");
         WriteWorkflowState(writer, task.CurrentState);
+        writer.WriteBoolean("isInFlow", task.IsInFlow);
         writer.WriteString("lifecycleState", task.LifecycleState.ToString());
         if (task.DueDate is null)
         {
@@ -283,6 +284,9 @@ internal static class CoreFlowJsonSerializer
             && Enum.TryParse<TaskLifecycleState>(lifecycleStateElement.GetString(), out var parsedLifecycleState)
                 ? parsedLifecycleState
                 : TaskLifecycleState.ActiveRecord;
+        var isInFlow = root.TryGetProperty("isInFlow", out var isInFlowElement)
+            ? isInFlowElement.GetBoolean()
+            : true;
         var sortOrder = root.TryGetProperty("sortOrder", out var sortOrderElement)
             ? sortOrderElement.GetInt32()
             : 0;
@@ -320,6 +324,7 @@ internal static class CoreFlowJsonSerializer
             GetRequiredString(root, "title"),
             description,
             ReadWorkflowState(root.GetProperty("currentState")),
+            isInFlow,
             lifecycleState,
             dueDate,
             root.GetProperty("createdAt").GetDateTimeOffset(),

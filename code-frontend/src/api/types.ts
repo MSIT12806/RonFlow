@@ -55,6 +55,7 @@ export type TaskDetailResponse = {
   title: string
   description: string
   currentState: WorkflowStateResponse
+  isInFlow: boolean
   lifecycleState: TaskLifecycleState
   dueDate: string | null
   createdAt: string
@@ -98,6 +99,7 @@ export type BoardColumnResponse = {
 export type ProjectBoardResponse = {
   projectId: string
   projectName: string
+  taskTree: BoardTaskCardResponse[]
   columns: BoardColumnResponse[]
 }
 

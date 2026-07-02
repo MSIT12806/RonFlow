@@ -215,12 +215,19 @@ internal static class AiJsonContractFormatter
                 taskCount = column.Tasks.Count,
                 isCompletedState = column.IsCompletedState,
             }).ToArray(),
+            taskTreeTasks = board.TaskTree.Select(task => new
+            {
+                taskId = task.Id,
+                title = task.Title,
+                isInFlow = false,
+            }).ToArray(),
             visibleTasks = board.Columns
                 .SelectMany(column => column.Tasks.Select(task => new
                 {
                     taskId = task.Id,
                     title = task.Title,
                     workflowStateKey = NormalizeWorkflowKey(column.StateKey),
+                    isInFlow = true,
                 }))
                 .ToArray(),
             nextActions = new[] { "read_task_detail_summary", "create_task", "move_task_state" },
@@ -229,14 +236,23 @@ internal static class AiJsonContractFormatter
 
     public static object CurrentWorkSummary(ProjectBoardView board)
     {
-        var openTasks = board.Columns
+        var openTasks = board.TaskTree
+            .Select(task => new
+            {
+                taskId = task.Id,
+                title = task.Title,
+                workflowStateKey = "Hatchery",
+                isInFlow = false,
+            })
+            .Concat(board.Columns
             .Where(column => !column.IsCompletedState)
             .SelectMany(column => column.Tasks.Select(task => new
             {
                 taskId = task.Id,
                 title = task.Title,
                 workflowStateKey = NormalizeWorkflowKey(column.StateKey),
-            }))
+                isInFlow = true,
+            })))
             .ToArray();
 
         return new
@@ -264,6 +280,7 @@ internal static class AiJsonContractFormatter
             dueDate = task.DueDate?.ToString("yyyy-MM-dd"),
             workflowStateKey = NormalizeWorkflowKey(task.CurrentState.Key),
             workflowStateName = task.CurrentState.Label,
+            isInFlow = task.IsInFlow,
             lifecycleState = NormalizeLifecycleState(task.LifecycleState),
             subtasks = task.Subtasks.OrderBy(subtask => subtask.Order).Select(subtask => new
             {
