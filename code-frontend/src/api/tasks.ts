@@ -8,6 +8,13 @@ export async function createTask(projectId: string, title: string) {
   })
 }
 
+export async function createChildTask(projectId: string, parentTaskId: string, title: string) {
+  return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${parentTaskId}/children`), {
+    method: 'POST',
+    body: JSON.stringify({ title }),
+  })
+}
+
 export async function getTaskDetail(projectId: string, taskId: string) {
   return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}`))
 }

@@ -162,6 +162,14 @@ internal static class CoreFlowJsonSerializer
         writer.WriteStartObject();
         writer.WriteString("id", task.Id);
         writer.WriteString("projectId", task.ProjectId);
+        if (task.ParentTaskId is null)
+        {
+            writer.WriteNull("parentTaskId");
+        }
+        else
+        {
+            writer.WriteString("parentTaskId", task.ParentTaskId.Value);
+        }
         writer.WriteString("title", task.Title);
         writer.WriteString("description", task.Description);
         writer.WritePropertyName("currentState");
@@ -277,6 +285,9 @@ internal static class CoreFlowJsonSerializer
         var description = root.TryGetProperty("description", out var descriptionElement) && descriptionElement.ValueKind != JsonValueKind.Null
             ? descriptionElement.GetString() ?? string.Empty
             : string.Empty;
+        var parentTaskId = root.TryGetProperty("parentTaskId", out var parentTaskIdElement) && parentTaskIdElement.ValueKind != JsonValueKind.Null
+            ? parentTaskIdElement.GetGuid()
+            : (Guid?)null;
         var dueDate = root.TryGetProperty("dueDate", out var dueDateElement) && dueDateElement.ValueKind != JsonValueKind.Null
             ? DateOnly.Parse(GetRequiredString(root, "dueDate"))
             : (DateOnly?)null;
@@ -321,6 +332,7 @@ internal static class CoreFlowJsonSerializer
         return DomainTask.Rehydrate(
             root.GetProperty("id").GetGuid(),
             root.GetProperty("projectId").GetGuid(),
+            parentTaskId,
             GetRequiredString(root, "title"),
             description,
             ReadWorkflowState(root.GetProperty("currentState")),

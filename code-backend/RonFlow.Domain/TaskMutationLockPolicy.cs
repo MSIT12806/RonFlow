@@ -7,6 +7,7 @@ public enum TaskMutationKind
 {
     UpdateDetails,
     ReplaceSubtasks,
+    CreateChildTask,
     CreateReminder,
     DeleteReminder,
     Archive,
@@ -38,6 +39,7 @@ public static class TaskMutationLockPolicy
         {
             TaskMutationKind.UpdateDetails => TaskMutationLockRequirement.RequireOwnedLock,
             TaskMutationKind.ReplaceSubtasks => TaskMutationLockRequirement.RequireUnlockedOrOwnedLock,
+            TaskMutationKind.CreateChildTask => TaskMutationLockRequirement.RequireUnlockedOrOwnedLock,
             TaskMutationKind.CreateReminder => TaskMutationLockRequirement.RequireOwnedLock,
             TaskMutationKind.DeleteReminder => TaskMutationLockRequirement.RequireOwnedLock,
             TaskMutationKind.Archive => TaskMutationLockRequirement.RequireUnlocked,

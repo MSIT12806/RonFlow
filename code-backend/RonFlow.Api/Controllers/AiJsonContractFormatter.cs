@@ -215,11 +215,12 @@ internal static class AiJsonContractFormatter
                 taskCount = column.Tasks.Count,
                 isCompletedState = column.IsCompletedState,
             }).ToArray(),
-            taskTreeTasks = board.TaskTree.Select(task => new
+            taskTreeTasks = FlattenTaskTree(board.TaskTree).Select(task => new
             {
                 taskId = task.Id,
                 title = task.Title,
                 isInFlow = false,
+                childCount = task.Children.Count,
             }).ToArray(),
             visibleTasks = board.Columns
                 .SelectMany(column => column.Tasks.Select(task => new
@@ -236,7 +237,7 @@ internal static class AiJsonContractFormatter
 
     public static object CurrentWorkSummary(ProjectBoardView board)
     {
-        var openTasks = board.TaskTree
+        var openTasks = FlattenTaskTree(board.TaskTree)
             .Select(task => new
             {
                 taskId = task.Id,
@@ -396,5 +397,18 @@ internal static class AiJsonContractFormatter
             RonFlow.Domain.TaskLifecycleState.Trashed => "trashed",
             _ => lifecycleState.ToString(),
         };
+    }
+
+    private static IEnumerable<BoardTaskCardView> FlattenTaskTree(IEnumerable<BoardTaskCardView> tasks)
+    {
+        foreach (var task in tasks)
+        {
+            yield return task;
+
+            foreach (var child in FlattenTaskTree(task.Children))
+            {
+                yield return child;
+            }
+        }
     }
 }

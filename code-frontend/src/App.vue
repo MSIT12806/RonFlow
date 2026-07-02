@@ -189,6 +189,8 @@
       @enter-edit="enterTaskDetailEditMode"
       @save="onTaskDetailSave"
       @replace-subtasks="onReplaceTaskSubtasks"
+      @create-child-task="onCreateChildTask"
+      @open-child-task="onOpenTaskDetail"
       @add-reminder="onAddReminder"
       @delete-reminder="onDeleteReminder"
       @enable-reminder-delivery="enableReminderDelivery"
@@ -372,6 +374,7 @@ const {
   moveTaskToState,
   updateTaskDetail,
   replaceTaskSubtasks,
+  createChildTask,
   createReminder,
   deleteReminder,
   reorderTaskWithinColumn,
@@ -706,6 +709,10 @@ async function onTaskDetailSave(payload: {
 
 async function onReplaceTaskSubtasks(payload: { taskId: string; subtasks: EditableTaskSubtask[] }) {
   await replaceTaskSubtasks(payload.taskId, payload.subtasks)
+}
+
+async function onCreateChildTask(payload: { parentTaskId: string; title: string }) {
+  await createChildTask(payload.parentTaskId, payload.title)
 }
 
 async function onAddReminder(payload: { taskId: string; reminderDateTime: string; description: string }) {

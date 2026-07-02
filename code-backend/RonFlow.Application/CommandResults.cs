@@ -38,6 +38,34 @@ public sealed record CreateTaskResult(CreateTaskOutput? Task, ValidationError? V
     }
 }
 
+public sealed record CreateChildTaskResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound, bool AccessDenied, bool Conflict)
+{
+    public static CreateChildTaskResult Success(CreateTaskOutput task)
+    {
+        return new(task, null, false, false, false);
+    }
+
+    public static CreateChildTaskResult Invalid(string field, string message)
+    {
+        return new(null, new ValidationError(field, message), false, false, false);
+    }
+
+    public static CreateChildTaskResult NotFound()
+    {
+        return new(null, null, true, false, false);
+    }
+
+    public static CreateChildTaskResult Denied()
+    {
+        return new(null, null, false, true, false);
+    }
+
+    public static CreateChildTaskResult Locked()
+    {
+        return new(null, null, false, false, true);
+    }
+}
+
 public sealed record ReplaceProjectSubtaskTemplatesResult(
     IReadOnlyList<ProjectSubtaskTemplateOutput>? Templates,
     ValidationError? ValidationError,

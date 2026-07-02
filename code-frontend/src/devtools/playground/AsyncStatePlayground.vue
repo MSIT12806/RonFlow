@@ -168,6 +168,8 @@
             :format-timeline-time="formatTimelineTime"
             @close="noop"
             @save="noop"
+            @create-child-task="noop"
+            @open-child-task="noop"
             @add-reminder="noop"
             @delete-reminder="noop"
             @enable-reminder-delivery="noop"
@@ -353,8 +355,8 @@ const playgroundBoardColumns: BoardColumnResponse[] = [
     isCompletedState: false,
     emptyStateMessage: '目前沒有任務',
     tasks: [
-      { id: 'task-1', title: '整理 Sprint 2 測試清單' },
-      { id: 'task-2', title: '確認拖曳失敗的回饋文案' },
+      { id: 'task-1', title: '整理 Sprint 2 測試清單', children: [] },
+      { id: 'task-2', title: '確認拖曳失敗的回饋文案', children: [] },
     ],
   },
   {
@@ -363,7 +365,7 @@ const playgroundBoardColumns: BoardColumnResponse[] = [
     isInitialState: false,
     isCompletedState: false,
     emptyStateMessage: '目前沒有任務',
-    tasks: [{ id: 'task-3', title: '補上 board command error alert' }],
+    tasks: [{ id: 'task-3', title: '補上 board command error alert', children: [] }],
   },
   {
     stateKey: 'review',
@@ -379,17 +381,25 @@ const playgroundBoardColumns: BoardColumnResponse[] = [
     isInitialState: false,
     isCompletedState: true,
     emptyStateMessage: '目前沒有任務',
-    tasks: [{ id: 'task-4', title: '完成 v0.1 scope 對齊' }],
+    tasks: [{ id: 'task-4', title: '完成 v0.1 scope 對齊', children: [] }],
   },
 ]
 
 const playgroundTaskTree = [
-  { id: 'task-tree-1', title: '整理 Hatchery 需求' },
+  {
+    id: 'task-tree-1',
+    title: '整理 Hatchery 需求',
+    children: [
+      { id: 'task-tree-1-1', title: '撰寫 SRS', children: [] },
+      { id: 'task-tree-1-2', title: '拆解 MVP backlog', children: [] },
+    ],
+  },
 ]
 
 const playgroundTaskDetail: TaskDetailResponse = {
   id: 'task-detail-1',
   projectId: 'project-1',
+  parentTaskId: null,
   title: '補上 Drawer 編輯測試',
   description: '讓使用者可以直接在 Task Detail Drawer 編輯標題、描述與到期日。',
   currentState: {
@@ -403,6 +413,7 @@ const playgroundTaskDetail: TaskDetailResponse = {
   dueDate: '2026-05-20',
   createdAt: '2026-05-12T08:00:00.000Z',
   completedAt: null,
+  childTasks: [],
   subtasks: [
     {
       id: 'subtask-1',

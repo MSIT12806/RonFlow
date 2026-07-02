@@ -394,11 +394,12 @@ internal static class AiTextContractFormatter
         builder.AppendLine();
         builder.AppendLine("task_tree_tasks:");
 
-        foreach (var task in board.TaskTree)
+        foreach (var task in FlattenTaskTree(board.TaskTree))
         {
             builder.AppendLine($"- task_id: {task.Id}");
             builder.AppendLine($"  title: {task.Title}");
             builder.AppendLine("  is_in_flow: no");
+            builder.AppendLine($"  child_count: {task.Children.Count}");
         }
 
         builder.AppendLine();
@@ -420,7 +421,7 @@ internal static class AiTextContractFormatter
         builder.AppendLine();
         builder.AppendLine("recent_activities:");
 
-        foreach (var activity in board.TaskTree
+        foreach (var activity in FlattenTaskTree(board.TaskTree)
                      .Select(task => $"Task visible in task tree: {task.Title}")
                      .Concat(board.Columns
                      .SelectMany(column => column.Tasks)
@@ -466,7 +467,7 @@ internal static class AiTextContractFormatter
     public static string CurrentWorkSummary(ProjectBoardView board)
     {
         var builder = new StringBuilder();
-        var openTasks = board.TaskTree
+        var openTasks = FlattenTaskTree(board.TaskTree)
             .Select(task => new
             {
                 Task = task,
@@ -707,6 +708,19 @@ internal static class AiTextContractFormatter
         {
             builder.AppendLine($"  - change_type: {item.ChangeType}");
             builder.AppendLine($"    target: {item.Target}");
+        }
+    }
+
+    private static IEnumerable<BoardTaskCardView> FlattenTaskTree(IEnumerable<BoardTaskCardView> tasks)
+    {
+        foreach (var task in tasks)
+        {
+            yield return task;
+
+            foreach (var child in FlattenTaskTree(task.Children))
+            {
+                yield return child;
+            }
         }
     }
 }

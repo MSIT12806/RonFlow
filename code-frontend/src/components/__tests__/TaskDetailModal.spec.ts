@@ -6,6 +6,7 @@ function createTask(overrides: Partial<TaskDetailResponse> = {}): TaskDetailResp
   return {
     id: 'task-1',
     projectId: 'project-1',
+    parentTaskId: null,
     title: '補上 Drawer 編輯測試',
     description: '讓使用者可以直接在 Task Detail Drawer 編輯標題、描述與到期日。',
     currentState: {
@@ -19,6 +20,7 @@ function createTask(overrides: Partial<TaskDetailResponse> = {}): TaskDetailResp
     lifecycleState: 'activeRecord',
     createdAt: '2026-05-12T08:00:00.000Z',
     completedAt: null,
+    childTasks: [],
     subtasks: [
       {
         id: 'subtask-1',
@@ -113,6 +115,13 @@ describe('TaskDetailModal', () => {
     expect(wrapper.text()).toContain('啟用提醒通知')
   })
 
+  it('shows created time as header metadata instead of a standalone field', () => {
+    const wrapper = mountTaskDetail(createTask())
+
+    expect(wrapper.find('.detail-preview-meta').text()).toBe('建立 2026-05-12T08:00:00.000Z')
+    expect(wrapper.text()).not.toContain('建立時間')
+  })
+
   it('shows structured code traceability entries in view mode', () => {
     const wrapper = mountTaskDetail(createTask({
       codeTraceability: {
@@ -135,6 +144,16 @@ describe('TaskDetailModal', () => {
     expect(wrapper.text()).toContain('ProjectBoardPage')
     expect(wrapper.text()).toContain('移除')
     expect(wrapper.text()).toContain('LegacyTaskDrawer')
+  })
+
+  it('places code traceability after reminders', () => {
+    const wrapper = mountTaskDetail(createTask())
+    const sections = wrapper.findAll('.detail-card-full')
+    const reminderIndex = sections.findIndex((section) => section.attributes('data-testid') === 'task-reminders-section')
+    const traceabilityIndex = sections.findIndex((section) => section.attributes('data-testid') === 'task-code-traceability-section')
+
+    expect(reminderIndex).toBeGreaterThanOrEqual(0)
+    expect(traceabilityIndex).toBeGreaterThan(reminderIndex)
   })
 
   it('opens active tasks in view mode until the user explicitly enters edit mode', () => {
@@ -163,6 +182,25 @@ describe('TaskDetailModal', () => {
         ],
       },
     ]])
+  })
+
+  it('creates child tasks and opens existing child task detail', async () => {
+    const wrapper = mountTaskDetail(createTask({
+      childTasks: [
+        { id: 'child-task-1', title: '撰寫 SRS', children: [] },
+      ],
+    }))
+
+    ;(wrapper.vm as unknown as { draftChildTaskTitle: string }).draftChildTaskTitle = '撰寫驗收測試'
+    await wrapper.findAll('button').find((button) => button.text() === '建立 child task')!.trigger('click')
+    await wrapper.findAll('button').find((button) => button.text().includes('撰寫 SRS'))!.trigger('click')
+
+    expect(wrapper.emitted('create-child-task')).toEqual([[{
+      parentTaskId: 'task-1',
+      title: '撰寫驗收測試',
+    }]])
+    expect(wrapper.emitted('open-child-task')).toEqual([['child-task-1', '撰寫 SRS']])
+    expect(wrapper.find('[data-testid="task-checklist-section"]').exists()).toBe(false)
   })
 
   it('disables checklist checkboxes when the task is locked by another user', () => {

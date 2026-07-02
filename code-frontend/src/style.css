@@ -446,6 +446,13 @@ button {
   line-height: 1.2;
 }
 
+.detail-preview-meta {
+  margin: 6px 0 0;
+  color: var(--text-soft);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
 .base-state-block {
   margin-top: 24px;
   padding: 16px 18px;
@@ -643,14 +650,57 @@ button {
 }
 
 .task-tree-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.task-tree-node {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-tree-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+  padding-left: calc(var(--task-tree-depth, 0) * 24px);
+}
+
+.task-tree-toggle,
+.task-tree-spacer {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  align-self: center;
+}
+
+.task-tree-toggle {
+  border: 1px solid rgba(148, 163, 184, 0.36);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--text-strong);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.task-tree-children {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .task-tree-item {
   display: flex;
-  min-height: 76px;
+  min-height: 56px;
   flex-direction: column;
   align-items: flex-start;
   justify-content: space-between;

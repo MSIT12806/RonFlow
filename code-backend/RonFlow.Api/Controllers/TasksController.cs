@@ -50,6 +50,50 @@ public sealed class TasksController : AuthenticatedControllerBase
         return Results.Created($"/api/projects/{projectId}/tasks/{task.Id}", TaskDetailResponse.FromOutput(task));
     }
 
+    [HttpPost("{taskId:guid}/children")]
+    [Consumes(MediaTypeNames.Application.Json)]
+    [ProducesResponseType<TaskDetailResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public IResult CreateChildTask(
+        Guid projectId,
+        Guid taskId,
+        [FromBody] CreateChildTaskRequest request,
+        [FromServices] CreateChildTaskCommandService commandService)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = commandService.Create(currentUserId, projectId, taskId, request.Title);
+
+        if (result.ValidationError is not null)
+        {
+            return ValidationResults.FromError(result.ValidationError);
+        }
+
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
+        }
+
+        if (result.Conflict)
+        {
+            return Results.Conflict();
+        }
+
+        if (result.TaskNotFound)
+        {
+            return Results.NotFound();
+        }
+
+        var childTask = result.Task!;
+
+        return Results.Created($"/api/projects/{projectId}/tasks/{childTask.Id}", TaskDetailResponse.FromOutput(childTask));
+    }
+
     [HttpPatch("{taskId:guid}/state")]
     [Consumes(MediaTypeNames.Application.Json)]
     [ProducesResponseType<TaskDetailResponse>(StatusCodes.Status200OK)]

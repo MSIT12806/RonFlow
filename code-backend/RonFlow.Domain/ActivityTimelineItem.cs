@@ -92,6 +92,11 @@ public sealed record ActivityTimelineItem(string Type, string Message, DateTimeO
         return new("TaskChecklistChanged", "已更新完成條件清單", occurredAt);
     }
 
+    public static ActivityTimelineItem ChildTaskAdded(DateTimeOffset occurredAt)
+    {
+        return new("ChildTaskAdded", "已新增 child task", occurredAt);
+    }
+
     /// <summary>
     /// 將活動事件轉成對外輸出的 timeline item model。
     /// </summary>

@@ -1212,9 +1212,14 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
             return 0;
         }
 
-        return board.TaskTree.Count + board.Columns
+        return CountTaskTreeNodes(board.TaskTree) + board.Columns
             .Where(column => !column.IsCompletedState)
             .Sum(column => column.Tasks.Count);
+    }
+
+    private static int CountTaskTreeNodes(IEnumerable<BoardTaskCardView> tasks)
+    {
+        return tasks.Sum(task => 1 + CountTaskTreeNodes(task.Children));
     }
 
     private static IResult PlainText(string content)
