@@ -590,12 +590,7 @@ function submit() {
     description: draftDescription.value,
     dueDate: draftDueDate.value || null,
     codeTraceability: buildCodeTraceabilityPayload(),
-    subtasks: draftSubtasks.value.map((subtask, index) => ({
-      id: subtask.id,
-      title: subtask.title,
-      isChecked: subtask.isChecked,
-      order: index,
-    })),
+    subtasks: buildSubtaskPayload(),
   })
 }
 
@@ -638,6 +633,20 @@ function buildCodeTraceabilityPayload(): DraftTaskCodeTraceability {
       .map((item) => ({ changeType: item.changeType, target: item.target.trim() }))
       .filter((item) => item.target.length > 0),
   }
+}
+
+function buildSubtaskPayload(): Array<{ id: string | null; title: string; isChecked: boolean; order: number }> {
+  return draftSubtasks.value
+    .map((subtask) => ({
+      id: subtask.id,
+      title: subtask.title.trim(),
+      isChecked: subtask.isChecked,
+    }))
+    .filter((subtask) => subtask.id !== null || subtask.title.length > 0)
+    .map((subtask, index) => ({
+      ...subtask,
+      order: index,
+    }))
 }
 
 function addCodeTraceabilityItem(categoryKey: TraceabilityCategoryKey) {
@@ -720,12 +729,7 @@ function onSubtaskCheckedChanged(index: number, event: Event) {
 
   emit('replace-subtasks', {
     taskId: props.task.id,
-    subtasks: draftSubtasks.value.map((subtask, currentIndex) => ({
-      id: subtask.id,
-      title: subtask.title,
-      isChecked: subtask.isChecked,
-      order: currentIndex,
-    })),
+    subtasks: buildSubtaskPayload(),
   })
 }
 

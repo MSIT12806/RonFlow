@@ -495,6 +495,60 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
     }
 
     [Test]
+    public async Task SaveTaskDetail_WhenContentEditLockIsHeld_UpdatesDetailsAndSubtasksTogether()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+
+        var templateResponse = await Client.PutAsJsonAsync(
+            $"/api/projects/{project.Id}/subtask-templates",
+            new
+            {
+                items = new[]
+                {
+                    new { title = "需求已釐清" },
+                    new { title = "測試已完成" },
+                },
+            });
+
+        Assert.That(templateResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var createdTask = await CreateTaskAsync(project.Id, "Build Kanban Board");
+
+        var acquireResponse = await Client.PostAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}/content-edit-lock", content: null);
+        Assert.That(acquireResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var updateResponse = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{createdTask.Id}",
+            new UpdateTaskRequest("Updated Title", "Updated Description", new DateOnly(2026, 5, 20)));
+
+        Assert.That(updateResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var updatedTask = await updateResponse.Content.ReadFromJsonAsync<ChecklistTaskDetailResponse>();
+        Assert.That(updatedTask, Is.Not.Null);
+
+        var replaceResponse = await Client.PutAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{createdTask.Id}/subtasks",
+            new
+            {
+                items = updatedTask!.Subtasks.Select(item => new
+                {
+                    id = item.Id,
+                    title = item.Title,
+                    isChecked = item.Title == "需求已釐清",
+                    order = item.Order,
+                }).ToArray(),
+            });
+
+        Assert.That(replaceResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var savedTask = await replaceResponse.Content.ReadFromJsonAsync<ChecklistTaskDetailResponse>();
+        Assert.That(savedTask, Is.Not.Null);
+        Assert.That(savedTask!.Title, Is.EqualTo("Updated Title"));
+        Assert.That(savedTask.Subtasks.Single(item => item.Title == "需求已釐清").IsChecked, Is.True);
+        Assert.That(savedTask.Subtasks.Single(item => item.Title == "測試已完成").IsChecked, Is.False);
+    }
+
+    [Test]
     public async Task ChangeTaskState_WhenOldRonFlowSessionIsInvalidated_ReturnsUnauthorized()
     {
         using var firstSessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-task-session-1");
