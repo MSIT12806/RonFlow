@@ -14,6 +14,7 @@ function createTask(overrides: Partial<TaskDetailResponse> = {}): TaskDetailResp
       isInitialState: false,
       isCompletedState: false,
     },
+    isInFlow: true,
     dueDate: '2026-05-20',
     lifecycleState: 'activeRecord',
     createdAt: '2026-05-12T08:00:00.000Z',

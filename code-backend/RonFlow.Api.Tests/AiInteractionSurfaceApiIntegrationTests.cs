@@ -263,10 +263,11 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("workflow_columns:"));
         Assert.That(payload, Does.Contain("- key: Todo"));
         Assert.That(payload, Does.Contain("- key: Active"));
-        Assert.That(payload, Does.Contain("visible_tasks:"));
+        Assert.That(payload, Does.Contain("task_tree_tasks:"));
         Assert.That(payload, Does.Contain($"task_id: {task.Id}"));
         Assert.That(payload, Does.Contain("title: Build AI Board"));
-        Assert.That(payload, Does.Contain("workflow_state_key: Todo"));
+        Assert.That(payload, Does.Contain("is_in_flow: no"));
+        Assert.That(payload, Does.Contain("visible_tasks:"));
         Assert.That(payload, Does.Contain("next_actions:"));
     }
 
@@ -289,7 +290,8 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("open_tasks:"));
         Assert.That(payload, Does.Contain($"task_id: {task.Id}"));
         Assert.That(payload, Does.Contain("title: Build AI Discovery Surface"));
-        Assert.That(payload, Does.Contain("workflow_state_key: Todo"));
+        Assert.That(payload, Does.Contain("workflow_state_key: Hatchery"));
+        Assert.That(payload, Does.Contain("is_in_flow: no"));
     }
 
     [Test]
@@ -1004,6 +1006,16 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         var project = await CreateProjectAsync(sessionClient, "AI Reorder Project");
         var firstTask = await CreateTaskAsync(sessionClient, project.Id, "Task A");
         var secondTask = await CreateTaskAsync(sessionClient, project.Id, "Task B");
+
+        var enterFirstTaskFlowResponse = await sessionClient.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{firstTask.Id}/state",
+            new ChangeTaskStateRequest("todo"));
+        var enterSecondTaskFlowResponse = await sessionClient.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{secondTask.Id}/state",
+            new ChangeTaskStateRequest("todo"));
+
+        Assert.That(enterFirstTaskFlowResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(enterSecondTaskFlowResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
 
         var activateResponse = await sessionClient.PostAsJsonAsync("/api/ai/active-scope", new { projectId = project.Id });
         Assert.That(activateResponse.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));

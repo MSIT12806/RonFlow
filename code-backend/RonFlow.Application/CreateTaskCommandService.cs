@@ -7,14 +7,13 @@ public sealed class CreateTaskCommandService(
     IProjectRepository projectRepository,
     ProjectAccessService projectAccessService,
     ITaskRepository taskRepository,
-    IWorkflowThroughputProjectionOutbox workflowThroughputProjectionOutbox,
     TimeProvider timeProvider)
 {
     public CreateTaskCommandService(
         IProjectRepository projectRepository,
         ITaskRepository taskRepository,
         TimeProvider timeProvider)
-        : this(projectRepository, new ProjectAccessService(projectRepository), taskRepository, new NoOpWorkflowThroughputProjectionOutbox(), timeProvider)
+        : this(projectRepository, new ProjectAccessService(projectRepository), taskRepository, timeProvider)
     {
     }
 
@@ -51,9 +50,8 @@ public sealed class CreateTaskCommandService(
             project.GetDefaultWorkflowState(),
             createdAt,
             sortOrder,
-            project.CreateSubtasksFromTemplates());
+            subtasks: project.CreateSubtasksFromTemplates());
         taskRepository.Add(task);
-        workflowThroughputProjectionOutbox.EnqueueTaskCreated(project.Id, task.Id, createdAt);
 
         project.Touch(createdAt);
         projectRepository.Update(project);

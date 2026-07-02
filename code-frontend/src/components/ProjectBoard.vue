@@ -58,6 +58,33 @@
           :message="commandErrorMessage"
         />
 
+        <section class="task-tree-panel" aria-labelledby="task-tree-title">
+          <header class="task-tree-header">
+            <div>
+              <p class="eyebrow">Hatchery</p>
+              <h3 id="task-tree-title">任務樹</h3>
+            </div>
+            <span class="count-badge">{{ taskTree.length }}</span>
+          </header>
+
+          <div v-if="taskTree.length === 0" class="task-tree-empty">
+            目前沒有任務樹任務
+          </div>
+
+          <div v-else class="task-tree-list">
+            <button
+              v-for="task in taskTree"
+              :key="task.id"
+              type="button"
+              class="task-tree-item"
+              @click="$emit('open-task-detail', task.id, task.title)"
+            >
+              <span class="task-title">{{ task.title }}</span>
+              <span class="task-meta">Leaf task</span>
+            </button>
+          </div>
+        </section>
+
         <div class="board-grid">
           <article
             v-for="column in columns"
@@ -122,10 +149,11 @@
 import { ref } from 'vue'
 import AsyncStateBoundary from './bases/AsyncStateBoundary.vue'
 import BaseErrorState from './bases/BaseErrorState.vue'
-import type { BoardColumnResponse, WorkflowKey } from '../api/ronflowApi'
+import type { BoardColumnResponse, BoardTaskCardResponse, WorkflowKey } from '../api/ronflowApi'
 
 const props = defineProps<{
   activeProjectName: string | null
+  taskTree: BoardTaskCardResponse[]
   columns: BoardColumnResponse[]
   isLoadingBoard: boolean
   commandErrorMessage: string

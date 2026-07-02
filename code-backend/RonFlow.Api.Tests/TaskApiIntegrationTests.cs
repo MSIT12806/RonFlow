@@ -75,7 +75,7 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
     }
 
     [Test]
-    public async Task CreateTask_WithValidTitle_AddsTaskToInitialWorkflowState()
+    public async Task CreateTask_WithValidTitle_AddsLeafTaskToTaskTreeWithoutEnteringFlow()
     {
         var project = await CreateProjectAsync("RonFlow Project");
 
@@ -92,6 +92,7 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
         Assert.That(task.Title, Is.EqualTo("Build Kanban Board"));
         Assert.That(task.CurrentState.Key, Is.EqualTo("todo"));
         Assert.That(task.CurrentState.Label, Is.EqualTo("待處理"));
+        Assert.That(task.IsInFlow, Is.False);
         Assert.That(task.LifecycleState, Is.EqualTo("activeRecord"));
 
         var boardResponse = await Client.GetAsync($"/api/projects/{project.Id}/board");
@@ -100,10 +101,8 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
         Assert.That(boardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
         Assert.That(board, Is.Not.Null);
 
-        var todoColumn = board!.Columns.Single(column => column.StateKey == "todo");
-
-        Assert.That(todoColumn.Tasks.Select(card => card.Title), Does.Contain("Build Kanban Board"));
-        Assert.That(board.Columns.Where(column => column.StateKey != "todo").All(column => column.Tasks.Count == 0), Is.True);
+        Assert.That(board!.TaskTree.Select(card => card.Title), Does.Contain("Build Kanban Board"));
+        Assert.That(board.Columns.All(column => column.Tasks.Count == 0), Is.True);
     }
 
     [Test]
@@ -908,13 +907,11 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
         Assert.That(boardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
         Assert.That(board, Is.Not.Null);
 
-        var todoTaskIds = board!.Columns
-            .Single(column => column.StateKey == "todo")
-            .Tasks
+        var taskTreeIds = board!.TaskTree
             .Select(task => task.Id)
             .ToArray();
 
-        Assert.That(todoTaskIds, Is.EqualTo(new[] { firstTask.Id, archivedTask.Id }));
+        Assert.That(taskTreeIds, Is.EqualTo(new[] { firstTask.Id, archivedTask.Id }));
 
         var archivedListResponse = await Client.GetAsync($"/api/projects/{project.Id}/tasks/archived");
         var archivedList = await archivedListResponse.Content.ReadFromJsonAsync<LifecycleTaskListResponse>();
@@ -996,13 +993,11 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
         Assert.That(boardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
         Assert.That(board, Is.Not.Null);
 
-        var todoTaskIds = board!.Columns
-            .Single(column => column.StateKey == "todo")
-            .Tasks
+        var taskTreeIds = board!.TaskTree
             .Select(task => task.Id)
             .ToArray();
 
-        Assert.That(todoTaskIds, Is.EqualTo(new[] { firstTask.Id, trashedTask.Id }));
+        Assert.That(taskTreeIds, Is.EqualTo(new[] { firstTask.Id, trashedTask.Id }));
 
         var trashListResponse = await Client.GetAsync($"/api/projects/{project.Id}/tasks/trashed");
         var trashList = await trashListResponse.Content.ReadFromJsonAsync<LifecycleTaskListResponse>();

@@ -279,7 +279,7 @@
               </div>
 
               <button
-                v-if="canEnableReminderDelivery && !isReadOnly"
+                v-if="canEnableReminderDelivery && !isForcedReadOnly && !isLifecycleReadOnly"
                 type="button"
                 class="secondary-button"
                 :disabled="isSaving || isEnablingReminderDelivery"

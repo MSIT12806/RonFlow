@@ -392,6 +392,16 @@ internal static class AiTextContractFormatter
         }
 
         builder.AppendLine();
+        builder.AppendLine("task_tree_tasks:");
+
+        foreach (var task in board.TaskTree)
+        {
+            builder.AppendLine($"- task_id: {task.Id}");
+            builder.AppendLine($"  title: {task.Title}");
+            builder.AppendLine("  is_in_flow: no");
+        }
+
+        builder.AppendLine();
         builder.AppendLine("visible_tasks:");
 
         foreach (var task in board.Columns
@@ -404,15 +414,18 @@ internal static class AiTextContractFormatter
             builder.AppendLine($"- task_id: {task.Task.Id}");
             builder.AppendLine($"  title: {task.Task.Title}");
             builder.AppendLine($"  workflow_state_key: {task.WorkflowStateKey}");
+            builder.AppendLine("  is_in_flow: yes");
         }
 
         builder.AppendLine();
         builder.AppendLine("recent_activities:");
 
-        foreach (var activity in board.Columns
+        foreach (var activity in board.TaskTree
+                     .Select(task => $"Task visible in task tree: {task.Title}")
+                     .Concat(board.Columns
                      .SelectMany(column => column.Tasks)
-                     .Take(2)
                      .Select(task => $"Task visible on board: {task.Title}"))
+                     .Take(2))
         {
             builder.AppendLine($"- {activity}");
         }
@@ -453,13 +466,21 @@ internal static class AiTextContractFormatter
     public static string CurrentWorkSummary(ProjectBoardView board)
     {
         var builder = new StringBuilder();
-        var openTasks = board.Columns
+        var openTasks = board.TaskTree
+            .Select(task => new
+            {
+                Task = task,
+                WorkflowStateKey = "Hatchery",
+                IsInFlow = false,
+            })
+            .Concat(board.Columns
             .Where(column => !column.IsCompletedState)
             .SelectMany(column => column.Tasks.Select(task => new
             {
                 Task = task,
                 WorkflowStateKey = NormalizeWorkflowKey(column.StateKey),
-            }))
+                IsInFlow = true,
+            })))
             .ToArray();
 
         builder.AppendLine("RonFlow Current Work Summary v1");
@@ -475,6 +496,7 @@ internal static class AiTextContractFormatter
             builder.AppendLine($"- task_id: {task.Task.Id}");
             builder.AppendLine($"  title: {task.Task.Title}");
             builder.AppendLine($"  workflow_state_key: {task.WorkflowStateKey}");
+            builder.AppendLine($"  is_in_flow: {(task.IsInFlow ? "yes" : "no")}");
         }
 
         builder.AppendLine();
@@ -498,6 +520,7 @@ internal static class AiTextContractFormatter
         builder.AppendLine($"due_date: {(task.DueDate.HasValue ? task.DueDate.Value.ToString("yyyy-MM-dd") : "none")}");
         builder.AppendLine($"workflow_state_key: {workflowStateKey}");
         builder.AppendLine($"workflow_state_name: {task.CurrentState.Label}");
+        builder.AppendLine($"is_in_flow: {(task.IsInFlow ? "yes" : "no")}");
         builder.AppendLine($"lifecycle_state: {NormalizeLifecycleState(task.LifecycleState)}");
         builder.AppendLine("code_traceability_summary:");
         AppendTraceabilitySummary(builder, "api", task.CodeTraceability.Api);

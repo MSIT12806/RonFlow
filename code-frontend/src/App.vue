@@ -56,6 +56,7 @@
           <ProjectBoard
             v-if="currentWorkspaceView === 'board'"
             :active-project-name="activeProject?.name ?? null"
+            :task-tree="activeTaskTree"
             :columns="activeColumns"
             :is-loading-board="isLoadingBoard"
             :command-error-message="boardCommandError"
@@ -341,6 +342,7 @@ const {
   activeProjectId,
   activeProject,
   activeColumns,
+  activeTaskTree,
   selectedTask,
   taskDetailDisplayTitle,
   taskDetailMode,

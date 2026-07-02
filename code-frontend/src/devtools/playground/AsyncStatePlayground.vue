@@ -118,6 +118,7 @@
 
           <ProjectBoard
             active-project-name="Playground Project"
+            :task-tree="playgroundTaskTree"
             :columns="playgroundBoardColumns"
             :is-loading-board="activeBoardState.type === 'loading'"
             :command-error-message="activeBoardState.type === 'error' ? activeBoardState.message : ''"
@@ -382,6 +383,10 @@ const playgroundBoardColumns: BoardColumnResponse[] = [
   },
 ]
 
+const playgroundTaskTree = [
+  { id: 'task-tree-1', title: '整理 Hatchery 需求' },
+]
+
 const playgroundTaskDetail: TaskDetailResponse = {
   id: 'task-detail-1',
   projectId: 'project-1',
@@ -393,6 +398,7 @@ const playgroundTaskDetail: TaskDetailResponse = {
     isInitialState: false,
     isCompletedState: false,
   },
+  isInFlow: true,
   lifecycleState: 'activeRecord',
   dueDate: '2026-05-20',
   createdAt: '2026-05-12T08:00:00.000Z',

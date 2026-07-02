@@ -16,6 +16,7 @@ public sealed class Task
         string title,
         string description,
         WorkflowState currentState,
+        bool isInFlow,
         TaskLifecycleState lifecycleState,
         DateOnly? dueDate,
         DateTimeOffset createdAt,
@@ -33,6 +34,7 @@ public sealed class Task
         Title = title;
         Description = description;
         CurrentState = currentState;
+        IsInFlow = isInFlow;
         LifecycleState = lifecycleState;
         DueDate = dueDate;
         CreatedAt = createdAt;
@@ -55,6 +57,8 @@ public sealed class Task
     public string Description { get; private set; }
 
     public WorkflowState CurrentState { get; private set; }
+
+    public bool IsInFlow { get; private set; }
 
     public TaskLifecycleState LifecycleState { get; private set; }
 
@@ -83,6 +87,7 @@ public sealed class Task
         WorkflowState initialState,
         DateTimeOffset createdAt,
         int sortOrder,
+        bool isInFlow = false,
         IEnumerable<TaskSubtask>? subtasks = null)
     {
         return new Task(
@@ -91,6 +96,7 @@ public sealed class Task
             title.Value,
             string.Empty,
             initialState,
+            isInFlow,
             TaskLifecycleState.ActiveRecord,
             null,
             createdAt,
@@ -110,6 +116,7 @@ public sealed class Task
         string title,
         string description,
         WorkflowState currentState,
+        bool isInFlow,
         TaskLifecycleState lifecycleState,
         DateOnly? dueDate,
         DateTimeOffset createdAt,
@@ -122,7 +129,7 @@ public sealed class Task
         TaskCodeTraceability codeTraceability,
         IEnumerable<ActivityTimelineItem> activityTimeline)
     {
-        return new Task(id, projectId, title, description, currentState, lifecycleState, dueDate, createdAt, completedAt, archivedAt, trashedAt, sortOrder, subtasks, reminders, codeTraceability, activityTimeline);
+        return new Task(id, projectId, title, description, currentState, isInFlow, lifecycleState, dueDate, createdAt, completedAt, archivedAt, trashedAt, sortOrder, subtasks, reminders, codeTraceability, activityTimeline);
     }
 
     /// <summary>
@@ -274,9 +281,14 @@ public sealed class Task
             return lockedResult;
         }
 
+        var wasInFlow = IsInFlow;
+        IsInFlow = true;
+
         if (CurrentState.Key == targetState.Key)
         {
-            return TaskMutationExecutionResult.NoChanges();
+            return wasInFlow
+                ? TaskMutationExecutionResult.NoChanges()
+                : TaskMutationExecutionResult.ChangedResult();
         }
 
         var wasDone = CurrentState.IsCompletedState;
@@ -419,6 +431,7 @@ public sealed class Task
             Title,
             Description,
             CurrentState.ToModel(),
+            IsInFlow,
             LifecycleState,
             DueDate,
             CreatedAt,
