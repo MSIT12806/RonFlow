@@ -191,7 +191,7 @@ public partial class Program
             return databaseSyncCoordinator;
         });
         builder.Services.AddSingleton(serviceProvider =>
-            new SqliteCoreFlowStore(databasePath, serviceProvider.GetRequiredService<IDatabaseSyncCoordinator>()));
+            new SqliteCoreFlowStore(databasePath, serviceProvider.GetRequiredService<IDomainEventDispatcher>()));
         builder.Services.AddSingleton<IProjectRepository, SqliteProjectRepository>();
         builder.Services.AddSingleton<ITaskRepository, SqliteTaskRepository>();
         builder.Services.AddSingleton<IPushSubscriptionRepository, SqlitePushSubscriptionRepository>();
