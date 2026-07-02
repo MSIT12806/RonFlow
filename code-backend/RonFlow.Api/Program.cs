@@ -125,6 +125,9 @@ public partial class Program
 
         var app = builder.Build();
 
+        // Force startup DB sync now; singleton services are otherwise created lazily.
+        _ = app.Services.GetRequiredService<IDatabaseSyncCoordinator>();
+
         if (app.Environment.IsDevelopment())
         {
             app.MapOpenApi();
