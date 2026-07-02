@@ -27,6 +27,7 @@ public sealed record TaskSubtaskModel(Guid Id, string Title, bool IsChecked, int
 public sealed record TaskModel(
     Guid Id,
     Guid ProjectId,
+    Guid? ParentTaskId,
     string Title,
     string Description,
     WorkflowStateModel CurrentState,

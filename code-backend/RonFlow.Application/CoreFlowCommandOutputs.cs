@@ -13,6 +13,7 @@ public sealed record CreatedWorkflowStateOutput(string Key, string Label, bool I
 public sealed record CreateTaskOutput(
     Guid Id,
     Guid ProjectId,
+    Guid? ParentTaskId,
     string Title,
     string Description,
     CreatedWorkflowStateOutput CurrentState,
@@ -57,6 +58,7 @@ internal static class CoreFlowCommandOutputFactory
         return new CreateTaskOutput(
             task.Id,
             task.ProjectId,
+            task.ParentTaskId,
             task.Title,
             task.Description,
             CreateWorkflowState(task.CurrentState),

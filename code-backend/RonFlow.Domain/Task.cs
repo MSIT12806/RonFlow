@@ -13,6 +13,7 @@ public sealed class Task
     private Task(
         Guid id,
         Guid projectId,
+        Guid? parentTaskId,
         string title,
         string description,
         WorkflowState currentState,
@@ -31,6 +32,7 @@ public sealed class Task
     {
         Id = id;
         ProjectId = projectId;
+        ParentTaskId = parentTaskId;
         Title = title;
         Description = description;
         CurrentState = currentState;
@@ -51,6 +53,8 @@ public sealed class Task
     public Guid Id { get; }
 
     public Guid ProjectId { get; }
+
+    public Guid? ParentTaskId { get; private set; }
 
     public string Title { get; private set; }
 
@@ -88,11 +92,13 @@ public sealed class Task
         DateTimeOffset createdAt,
         int sortOrder,
         bool isInFlow = false,
+        Guid? parentTaskId = null,
         IEnumerable<TaskSubtask>? subtasks = null)
     {
         return new Task(
             Guid.NewGuid(),
             projectId,
+            parentTaskId,
             title.Value,
             string.Empty,
             initialState,
@@ -113,6 +119,7 @@ public sealed class Task
     public static Task Rehydrate(
         Guid id,
         Guid projectId,
+        Guid? parentTaskId,
         string title,
         string description,
         WorkflowState currentState,
@@ -129,7 +136,18 @@ public sealed class Task
         TaskCodeTraceability codeTraceability,
         IEnumerable<ActivityTimelineItem> activityTimeline)
     {
-        return new Task(id, projectId, title, description, currentState, isInFlow, lifecycleState, dueDate, createdAt, completedAt, archivedAt, trashedAt, sortOrder, subtasks, reminders, codeTraceability, activityTimeline);
+        return new Task(id, projectId, parentTaskId, title, description, currentState, isInFlow, lifecycleState, dueDate, createdAt, completedAt, archivedAt, trashedAt, sortOrder, subtasks, reminders, codeTraceability, activityTimeline);
+    }
+
+    public TaskMutationExecutionResult MarkChildTaskAdded(TaskMutationAuthorization authorization, DateTimeOffset changedAt)
+    {
+        if (TryRejectLockedMutation(authorization, TaskMutationKind.CreateChildTask, out var lockedResult))
+        {
+            return lockedResult;
+        }
+
+        activityTimeline.Add(ActivityTimelineItem.ChildTaskAdded(changedAt));
+        return TaskMutationExecutionResult.ChangedResult();
     }
 
     /// <summary>
@@ -428,6 +446,7 @@ public sealed class Task
         return new TaskModel(
             Id,
             ProjectId,
+            ParentTaskId,
             Title,
             Description,
             CurrentState.ToModel(),

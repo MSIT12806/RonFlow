@@ -42,7 +42,7 @@ public sealed record BoardColumnView(
     string EmptyStateMessage,
     IReadOnlyList<BoardTaskCardView> Tasks);
 
-public sealed record BoardTaskCardView(Guid Id, string Title);
+public sealed record BoardTaskCardView(Guid Id, string Title, IReadOnlyList<BoardTaskCardView> Children);
 
 public sealed record ProjectCodeTraceabilityView(IReadOnlyList<ProjectCodeTraceabilityItemView> Items);
 
@@ -69,6 +69,7 @@ public sealed record TaskCodeTraceabilityView(
 public sealed record TaskDetailView(
     Guid Id,
     Guid ProjectId,
+    Guid? ParentTaskId,
     string Title,
     string Description,
     WorkflowStateView CurrentState,
@@ -78,6 +79,7 @@ public sealed record TaskDetailView(
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
     IReadOnlyList<TaskSubtaskView> Subtasks,
+    IReadOnlyList<BoardTaskCardView> ChildTasks,
     TaskCodeTraceabilityView CodeTraceability,
     IReadOnlyList<TaskReminderView> Reminders,
     IReadOnlyList<ActivityTimelineItemView> ActivityTimeline);
@@ -141,20 +143,21 @@ internal static class CoreFlowReadModelFactory
                     .ToArray()))
             .ToArray();
 
-        var taskTree = board.Tasks
+        var activeTasks = board.Tasks
             .Where(task => task.LifecycleState == TaskLifecycleState.ActiveRecord)
             .Where(task => task.IsInFlow is false)
-            .Select(CreateBoardTaskCard)
             .ToArray();
+        var taskTree = BuildTaskTree(activeTasks, parentTaskId: null);
 
         return new ProjectBoardView(board.ProjectId, board.ProjectName, taskTree, columns);
     }
 
-    public static TaskDetailView CreateTaskDetail(TaskModel task)
+    public static TaskDetailView CreateTaskDetail(TaskModel task, IReadOnlyList<TaskModel>? childTasks = null)
     {
         return new TaskDetailView(
             task.Id,
             task.ProjectId,
+            task.ParentTaskId,
             task.Title,
             task.Description,
             CreateWorkflowState(task.CurrentState),
@@ -164,6 +167,9 @@ internal static class CoreFlowReadModelFactory
             task.CreatedAt,
             task.CompletedAt,
             task.Subtasks.Select(CreateTaskSubtask).ToArray(),
+            BuildTaskTree(
+                (childTasks ?? []).Where(childTask => childTask.LifecycleState == TaskLifecycleState.ActiveRecord).ToArray(),
+                task.Id),
             CreateTaskCodeTraceability(task.CodeTraceability),
             task.Reminders.Select(CreateTaskReminder).ToArray(),
             task.ActivityTimeline.Select(CreateActivityTimelineItem).ToArray());
@@ -201,7 +207,18 @@ internal static class CoreFlowReadModelFactory
 
     private static BoardTaskCardView CreateBoardTaskCard(TaskModel task)
     {
-        return new BoardTaskCardView(task.Id, task.Title);
+        return new BoardTaskCardView(task.Id, task.Title, []);
+    }
+
+    private static IReadOnlyList<BoardTaskCardView> BuildTaskTree(IReadOnlyList<TaskModel> tasks, Guid? parentTaskId)
+    {
+        return tasks
+            .Where(task => task.ParentTaskId == parentTaskId)
+            .Select(task => new BoardTaskCardView(
+                task.Id,
+                task.Title,
+                BuildTaskTree(tasks, task.Id)))
+            .ToArray();
     }
 
     internal static WorkflowStateView CreateWorkflowState(WorkflowStateModel workflowState)

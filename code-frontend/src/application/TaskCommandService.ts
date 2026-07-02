@@ -2,6 +2,7 @@ import {
   acquireTaskContentEditLock,
   archiveTask,
   changeTaskState,
+  createChildTask,
   createTask,
   createTaskReminder,
   deleteTaskReminder,
@@ -19,6 +20,10 @@ import {
 export class TaskCommandService {
   async create(projectId: string, title: string): Promise<TaskDetailResponse> {
     return createTask(projectId, title)
+  }
+
+  async createChild(projectId: string, parentTaskId: string, title: string): Promise<TaskDetailResponse> {
+    return createChildTask(projectId, parentTaskId, title)
   }
 
   async changeState(projectId: string, taskId: string, stateKey: WorkflowKey): Promise<TaskDetailResponse> {

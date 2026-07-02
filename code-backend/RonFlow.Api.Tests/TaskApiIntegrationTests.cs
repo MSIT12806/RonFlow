@@ -31,10 +31,14 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
     public sealed record ChecklistTaskDetailResponse(
         Guid Id,
         Guid ProjectId,
+        Guid? ParentTaskId,
         string Title,
         WorkflowStateResponse CurrentState,
+        bool IsInFlow,
         DateTimeOffset? CompletedAt,
-        IReadOnlyList<TaskSubtaskResponse> Subtasks);
+        IReadOnlyList<TaskSubtaskResponse> Subtasks,
+        IReadOnlyList<BoardTaskCardResponse> ChildTasks,
+        IReadOnlyList<ActivityTimelineItemResponse> ActivityTimeline);
 
     public sealed record LifecycleTaskListResponse(IReadOnlyList<LifecycleTaskListItemResponse> Items);
 
@@ -136,6 +140,62 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
         Assert.That(task.Subtasks.Select(item => item.Title), Is.EqualTo(new[] { "需求已釐清", "驗收測試已撰寫" }));
         Assert.That(task.Subtasks.Select(item => item.Order), Is.EqualTo(new[] { 0, 1 }));
         Assert.That(task.Subtasks.All(item => item.IsChecked is false), Is.True);
+    }
+
+    [Test]
+    public async Task CreateChildTask_WithValidTitle_CreatesFormalTaskAndListsItUnderParent()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var parentTask = await CreateTaskAsync(project.Id, "Design Hatchery");
+
+        var createChildResponse = await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{parentTask.Id}/children",
+            new CreateChildTaskRequest("Write SRS"));
+
+        Assert.That(createChildResponse.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+
+        var childTask = await createChildResponse.Content.ReadFromJsonAsync<ChecklistTaskDetailResponse>();
+
+        Assert.That(childTask, Is.Not.Null);
+        Assert.That(childTask!.ProjectId, Is.EqualTo(project.Id));
+        Assert.That(childTask.ParentTaskId, Is.EqualTo(parentTask.Id));
+        Assert.That(childTask.Title, Is.EqualTo("Write SRS"));
+        Assert.That(childTask.IsInFlow, Is.False);
+
+        var parentDetailResponse = await Client.GetAsync($"/api/projects/{project.Id}/tasks/{parentTask.Id}");
+        var parentDetail = await parentDetailResponse.Content.ReadFromJsonAsync<ChecklistTaskDetailResponse>();
+
+        Assert.That(parentDetailResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(parentDetail, Is.Not.Null);
+        Assert.That(parentDetail!.ChildTasks.Select(task => task.Id), Is.EqualTo(new[] { childTask.Id }));
+        Assert.That(parentDetail.ChildTasks.Select(task => task.Title), Is.EqualTo(new[] { "Write SRS" }));
+        Assert.That(parentDetail.ActivityTimeline.Select(item => item.Type), Does.Contain("ChildTaskAdded"));
+
+        var boardResponse = await Client.GetAsync($"/api/projects/{project.Id}/board");
+        var board = await boardResponse.Content.ReadFromJsonAsync<ProjectBoardResponse>();
+
+        Assert.That(boardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(board, Is.Not.Null);
+        Assert.That(board!.TaskTree.Select(task => task.Id), Does.Contain(parentTask.Id));
+        Assert.That(board.TaskTree.Select(task => task.Id), Does.Not.Contain(childTask.Id));
+        Assert.That(board.TaskTree.Single(task => task.Id == parentTask.Id).Children.Select(task => task.Id), Does.Contain(childTask.Id));
+    }
+
+    [Test]
+    public async Task CreateChildTask_WithBlankTitle_ReturnsValidationError()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var parentTask = await CreateTaskAsync(project.Id, "Design Hatchery");
+
+        var response = await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{parentTask.Id}/children",
+            new CreateChildTaskRequest("  "));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+
+        var errors = await ReadValidationErrorsAsync(response);
+
+        Assert.That(errors, Does.ContainKey("title"));
     }
 
     [Test]

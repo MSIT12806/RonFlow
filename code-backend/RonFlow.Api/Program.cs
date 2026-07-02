@@ -84,6 +84,7 @@ public partial class Program
         builder.Services.AddSingleton<ProjectAccessService>();
         builder.Services.AddSingleton<CreateProjectCommandService>();
         builder.Services.AddSingleton<CreateTaskCommandService>();
+        builder.Services.AddSingleton<CreateChildTaskCommandService>();
         builder.Services.AddSingleton<ReplaceProjectSubtaskTemplatesCommandService>();
         builder.Services.AddSingleton<ReplaceTaskSubtasksCommandService>();
         builder.Services.AddSingleton<ChangeTaskStateCommandService>();

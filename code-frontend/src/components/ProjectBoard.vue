@@ -64,25 +64,21 @@
               <p class="eyebrow">Hatchery</p>
               <h3 id="task-tree-title">任務樹</h3>
             </div>
-            <span class="count-badge">{{ taskTree.length }}</span>
+            <span class="count-badge">{{ taskTreeNodeCount }}</span>
           </header>
 
           <div v-if="taskTree.length === 0" class="task-tree-empty">
             目前沒有任務樹任務
           </div>
 
-          <div v-else class="task-tree-list">
-            <button
+          <ul v-else class="task-tree-list">
+            <TaskTreeNode
               v-for="task in taskTree"
               :key="task.id"
-              type="button"
-              class="task-tree-item"
-              @click="$emit('open-task-detail', task.id, task.title)"
-            >
-              <span class="task-title">{{ task.title }}</span>
-              <span class="task-meta">Leaf task</span>
-            </button>
-          </div>
+              :task="task"
+              @open-task-detail="(taskId, taskTitle) => $emit('open-task-detail', taskId, taskTitle)"
+            />
+          </ul>
         </section>
 
         <div class="board-grid">
@@ -146,9 +142,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import AsyncStateBoundary from './bases/AsyncStateBoundary.vue'
 import BaseErrorState from './bases/BaseErrorState.vue'
+import TaskTreeNode from './TaskTreeNode.vue'
 import type { BoardColumnResponse, BoardTaskCardResponse, WorkflowKey } from '../api/ronflowApi'
 
 const props = defineProps<{
@@ -172,6 +169,12 @@ const emit = defineEmits<{
   (event: 'move-task-to-state', taskId: string, stateKey: WorkflowKey): void
   (event: 'reorder-task-within-column', taskId: string, targetTaskId: string): void
 }>()
+
+const taskTreeNodeCount = computed(() => countTaskTreeNodes(props.taskTree))
+
+function countTaskTreeNodes(tasks: BoardTaskCardResponse[]): number {
+  return tasks.reduce((total, task) => total + 1 + countTaskTreeNodes(task.children), 0)
+}
 
 const draggingTaskId = ref<string | null>(null)
 const dragOverStateKey = ref<WorkflowKey | null>(null)

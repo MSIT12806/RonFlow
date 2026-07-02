@@ -10,7 +10,10 @@
     @close="$emit('close')"
   >
       <section v-if="displayTitle" class="detail-preview-header">
-        <h3>{{ displayTitle }}</h3>
+        <div>
+          <h3>{{ displayTitle }}</h3>
+          <p v-if="task" class="detail-preview-meta">建立 {{ formatTimelineTime(task.createdAt) }}</p>
+        </div>
       </section>
 
       <AsyncStateBoundary
@@ -118,110 +121,54 @@
             </div>
           </div>
 
-          <div class="detail-card detail-card-full" data-testid="task-code-traceability-section">
-            <div class="detail-section-header">
-              <div>
-                <p class="detail-label">程式修改追蹤</p>
-                <p class="detail-supporting-copy">用結構化紀錄標示這個 task 影響到的 API、前端頁面與前端元件。</p>
-              </div>
-            </div>
-
-            <div
-              v-for="category in traceabilityCategories"
-              :key="category.key"
-              class="detail-field"
-              :data-testid="`task-code-traceability-${category.testId}`"
-            >
-              <div class="detail-section-header">
-                <div>
-                  <p class="detail-label">{{ category.label }}</p>
-                </div>
-
-                <button
-                  v-if="!isReadOnly"
-                  type="button"
-                  class="secondary-button"
-                  :disabled="isSaving"
-                  @click="addCodeTraceabilityItem(category.key)"
-                >
-                  新增紀錄
-                </button>
-              </div>
-
-              <p v-if="draftCodeTraceability[category.key].length === 0" class="detail-supporting-copy">目前沒有紀錄</p>
-
-              <ul v-else class="history-list">
-                <li
-                  v-for="(item, index) in draftCodeTraceability[category.key]"
-                  :key="`${category.key}-${index}`"
-                  data-testid="task-code-traceability-item"
-                >
-                  <div v-if="isReadOnly" class="detail-checklist-row">
-                    <strong>{{ formatTraceabilityChangeType(item.changeType) }}</strong>
-                    <span>{{ item.target }}</span>
-                  </div>
-
-                  <div v-else class="detail-reminder-grid">
-                    <div class="detail-field">
-                      <label class="detail-label" :for="`task-code-traceability-${category.testId}-${index}-change-type`">變更類型</label>
-                      <div class="detail-field-control">
-                        <select
-                          :id="`task-code-traceability-${category.testId}-${index}-change-type`"
-                          :value="item.changeType"
-                          :disabled="isSaving"
-                          @change="onCodeTraceabilityChangeTypeChanged(category.key, index, $event)"
-                        >
-                          <option
-                            v-for="option in traceabilityChangeTypeOptions"
-                            :key="option.value"
-                            :value="option.value"
-                          >
-                            {{ option.label }}
-                          </option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div class="detail-field detail-field-inline">
-                      <label class="detail-label" :for="`task-code-traceability-${category.testId}-${index}-target`">項目名稱</label>
-                      <div class="detail-field-control">
-                        <InputText
-                          :id="`task-code-traceability-${category.testId}-${index}-target`"
-                          :model-value="item.target"
-                          fluid
-                          :disabled="isSaving"
-                          @update:model-value="updateCodeTraceabilityTarget(category.key, index, $event)"
-                        />
-                      </div>
-                    </div>
-
-                    <div class="detail-checklist-actions">
-                      <button
-                        type="button"
-                        class="detail-actions-menu-item"
-                        :disabled="isSaving"
-                        @click="removeCodeTraceabilityItem(category.key, index)"
-                      >
-                        刪除
-                      </button>
-                    </div>
-                  </div>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div class="detail-card">
-            <p class="detail-label">建立時間</p>
-            <strong>{{ formatTimelineTime(task.createdAt) }}</strong>
-          </div>
-
           <div v-if="task.currentState.isCompletedState && task.completedAt" class="detail-card">
             <p class="detail-label">完成時間</p>
             <strong>{{ formatTimelineTime(task.completedAt) }}</strong>
           </div>
 
-          <div class="detail-card detail-card-full" data-testid="task-checklist-section">
+          <div class="detail-card detail-card-full" data-testid="task-child-tasks-section">
+            <div class="detail-section-header">
+              <div>
+                <p class="detail-label">Child tasks</p>
+              </div>
+            </div>
+
+            <div v-if="canCreateChildTask" class="detail-reminder-grid">
+              <div class="detail-field detail-field-inline">
+                <label class="detail-label" for="task-child-title-input">Child task 標題</label>
+                <div class="detail-field-control">
+                  <InputText
+                    id="task-child-title-input"
+                    v-model="draftChildTaskTitle"
+                    fluid
+                    :disabled="isSaving"
+                    @keydown.enter.prevent="submitChildTask"
+                  />
+                </div>
+              </div>
+
+              <div class="detail-reminder-actions">
+                <button type="button" class="secondary-button" :disabled="isSaving" @click="submitChildTask">建立 child task</button>
+              </div>
+            </div>
+
+            <p v-if="childTasks.length === 0" class="detail-supporting-copy">目前沒有 child task</p>
+
+            <ul v-else class="history-list">
+              <li v-for="childTask in childTasks" :key="childTask.id" data-testid="task-child-item">
+                <button
+                  type="button"
+                  class="task-card-main"
+                  @click="emitOpenChildTask(childTask.id, childTask.title)"
+                >
+                  <span class="task-title">{{ childTask.title }}</span>
+                  <span class="task-meta">Child task</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <div v-if="!isParentTask" class="detail-card detail-card-full" data-testid="task-checklist-section">
             <div class="detail-section-header">
               <div>
                 <p class="detail-label">完成條件</p>
@@ -348,6 +295,99 @@
             </div>
           </div>
 
+          <div class="detail-card detail-card-full" data-testid="task-code-traceability-section">
+            <div class="detail-section-header">
+              <div>
+                <p class="detail-label">程式修改追蹤</p>
+                <p class="detail-supporting-copy">用結構化紀錄標示這個 task 影響到的 API、前端頁面與前端元件。</p>
+              </div>
+            </div>
+
+            <div
+              v-for="category in traceabilityCategories"
+              :key="category.key"
+              class="detail-field"
+              :data-testid="`task-code-traceability-${category.testId}`"
+            >
+              <div class="detail-section-header">
+                <div>
+                  <p class="detail-label">{{ category.label }}</p>
+                </div>
+
+                <button
+                  v-if="!isReadOnly"
+                  type="button"
+                  class="secondary-button"
+                  :disabled="isSaving"
+                  @click="addCodeTraceabilityItem(category.key)"
+                >
+                  新增紀錄
+                </button>
+              </div>
+
+              <p v-if="draftCodeTraceability[category.key].length === 0" class="detail-supporting-copy">目前沒有紀錄</p>
+
+              <ul v-else class="history-list">
+                <li
+                  v-for="(item, index) in draftCodeTraceability[category.key]"
+                  :key="`${category.key}-${index}`"
+                  data-testid="task-code-traceability-item"
+                >
+                  <div v-if="isReadOnly" class="detail-checklist-row">
+                    <strong>{{ formatTraceabilityChangeType(item.changeType) }}</strong>
+                    <span>{{ item.target }}</span>
+                  </div>
+
+                  <div v-else class="detail-reminder-grid">
+                    <div class="detail-field">
+                      <label class="detail-label" :for="`task-code-traceability-${category.testId}-${index}-change-type`">變更類型</label>
+                      <div class="detail-field-control">
+                        <select
+                          :id="`task-code-traceability-${category.testId}-${index}-change-type`"
+                          :value="item.changeType"
+                          :disabled="isSaving"
+                          @change="onCodeTraceabilityChangeTypeChanged(category.key, index, $event)"
+                        >
+                          <option
+                            v-for="option in traceabilityChangeTypeOptions"
+                            :key="option.value"
+                            :value="option.value"
+                          >
+                            {{ option.label }}
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div class="detail-field detail-field-inline">
+                      <label class="detail-label" :for="`task-code-traceability-${category.testId}-${index}-target`">項目名稱</label>
+                      <div class="detail-field-control">
+                        <InputText
+                          :id="`task-code-traceability-${category.testId}-${index}-target`"
+                          :model-value="item.target"
+                          fluid
+                          :disabled="isSaving"
+                          @update:model-value="updateCodeTraceabilityTarget(category.key, index, $event)"
+                        />
+                      </div>
+                    </div>
+
+                    <div class="detail-checklist-actions">
+                      <button
+                        type="button"
+                        class="detail-actions-menu-item"
+                        :disabled="isSaving"
+                        @click="removeCodeTraceabilityItem(category.key, index)"
+                      >
+                        刪除
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+
           <div class="detail-card detail-card-full">
             <ApiCommandResourceView
               :is-submitting="isSaving"
@@ -449,6 +489,8 @@ const emit = defineEmits<{
     taskId: string
     subtasks: Array<{ id: string | null; title: string; isChecked: boolean; order: number }>
   }): void
+  (event: 'create-child-task', payload: { parentTaskId: string; title: string }): void
+  (event: 'open-child-task', taskId: string, taskTitle: string): void
   (event: 'add-reminder', payload: { taskId: string; reminderDateTime: string; description: string }): void
   (event: 'delete-reminder', payload: { taskId: string; reminderId: string }): void
   (event: 'enable-reminder-delivery'): void
@@ -462,6 +504,7 @@ const draftDescription = ref('')
 const draftDueDate = ref('')
 const draftReminderDateTime = ref('')
 const draftReminderDescription = ref('')
+const draftChildTaskTitle = ref('')
 const draftSubtasks = ref<DraftTaskSubtask[]>([])
 const draftCodeTraceability = ref<DraftTaskCodeTraceability>(createEmptyCodeTraceability())
 const isActionsOpen = ref(false)
@@ -486,6 +529,9 @@ const isReadOnly = computed(() => isForcedReadOnly.value || isLifecycleReadOnly.
 const canToggleSubtaskCheckbox = computed(() => !isForcedReadOnly.value && !isLifecycleReadOnly.value && canEnterEdit.value)
 const isChecklistTextReadOnly = computed(() => isForcedReadOnly.value || isLifecycleReadOnly.value || !isEditing.value)
 const taskReminders = computed(() => props.task?.reminders ?? [])
+const childTasks = computed(() => props.task?.childTasks ?? [])
+const isParentTask = computed(() => childTasks.value.length > 0)
+const canCreateChildTask = computed(() => !isForcedReadOnly.value && !isLifecycleReadOnly.value && canEnterEdit.value)
 const reminderValidationError = computed(() =>
   props.reminderDatetimeValidationError
   ?? props.reminderDateTimeValidationError
@@ -603,6 +649,17 @@ function addSubtask() {
       isChecked: false,
     },
   ]
+}
+
+function submitChildTask() {
+  if (!props.task || props.isSaving || !canCreateChildTask.value) {
+    return
+  }
+
+  emit('create-child-task', {
+    parentTaskId: props.task.id,
+    title: draftChildTaskTitle.value,
+  })
 }
 
 function createEmptyCodeTraceability(): DraftTaskCodeTraceability {
@@ -774,6 +831,14 @@ function emitDeleteReminder(reminder: TaskReminderResponse) {
   })
 }
 
+function emitOpenChildTask(taskId: string, taskTitle: string) {
+  if (props.isSaving) {
+    return
+  }
+
+  emit('open-child-task', taskId, taskTitle)
+}
+
 function emitEnableReminderDelivery() {
   if (props.isSaving || props.isEnablingReminderDelivery) {
     return
@@ -833,6 +898,7 @@ watch(
     props.task?.description,
     props.task?.dueDate,
     props.task?.subtasks?.length ?? 0,
+    props.task?.childTasks?.length ?? 0,
     props.task?.codeTraceability?.api?.length ?? 0,
     props.task?.codeTraceability?.frontendPages?.length ?? 0,
     props.task?.codeTraceability?.frontendComponents?.length ?? 0,
@@ -851,6 +917,7 @@ watch(
     draftDueDate.value = props.task.dueDate ?? ''
     draftReminderDateTime.value = ''
     draftReminderDescription.value = ''
+    draftChildTaskTitle.value = ''
     draftCodeTraceability.value = createDraftCodeTraceability(props.task)
     draftSubtasks.value = props.task.subtasks.map((subtask) => ({
       id: subtask.id,

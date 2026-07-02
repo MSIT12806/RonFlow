@@ -11,8 +11,7 @@ public sealed class GetTaskDetailQueryService(ProjectAccessService projectAccess
 
     public TaskDetailView? Get(Guid projectId, Guid taskId)
     {
-        var task = readStore.GetTaskDetail(projectId, taskId);
-        return task is null ? null : CoreFlowReadModelFactory.CreateTaskDetail(task);
+        return GetTaskDetailView(projectId, taskId);
     }
 
     public OwnedResourceQueryResult<TaskDetailView> Get(Guid currentUserId, Guid projectId, Guid taskId)
@@ -28,9 +27,25 @@ public sealed class GetTaskDetailQueryService(ProjectAccessService projectAccess
             return OwnedResourceQueryResult<TaskDetailView>.Denied();
         }
 
-        var task = readStore.GetTaskDetail(projectId, taskId);
+        var task = GetTaskDetailView(projectId, taskId);
         return task is null
             ? OwnedResourceQueryResult<TaskDetailView>.Missing()
-            : OwnedResourceQueryResult<TaskDetailView>.Success(CoreFlowReadModelFactory.CreateTaskDetail(task));
+            : OwnedResourceQueryResult<TaskDetailView>.Success(task);
+    }
+
+    private TaskDetailView? GetTaskDetailView(Guid projectId, Guid taskId)
+    {
+        var board = readStore.GetProjectBoard(projectId);
+        var task = board?.Tasks.SingleOrDefault(item => item.Id == taskId);
+        if (board is null || task is null)
+        {
+            return null;
+        }
+
+        var childTasks = board.Tasks
+            .Where(item => item.LifecycleState == TaskLifecycleState.ActiveRecord)
+            .ToArray();
+
+        return CoreFlowReadModelFactory.CreateTaskDetail(task, childTasks);
     }
 }

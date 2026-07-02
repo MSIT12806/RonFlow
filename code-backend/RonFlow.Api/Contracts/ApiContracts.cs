@@ -20,6 +20,8 @@ public sealed record CreateProjectInvitationRequest(string? Invitee);
 
 public sealed record CreateTaskRequest(string? Title);
 
+public sealed record CreateChildTaskRequest(string? Title);
+
 public sealed record ChangeTaskStateRequest(string? StateKey);
 
 public sealed record CreateTaskReminderRequest(string? ReminderDateTime, string? Description);
@@ -227,11 +229,11 @@ public sealed record BoardColumnResponse(
     }
 }
 
-public sealed record BoardTaskCardResponse(Guid Id, string Title)
+public sealed record BoardTaskCardResponse(Guid Id, string Title, IReadOnlyList<BoardTaskCardResponse> Children)
 {
     public static BoardTaskCardResponse FromView(BoardTaskCardView view)
     {
-        return new(view.Id, view.Title);
+        return new(view.Id, view.Title, view.Children.Select(FromView).ToArray());
     }
 }
 
@@ -346,6 +348,7 @@ public sealed record TaskCodeTraceabilityResponse(
 public sealed record TaskDetailResponse(
     Guid Id,
     Guid ProjectId,
+    Guid? ParentTaskId,
     string Title,
     string Description,
     WorkflowStateResponse CurrentState,
@@ -355,6 +358,7 @@ public sealed record TaskDetailResponse(
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
     IReadOnlyList<TaskSubtaskResponse> Subtasks,
+    IReadOnlyList<BoardTaskCardResponse> ChildTasks,
     TaskCodeTraceabilityResponse CodeTraceability,
     IReadOnlyList<TaskReminderResponse> Reminders,
     IReadOnlyList<ActivityTimelineItemResponse> ActivityTimeline,
@@ -365,6 +369,7 @@ public sealed record TaskDetailResponse(
         return new(
             output.Id,
             output.ProjectId,
+            output.ParentTaskId,
             output.Title,
             output.Description,
             WorkflowStateResponse.FromOutput(output.CurrentState),
@@ -374,6 +379,7 @@ public sealed record TaskDetailResponse(
             output.CreatedAt,
             output.CompletedAt,
             output.Subtasks.Select(TaskSubtaskResponse.FromOutput).ToArray(),
+            [],
             TaskCodeTraceabilityResponse.FromOutput(output.CodeTraceability),
             output.Reminders.Select(TaskReminderResponse.FromOutput).ToArray(),
             output.ActivityTimeline.Select(ActivityTimelineItemResponse.FromOutput).ToArray(),
@@ -385,6 +391,7 @@ public sealed record TaskDetailResponse(
         return new(
             view.Id,
             view.ProjectId,
+            view.ParentTaskId,
             view.Title,
             view.Description,
             WorkflowStateResponse.FromView(view.CurrentState),
@@ -394,6 +401,7 @@ public sealed record TaskDetailResponse(
             view.CreatedAt,
             view.CompletedAt,
             view.Subtasks.Select(TaskSubtaskResponse.FromView).ToArray(),
+            view.ChildTasks.Select(BoardTaskCardResponse.FromView).ToArray(),
             TaskCodeTraceabilityResponse.FromView(view.CodeTraceability),
             view.Reminders.Select(TaskReminderResponse.FromView).ToArray(),
             view.ActivityTimeline.Select(ActivityTimelineItemResponse.FromView).ToArray(),

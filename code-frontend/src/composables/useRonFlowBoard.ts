@@ -153,6 +153,28 @@ export function useRonFlowBoard() {
     },
   )
 
+  const createChildTaskResource = useApiResource(
+    (projectId: string, parentTaskId: string, title: string) =>
+      taskCommandService.createChild(projectId, parentTaskId, title),
+    {
+      mapErrorMessage: (error) => {
+        if (error instanceof ApiValidationError) {
+          return ''
+        }
+
+        if (error instanceof ApiRequestError && error.status === 409) {
+          return '目前有其他使用者正在編輯此任務，暫時無法建立 child task。'
+        }
+
+        if (error instanceof ApiRequestError && error.status === 404) {
+          return '找不到指定的任務，請重新整理專案看板。'
+        }
+
+        return '建立 child task 失敗，請稍後再試。'
+      },
+    },
+  )
+
   const reorderTaskResource = useApiResource(
     (projectId: string, taskId: string, targetTaskId: string) =>
       taskCommandService.reorder(projectId, taskId, targetTaskId),
@@ -198,6 +220,7 @@ export function useRonFlowBoard() {
   const taskDetailCommandError = computed(() =>
     updateTaskDetailResource.errorMessage.value
     || replaceTaskSubtasksResource.errorMessage.value
+    || createChildTaskResource.errorMessage.value
     || createTaskReminderResource.errorMessage.value
     || deleteTaskReminderResource.errorMessage.value
     || taskLifecycleCommandError.value,
@@ -208,6 +231,7 @@ export function useRonFlowBoard() {
   const isUpdatingTaskDetail = computed(() =>
     updateTaskDetailResource.isLoading.value
     || replaceTaskSubtasksResource.isLoading.value
+    || createChildTaskResource.isLoading.value
     || createTaskReminderResource.isLoading.value
     || deleteTaskReminderResource.isLoading.value
     || archiveTaskResource.isLoading.value
@@ -336,6 +360,7 @@ export function useRonFlowBoard() {
     taskDetailResource.reset()
     updateTaskDetailResource.reset()
     replaceTaskSubtasksResource.reset()
+    createChildTaskResource.reset()
     createTaskReminderResource.reset()
     deleteTaskReminderResource.reset()
     taskLifecycleCommandError.value = ''
@@ -358,6 +383,7 @@ export function useRonFlowBoard() {
     taskDetailResource.reset()
     updateTaskDetailResource.reset()
     replaceTaskSubtasksResource.reset()
+    createChildTaskResource.reset()
     createTaskReminderResource.reset()
     deleteTaskReminderResource.reset()
     archivedTasksResource.reset()
@@ -382,6 +408,7 @@ export function useRonFlowBoard() {
     taskDetailResource.reset()
     updateTaskDetailResource.reset()
     replaceTaskSubtasksResource.reset()
+    createChildTaskResource.reset()
     createTaskReminderResource.reset()
     deleteTaskReminderResource.reset()
     taskLifecycleCommandError.value = ''
@@ -450,6 +477,7 @@ export function useRonFlowBoard() {
     taskTitleValidationError.value = ''
     updateTaskDetailResource.reset()
     replaceTaskSubtasksResource.reset()
+    createChildTaskResource.reset()
     taskLifecycleCommandError.value = ''
 
     try {
@@ -526,6 +554,33 @@ export function useRonFlowBoard() {
         taskDetailResource.setData(task)
         taskDetailMode.value = resolveTaskDetailMode(task.lifecycleState)
       } catch {}
+
+      return false
+    }
+  }
+
+  async function createChildTask(parentTaskId: string, title: string) {
+    if (!activeProjectId.value) {
+      return false
+    }
+
+    taskTitleValidationError.value = ''
+    createChildTaskResource.reset()
+
+    try {
+      await createChildTaskResource.execute(activeProjectId.value, parentTaskId, title)
+      const parentTask = await taskQueryService.getDetail(activeProjectId.value, parentTaskId)
+      taskDetailResource.setData(parentTask)
+      await loadBoard(activeProjectId.value)
+      return true
+    } catch (error) {
+      if (error instanceof ApiValidationError) {
+        taskTitleValidationError.value = error.errors.title?.[0] ?? '任務標題為必填欄位'
+      }
+
+      if (error instanceof ApiRequestError && error.status === 409) {
+        setSelectedTaskCanEnterEdit(false)
+      }
 
       return false
     }
@@ -878,6 +933,7 @@ export function useRonFlowBoard() {
     moveTaskToState,
     updateTaskDetail,
     replaceTaskSubtasks,
+    createChildTask,
     createReminder,
     deleteReminder,
     reorderTaskWithinColumn,

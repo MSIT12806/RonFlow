@@ -52,6 +52,7 @@ export type TaskSubtaskResponse = {
 export type TaskDetailResponse = {
   id: string
   projectId: string
+  parentTaskId: string | null
   title: string
   description: string
   currentState: WorkflowStateResponse
@@ -61,6 +62,7 @@ export type TaskDetailResponse = {
   createdAt: string
   completedAt: string | null
   subtasks: TaskSubtaskResponse[]
+  childTasks: BoardTaskCardResponse[]
   codeTraceability: TaskCodeTraceabilityResponse
   reminders?: TaskReminderResponse[]
   activityTimeline: ActivityTimelineItemResponse[]
@@ -85,6 +87,7 @@ export type LifecycleTaskListResponse = {
 export type BoardTaskCardResponse = {
   id: string
   title: string
+  children: BoardTaskCardResponse[]
 }
 
 export type BoardColumnResponse = {
