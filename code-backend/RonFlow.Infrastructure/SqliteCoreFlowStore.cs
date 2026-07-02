@@ -1,20 +1,21 @@
 using Microsoft.Data.Sqlite;
+using RonFlow.Domain;
 
 namespace RonFlow.Infrastructure;
 
 public sealed class SqliteCoreFlowStore
 {
     private readonly string connectionString;
-    private readonly IDatabaseSyncCoordinator databaseSync;
+    private readonly IDomainEventDispatcher domainEventDispatcher;
 
     public SqliteCoreFlowStore(string databasePath)
-        : this(databasePath, NoOpDatabaseSyncCoordinator.Instance)
+        : this(databasePath, NoOpDomainEventDispatcher.Instance)
     {
     }
 
-    public SqliteCoreFlowStore(string databasePath, IDatabaseSyncCoordinator databaseSync)
+    public SqliteCoreFlowStore(string databasePath, IDomainEventDispatcher domainEventDispatcher)
     {
-        this.databaseSync = databaseSync;
+        this.domainEventDispatcher = domainEventDispatcher;
         var fullPath = Path.GetFullPath(databasePath);
         var directory = Path.GetDirectoryName(fullPath);
 
@@ -41,7 +42,7 @@ public sealed class SqliteCoreFlowStore
 
     public void NotifyChanged(string reason)
     {
-        databaseSync.PushAfterMutation(reason);
+        domainEventDispatcher.Dispatch(new CoreFlowDataChangedDomainEvent(reason));
     }
 
     private void EnsureInitialized()

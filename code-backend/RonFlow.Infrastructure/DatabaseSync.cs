@@ -33,6 +33,8 @@ public interface IDatabaseSyncCoordinator
     void PullBeforeOpen();
 
     void PushAfterMutation(string reason);
+
+    bool FlushPendingMutations();
 }
 
 public sealed class NoOpDatabaseSyncCoordinator : IDatabaseSyncCoordinator
@@ -50,6 +52,11 @@ public sealed class NoOpDatabaseSyncCoordinator : IDatabaseSyncCoordinator
     public void PushAfterMutation(string reason)
     {
     }
+
+    public bool FlushPendingMutations()
+    {
+        return false;
+    }
 }
 
 public sealed class DatabaseSyncCoordinator(
@@ -60,6 +67,8 @@ public sealed class DatabaseSyncCoordinator(
     ILogger<DatabaseSyncCoordinator>? logger = null) : IDatabaseSyncCoordinator
 {
     private readonly object syncRoot = new();
+    private readonly object pendingMutationReasonsRoot = new();
+    private readonly Queue<string> pendingMutationReasons = new();
 
     public void PullBeforeOpen()
     {
@@ -116,43 +125,82 @@ public sealed class DatabaseSyncCoordinator(
             return;
         }
 
+        lock (pendingMutationReasonsRoot)
+        {
+            pendingMutationReasons.Enqueue(NormalizeReason(reason));
+        }
+    }
+
+    public bool FlushPendingMutations()
+    {
+        if (!options.Enabled)
+        {
+            return false;
+        }
+
+        var reasons = DrainPendingMutationReasons();
+        if (reasons.Count == 0)
+        {
+            return false;
+        }
+
+        var reason = CreateCoalescedReason(reasons);
         lock (syncRoot)
         {
-            TryRun($"push database snapshot after mutation '{reason}'", () =>
-            {
-                repositorySync.EnsureReady();
-                var localSnapshotPath = TryCreateRuntimeSnapshot();
-                if (localSnapshotPath is null)
-                {
-                    return;
-                }
-
-                repositorySync.Pull();
-
-                var repositoryDatabasePath = GetRepositoryDatabasePath();
-                if (File.Exists(repositoryDatabasePath))
-                {
-                    var mergedSnapshotPath = CreateTemporarySnapshotPath("merged");
-                    var mergeResult = snapshotMerger.Merge(localSnapshotPath, repositoryDatabasePath, mergedSnapshotPath);
-                    if (!mergeResult.Succeeded)
-                    {
-                        throw new InvalidOperationException($"Database snapshot merge failed: {mergeResult.Message}");
-                    }
-
-                    snapshotStore.RestoreSnapshot(mergedSnapshotPath, repositoryDatabasePath);
-                    repositorySync.Commit(options.DatabaseFileName, CreateCommitMessage(reason));
-                    repositorySync.Push();
-                    DeleteTemporarySnapshot(localSnapshotPath);
-                    DeleteTemporarySnapshot(mergedSnapshotPath);
-                    return;
-                }
-
-                snapshotStore.RestoreSnapshot(localSnapshotPath, repositoryDatabasePath);
-                repositorySync.Commit(options.DatabaseFileName, CreateCommitMessage(reason));
-                repositorySync.Push();
-                DeleteTemporarySnapshot(localSnapshotPath);
-            });
+            TryRun($"push database snapshot after coalesced mutations '{reason}'", () => PushDatabaseSnapshot(reason));
         }
+
+        return true;
+    }
+
+    private IReadOnlyList<string> DrainPendingMutationReasons()
+    {
+        lock (pendingMutationReasonsRoot)
+        {
+            if (pendingMutationReasons.Count == 0)
+            {
+                return [];
+            }
+
+            var reasons = pendingMutationReasons.ToArray();
+            pendingMutationReasons.Clear();
+            return reasons;
+        }
+    }
+
+    private void PushDatabaseSnapshot(string reason)
+    {
+        repositorySync.EnsureReady();
+        var localSnapshotPath = TryCreateRuntimeSnapshot();
+        if (localSnapshotPath is null)
+        {
+            return;
+        }
+
+        repositorySync.Pull();
+
+        var repositoryDatabasePath = GetRepositoryDatabasePath();
+        if (File.Exists(repositoryDatabasePath))
+        {
+            var mergedSnapshotPath = CreateTemporarySnapshotPath("merged");
+            var mergeResult = snapshotMerger.Merge(localSnapshotPath, repositoryDatabasePath, mergedSnapshotPath);
+            if (!mergeResult.Succeeded)
+            {
+                throw new InvalidOperationException($"Database snapshot merge failed: {mergeResult.Message}");
+            }
+
+            snapshotStore.RestoreSnapshot(mergedSnapshotPath, repositoryDatabasePath);
+            repositorySync.Commit(options.DatabaseFileName, CreateCommitMessage(reason));
+            repositorySync.Push();
+            DeleteTemporarySnapshot(localSnapshotPath);
+            DeleteTemporarySnapshot(mergedSnapshotPath);
+            return;
+        }
+
+        snapshotStore.RestoreSnapshot(localSnapshotPath, repositoryDatabasePath);
+        repositorySync.Commit(options.DatabaseFileName, CreateCommitMessage(reason));
+        repositorySync.Push();
+        DeleteTemporarySnapshot(localSnapshotPath);
     }
 
     private string? TryCreateRuntimeSnapshot()
@@ -212,6 +260,29 @@ public sealed class DatabaseSyncCoordinator(
         return string.IsNullOrWhiteSpace(reason)
             ? "Sync RonFlow database"
             : $"Sync RonFlow database: {reason}";
+    }
+
+    private static string NormalizeReason(string reason)
+    {
+        return string.IsNullOrWhiteSpace(reason)
+            ? "unspecified mutation"
+            : reason.Trim();
+    }
+
+    private static string CreateCoalescedReason(IReadOnlyList<string> reasons)
+    {
+        var distinctReasons = reasons
+            .Select(NormalizeReason)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return distinctReasons.Length switch
+        {
+            0 => "coalesced mutations",
+            1 => distinctReasons[0],
+            _ => $"coalesced {reasons.Count} mutations: {string.Join(", ", distinctReasons)}",
+        };
     }
 
     private void TryRun(string operation, Action action)

@@ -52,7 +52,23 @@ public sealed class DatabaseSyncCoordinatorTests
     }
 
     [Test]
-    public void PushAfterMutation_WritesSnapshotCommitsPullsThenPushesDatabaseFile()
+    public void PushAfterMutation_EnqueuesReasonWithoutRunningRepositorySync()
+    {
+        using var temp = new TempDirectory();
+        var repositoryPath = Path.Combine(temp.Path, "repo");
+        var runtimeDatabasePath = Path.Combine(temp.Path, "runtime", "ronflow.db");
+        var repositorySync = new RecordingRepositorySync();
+        var snapshotStore = new RecordingSnapshotStore();
+        var coordinator = CreateCoordinator(repositoryPath, runtimeDatabasePath, snapshotStore, repositorySync);
+
+        coordinator.PushAfterMutation("task updated");
+
+        Assert.That(repositorySync.Calls, Is.Empty);
+        Assert.That(snapshotStore.WrittenSnapshots, Is.Empty);
+    }
+
+    [Test]
+    public void FlushPendingMutations_WritesSnapshotCommitsPullsThenPushesDatabaseFile()
     {
         using var temp = new TempDirectory();
         var repositoryPath = Path.Combine(temp.Path, "repo");
@@ -68,7 +84,9 @@ public sealed class DatabaseSyncCoordinatorTests
         var coordinator = CreateCoordinator(repositoryPath, runtimeDatabasePath, snapshotStore, repositorySync, snapshotMerger);
 
         coordinator.PushAfterMutation("task updated");
+        var processed = coordinator.FlushPendingMutations();
 
+        Assert.That(processed, Is.True);
         Assert.That(repositorySync.Calls, Is.EqualTo(["EnsureReady", "Pull", "Commit:ronflow.db:Sync RonFlow database: task updated", "Push"]));
         Assert.That(snapshotStore.WrittenSnapshots.Single().RuntimeDatabasePath, Is.EqualTo(runtimeDatabasePath));
         Assert.That(snapshotMerger.Merges.Single().RemoteSnapshotPath, Is.EqualTo(repositoryDatabasePath));
@@ -76,7 +94,56 @@ public sealed class DatabaseSyncCoordinatorTests
     }
 
     [Test]
-    public void PushAfterMutation_WhenRepositoryFails_DoesNotThrow()
+    public void FlushPendingMutations_CoalescesQueuedReasonsIntoOneRepositorySync()
+    {
+        using var temp = new TempDirectory();
+        var repositoryPath = Path.Combine(temp.Path, "repo");
+        var runtimeDatabasePath = Path.Combine(temp.Path, "runtime", "ronflow.db");
+        var repositoryDatabasePath = Path.Combine(repositoryPath, "ronflow.db");
+        Directory.CreateDirectory(repositoryPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(runtimeDatabasePath)!);
+        File.WriteAllText(runtimeDatabasePath, "runtime snapshot");
+        File.WriteAllText(repositoryDatabasePath, "snapshot");
+        var repositorySync = new RecordingRepositorySync();
+        var snapshotStore = new RecordingSnapshotStore();
+        var snapshotMerger = new RecordingSnapshotMerger();
+        var coordinator = CreateCoordinator(repositoryPath, runtimeDatabasePath, snapshotStore, repositorySync, snapshotMerger);
+
+        coordinator.PushAfterMutation("project updated");
+        coordinator.PushAfterMutation("task updated");
+        coordinator.PushAfterMutation("task updated");
+        var processed = coordinator.FlushPendingMutations();
+
+        Assert.That(processed, Is.True);
+        Assert.That(repositorySync.Calls, Is.EqualTo([
+            "EnsureReady",
+            "Pull",
+            "Commit:ronflow.db:Sync RonFlow database: coalesced 3 mutations: project updated, task updated",
+            "Push",
+        ]));
+        Assert.That(snapshotStore.WrittenSnapshots, Has.Count.EqualTo(1));
+        Assert.That(snapshotMerger.Merges, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void FlushPendingMutations_WhenNoPendingReasons_DoesNotRunRepositorySync()
+    {
+        using var temp = new TempDirectory();
+        var repositorySync = new RecordingRepositorySync();
+        var coordinator = CreateCoordinator(
+            Path.Combine(temp.Path, "repo"),
+            Path.Combine(temp.Path, "runtime", "ronflow.db"),
+            new RecordingSnapshotStore(),
+            repositorySync);
+
+        var processed = coordinator.FlushPendingMutations();
+
+        Assert.That(processed, Is.False);
+        Assert.That(repositorySync.Calls, Is.Empty);
+    }
+
+    [Test]
+    public void FlushPendingMutations_WhenRepositoryFails_DoesNotThrow()
     {
         using var temp = new TempDirectory();
         var coordinator = CreateCoordinator(
@@ -85,7 +152,9 @@ public sealed class DatabaseSyncCoordinatorTests
             new ThrowingSnapshotStore(),
             new ThrowingRepositorySync());
 
-        Assert.DoesNotThrow(() => coordinator.PushAfterMutation("task updated"));
+        coordinator.PushAfterMutation("task updated");
+
+        Assert.DoesNotThrow(() => coordinator.FlushPendingMutations());
     }
 
     private static DatabaseSyncCoordinator CreateCoordinator(

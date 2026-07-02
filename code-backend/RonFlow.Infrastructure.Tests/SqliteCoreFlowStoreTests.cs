@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using RonFlow.Domain;
 using RonFlow.Infrastructure;
 
 namespace RonFlow.Infrastructure.Tests;
@@ -21,6 +22,19 @@ public sealed class SqliteCoreFlowStoreTests
         AssertTableExists(databasePath, "KnownUsers");
     }
 
+    [Test]
+    public void NotifyChanged_DispatchesCoreFlowDataChangedDomainEvent()
+    {
+        using var temp = new TempDirectory();
+        var dispatcher = new CapturingDomainEventDispatcher();
+        var store = new SqliteCoreFlowStore(Path.Combine(temp.Path, "ronflow.db"), dispatcher);
+
+        store.NotifyChanged("task updated");
+
+        var domainEvent = AssertDomainEvent<CoreFlowDataChangedDomainEvent>(dispatcher.SingleEvent);
+        Assert.That(domainEvent.Reason, Is.EqualTo("task updated"));
+    }
+
     private static void AssertTableExists(string databasePath, string tableName)
     {
         var connectionString = new SqliteConnectionStringBuilder
@@ -36,6 +50,23 @@ public sealed class SqliteCoreFlowStoreTests
         command.Parameters.AddWithValue("$tableName", tableName);
 
         Assert.That(Convert.ToInt32(command.ExecuteScalar()), Is.EqualTo(1));
+    }
+
+    private static TEvent AssertDomainEvent<TEvent>(IDomainEvent? domainEvent)
+        where TEvent : IDomainEvent
+    {
+        Assert.That(domainEvent, Is.TypeOf<TEvent>());
+        return (TEvent)domainEvent;
+    }
+
+    private sealed class CapturingDomainEventDispatcher : IDomainEventDispatcher
+    {
+        public IDomainEvent? SingleEvent { get; private set; }
+
+        public void Dispatch(IDomainEvent domainEvent)
+        {
+            SingleEvent = domainEvent;
+        }
     }
 
     private sealed class TempDirectory : IDisposable
