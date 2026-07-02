@@ -80,6 +80,8 @@ public partial class Program
                 };
             });
         builder.Services.AddAuthorization();
+        builder.Services.AddSingleton<IDomainEventDispatcher, InProcessDomainEventDispatcher>();
+        builder.Services.AddSingleton<IDomainEventHandler, DatabaseSyncDomainEventHandler>();
         ConfigurePersistence(builder);
         builder.Services.AddSingleton<ProjectAccessService>();
         builder.Services.AddSingleton<CreateProjectCommandService>();
@@ -152,6 +154,7 @@ public partial class Program
     {
         if (builder.Environment.IsEnvironment("Testing"))
         {
+            builder.Services.AddSingleton<IDatabaseSyncCoordinator>(NoOpDatabaseSyncCoordinator.Instance);
             builder.Services.AddSingleton<IProjectRepository, InMemoryProjectRepository>();
             builder.Services.AddSingleton<ITaskRepository, InMemoryTaskRepository>();
             builder.Services.AddSingleton<IPushSubscriptionRepository, InMemoryPushSubscriptionRepository>();
