@@ -10,13 +10,20 @@ public sealed class DatabaseSyncBackgroundService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        logger.LogInformation(
+            "RonFlow database Git sync background service started. PollingIntervalSeconds: {PollingIntervalSeconds}",
+            PollingInterval.TotalSeconds);
+
         using var timer = new PeriodicTimer(PollingInterval);
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                databaseSyncCoordinator.FlushPendingMutations();
+                if (databaseSyncCoordinator.FlushPendingMutations())
+                {
+                    logger.LogInformation("RonFlow database Git sync background service processed queued mutations.");
+                }
             }
             catch (Exception exception)
             {

@@ -122,13 +122,23 @@ public sealed class DatabaseSyncCoordinator(
     {
         if (!options.Enabled)
         {
+            logger?.LogDebug("Skipped queueing RonFlow database Git sync mutation because sync is disabled. Reason: {Reason}", NormalizeReason(reason));
             return;
         }
 
+        var normalizedReason = NormalizeReason(reason);
+        int pendingCount;
         lock (pendingMutationReasonsRoot)
         {
-            pendingMutationReasons.Enqueue(NormalizeReason(reason));
+            pendingMutationReasons.Enqueue(normalizedReason);
+            pendingCount = pendingMutationReasons.Count;
         }
+
+        WriteDiagnosticLog($"Queued database sync mutation '{normalizedReason}'. PendingCount: {pendingCount}");
+        logger?.LogInformation(
+            "Queued RonFlow database Git sync mutation. Reason: {Reason}; PendingCount: {PendingCount}",
+            normalizedReason,
+            pendingCount);
     }
 
     public bool FlushPendingMutations()
@@ -147,7 +157,9 @@ public sealed class DatabaseSyncCoordinator(
         var reason = CreateCoalescedReason(reasons);
         lock (syncRoot)
         {
-            TryRun($"push database snapshot after coalesced mutations '{reason}'", () => PushDatabaseSnapshot(reason));
+            TryRun(
+                $"push database snapshot after coalesced mutations '{reason}'",
+                () => PushDatabaseSnapshot(reason, reasons.Count));
         }
 
         return true;
@@ -168,12 +180,22 @@ public sealed class DatabaseSyncCoordinator(
         }
     }
 
-    private void PushDatabaseSnapshot(string reason)
+    private void PushDatabaseSnapshot(string reason, int mutationCount)
     {
+        WriteDiagnosticLog($"Flushing {mutationCount} queued database sync mutation(s). CoalescedReason: {reason}");
+        logger?.LogInformation(
+            "Flushing queued RonFlow database Git sync mutations. MutationCount: {MutationCount}; CoalescedReason: {CoalescedReason}",
+            mutationCount,
+            reason);
+
         repositorySync.EnsureReady();
         var localSnapshotPath = TryCreateRuntimeSnapshot();
         if (localSnapshotPath is null)
         {
+            WriteDiagnosticLog("Skipped database sync flush because runtime database snapshot does not exist.");
+            logger?.LogWarning(
+                "Skipped RonFlow database Git sync flush because runtime database snapshot does not exist. RuntimeDatabasePath: {RuntimeDatabasePath}",
+                options.RuntimeDatabasePath);
             return;
         }
 

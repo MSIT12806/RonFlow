@@ -178,14 +178,36 @@ public partial class Program
         builder.Services.AddSingleton(databaseSyncOptions);
         builder.Services.AddSingleton<IDatabaseSyncCoordinator>(serviceProvider =>
         {
-            IDatabaseSyncCoordinator databaseSyncCoordinator = databaseSyncOptions.Enabled
-                ? new DatabaseSyncCoordinator(
+            IDatabaseSyncCoordinator databaseSyncCoordinator;
+            if (databaseSyncOptions.Enabled)
+            {
+                serviceProvider.GetRequiredService<ILogger<Program>>().LogInformation(
+                    "RonFlow database Git sync is enabled. RuntimeDatabasePath: {RuntimeDatabasePath}; RepositoryPath: {RepositoryPath}; RemoteUrlConfigured: {RemoteUrlConfigured}; Branch: {Branch}; DatabaseFileName: {DatabaseFileName}; GitCommandTimeoutSeconds: {GitCommandTimeoutSeconds}",
+                    databaseSyncOptions.RuntimeDatabasePath,
+                    databaseSyncOptions.RepositoryPath,
+                    !string.IsNullOrWhiteSpace(databaseSyncOptions.RemoteUrl),
+                    databaseSyncOptions.Branch,
+                    databaseSyncOptions.DatabaseFileName,
+                    databaseSyncOptions.GitCommandTimeoutSeconds);
+
+                databaseSyncCoordinator = new DatabaseSyncCoordinator(
                     databaseSyncOptions,
                     new SqliteDatabaseSnapshotStore(),
                     new GitDatabaseRepositorySync(databaseSyncOptions),
                     new DbMergerDatabaseSnapshotMerger(),
-                    serviceProvider.GetRequiredService<ILogger<DatabaseSyncCoordinator>>())
-                : NoOpDatabaseSyncCoordinator.Instance;
+                    serviceProvider.GetRequiredService<ILogger<DatabaseSyncCoordinator>>());
+            }
+            else
+            {
+                serviceProvider.GetRequiredService<ILogger<Program>>().LogWarning(
+                    "RonFlow database Git sync is disabled. RuntimeDatabasePath: {RuntimeDatabasePath}; RepositoryPath: {RepositoryPath}; RemoteUrlConfigured: {RemoteUrlConfigured}; Branch: {Branch}; DatabaseFileName: {DatabaseFileName}",
+                    databaseSyncOptions.RuntimeDatabasePath,
+                    databaseSyncOptions.RepositoryPath,
+                    !string.IsNullOrWhiteSpace(databaseSyncOptions.RemoteUrl),
+                    databaseSyncOptions.Branch,
+                    databaseSyncOptions.DatabaseFileName);
+                databaseSyncCoordinator = NoOpDatabaseSyncCoordinator.Instance;
+            }
 
             databaseSyncCoordinator.PullBeforeOpen();
             return databaseSyncCoordinator;

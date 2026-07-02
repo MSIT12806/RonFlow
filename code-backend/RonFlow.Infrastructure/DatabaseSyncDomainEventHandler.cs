@@ -1,8 +1,11 @@
 using RonFlow.Domain;
+using Microsoft.Extensions.Logging;
 
 namespace RonFlow.Infrastructure;
 
-public sealed class DatabaseSyncDomainEventHandler(IDatabaseSyncCoordinator databaseSyncCoordinator) : IDomainEventHandler
+public sealed class DatabaseSyncDomainEventHandler(
+    IDatabaseSyncCoordinator databaseSyncCoordinator,
+    ILogger<DatabaseSyncDomainEventHandler>? logger = null) : IDomainEventHandler
 {
     public bool CanHandle(IDomainEvent domainEvent)
     {
@@ -13,7 +16,18 @@ public sealed class DatabaseSyncDomainEventHandler(IDatabaseSyncCoordinator data
     {
         if (domainEvent is CoreFlowDataChangedDomainEvent coreFlowDataChanged)
         {
-            databaseSyncCoordinator.PushAfterMutation(coreFlowDataChanged.Reason);
+            try
+            {
+                databaseSyncCoordinator.PushAfterMutation(coreFlowDataChanged.Reason);
+            }
+            catch (Exception exception)
+            {
+                logger?.LogWarning(
+                    exception,
+                    "Failed to queue RonFlow database Git sync mutation from domain event. Reason: {Reason}; OccurredAt: {OccurredAt}",
+                    coreFlowDataChanged.Reason,
+                    coreFlowDataChanged.OccurredAt);
+            }
         }
     }
 }
