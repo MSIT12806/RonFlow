@@ -787,7 +787,7 @@ if ($ApiAccessMode -eq 'IisApplications' -and $EnsureIisApplications.IsPresent) 
   Ensure-IisApplication -SiteName $IisSiteName -ApplicationPath $RonAuthAppPath -PhysicalPath $RonAuthTargetPath -AppPoolName $RonAuthAppPoolName
   Ensure-IisApplication -SiteName $IisSiteName -ApplicationPath $RonFlowApiAppPath -PhysicalPath $RonFlowApiTargetPath -AppPoolName $RonFlowApiAppPoolName
 }
-elseif (-not $SkipApiStart.IsPresent) {
+elseif ($ApiAccessMode -eq 'DirectPorts' -and -not $SkipApiStart.IsPresent) {
   Write-Step 'Starting published API processes'
   Start-PublishedApi -TargetPath $RonAuthTargetPath -ExecutableName 'RonAuth.Api.exe' -Urls $RonAuthOrigin -ServiceName 'RonAuth.Api' -Port 5136
   Start-PublishedApi -TargetPath $RonFlowApiTargetPath -ExecutableName 'RonFlow.Api.exe' -Urls $RonFlowApiOrigin -ServiceName 'RonFlow.Api' -Port 5078
