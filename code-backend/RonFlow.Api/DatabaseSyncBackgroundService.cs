@@ -20,6 +20,13 @@ public sealed class DatabaseSyncBackgroundService(
         {
             try
             {
+                databaseSyncCoordinator.RequestPullIfStale("scheduled pull refresh");
+
+                if (databaseSyncCoordinator.FlushPendingPullRequests())
+                {
+                    logger.LogInformation("RonFlow database Git sync background service processed queued pull refresh.");
+                }
+
                 if (databaseSyncCoordinator.FlushPendingMutations())
                 {
                     logger.LogInformation("RonFlow database Git sync background service processed queued mutations.");

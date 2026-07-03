@@ -36,6 +36,15 @@ public sealed class DatabaseSyncDomainEventHandlerTests
         {
         }
 
+        public void RequestPullIfStale(string reason)
+        {
+        }
+
+        public bool FlushPendingPullRequests()
+        {
+            return false;
+        }
+
         public void PushAfterMutation(string reason)
         {
             PushReasons.Add(reason);

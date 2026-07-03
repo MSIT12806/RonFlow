@@ -32,6 +32,10 @@ public interface IDatabaseSyncCoordinator
 {
     void PullBeforeOpen();
 
+    void RequestPullIfStale(string reason);
+
+    bool FlushPendingPullRequests();
+
     void PushAfterMutation(string reason);
 
     bool FlushPendingMutations();
@@ -49,6 +53,15 @@ public sealed class NoOpDatabaseSyncCoordinator : IDatabaseSyncCoordinator
     {
     }
 
+    public void RequestPullIfStale(string reason)
+    {
+    }
+
+    public bool FlushPendingPullRequests()
+    {
+        return false;
+    }
+
     public void PushAfterMutation(string reason)
     {
     }
@@ -64,11 +77,31 @@ public sealed class DatabaseSyncCoordinator(
     IDatabaseSnapshotStore snapshotStore,
     IDatabaseRepositorySync repositorySync,
     IDatabaseSnapshotMerger snapshotMerger,
-    ILogger<DatabaseSyncCoordinator>? logger = null) : IDatabaseSyncCoordinator
+    ILogger<DatabaseSyncCoordinator>? logger = null,
+    TimeProvider? timeProvider = null) : IDatabaseSyncCoordinator
 {
+    private const string RequestPullReason = "request-triggered pull refresh";
+    private static readonly TimeSpan PullRefreshInterval = TimeSpan.FromHours(1);
+    private static readonly object lastUpdateTimeRoot = new();
+    private static DateTime lastUpdateTime = DateTime.MinValue;
+
     private readonly object syncRoot = new();
     private readonly object pendingMutationReasonsRoot = new();
+    private readonly object pendingPullRequestsRoot = new();
     private readonly Queue<string> pendingMutationReasons = new();
+    private readonly Queue<string> pendingPullReasons = new();
+    private readonly TimeProvider timeProvider = timeProvider ?? TimeProvider.System;
+
+    public static DateTime LastUpdateTime
+    {
+        get
+        {
+            lock (lastUpdateTimeRoot)
+            {
+                return lastUpdateTime;
+            }
+        }
+    }
 
     public void PullBeforeOpen()
     {
@@ -79,42 +112,102 @@ public sealed class DatabaseSyncCoordinator(
 
         lock (syncRoot)
         {
-            TryRun("synchronize database snapshot before opening runtime database", () =>
+            if (TryRun("synchronize database snapshot before opening runtime database", () =>
             {
-                repositorySync.EnsureReady();
-                var localSnapshotPath = TryCreateRuntimeSnapshot();
-                repositorySync.Pull();
+                PullAndMergeDatabaseSnapshot("startup local snapshot");
+            }))
+            {
+                MarkLastUpdateTime();
+            }
+        }
+    }
 
-                var repositoryDatabasePath = GetRepositoryDatabasePath();
-                if (localSnapshotPath is not null && File.Exists(repositoryDatabasePath))
-                {
-                    var mergedSnapshotPath = CreateTemporarySnapshotPath("merged");
-                    var mergeResult = snapshotMerger.Merge(localSnapshotPath, repositoryDatabasePath, mergedSnapshotPath);
-                    if (!mergeResult.Succeeded)
-                    {
-                        throw new InvalidOperationException($"Database snapshot merge failed: {mergeResult.Message}");
-                    }
+    public void RequestPullIfStale(string reason)
+    {
+        if (!options.Enabled)
+        {
+            logger?.LogDebug("Skipped queueing RonFlow database Git pull refresh because sync is disabled. Reason: {Reason}", NormalizeReason(reason));
+            return;
+        }
 
-                    snapshotStore.RestoreSnapshot(mergedSnapshotPath, repositoryDatabasePath);
-                    repositorySync.Commit(options.DatabaseFileName, CreateCommitMessage("startup local snapshot"));
-                    repositorySync.Push();
-                    snapshotStore.RestoreSnapshot(mergedSnapshotPath, options.RuntimeDatabasePath);
-                    DeleteTemporarySnapshot(localSnapshotPath);
-                    DeleteTemporarySnapshot(mergedSnapshotPath);
-                    return;
-                }
+        if (!IsPullRefreshDue())
+        {
+            return;
+        }
 
-                if (localSnapshotPath is not null)
-                {
-                    snapshotStore.RestoreSnapshot(localSnapshotPath, repositoryDatabasePath);
-                    repositorySync.Commit(options.DatabaseFileName, CreateCommitMessage("startup local snapshot"));
-                    repositorySync.Push();
-                    DeleteTemporarySnapshot(localSnapshotPath);
-                    return;
-                }
+        var normalizedReason = NormalizeReason(reason);
+        int pendingCount;
+        lock (pendingPullRequestsRoot)
+        {
+            if (!IsPullRefreshDue() || pendingPullReasons.Count > 0)
+            {
+                return;
+            }
 
-                RestoreRepositorySnapshotIfExists();
-            });
+            pendingPullReasons.Enqueue(normalizedReason);
+            pendingCount = pendingPullReasons.Count;
+        }
+
+        WriteDiagnosticLog($"Queued database Git pull refresh '{normalizedReason}'. PendingCount: {pendingCount}");
+        logger?.LogInformation(
+            "Queued RonFlow database Git pull refresh. Reason: {Reason}; PendingCount: {PendingCount}; LastUpdateTime: {LastUpdateTime:O}",
+            normalizedReason,
+            pendingCount,
+            LastUpdateTime);
+    }
+
+    public bool FlushPendingPullRequests()
+    {
+        if (!options.Enabled)
+        {
+            return false;
+        }
+
+        var reasons = DrainPendingPullReasons();
+        if (reasons.Count == 0)
+        {
+            return false;
+        }
+
+        if (!IsPullRefreshDue())
+        {
+            return false;
+        }
+
+        var reason = CreatePullRefreshReason(reasons);
+        var completed = false;
+        lock (syncRoot)
+        {
+            if (!IsPullRefreshDue())
+            {
+                return false;
+            }
+
+            completed = TryRun(
+                $"pull database snapshot for queued refresh '{reason}'",
+                () => PullAndMergeDatabaseSnapshot(reason));
+        }
+
+        if (completed)
+        {
+            MarkLastUpdateTime();
+        }
+
+        return completed;
+    }
+
+    private IReadOnlyList<string> DrainPendingPullReasons()
+    {
+        lock (pendingPullRequestsRoot)
+        {
+            if (pendingPullReasons.Count == 0)
+            {
+                return [];
+            }
+
+            var reasons = pendingPullReasons.ToArray();
+            pendingPullReasons.Clear();
+            return reasons;
         }
     }
 
@@ -155,11 +248,18 @@ public sealed class DatabaseSyncCoordinator(
         }
 
         var reason = CreateCoalescedReason(reasons);
+        var completedPullAndMerge = false;
         lock (syncRoot)
         {
-            TryRun(
+            if (TryRun(
                 $"push database snapshot after coalesced mutations '{reason}'",
-                () => PushDatabaseSnapshot(reason, reasons.Count));
+                () => completedPullAndMerge = PushDatabaseSnapshot(reason, reasons.Count)))
+            {
+                if (completedPullAndMerge)
+                {
+                    MarkLastUpdateTime();
+                }
+            }
         }
 
         return true;
@@ -180,7 +280,56 @@ public sealed class DatabaseSyncCoordinator(
         }
     }
 
-    private void PushDatabaseSnapshot(string reason, int mutationCount)
+    private void PullAndMergeDatabaseSnapshot(string reason)
+    {
+        repositorySync.EnsureReady();
+        var localSnapshotPath = TryCreateRuntimeSnapshot();
+        repositorySync.Pull();
+
+        var repositoryDatabasePath = GetRepositoryDatabasePath();
+        if (localSnapshotPath is not null && File.Exists(repositoryDatabasePath))
+        {
+            var mergedSnapshotPath = CreateTemporarySnapshotPath("merged");
+            try
+            {
+                var mergeResult = snapshotMerger.Merge(localSnapshotPath, repositoryDatabasePath, mergedSnapshotPath);
+                if (!mergeResult.Succeeded)
+                {
+                    throw new InvalidOperationException($"Database snapshot merge failed: {mergeResult.Message}");
+                }
+
+                snapshotStore.RestoreSnapshot(mergedSnapshotPath, repositoryDatabasePath);
+                repositorySync.Commit(options.DatabaseFileName, CreateCommitMessage(reason));
+                repositorySync.Push();
+                snapshotStore.RestoreSnapshot(mergedSnapshotPath, options.RuntimeDatabasePath);
+                return;
+            }
+            finally
+            {
+                DeleteTemporarySnapshot(localSnapshotPath);
+                DeleteTemporarySnapshot(mergedSnapshotPath);
+            }
+        }
+
+        if (localSnapshotPath is not null)
+        {
+            try
+            {
+                snapshotStore.RestoreSnapshot(localSnapshotPath, repositoryDatabasePath);
+                repositorySync.Commit(options.DatabaseFileName, CreateCommitMessage(reason));
+                repositorySync.Push();
+                return;
+            }
+            finally
+            {
+                DeleteTemporarySnapshot(localSnapshotPath);
+            }
+        }
+
+        RestoreRepositorySnapshotIfExists();
+    }
+
+    private bool PushDatabaseSnapshot(string reason, int mutationCount)
     {
         WriteDiagnosticLog($"Flushing {mutationCount} queued database sync mutation(s). CoalescedReason: {reason}");
         logger?.LogInformation(
@@ -196,7 +345,7 @@ public sealed class DatabaseSyncCoordinator(
             logger?.LogWarning(
                 "Skipped RonFlow database Git sync flush because runtime database snapshot does not exist. RuntimeDatabasePath: {RuntimeDatabasePath}",
                 options.RuntimeDatabasePath);
-            return;
+            return false;
         }
 
         repositorySync.Pull();
@@ -205,24 +354,37 @@ public sealed class DatabaseSyncCoordinator(
         if (File.Exists(repositoryDatabasePath))
         {
             var mergedSnapshotPath = CreateTemporarySnapshotPath("merged");
-            var mergeResult = snapshotMerger.Merge(localSnapshotPath, repositoryDatabasePath, mergedSnapshotPath);
-            if (!mergeResult.Succeeded)
+            try
             {
-                throw new InvalidOperationException($"Database snapshot merge failed: {mergeResult.Message}");
-            }
+                var mergeResult = snapshotMerger.Merge(localSnapshotPath, repositoryDatabasePath, mergedSnapshotPath);
+                if (!mergeResult.Succeeded)
+                {
+                    throw new InvalidOperationException($"Database snapshot merge failed: {mergeResult.Message}");
+                }
 
-            snapshotStore.RestoreSnapshot(mergedSnapshotPath, repositoryDatabasePath);
-            repositorySync.Commit(options.DatabaseFileName, CreateCommitMessage(reason));
-            repositorySync.Push();
-            DeleteTemporarySnapshot(localSnapshotPath);
-            DeleteTemporarySnapshot(mergedSnapshotPath);
-            return;
+                snapshotStore.RestoreSnapshot(mergedSnapshotPath, repositoryDatabasePath);
+                repositorySync.Commit(options.DatabaseFileName, CreateCommitMessage(reason));
+                repositorySync.Push();
+                return true;
+            }
+            finally
+            {
+                DeleteTemporarySnapshot(localSnapshotPath);
+                DeleteTemporarySnapshot(mergedSnapshotPath);
+            }
         }
 
-        snapshotStore.RestoreSnapshot(localSnapshotPath, repositoryDatabasePath);
-        repositorySync.Commit(options.DatabaseFileName, CreateCommitMessage(reason));
-        repositorySync.Push();
-        DeleteTemporarySnapshot(localSnapshotPath);
+        try
+        {
+            snapshotStore.RestoreSnapshot(localSnapshotPath, repositoryDatabasePath);
+            repositorySync.Commit(options.DatabaseFileName, CreateCommitMessage(reason));
+            repositorySync.Push();
+            return true;
+        }
+        finally
+        {
+            DeleteTemporarySnapshot(localSnapshotPath);
+        }
     }
 
     private string? TryCreateRuntimeSnapshot()
@@ -307,13 +469,51 @@ public sealed class DatabaseSyncCoordinator(
         };
     }
 
-    private void TryRun(string operation, Action action)
+    private static string CreatePullRefreshReason(IReadOnlyList<string> reasons)
+    {
+        var distinctReasons = reasons
+            .Select(NormalizeReason)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return distinctReasons.Length switch
+        {
+            0 => RequestPullReason,
+            1 => distinctReasons[0],
+            _ => $"{RequestPullReason}: {string.Join(", ", distinctReasons)}",
+        };
+    }
+
+    private bool IsPullRefreshDue()
+    {
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        lock (lastUpdateTimeRoot)
+        {
+            return lastUpdateTime == DateTime.MinValue || now - lastUpdateTime >= PullRefreshInterval;
+        }
+    }
+
+    private void MarkLastUpdateTime()
+    {
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        lock (lastUpdateTimeRoot)
+        {
+            lastUpdateTime = now;
+        }
+
+        WriteDiagnosticLog($"Updated database Git sync lastUpdateTime to {now:O}.");
+        logger?.LogInformation("Updated RonFlow database Git sync lastUpdateTime. LastUpdateTime: {LastUpdateTime:O}", now);
+    }
+
+    private bool TryRun(string operation, Action action)
     {
         WriteDiagnosticLog($"Starting: {operation}");
         try
         {
             action();
             WriteDiagnosticLog($"Completed: {operation}");
+            return true;
         }
         catch (Exception exception)
         {
@@ -328,6 +528,7 @@ public sealed class DatabaseSyncCoordinator(
                 RedactSensitiveText(options.RemoteUrl),
                 options.Branch,
                 options.DatabaseFileName);
+            return false;
         }
     }
 

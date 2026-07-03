@@ -68,6 +68,73 @@ public sealed class DatabaseSyncCoordinatorTests
     }
 
     [Test]
+    public void RequestPullIfStale_EnqueuesReasonWithoutRunningRepositorySync()
+    {
+        using var temp = new TempDirectory();
+        var repositoryPath = Path.Combine(temp.Path, "repo");
+        var runtimeDatabasePath = Path.Combine(temp.Path, "runtime", "ronflow.db");
+        var repositorySync = new RecordingRepositorySync();
+        var snapshotStore = new RecordingSnapshotStore();
+        var timeProvider = new ManualTimeProvider(GetUtcTimeAfterLastUpdate().AddHours(2));
+        var coordinator = CreateCoordinator(repositoryPath, runtimeDatabasePath, snapshotStore, repositorySync, timeProvider: timeProvider);
+
+        coordinator.RequestPullIfStale("request");
+
+        Assert.That(repositorySync.Calls, Is.Empty);
+        Assert.That(snapshotStore.WrittenSnapshots, Is.Empty);
+    }
+
+    [Test]
+    public void FlushPendingPullRequests_WhenRequestQueued_PullsMergesAndUpdatesLastUpdateTime()
+    {
+        using var temp = new TempDirectory();
+        var repositoryPath = Path.Combine(temp.Path, "repo");
+        var runtimeDatabasePath = Path.Combine(temp.Path, "runtime", "ronflow.db");
+        var repositoryDatabasePath = Path.Combine(repositoryPath, "ronflow.db");
+        Directory.CreateDirectory(repositoryPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(runtimeDatabasePath)!);
+        File.WriteAllText(runtimeDatabasePath, "runtime snapshot");
+        File.WriteAllText(repositoryDatabasePath, "snapshot");
+        var repositorySync = new RecordingRepositorySync();
+        var snapshotStore = new RecordingSnapshotStore();
+        var snapshotMerger = new RecordingSnapshotMerger();
+        var now = GetUtcTimeAfterLastUpdate().AddHours(2);
+        var timeProvider = new ManualTimeProvider(now);
+        var coordinator = CreateCoordinator(repositoryPath, runtimeDatabasePath, snapshotStore, repositorySync, snapshotMerger, timeProvider);
+
+        coordinator.RequestPullIfStale("HTTP GET /api/projects");
+        var processed = coordinator.FlushPendingPullRequests();
+
+        Assert.That(processed, Is.True);
+        Assert.That(repositorySync.Calls, Is.EqualTo(["EnsureReady", "Pull", "Commit:ronflow.db:Sync RonFlow database: HTTP GET /api/projects", "Push"]));
+        Assert.That(snapshotStore.WrittenSnapshots.Single().RuntimeDatabasePath, Is.EqualTo(runtimeDatabasePath));
+        Assert.That(snapshotMerger.Merges.Single().RemoteSnapshotPath, Is.EqualTo(repositoryDatabasePath));
+        Assert.That(snapshotStore.RestoredSnapshots, Has.Count.EqualTo(2));
+        Assert.That(DatabaseSyncCoordinator.LastUpdateTime, Is.EqualTo(now.UtcDateTime));
+    }
+
+    [Test]
+    public void RequestPullIfStale_WhenLastUpdateWithinOneHour_DoesNotQueue()
+    {
+        using var temp = new TempDirectory();
+        var repositoryPath = Path.Combine(temp.Path, "repo");
+        var runtimeDatabasePath = Path.Combine(temp.Path, "runtime", "ronflow.db");
+        var repositorySync = new RecordingRepositorySync();
+        var snapshotStore = new RecordingSnapshotStore();
+        var timeProvider = new ManualTimeProvider(GetUtcTimeAfterLastUpdate().AddHours(2));
+        var coordinator = CreateCoordinator(repositoryPath, runtimeDatabasePath, snapshotStore, repositorySync, timeProvider: timeProvider);
+        coordinator.PullBeforeOpen();
+        repositorySync.Calls.Clear();
+
+        timeProvider.SetUtcNow(timeProvider.GetUtcNow().AddMinutes(59));
+        coordinator.RequestPullIfStale("request");
+        var processed = coordinator.FlushPendingPullRequests();
+
+        Assert.That(processed, Is.False);
+        Assert.That(repositorySync.Calls, Is.Empty);
+    }
+
+    [Test]
     public void FlushPendingMutations_WritesSnapshotCommitsPullsThenPushesDatabaseFile()
     {
         using var temp = new TempDirectory();
@@ -161,7 +228,8 @@ public sealed class DatabaseSyncCoordinatorTests
         string repositoryPath,
         string runtimeDatabasePath,
         IDatabaseSnapshotStore snapshotStore,
-        IDatabaseRepositorySync repositorySync)
+        IDatabaseRepositorySync repositorySync,
+        TimeProvider? timeProvider = null)
     {
         return new DatabaseSyncCoordinator(
             new DatabaseSyncOptions
@@ -172,7 +240,8 @@ public sealed class DatabaseSyncCoordinatorTests
             },
             snapshotStore,
             repositorySync,
-            new RecordingSnapshotMerger());
+            new RecordingSnapshotMerger(),
+            timeProvider: timeProvider);
     }
 
     private static DatabaseSyncCoordinator CreateCoordinator(
@@ -180,7 +249,8 @@ public sealed class DatabaseSyncCoordinatorTests
         string runtimeDatabasePath,
         IDatabaseSnapshotStore snapshotStore,
         IDatabaseRepositorySync repositorySync,
-        IDatabaseSnapshotMerger snapshotMerger)
+        IDatabaseSnapshotMerger snapshotMerger,
+        TimeProvider? timeProvider = null)
     {
         return new DatabaseSyncCoordinator(
             new DatabaseSyncOptions
@@ -191,7 +261,19 @@ public sealed class DatabaseSyncCoordinatorTests
             },
             snapshotStore,
             repositorySync,
-            snapshotMerger);
+            snapshotMerger,
+            timeProvider: timeProvider);
+    }
+
+    private static DateTimeOffset GetUtcTimeAfterLastUpdate()
+    {
+        var lastUpdateTime = DatabaseSyncCoordinator.LastUpdateTime;
+        if (lastUpdateTime == DateTime.MinValue)
+        {
+            return new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        }
+
+        return new DateTimeOffset(DateTime.SpecifyKind(lastUpdateTime, DateTimeKind.Utc));
     }
 
     private sealed class RecordingSnapshotStore : IDatabaseSnapshotStore
@@ -280,6 +362,21 @@ public sealed class DatabaseSyncCoordinatorTests
         public void Push()
         {
             throw new InvalidOperationException("Repository failed.");
+        }
+    }
+
+    private sealed class ManualTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        private DateTimeOffset currentUtcNow = utcNow;
+
+        public override DateTimeOffset GetUtcNow()
+        {
+            return currentUtcNow;
+        }
+
+        public void SetUtcNow(DateTimeOffset value)
+        {
+            currentUtcNow = value;
         }
     }
 

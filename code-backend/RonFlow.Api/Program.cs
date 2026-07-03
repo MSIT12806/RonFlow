@@ -125,6 +125,7 @@ public partial class Program
         builder.Services.AddHostedService<ReminderNotificationBackgroundService>();
         builder.Services.AddHostedService<AiAuditProjectionBackgroundService>();
         builder.Services.AddHostedService<WorkflowThroughputProjectionBackgroundService>();
+        builder.Services.AddHostedService<DatabaseSyncBackgroundService>();
 
         var app = builder.Build();
 
@@ -139,6 +140,7 @@ public partial class Program
         app.UseCors("Frontend");
         app.UseAuthentication();
         app.UseHttpLogging();
+        app.UseMiddleware<DatabaseSyncRequestUpdateMiddleware>();
         app.UseMiddleware<ObservedOperationTimingMiddleware>();
         app.UseMiddleware<CurrentUserDirectorySyncMiddleware>();
         app.UseMiddleware<TestHttpFaultMiddleware>();
