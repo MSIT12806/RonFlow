@@ -81,5 +81,8 @@ test.describe('RonFlow UI/UX 驗收規格 - Project Reports Behavior', () => {
     await expect(page.getByTestId('cycle-time-lead-time-card')).toContainText('平均值')
     await expect(page.getByTestId('cycle-time-cycle-time-card')).toContainText('樣本數 1')
     await expect(page.getByTestId('cycle-time-cycle-time-card')).toContainText('p90')
+    await expect(page.getByTestId('cycle-time-state-transition-card').filter({ hasText: '待處理 → 進行中' })).toContainText('樣本數 1')
+    await expect(page.getByTestId('cycle-time-state-transition-card').filter({ hasText: '進行中 → 審查中' })).toContainText('樣本數 0')
+    await expect(page.getByTestId('cycle-time-state-transition-card').filter({ hasText: '審查中 → 已完成' })).toContainText('樣本數 0')
   })
 })
