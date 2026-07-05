@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RonFlow.Application;
 using RonFlow.Api.Contracts;
@@ -640,6 +640,12 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
             var title = GetOptionalString(optionalFields, "title") ?? task.Title;
             var description = GetOptionalString(optionalFields, "description") ?? task.Description;
             var dueDate = GetOptionalDateOnly(optionalFields, "dueDate") ?? task.DueDate;
+            var estimatedEffort = GetOptionalEstimatedEffort(optionalFields, task.EstimatedEffort, out var estimatedEffortValidationError);
+            if (estimatedEffortValidationError is not null)
+            {
+                return ValidationFailed($"optionalFields.{estimatedEffortValidationError.Field}", estimatedEffortValidationError.Message);
+            }
+
             var codeTraceability = GetOptionalCodeTraceability(optionalFields, out var validationError);
             if (validationError is not null)
             {
@@ -649,7 +655,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
             var changedFields = GetChangedFields(task, optionalFields);
             var beforeTaskDetail = TaskDetailSnapshot.FromTask(task);
 
-            var result = updateTaskCommandService.Update(currentUserId, task.ProjectId, taskId.Value, title, description, dueDate, codeTraceability);
+            var result = updateTaskCommandService.Update(currentUserId, task.ProjectId, taskId.Value, title, description, dueDate, estimatedEffort, codeTraceability);
             if (result.ValidationError is not null)
             {
                 return ValidationFailed(result.ValidationError.Field, result.ValidationError.Message);
@@ -1081,6 +1087,45 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
             : null;
     }
 
+    private static TaskEstimatedEffort? GetOptionalEstimatedEffort(
+        IReadOnlyDictionary<string, JsonElement> fields,
+        TaskEstimatedEffort? currentEstimatedEffort,
+        out ValidationError? validationError)
+    {
+        validationError = null;
+
+        if (!fields.TryGetValue("estimatedEffort", out var value))
+        {
+            return currentEstimatedEffort;
+        }
+
+        if (value.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (value.ValueKind != JsonValueKind.Object)
+        {
+            validationError = new ValidationError("estimatedEffort", "預估耗時格式不正確");
+            return currentEstimatedEffort;
+        }
+
+        var rawValue = value.TryGetProperty("value", out var effortValueElement) && effortValueElement.ValueKind != JsonValueKind.Null
+            ? effortValueElement.GetInt32()
+            : (int?)null;
+        var unit = value.TryGetProperty("unit", out var effortUnitElement) && effortUnitElement.ValueKind != JsonValueKind.Null
+            ? effortUnitElement.GetString()
+            : null;
+
+        if (!TaskEstimatedEffort.TryCreate(rawValue, unit, out var estimatedEffort))
+        {
+            validationError = new ValidationError("estimatedEffort", "預估耗時需大於 0，且單位必須是 minutes、hours 或 days");
+            return currentEstimatedEffort;
+        }
+
+        return estimatedEffort;
+    }
+
     private static IReadOnlyList<string> GetChangedFields(RonFlow.Domain.Task task, IReadOnlyDictionary<string, JsonElement> optionalFields)
     {
         var changedFields = new List<string>();
@@ -1100,6 +1145,11 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
             changedFields.Add("dueDate");
         }
 
+        if (optionalFields.ContainsKey("estimatedEffort"))
+        {
+            changedFields.Add("estimatedEffort");
+        }
+
         if (optionalFields.ContainsKey("codeTraceability"))
         {
             changedFields.Add("codeTraceability");
@@ -1112,6 +1162,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         string Title,
         string Description,
         DateOnly? DueDate,
+        string EstimatedEffort,
         string CodeTraceabilitySummary)
     {
         public static TaskDetailSnapshot FromTask(RonFlow.Domain.Task task)
@@ -1120,6 +1171,7 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
                 task.Title,
                 task.Description,
                 task.DueDate,
+                DescribeEstimatedEffort(task.EstimatedEffort?.ToModel()),
                 DescribeTraceability(task.CodeTraceability.ToModel()));
         }
     }
@@ -1141,6 +1193,9 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
                 case "dueDate":
                     diff.Add($"dueDate: {(task.DueDate.HasValue ? task.DueDate.Value.ToString("yyyy-MM-dd") : "none")} -> {(updatedTask.DueDate.HasValue ? updatedTask.DueDate.Value.ToString("yyyy-MM-dd") : "none")}");
                     break;
+                case "estimatedEffort":
+                    diff.Add($"estimatedEffort: {task.EstimatedEffort} -> {DescribeEstimatedEffortOutput(updatedTask.EstimatedEffort)}");
+                    break;
                 case "codeTraceability":
                     diff.Add($"codeTraceability: {task.CodeTraceabilitySummary} -> {DescribeTraceabilityOutput(updatedTask.CodeTraceability)}");
                     break;
@@ -1153,6 +1208,16 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
     private static string DescribeTraceability(TaskCodeTraceabilityModel codeTraceability)
     {
         return $"api:{codeTraceability.Api.Count}, frontendPages:{codeTraceability.FrontendPages.Count}, frontendComponents:{codeTraceability.FrontendComponents.Count}";
+    }
+
+    private static string DescribeEstimatedEffort(TaskEstimatedEffortModel? estimatedEffort)
+    {
+        return estimatedEffort is null ? "none" : $"{estimatedEffort.Value} {estimatedEffort.Unit}";
+    }
+
+    private static string DescribeEstimatedEffortOutput(TaskEstimatedEffortOutput? estimatedEffort)
+    {
+        return estimatedEffort is null ? "none" : $"{estimatedEffort.Value} {estimatedEffort.Unit}";
     }
 
     private static string DescribeTraceabilityOutput(TaskCodeTraceabilityOutput codeTraceability)

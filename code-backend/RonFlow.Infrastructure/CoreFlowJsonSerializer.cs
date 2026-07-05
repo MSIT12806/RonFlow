@@ -215,6 +215,19 @@ internal static class CoreFlowJsonSerializer
 
         writer.WriteNumber("sortOrder", task.SortOrder);
 
+        if (task.EstimatedEffort is null)
+        {
+            writer.WriteNull("estimatedEffort");
+        }
+        else
+        {
+            writer.WritePropertyName("estimatedEffort");
+            writer.WriteStartObject();
+            writer.WriteNumber("value", task.EstimatedEffort.Value);
+            writer.WriteString("unit", task.EstimatedEffort.Unit);
+            writer.WriteEndObject();
+        }
+
         writer.WritePropertyName("subtasks");
         writer.WriteStartArray();
 
@@ -301,6 +314,9 @@ internal static class CoreFlowJsonSerializer
         var sortOrder = root.TryGetProperty("sortOrder", out var sortOrderElement)
             ? sortOrderElement.GetInt32()
             : 0;
+        var estimatedEffort = root.TryGetProperty("estimatedEffort", out var estimatedEffortElement) && estimatedEffortElement.ValueKind != JsonValueKind.Null
+            ? ReadTaskEstimatedEffort(estimatedEffortElement)
+            : null;
         var subtasks = root.TryGetProperty("subtasks", out var subtasksElement) && subtasksElement.ValueKind != JsonValueKind.Null
             ? subtasksElement
                 .EnumerateArray()
@@ -344,6 +360,7 @@ internal static class CoreFlowJsonSerializer
             archivedAt,
             trashedAt,
             sortOrder,
+            estimatedEffort,
             subtasks,
             reminders,
             codeTraceability,
@@ -410,6 +427,23 @@ internal static class CoreFlowJsonSerializer
             GetRequiredString(element, "title"),
             element.TryGetProperty("isChecked", out var isCheckedElement) && isCheckedElement.GetBoolean(),
             element.TryGetProperty("order", out var orderElement) ? orderElement.GetInt32() : 0);
+    }
+
+    private static TaskEstimatedEffort ReadTaskEstimatedEffort(JsonElement element)
+    {
+        var value = element.TryGetProperty("value", out var valueElement)
+            ? valueElement.GetInt32()
+            : (int?)null;
+        var unit = element.TryGetProperty("unit", out var unitElement)
+            ? unitElement.GetString()
+            : null;
+
+        if (!TaskEstimatedEffort.TryCreate(value, unit, out var estimatedEffort) || estimatedEffort is null)
+        {
+            throw new InvalidOperationException("Task estimated effort is invalid.");
+        }
+
+        return estimatedEffort;
     }
 
     private static void WriteWorkflowState(Utf8JsonWriter writer, WorkflowState workflowState)

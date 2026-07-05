@@ -122,7 +122,17 @@ public sealed class ChangeTaskStateCommandServiceTests
             TestObjectFactory.CreateTaskTitle("Build Kanban Board"),
             project.GetDefaultWorkflowState(),
             createdAt.AddMinutes(5),
-            0);
+            0,
+            subtasks: [new TaskSubtask(Guid.NewGuid(), "完成條件已定義", false, 0)]);
+        TaskEstimatedEffort.TryCreate(2, "hours", out var estimatedEffort);
+        task.UpdateDetails(
+            TaskMutationAuthorization.Granted(TaskMutationKind.UpdateDetails),
+            TestObjectFactory.CreateTaskTitle("Build Kanban Board"),
+            string.Empty,
+            null,
+            estimatedEffort,
+            null,
+            createdAt.AddMinutes(5));
         taskRepository.Add(task);
 
         var commandService = new ChangeTaskStateCommandService(repository, taskRepository, new FixedTimeProvider(createdAt.AddMinutes(15)));
@@ -150,7 +160,17 @@ public sealed class ChangeTaskStateCommandServiceTests
             TestObjectFactory.CreateTaskTitle("Build Kanban Board"),
             project.GetDefaultWorkflowState(),
             createdAt.AddMinutes(5),
-            0);
+            0,
+            subtasks: [new TaskSubtask(Guid.NewGuid(), "完成條件已定義", false, 0)]);
+        TaskEstimatedEffort.TryCreate(2, "hours", out var estimatedEffort);
+        task.UpdateDetails(
+            TaskMutationAuthorization.Granted(TaskMutationKind.UpdateDetails),
+            TestObjectFactory.CreateTaskTitle("Build Kanban Board"),
+            string.Empty,
+            null,
+            estimatedEffort,
+            null,
+            createdAt.AddMinutes(5));
         taskRepository.Add(task);
 
         var commandService = new ChangeTaskStateCommandService(repository, taskRepository, new FixedTimeProvider(changedAt));
@@ -181,7 +201,17 @@ public sealed class ChangeTaskStateCommandServiceTests
             TestObjectFactory.CreateTaskTitle("Build Kanban Board"),
             project.GetDefaultWorkflowState(),
             createdAt.AddMinutes(5),
-            0);
+            0,
+            subtasks: [new TaskSubtask(Guid.NewGuid(), "完成條件已定義", false, 0)]);
+        TaskEstimatedEffort.TryCreate(2, "hours", out var estimatedEffort);
+        task.UpdateDetails(
+            TaskMutationAuthorization.Granted(TaskMutationKind.UpdateDetails),
+            TestObjectFactory.CreateTaskTitle("Build Kanban Board"),
+            string.Empty,
+            null,
+            estimatedEffort,
+            null,
+            createdAt.AddMinutes(5));
         taskRepository.Add(task);
 
         var moveToActiveService = new ChangeTaskStateCommandService(repository, taskRepository, new FixedTimeProvider(movedToActiveAt));

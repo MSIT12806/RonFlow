@@ -161,13 +161,21 @@ public sealed class TasksController : AuthenticatedControllerBase
         var rawCodeTraceability = request.TryGetProperty("codeTraceability", out var codeTraceabilityElement)
             ? codeTraceabilityElement
             : (JsonElement?)null;
+        var rawEstimatedEffort = request.TryGetProperty("estimatedEffort", out var estimatedEffortElement)
+            ? estimatedEffortElement
+            : (JsonElement?)null;
+
+        if (!TryMapEstimatedEffort(rawEstimatedEffort, out var estimatedEffort, out var estimatedEffortValidationError))
+        {
+            return ValidationResults.FromError(estimatedEffortValidationError!);
+        }
 
         if (!TaskCodeTraceabilityMapper.TryMap(rawCodeTraceability, out var codeTraceability, out var validationError))
         {
             return ValidationResults.FromError(validationError!);
         }
 
-        var result = commandService.Update(currentUserId, projectId, taskId, title, description, dueDate, codeTraceability);
+        var result = commandService.Update(currentUserId, projectId, taskId, title, description, dueDate, estimatedEffort, codeTraceability);
 
         if (result.ValidationError is not null)
         {
@@ -368,5 +376,37 @@ public sealed class TasksController : AuthenticatedControllerBase
         return result.NotFound
             ? Results.NotFound()
             : Results.Ok(TaskDetailResponse.FromView(result.Resource!, lockService.CanEnterEdit(currentUserId, taskId)));
+    }
+
+    private static bool TryMapEstimatedEffort(JsonElement? rawEstimatedEffort, out TaskEstimatedEffort? estimatedEffort, out ValidationError? validationError)
+    {
+        estimatedEffort = null;
+        validationError = null;
+
+        if (rawEstimatedEffort is null || rawEstimatedEffort.Value.ValueKind == JsonValueKind.Null)
+        {
+            return true;
+        }
+
+        if (rawEstimatedEffort.Value.ValueKind != JsonValueKind.Object)
+        {
+            validationError = new ValidationError("estimatedEffort", "預估耗時格式不正確");
+            return false;
+        }
+
+        var value = rawEstimatedEffort.Value.TryGetProperty("value", out var valueElement) && valueElement.ValueKind != JsonValueKind.Null
+            ? valueElement.GetInt32()
+            : (int?)null;
+        var unit = rawEstimatedEffort.Value.TryGetProperty("unit", out var unitElement) && unitElement.ValueKind != JsonValueKind.Null
+            ? unitElement.GetString()
+            : null;
+
+        if (!TaskEstimatedEffort.TryCreate(value, unit, out estimatedEffort))
+        {
+            validationError = new ValidationError("estimatedEffort", "預估耗時需大於 0，且單位必須是 minutes、hours 或 days");
+            return false;
+        }
+
+        return true;
     }
 }

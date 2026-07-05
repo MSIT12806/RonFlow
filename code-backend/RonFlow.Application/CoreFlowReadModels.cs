@@ -66,6 +66,8 @@ public sealed record TaskCodeTraceabilityView(
     IReadOnlyList<TaskCodeTraceabilityItemView> FrontendPages,
     IReadOnlyList<TaskCodeTraceabilityItemView> FrontendComponents);
 
+public sealed record TaskEstimatedEffortView(int Value, string Unit);
+
 public sealed record TaskDetailView(
     Guid Id,
     Guid ProjectId,
@@ -78,6 +80,7 @@ public sealed record TaskDetailView(
     DateOnly? DueDate,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
+    TaskEstimatedEffortView? EstimatedEffort,
     IReadOnlyList<TaskSubtaskView> Subtasks,
     IReadOnlyList<BoardTaskCardView> ChildTasks,
     TaskCodeTraceabilityView CodeTraceability,
@@ -166,6 +169,7 @@ internal static class CoreFlowReadModelFactory
             task.DueDate,
             task.CreatedAt,
             task.CompletedAt,
+            task.EstimatedEffort is null ? null : new TaskEstimatedEffortView(task.EstimatedEffort.Value, task.EstimatedEffort.Unit),
             task.Subtasks.Select(CreateTaskSubtask).ToArray(),
             BuildTaskTree(
                 (childTasks ?? []).Where(childTask => childTask.LifecycleState == TaskLifecycleState.ActiveRecord).ToArray(),
