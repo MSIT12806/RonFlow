@@ -104,7 +104,7 @@ internal static class AiJsonContractFormatter
                 WriteCapability("invite_project_member", "project", true, ["projectId", "invitee"], [], new { operation = "invite_project_member", targetType = "project", targetId = "<project-id>", requiredFields = new { projectId = "<project-id>", invitee = "<email-or-user-name>" }, optionalFields = new { }, note = "invite member" }),
                 WriteCapability("accept_project_invitation", "invitation", false, ["invitationId"], [], new { operation = "accept_project_invitation", targetType = "invitation", targetId = "<invitation-id>", requiredFields = new { invitationId = "<invitation-id>" }, optionalFields = new { }, note = "accept invitation" }),
                 WriteCapability("reject_project_invitation", "invitation", false, ["invitationId"], [], new { operation = "reject_project_invitation", targetType = "invitation", targetId = "<invitation-id>", requiredFields = new { invitationId = "<invitation-id>" }, optionalFields = new { }, note = "reject invitation" }),
-                WriteCapability("update_task_detail", "task", true, ["taskId"], ["title", "description", "dueDate", "estimatedEffort", "codeTraceability"], new { operation = "update_task_detail", targetType = "task", targetId = "<task-id>", requiredFields = new { taskId = "<task-id>" }, optionalFields = new { title = "<new-title>", estimatedEffort = new { value = 2, unit = "hours" }, codeTraceability = CodeTraceabilityExample() }, note = "update task detail" }),
+                WriteCapability("update_task_detail", "task", true, ["taskId"], ["title", "description", "dueDate", "estimatedEffort", "codeTraceability"], new { operation = "update_task_detail", targetType = "task", targetId = "<task-id>", requiredFields = new { taskId = "<task-id>" }, optionalFields = new { title = "<new-title>", estimatedEffort = new { value = 5, unit = "hours" }, codeTraceability = CodeTraceabilityExample() }, note = "update task detail" }, [EstimatedEffortFieldSchema()]),
                 WriteCapability("check_task_subtask", "task", true, ["taskId", "subtaskId"], [], new { operation = "check_task_subtask", targetType = "task", targetId = "<task-id>", requiredFields = new { taskId = "<task-id>", subtaskId = "<subtask-id>" }, optionalFields = new { }, note = "check subtask" }),
                 WriteCapability("uncheck_task_subtask", "task", true, ["taskId", "subtaskId"], [], new { operation = "uncheck_task_subtask", targetType = "task", targetId = "<task-id>", requiredFields = new { taskId = "<task-id>", subtaskId = "<subtask-id>" }, optionalFields = new { }, note = "uncheck subtask" }),
                 WriteCapability("move_task_state", "task", true, ["taskId", "targetStateKey"], [], new { operation = "move_task_state", targetType = "task", targetId = "<task-id>", requiredFields = new { taskId = "<task-id>", targetStateKey = "Done" }, optionalFields = new { }, note = "move task state" }),
@@ -229,6 +229,7 @@ internal static class AiJsonContractFormatter
                 completionConditionCount = task.CompletionConditionCount,
                 hasEstimatedEffort = task.HasEstimatedEffort,
                 missingReadyFields = GetMissingReadyFields(task),
+                readyFieldFormats = GetReadyFieldFormats(task),
                 childCount = task.Children.Count,
             }).ToArray(),
             visibleTasks = board.Columns
@@ -257,6 +258,7 @@ internal static class AiJsonContractFormatter
                 completionConditionCount = task.CompletionConditionCount,
                 hasEstimatedEffort = task.HasEstimatedEffort,
                 missingReadyFields = GetMissingReadyFields(task),
+                readyFieldFormats = GetReadyFieldFormats(task),
             })
             .ToArray();
         var openTasks = board.Columns
@@ -310,6 +312,7 @@ internal static class AiJsonContractFormatter
             completionConditionCount = task.Subtasks.Count,
             hasEstimatedEffort = task.EstimatedEffort is not null,
             missingReadyFields = GetMissingReadyFields(task),
+            readyFieldFormats = GetReadyFieldFormats(task),
             lifecycleState = NormalizeLifecycleState(task.LifecycleState),
             subtasks = task.Subtasks.OrderBy(subtask => subtask.Order).Select(subtask => new
             {
@@ -350,7 +353,8 @@ internal static class AiJsonContractFormatter
         bool activeScopeRequired,
         string[] requiredFields,
         string[] optionalFields,
-        object exampleRequest)
+        object exampleRequest,
+        object[]? fieldSchemas = null)
     {
         return new
         {
@@ -363,8 +367,26 @@ internal static class AiJsonContractFormatter
             optionalFields,
             requiredFieldsPath = requiredFields.Select(field => $"requiredFields.{field}").ToArray(),
             optionalFieldsPath = optionalFields.Select(field => $"optionalFields.{field}").ToArray(),
+            fieldSchemas = fieldSchemas ?? Array.Empty<object>(),
             applyEndpoint = "POST /api/ai/apply",
             exampleRequest,
+        };
+    }
+
+    private static object EstimatedEffortFieldSchema()
+    {
+        return new
+        {
+            name = "estimatedEffort",
+            path = "optionalFields.estimatedEffort",
+            type = "object",
+            requiredProperties = new
+            {
+                value = "positive integer",
+                unit = "minutes | hours | days",
+            },
+            example = new { value = 5, unit = "hours" },
+            invalidExamples = new object[] { "5h", "5 hours" },
         };
     }
 
@@ -505,6 +527,35 @@ internal static class AiJsonContractFormatter
         }
 
         return missingFields.Count == 0 ? ["none"] : missingFields;
+    }
+
+    private static IReadOnlyList<object> GetReadyFieldFormats(BoardTaskCardView task)
+    {
+        return task.Children.Count == 0 && !task.HasEstimatedEffort
+            ? [EstimatedEffortReadyFieldFormat()]
+            : [];
+    }
+
+    private static IReadOnlyList<object> GetReadyFieldFormats(TaskDetailView task)
+    {
+        return task.ChildTasks.Count == 0 && task.EstimatedEffort is null
+            ? [EstimatedEffortReadyFieldFormat()]
+            : [];
+    }
+
+    private static object EstimatedEffortReadyFieldFormat()
+    {
+        return new
+        {
+            name = "estimated_effort",
+            path = "optionalFields.estimatedEffort",
+            format = new
+            {
+                value = "<positive integer>",
+                unit = "minutes|hours|days",
+            },
+            example = new { value = 5, unit = "hours" },
+        };
     }
 
     private static IEnumerable<string> BuildTaskDetailNextActions(TaskDetailView task)
