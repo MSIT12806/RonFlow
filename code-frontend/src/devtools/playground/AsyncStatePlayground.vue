@@ -355,8 +355,8 @@ const playgroundBoardColumns: BoardColumnResponse[] = [
     isCompletedState: false,
     emptyStateMessage: '目前沒有任務',
     tasks: [
-      { id: 'task-1', title: '整理 Sprint 2 測試清單', children: [] },
-      { id: 'task-2', title: '確認拖曳失敗的回饋文案', children: [] },
+      { id: 'task-1', title: '整理 Sprint 2 測試清單', isCompleted: false, isInFlow: true, parentPath: '整理 Hatchery 需求', children: [] },
+      { id: 'task-2', title: '確認拖曳失敗的回饋文案', isCompleted: false, isInFlow: true, parentPath: '', children: [] },
     ],
   },
   {
@@ -365,7 +365,7 @@ const playgroundBoardColumns: BoardColumnResponse[] = [
     isInitialState: false,
     isCompletedState: false,
     emptyStateMessage: '目前沒有任務',
-    tasks: [{ id: 'task-3', title: '補上 board command error alert', children: [] }],
+    tasks: [{ id: 'task-3', title: '補上 board command error alert', isCompleted: false, isInFlow: true, parentPath: '整理 Hatchery 需求', children: [] }],
   },
   {
     stateKey: 'review',
@@ -381,7 +381,7 @@ const playgroundBoardColumns: BoardColumnResponse[] = [
     isInitialState: false,
     isCompletedState: true,
     emptyStateMessage: '目前沒有任務',
-    tasks: [{ id: 'task-4', title: '完成 v0.1 scope 對齊', children: [] }],
+    tasks: [{ id: 'task-4', title: '完成 v0.1 scope 對齊', isCompleted: true, isInFlow: true, parentPath: '', children: [] }],
   },
 ]
 
@@ -389,9 +389,12 @@ const playgroundTaskTree = [
   {
     id: 'task-tree-1',
     title: '整理 Hatchery 需求',
+    isCompleted: false,
+    isInFlow: false,
+    parentPath: '',
     children: [
-      { id: 'task-tree-1-1', title: '撰寫 SRS', children: [] },
-      { id: 'task-tree-1-2', title: '拆解 MVP backlog', children: [] },
+      { id: 'task-tree-1-1', title: '撰寫 SRS', isCompleted: true, isInFlow: true, parentPath: '整理 Hatchery 需求', children: [] },
+      { id: 'task-tree-1-2', title: '拆解 MVP backlog', isCompleted: false, isInFlow: false, parentPath: '整理 Hatchery 需求', children: [] },
     ],
   },
 ]
@@ -415,6 +418,7 @@ const playgroundTaskDetail: TaskDetailResponse = {
   completedAt: null,
   estimatedEffort: { value: 2, unit: 'hours' },
   childTasks: [],
+  parentPath: '整理 Hatchery 需求',
   subtasks: [
     {
       id: 'subtask-1',

@@ -71,6 +71,7 @@ export type TaskDetailResponse = {
   estimatedEffort: TaskEstimatedEffortResponse | null
   subtasks: TaskSubtaskResponse[]
   childTasks: BoardTaskCardResponse[]
+  parentPath: string
   codeTraceability: TaskCodeTraceabilityResponse
   reminders?: TaskReminderResponse[]
   activityTimeline: ActivityTimelineItemResponse[]
@@ -95,6 +96,9 @@ export type LifecycleTaskListResponse = {
 export type BoardTaskCardResponse = {
   id: string
   title: string
+  isCompleted: boolean
+  isInFlow: boolean
+  parentPath: string
   children: BoardTaskCardResponse[]
 }
 

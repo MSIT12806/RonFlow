@@ -123,6 +123,7 @@
                 >
                   <span class="task-title">{{ task.title }}</span>
                   <span class="task-meta">{{ column.label }}</span>
+                  <span v-if="task.parentPath" class="task-parent-path">來自：{{ task.parentPath }}</span>
                 </button>
               </article>
             </div>
