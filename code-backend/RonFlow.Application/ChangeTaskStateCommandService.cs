@@ -101,9 +101,50 @@ public sealed class ChangeTaskStateCommandService(
             workflowThroughputProjectionOutbox.EnqueueTaskReopened(project.Id, task.Id, changedAt);
         }
 
+        if (!wasCompleted && targetState.IsCompletedState)
+        {
+            CompleteParentsWhenAllChildrenAreDone(project, task, changedAt);
+        }
+
         project.Touch(changedAt);
         projectRepository.Update(project);
 
         return ChangeTaskStateResult.Success(CoreFlowCommandOutputFactory.CreateTask(task.ToModel()));
+    }
+
+    private void CompleteParentsWhenAllChildrenAreDone(Project project, RonFlow.Domain.Task completedTask, DateTimeOffset changedAt)
+    {
+        var activeTasks = taskRepository.GetByProjectId(project.Id)
+            .Where(projectTask => projectTask.LifecycleState == TaskLifecycleState.ActiveRecord)
+            .ToList();
+        var completedState = project.WorkflowStates.SingleOrDefault(state => state.IsCompletedState);
+        var parentTaskId = completedTask.ParentTaskId;
+
+        while (parentTaskId is not null && completedState is not null)
+        {
+            var parentTask = activeTasks.SingleOrDefault(projectTask => projectTask.Id == parentTaskId.Value);
+            if (parentTask is null || parentTask.CurrentState.IsCompletedState)
+            {
+                return;
+            }
+
+            var childTasks = activeTasks
+                .Where(projectTask => projectTask.ParentTaskId == parentTask.Id)
+                .ToArray();
+
+            if (childTasks.Length == 0 || childTasks.Any(childTask => childTask.CurrentState.IsCompletedState is false))
+            {
+                return;
+            }
+
+            if (parentTask.CompleteFromChildren(completedState, changedAt))
+            {
+                taskRepository.Update(parentTask);
+                workflowThroughputProjectionOutbox.EnqueueTaskStateChanged(project.Id, parentTask.Id, completedState.Key, changedAt);
+                workflowThroughputProjectionOutbox.EnqueueTaskCompleted(project.Id, parentTask.Id, changedAt);
+            }
+
+            parentTaskId = parentTask.ParentTaskId;
+        }
     }
 }

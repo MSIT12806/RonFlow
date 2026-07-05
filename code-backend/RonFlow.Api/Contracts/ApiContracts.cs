@@ -236,11 +236,17 @@ public sealed record BoardColumnResponse(
     }
 }
 
-public sealed record BoardTaskCardResponse(Guid Id, string Title, IReadOnlyList<BoardTaskCardResponse> Children)
+public sealed record BoardTaskCardResponse(
+    Guid Id,
+    string Title,
+    bool IsCompleted,
+    bool IsInFlow,
+    string ParentPath,
+    IReadOnlyList<BoardTaskCardResponse> Children)
 {
     public static BoardTaskCardResponse FromView(BoardTaskCardView view)
     {
-        return new(view.Id, view.Title, view.Children.Select(FromView).ToArray());
+        return new(view.Id, view.Title, view.IsCompleted, view.IsInFlow, view.ParentPath, view.Children.Select(FromView).ToArray());
     }
 }
 
@@ -380,6 +386,7 @@ public sealed record TaskDetailResponse(
     TaskEstimatedEffortResponse? EstimatedEffort,
     IReadOnlyList<TaskSubtaskResponse> Subtasks,
     IReadOnlyList<BoardTaskCardResponse> ChildTasks,
+    string ParentPath,
     TaskCodeTraceabilityResponse CodeTraceability,
     IReadOnlyList<TaskReminderResponse> Reminders,
     IReadOnlyList<ActivityTimelineItemResponse> ActivityTimeline,
@@ -402,6 +409,7 @@ public sealed record TaskDetailResponse(
             output.EstimatedEffort is null ? null : TaskEstimatedEffortResponse.FromOutput(output.EstimatedEffort),
             output.Subtasks.Select(TaskSubtaskResponse.FromOutput).ToArray(),
             [],
+            string.Empty,
             TaskCodeTraceabilityResponse.FromOutput(output.CodeTraceability),
             output.Reminders.Select(TaskReminderResponse.FromOutput).ToArray(),
             output.ActivityTimeline.Select(ActivityTimelineItemResponse.FromOutput).ToArray(),
@@ -425,6 +433,7 @@ public sealed record TaskDetailResponse(
             view.EstimatedEffort is null ? null : TaskEstimatedEffortResponse.FromView(view.EstimatedEffort),
             view.Subtasks.Select(TaskSubtaskResponse.FromView).ToArray(),
             view.ChildTasks.Select(BoardTaskCardResponse.FromView).ToArray(),
+            view.ParentPath,
             TaskCodeTraceabilityResponse.FromView(view.CodeTraceability),
             view.Reminders.Select(TaskReminderResponse.FromView).ToArray(),
             view.ActivityTimeline.Select(ActivityTimelineItemResponse.FromView).ToArray(),

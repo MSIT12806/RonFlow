@@ -16,9 +16,21 @@
       <button
         type="button"
         class="task-tree-item"
+        :class="{
+          'task-tree-item-completed': task.isCompleted,
+          'task-tree-item-in-flow': task.isInFlow,
+        }"
         @click="$emit('open-task-detail', task.id, task.title)"
       >
-        <span class="task-title">{{ task.title }}</span>
+        <span class="task-tree-item-title-row">
+          <span class="task-tree-completion-indicator" :class="{ 'task-tree-completion-indicator-done': task.isCompleted }" aria-hidden="true">
+            {{ task.isCompleted ? '✓' : '' }}
+          </span>
+          <span class="task-title">
+            {{ task.title }}
+            <span v-if="task.isInFlow" class="task-tree-flow-badge">In Flow</span>
+          </span>
+        </span>
         <span class="task-meta">{{ nodeMeta }}</span>
       </button>
     </div>
@@ -53,6 +65,10 @@ defineEmits<{
 const isExpanded = ref(true)
 const hasChildren = computed(() => props.task.children.length > 0)
 const nodeMeta = computed(() => {
+  if (props.task.isInFlow) {
+    return 'Flow task'
+  }
+
   if (!hasChildren.value) {
     return 'Leaf task'
   }

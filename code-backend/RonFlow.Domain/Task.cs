@@ -152,6 +152,11 @@ public sealed class Task
             return lockedResult;
         }
 
+        if (IsInFlow)
+        {
+            IsInFlow = false;
+        }
+
         activityTimeline.Add(ActivityTimelineItem.ChildTaskAdded(changedAt));
         return TaskMutationExecutionResult.ChangedResult();
     }
@@ -334,6 +339,20 @@ public sealed class Task
         }
 
         return TaskMutationExecutionResult.ChangedResult();
+    }
+
+    public bool CompleteFromChildren(WorkflowState completedState, DateTimeOffset changedAt)
+    {
+        if (LifecycleState != TaskLifecycleState.ActiveRecord || CurrentState.IsCompletedState)
+        {
+            return false;
+        }
+
+        CurrentState = completedState;
+        CompletedAt = changedAt;
+        activityTimeline.Add(ActivityTimelineItem.TaskStateChanged(completedState.Label, changedAt));
+        activityTimeline.Add(ActivityTimelineItem.TaskCompleted(changedAt));
+        return true;
     }
 
     public TaskMutationExecutionResult UpdateDetails(TaskMutationAuthorization authorization, TaskTitle title, string description, DateOnly? dueDate, TaskEstimatedEffort? estimatedEffort, TaskCodeTraceability? nextCodeTraceability, DateTimeOffset changedAt)

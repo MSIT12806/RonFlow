@@ -100,6 +100,11 @@
             <strong>{{ task.currentState.label }}</strong>
           </div>
 
+          <div v-if="task.parentPath" class="detail-card">
+            <p class="detail-label">任務樹位置</p>
+            <strong>{{ task.parentPath }}</strong>
+          </div>
+
           <div class="detail-card">
             <div class="detail-field">
               <label class="detail-label" for="task-detail-due-date-input">到期日</label>
@@ -117,37 +122,6 @@
                   :disabled="isSaving || isReadOnly"
                   :manual-input="true"
                 />
-              </div>
-            </div>
-          </div>
-
-          <div v-if="!isParentTask" class="detail-card">
-            <div class="detail-field">
-              <label class="detail-label" for="task-detail-estimated-effort-value">預估耗時</label>
-
-              <div class="detail-reminder-grid">
-                <div class="detail-field-control">
-                  <InputText
-                    id="task-detail-estimated-effort-value"
-                    v-model="draftEstimatedEffortValue"
-                    fluid
-                    inputmode="numeric"
-                    type="number"
-                    min="1"
-                    :disabled="isSaving || isReadOnly"
-                  />
-                </div>
-
-                <div class="detail-field-control">
-                  <select
-                    v-model="draftEstimatedEffortUnit"
-                    :disabled="isSaving || isReadOnly"
-                  >
-                    <option value="minutes">分鐘</option>
-                    <option value="hours">小時</option>
-                    <option value="days">天</option>
-                  </select>
-                </div>
               </div>
             </div>
           </div>
@@ -199,11 +173,10 @@
             </ul>
           </div>
 
-          <div v-if="!isParentTask" class="detail-card detail-card-full" data-testid="task-checklist-section">
+          <div v-if="!isParentTask" class="detail-card detail-card-full detail-ready-list" data-testid="task-ready-list-section">
             <div class="detail-section-header">
               <div>
-                <p class="detail-label">完成條件</p>
-                <p class="detail-supporting-copy">用結構化 checklist 追蹤這個任務是否已進入 review-ready。</p>
+                <p class="detail-label">Ready list</p>
               </div>
 
               <button
@@ -217,6 +190,50 @@
               </button>
             </div>
 
+            <div class="detail-ready-grid">
+              <div class="detail-field">
+                <label class="detail-label" for="task-detail-estimated-effort-value">預估耗時</label>
+
+                <div class="detail-reminder-grid">
+                  <div class="detail-field-control">
+                    <InputText
+                      id="task-detail-estimated-effort-value"
+                      v-model="draftEstimatedEffortValue"
+                      fluid
+                      inputmode="numeric"
+                      type="number"
+                      min="1"
+                      :disabled="isSaving || isReadOnly"
+                    />
+                  </div>
+
+                  <div class="detail-field-control">
+                    <select
+                      v-model="draftEstimatedEffortUnit"
+                      :disabled="isSaving || isReadOnly"
+                    >
+                      <option value="minutes">分鐘</option>
+                      <option value="hours">小時</option>
+                      <option value="days">天</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div class="detail-ready-action">
+                <button
+                  v-if="canShowSendToFlow"
+                  type="button"
+                  class="primary-button"
+                  :disabled="isSaving || isForcedReadOnly || isEditing || !isReadyForFlow"
+                  @click="emitSendToFlow"
+                >
+                  送進 Flow
+                </button>
+              </div>
+            </div>
+
+            <p class="detail-label">完成條件</p>
             <p v-if="draftSubtasks.length === 0" class="detail-supporting-copy">目前沒有完成條件</p>
 
             <ul v-else class="history-list">
@@ -427,15 +444,6 @@
             />
 
             <div class="modal-actions">
-              <button
-                v-if="canShowSendToFlow"
-                type="button"
-                class="secondary-button"
-                :disabled="isSaving || isForcedReadOnly || isEditing || !isReadyForFlow"
-                @click="emitSendToFlow"
-              >
-                送進 Flow
-              </button>
               <button v-if="!isReadOnly" type="button" class="primary-button" :disabled="isSaving" @click="submit">儲存變更</button>
               <button v-else-if="isLifecycleReadOnly" type="button" class="primary-button" :disabled="isSaving" @click="emitRestore">還原</button>
             </div>
