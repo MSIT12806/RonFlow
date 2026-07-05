@@ -16,6 +16,7 @@ public sealed class UpdateTaskCommandService(
         string? rawTitle,
         string? rawDescription,
         DateOnly? dueDate,
+        TaskEstimatedEffort? estimatedEffort,
         TaskCodeTraceability? codeTraceability)
     {
         if (!TaskTitle.TryCreate(rawTitle, out var taskTitle))
@@ -48,6 +49,7 @@ public sealed class UpdateTaskCommandService(
             taskTitle!,
             rawDescription?.Trim() ?? string.Empty,
             dueDate,
+            estimatedEffort,
             codeTraceability,
             changedAt);
 

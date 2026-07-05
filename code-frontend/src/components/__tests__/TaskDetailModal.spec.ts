@@ -20,6 +20,7 @@ function createTask(overrides: Partial<TaskDetailResponse> = {}): TaskDetailResp
     lifecycleState: 'activeRecord',
     createdAt: '2026-05-12T08:00:00.000Z',
     completedAt: null,
+    estimatedEffort: null,
     childTasks: [],
     subtasks: [
       {
@@ -355,6 +356,7 @@ describe('TaskDetailModal', () => {
       title: '補上 Drawer 編輯測試',
       description: '讓使用者可以直接在 Task Detail Drawer 編輯標題、描述與到期日。',
       dueDate: '2026-05-20',
+      estimatedEffort: null,
       codeTraceability: {
         api: [
           { changeType: 'added', target: 'GET /api/build-info' },

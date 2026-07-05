@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using RonFlow.Application;
@@ -1006,6 +1006,8 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         var project = await CreateProjectAsync(sessionClient, "AI Reorder Project");
         var firstTask = await CreateTaskAsync(sessionClient, project.Id, "Task A");
         var secondTask = await CreateTaskAsync(sessionClient, project.Id, "Task B");
+        firstTask = await ReadyTaskForFlowAsync(sessionClient, project.Id, firstTask);
+        secondTask = await ReadyTaskForFlowAsync(sessionClient, project.Id, secondTask);
 
         var enterFirstTaskFlowResponse = await sessionClient.PatchAsJsonAsync(
             $"/api/projects/{project.Id}/tasks/{firstTask.Id}/state",

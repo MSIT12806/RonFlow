@@ -665,6 +665,7 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
     {
         var project = await CreateProjectAsync("RonFlow Project");
         var createdTask = await CreateTaskAsync(project.Id, "Build Kanban Board");
+        createdTask = await ReadyTaskForFlowAsync(project.Id, createdTask);
 
         var changeResponse = await Client.PatchAsJsonAsync(
             $"/api/projects/{project.Id}/tasks/{createdTask.Id}/state",
@@ -702,6 +703,80 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
         Assert.That(detail.CompletedAt, Is.Null);
         Assert.That(detail.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskStateChanged"));
         Assert.That(detail.ActivityTimeline.Select(item => item.Type), Does.Not.Contain("TaskCompleted"));
+    }
+
+    [Test]
+    public async Task ChangeTaskState_WhenLeafTaskIsNotReady_ReturnsValidationErrorAndKeepsTaskOutOfFlow()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var createdTask = await CreateTaskAsync(project.Id, "Build Kanban Board");
+
+        var response = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{createdTask.Id}/state",
+            new ChangeTaskStateRequest("todo"));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+
+        var errors = await ReadValidationErrorsAsync(response);
+
+        Assert.That(errors, Does.ContainKey("readyList"));
+
+        var boardResponse = await Client.GetAsync($"/api/projects/{project.Id}/board");
+        var board = await boardResponse.Content.ReadFromJsonAsync<ProjectBoardResponse>();
+
+        Assert.That(boardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(board, Is.Not.Null);
+        Assert.That(board!.TaskTree.Select(task => task.Id), Does.Contain(createdTask.Id));
+        Assert.That(board.Columns.SelectMany(column => column.Tasks).Select(task => task.Id), Does.Not.Contain(createdTask.Id));
+    }
+
+    [Test]
+    public async Task ChangeTaskState_WhenReadyLeafTaskEntersFlow_MovesSameTaskToInitialColumn()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var createdTask = await CreateTaskAsync(project.Id, "Build Kanban Board");
+        createdTask = await ReadyTaskForFlowAsync(project.Id, createdTask);
+
+        var response = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{createdTask.Id}/state",
+            new ChangeTaskStateRequest("todo"));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var changedTask = await response.Content.ReadFromJsonAsync<TaskDetailResponse>();
+        Assert.That(changedTask, Is.Not.Null);
+        Assert.That(changedTask!.Id, Is.EqualTo(createdTask.Id));
+        Assert.That(changedTask.IsInFlow, Is.True);
+        Assert.That(changedTask.CurrentState.Key, Is.EqualTo("todo"));
+
+        var boardResponse = await Client.GetAsync($"/api/projects/{project.Id}/board");
+        var board = await boardResponse.Content.ReadFromJsonAsync<ProjectBoardResponse>();
+
+        Assert.That(boardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(board, Is.Not.Null);
+        Assert.That(board!.TaskTree.Select(task => task.Id), Does.Not.Contain(createdTask.Id));
+        Assert.That(board.Columns.Single(column => column.StateKey == "todo").Tasks.Select(task => task.Id), Does.Contain(createdTask.Id));
+    }
+
+    [Test]
+    public async Task ChangeTaskState_WhenParentTaskEntersFlow_ReturnsValidationError()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var parentTask = await CreateTaskAsync(project.Id, "Design Hatchery");
+        await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{parentTask.Id}/children",
+            new CreateChildTaskRequest("Write SRS"));
+        parentTask = await ReadyTaskForFlowAsync(project.Id, parentTask);
+
+        var response = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{parentTask.Id}/state",
+            new ChangeTaskStateRequest("todo"));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+
+        var errors = await ReadValidationErrorsAsync(response);
+        Assert.That(errors, Does.ContainKey("readyList"));
+        Assert.That(errors["readyList"], Does.Contain("父任務不可送進 Flow"));
     }
 
     [Test]
@@ -813,6 +888,7 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
     {
         var project = await CreateProjectAsync("RonFlow Project");
         var createdTask = await CreateTaskAsync(project.Id, "Build Kanban Board");
+        createdTask = await ReadyTaskForFlowAsync(project.Id, createdTask);
 
         var moveToActiveResponse = await Client.PatchAsJsonAsync(
             $"/api/projects/{project.Id}/tasks/{createdTask.Id}/state",

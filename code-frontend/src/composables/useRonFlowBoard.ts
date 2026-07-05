@@ -7,6 +7,7 @@ import {
   type LifecycleTaskListItemResponse,
   type ProjectListItemResponse,
   type TaskCodeTraceabilityChangeType,
+  type TaskEstimatedEffortResponse,
   type TaskLifecycleState,
   type WorkflowKey,
 } from '../api/ronflowApi'
@@ -111,8 +112,9 @@ export function useRonFlowBoard() {
       title: string,
       description: string,
       dueDate: string | null,
+      estimatedEffort: TaskEstimatedEffortResponse | null,
       codeTraceability: EditableTaskCodeTraceability,
-    ) => taskCommandService.update(projectId, taskId, title, description, dueDate, codeTraceability),
+    ) => taskCommandService.update(projectId, taskId, title, description, dueDate, estimatedEffort, codeTraceability),
     {
       mapErrorMessage: (error) => {
         if (error instanceof ApiValidationError) {
@@ -467,6 +469,7 @@ export function useRonFlowBoard() {
     title: string,
     description: string,
     dueDate: string | null,
+    estimatedEffort: TaskEstimatedEffortResponse | null,
     codeTraceability: EditableTaskCodeTraceability,
     subtasks: EditableTaskSubtask[],
   ) {
@@ -487,6 +490,7 @@ export function useRonFlowBoard() {
         title,
         description,
         dueDate,
+        estimatedEffort,
         codeTraceability,
       )
       updatedTask = await replaceTaskSubtasksResource.execute(
@@ -517,6 +521,11 @@ export function useRonFlowBoard() {
         taskTitleValidationError.value = error.errors.title?.[0] ?? '任務標題為必填欄位'
       }
     }
+  }
+
+  async function sendTaskToFlow(taskId: string) {
+    const initialStateKey = activeColumns.value.find((column) => column.isInitialState)?.stateKey ?? 'todo'
+    await moveTaskToState(taskId, initialStateKey)
   }
 
   async function replaceTaskSubtasks(taskId: string, subtasks: EditableTaskSubtask[]) {
@@ -932,6 +941,7 @@ export function useRonFlowBoard() {
     closeTaskDetail,
     moveTaskToState,
     updateTaskDetail,
+    sendTaskToFlow,
     replaceTaskSubtasks,
     createChildTask,
     createReminder,

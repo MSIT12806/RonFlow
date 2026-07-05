@@ -32,6 +32,13 @@ export type TaskReminderResponse = {
   description: string
 }
 
+export type TaskEstimatedEffortUnit = 'minutes' | 'hours' | 'days'
+
+export type TaskEstimatedEffortResponse = {
+  value: number
+  unit: TaskEstimatedEffortUnit
+}
+
 export type ProjectSubtaskTemplateResponse = {
   id: string
   title: string
@@ -61,6 +68,7 @@ export type TaskDetailResponse = {
   dueDate: string | null
   createdAt: string
   completedAt: string | null
+  estimatedEffort: TaskEstimatedEffortResponse | null
   subtasks: TaskSubtaskResponse[]
   childTasks: BoardTaskCardResponse[]
   codeTraceability: TaskCodeTraceabilityResponse

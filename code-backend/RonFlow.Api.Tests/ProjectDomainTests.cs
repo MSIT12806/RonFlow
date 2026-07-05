@@ -155,6 +155,7 @@ public sealed class ProjectDomainTests
             "新的描述",
             DateOnly.FromDateTime(changedAt.DateTime),
             null,
+            null,
             changedAt);
 
         Assert.That(result.Locked, Is.True);

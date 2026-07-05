@@ -46,6 +46,13 @@ public sealed class TaskCodeTraceabilityRequest
     public List<TaskCodeTraceabilityItemRequest>? FrontendComponents { get; init; }
 }
 
+public sealed class TaskEstimatedEffortRequest
+{
+    public int? Value { get; init; }
+
+    public string? Unit { get; init; }
+}
+
 public sealed class UpdateTaskRequest
 {
     public UpdateTaskRequest()
@@ -345,6 +352,19 @@ public sealed record TaskCodeTraceabilityResponse(
     }
 }
 
+public sealed record TaskEstimatedEffortResponse(int Value, string Unit)
+{
+    public static TaskEstimatedEffortResponse FromOutput(TaskEstimatedEffortOutput output)
+    {
+        return new(output.Value, output.Unit);
+    }
+
+    public static TaskEstimatedEffortResponse FromView(TaskEstimatedEffortView view)
+    {
+        return new(view.Value, view.Unit);
+    }
+}
+
 public sealed record TaskDetailResponse(
     Guid Id,
     Guid ProjectId,
@@ -357,6 +377,7 @@ public sealed record TaskDetailResponse(
     DateOnly? DueDate,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
+    TaskEstimatedEffortResponse? EstimatedEffort,
     IReadOnlyList<TaskSubtaskResponse> Subtasks,
     IReadOnlyList<BoardTaskCardResponse> ChildTasks,
     TaskCodeTraceabilityResponse CodeTraceability,
@@ -378,6 +399,7 @@ public sealed record TaskDetailResponse(
             output.DueDate,
             output.CreatedAt,
             output.CompletedAt,
+            output.EstimatedEffort is null ? null : TaskEstimatedEffortResponse.FromOutput(output.EstimatedEffort),
             output.Subtasks.Select(TaskSubtaskResponse.FromOutput).ToArray(),
             [],
             TaskCodeTraceabilityResponse.FromOutput(output.CodeTraceability),
@@ -400,6 +422,7 @@ public sealed record TaskDetailResponse(
             view.DueDate,
             view.CreatedAt,
             view.CompletedAt,
+            view.EstimatedEffort is null ? null : TaskEstimatedEffortResponse.FromView(view.EstimatedEffort),
             view.Subtasks.Select(TaskSubtaskResponse.FromView).ToArray(),
             view.ChildTasks.Select(BoardTaskCardResponse.FromView).ToArray(),
             TaskCodeTraceabilityResponse.FromView(view.CodeTraceability),

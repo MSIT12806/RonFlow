@@ -140,6 +140,49 @@ public abstract class ApiIntegrationTestBase
         return task!;
     }
 
+    protected async Task<TaskDetailResponse> ReadyTaskForFlowAsync(Guid projectId, TaskDetailResponse task)
+    {
+        return await ReadyTaskForFlowAsync(Client, projectId, task);
+    }
+
+    protected async Task<TaskDetailResponse> ReadyTaskForFlowAsync(HttpClient client, Guid projectId, TaskDetailResponse task)
+    {
+        var lockResponse = await client.PostAsync($"/api/projects/{projectId}/tasks/{task.Id}/content-edit-lock", content: null);
+        lockResponse.EnsureSuccessStatusCode();
+
+        var updateResponse = await client.PatchAsJsonAsync(
+            $"/api/projects/{projectId}/tasks/{task.Id}",
+            new
+            {
+                title = task.Title,
+                description = task.Description,
+                dueDate = task.DueDate,
+                estimatedEffort = new { value = 2, unit = "hours" },
+                codeTraceability = task.CodeTraceability,
+            });
+
+        updateResponse.EnsureSuccessStatusCode();
+        var releaseResponse = await client.DeleteAsync($"/api/projects/{projectId}/tasks/{task.Id}/content-edit-lock");
+        releaseResponse.EnsureSuccessStatusCode();
+
+        var replaceResponse = await client.PutAsJsonAsync(
+            $"/api/projects/{projectId}/tasks/{task.Id}/subtasks",
+            new
+            {
+                items = new[]
+                {
+                    new { title = "完成條件已定義", isChecked = false, order = 0 },
+                },
+            });
+
+        replaceResponse.EnsureSuccessStatusCode();
+
+        var readyTask = await replaceResponse.Content.ReadFromJsonAsync<TaskDetailResponse>();
+        Assert.That(readyTask, Is.Not.Null);
+
+        return readyTask!;
+    }
+
     protected static async Task AssertAccessDeniedAsync(HttpResponseMessage response)
     {
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));

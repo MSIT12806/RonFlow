@@ -50,6 +50,27 @@ public sealed class ChangeTaskStateCommandService(
             return ChangeTaskStateResult.Invalid("stateKey", "指定的狀態不存在於此專案 workflow");
         }
 
+        if (!task.IsInFlow)
+        {
+            var activeChildTaskCount = taskRepository.GetByProjectId(projectId)
+                .Count(projectTask => projectTask.ParentTaskId == task.Id && projectTask.LifecycleState == TaskLifecycleState.ActiveRecord);
+
+            if (activeChildTaskCount > 0)
+            {
+                return ChangeTaskStateResult.Invalid("readyList", "父任務不可送進 Flow");
+            }
+
+            if (task.Subtasks.Count == 0)
+            {
+                return ChangeTaskStateResult.Invalid("readyList", "至少需要一筆完成條件才能送進 Flow");
+            }
+
+            if (task.EstimatedEffort is null)
+            {
+                return ChangeTaskStateResult.Invalid("estimatedEffort", "需要填寫預估耗時才能送進 Flow");
+            }
+        }
+
         var changedAt = timeProvider.GetUtcNow();
         var wasCompleted = task.CurrentState.IsCompletedState;
         var wasInFlow = task.IsInFlow;

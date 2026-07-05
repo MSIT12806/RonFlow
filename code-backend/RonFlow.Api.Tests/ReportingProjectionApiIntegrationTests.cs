@@ -14,6 +14,7 @@ public sealed class ReportingProjectionApiIntegrationTests : ApiIntegrationTestB
     {
         var project = await CreateProjectAsync("Reporting Project");
         var task = await CreateTaskAsync(project.Id, "Build reporting query");
+        task = await ReadyTaskForFlowAsync(project.Id, task);
 
         var moveToActiveResponse = await Client.PatchAsJsonAsync(
             $"/api/projects/{project.Id}/tasks/{task.Id}/state",
@@ -49,6 +50,7 @@ public sealed class ReportingProjectionApiIntegrationTests : ApiIntegrationTestB
     {
         var project = await CreateProjectAsync("Reporting Reopen Project");
         var task = await CreateTaskAsync(project.Id, "Measure reopen flow");
+        task = await ReadyTaskForFlowAsync(project.Id, task);
 
         var moveToActiveResponse = await Client.PatchAsJsonAsync(
             $"/api/projects/{project.Id}/tasks/{task.Id}/state",
@@ -88,6 +90,8 @@ public sealed class ReportingProjectionApiIntegrationTests : ApiIntegrationTestB
         var project = await CreateProjectAsync("Weekly Reporting Project");
         var firstTask = await CreateTaskAsync(project.Id, "First throughput task");
         var secondTask = await CreateTaskAsync(project.Id, "Second throughput task");
+        firstTask = await ReadyTaskForFlowAsync(project.Id, firstTask);
+        secondTask = await ReadyTaskForFlowAsync(project.Id, secondTask);
 
         var firstTaskMoveResponse = await Client.PatchAsJsonAsync(
             $"/api/projects/{project.Id}/tasks/{firstTask.Id}/state",
@@ -121,6 +125,7 @@ public sealed class ReportingProjectionApiIntegrationTests : ApiIntegrationTestB
         var project = await CreateProjectAsync("Task Aging Project");
         var openTask = await CreateTaskAsync(project.Id, "Investigate stuck task");
         var completedTask = await CreateTaskAsync(project.Id, "Close finished task");
+        completedTask = await ReadyTaskForFlowAsync(project.Id, completedTask);
 
         var completeResponse = await Client.PatchAsJsonAsync(
             $"/api/projects/{project.Id}/tasks/{completedTask.Id}/state",
@@ -144,6 +149,7 @@ public sealed class ReportingProjectionApiIntegrationTests : ApiIntegrationTestB
     {
         var project = await CreateProjectAsync("Task Aging State Project");
         var task = await CreateTaskAsync(project.Id, "Measure current state age");
+        task = await ReadyTaskForFlowAsync(project.Id, task);
 
         await Task.Delay(50);
 
