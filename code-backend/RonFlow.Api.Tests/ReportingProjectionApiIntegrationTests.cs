@@ -178,8 +178,10 @@ public sealed class ReportingProjectionApiIntegrationTests : ApiIntegrationTestB
         var secondTask = await CreateTaskAsync(project.Id, "Measure lead time two");
 
         ChangeTaskStateAt(project.Id, firstTask.Id, "active", firstTask.CreatedAt.AddHours(4));
+        ChangeTaskStateAt(project.Id, firstTask.Id, "review", firstTask.CreatedAt.AddHours(8));
         ChangeTaskStateAt(project.Id, firstTask.Id, "done", firstTask.CreatedAt.AddHours(10));
         ChangeTaskStateAt(project.Id, secondTask.Id, "active", secondTask.CreatedAt.AddHours(6));
+        ChangeTaskStateAt(project.Id, secondTask.Id, "review", secondTask.CreatedAt.AddHours(18));
         ChangeTaskStateAt(project.Id, secondTask.Id, "done", secondTask.CreatedAt.AddHours(30));
 
         var completedFrom = DateOnly.FromDateTime(firstTask.CreatedAt.UtcDateTime.AddDays(-1));
@@ -198,6 +200,26 @@ public sealed class ReportingProjectionApiIntegrationTests : ApiIntegrationTestB
         Assert.That(report.CycleTime.AverageHours, Is.EqualTo(15).Within(0.01));
         Assert.That(report.CycleTime.MedianHours, Is.EqualTo(15).Within(0.01));
         Assert.That(report.CycleTime.P90Hours, Is.EqualTo(24).Within(0.01));
+
+        var todoToActive = report.StateTransitions.Single(item => item.FromStateKey == "todo" && item.ToStateKey == "active");
+        Assert.That(todoToActive.FromStateLabel, Is.EqualTo("待處理"));
+        Assert.That(todoToActive.ToStateLabel, Is.EqualTo("進行中"));
+        Assert.That(todoToActive.Duration.SampleCount, Is.EqualTo(2));
+        Assert.That(todoToActive.Duration.AverageHours, Is.EqualTo(5).Within(0.01));
+        Assert.That(todoToActive.Duration.MedianHours, Is.EqualTo(5).Within(0.01));
+        Assert.That(todoToActive.Duration.P90Hours, Is.EqualTo(6).Within(0.01));
+
+        var activeToReview = report.StateTransitions.Single(item => item.FromStateKey == "active" && item.ToStateKey == "review");
+        Assert.That(activeToReview.Duration.SampleCount, Is.EqualTo(2));
+        Assert.That(activeToReview.Duration.AverageHours, Is.EqualTo(8).Within(0.01));
+        Assert.That(activeToReview.Duration.MedianHours, Is.EqualTo(8).Within(0.01));
+        Assert.That(activeToReview.Duration.P90Hours, Is.EqualTo(12).Within(0.01));
+
+        var reviewToDone = report.StateTransitions.Single(item => item.FromStateKey == "review" && item.ToStateKey == "done");
+        Assert.That(reviewToDone.Duration.SampleCount, Is.EqualTo(2));
+        Assert.That(reviewToDone.Duration.AverageHours, Is.EqualTo(7).Within(0.01));
+        Assert.That(reviewToDone.Duration.MedianHours, Is.EqualTo(7).Within(0.01));
+        Assert.That(reviewToDone.Duration.P90Hours, Is.EqualTo(12).Within(0.01));
     }
 
     [Test]
@@ -222,6 +244,9 @@ public sealed class ReportingProjectionApiIntegrationTests : ApiIntegrationTestB
         Assert.That(report.CycleTime.AverageHours, Is.Null);
         Assert.That(report.CycleTime.MedianHours, Is.Null);
         Assert.That(report.CycleTime.P90Hours, Is.Null);
+        Assert.That(report.StateTransitions.Single(item => item.FromStateKey == "todo" && item.ToStateKey == "active").Duration.SampleCount, Is.EqualTo(0));
+        Assert.That(report.StateTransitions.Single(item => item.FromStateKey == "active" && item.ToStateKey == "review").Duration.SampleCount, Is.EqualTo(0));
+        Assert.That(report.StateTransitions.Single(item => item.FromStateKey == "review" && item.ToStateKey == "done").Duration.SampleCount, Is.EqualTo(0));
     }
 
     private void ChangeTaskStateAt(Guid projectId, Guid taskId, string stateKey, DateTimeOffset changedAt)

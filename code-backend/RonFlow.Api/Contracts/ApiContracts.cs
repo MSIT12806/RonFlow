@@ -609,13 +609,32 @@ public sealed record CycleTimeMetricSummaryResponse(
     }
 }
 
+public sealed record CycleTimeStateTransitionSummaryResponse(
+    string FromStateKey,
+    string FromStateLabel,
+    string ToStateKey,
+    string ToStateLabel,
+    CycleTimeMetricSummaryResponse Duration)
+{
+    public static CycleTimeStateTransitionSummaryResponse FromView(CycleTimeStateTransitionSummaryView view)
+    {
+        return new(
+            view.FromStateKey,
+            view.FromStateLabel,
+            view.ToStateKey,
+            view.ToStateLabel,
+            CycleTimeMetricSummaryResponse.FromView(view.Duration));
+    }
+}
+
 public sealed record CycleTimeReportResponse(
     Guid ProjectId,
     DateOnly CompletedFrom,
     DateOnly CompletedTo,
     DateTimeOffset LastUpdatedAt,
     CycleTimeMetricSummaryResponse LeadTime,
-    CycleTimeMetricSummaryResponse CycleTime)
+    CycleTimeMetricSummaryResponse CycleTime,
+    IReadOnlyList<CycleTimeStateTransitionSummaryResponse> StateTransitions)
 {
     public static CycleTimeReportResponse FromView(CycleTimeReportView view)
     {
@@ -625,6 +644,7 @@ public sealed record CycleTimeReportResponse(
             view.CompletedTo,
             view.LastUpdatedAt,
             CycleTimeMetricSummaryResponse.FromView(view.LeadTime),
-            CycleTimeMetricSummaryResponse.FromView(view.CycleTime));
+            CycleTimeMetricSummaryResponse.FromView(view.CycleTime),
+            view.StateTransitions.Select(CycleTimeStateTransitionSummaryResponse.FromView).ToArray());
     }
 }

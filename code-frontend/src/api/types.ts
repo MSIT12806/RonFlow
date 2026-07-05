@@ -176,6 +176,14 @@ export type CycleTimeMetricSummaryResponse = {
   p90Hours: number | null
 }
 
+export type CycleTimeStateTransitionSummaryResponse = {
+  fromStateKey: WorkflowKey
+  fromStateLabel: string
+  toStateKey: WorkflowKey
+  toStateLabel: string
+  duration: CycleTimeMetricSummaryResponse
+}
+
 export type CycleTimeReportResponse = {
   projectId: string
   completedFrom: string
@@ -183,6 +191,7 @@ export type CycleTimeReportResponse = {
   lastUpdatedAt: string
   leadTime: CycleTimeMetricSummaryResponse
   cycleTime: CycleTimeMetricSummaryResponse
+  stateTransitions: CycleTimeStateTransitionSummaryResponse[]
 }
 
 export type ProjectResponse = {
