@@ -104,7 +104,7 @@ internal static class AiJsonContractFormatter
                 WriteCapability("invite_project_member", "project", true, ["projectId", "invitee"], [], new { operation = "invite_project_member", targetType = "project", targetId = "<project-id>", requiredFields = new { projectId = "<project-id>", invitee = "<email-or-user-name>" }, optionalFields = new { }, note = "invite member" }),
                 WriteCapability("accept_project_invitation", "invitation", false, ["invitationId"], [], new { operation = "accept_project_invitation", targetType = "invitation", targetId = "<invitation-id>", requiredFields = new { invitationId = "<invitation-id>" }, optionalFields = new { }, note = "accept invitation" }),
                 WriteCapability("reject_project_invitation", "invitation", false, ["invitationId"], [], new { operation = "reject_project_invitation", targetType = "invitation", targetId = "<invitation-id>", requiredFields = new { invitationId = "<invitation-id>" }, optionalFields = new { }, note = "reject invitation" }),
-                WriteCapability("update_task_detail", "task", true, ["taskId"], ["title", "description", "dueDate", "codeTraceability"], new { operation = "update_task_detail", targetType = "task", targetId = "<task-id>", requiredFields = new { taskId = "<task-id>" }, optionalFields = new { title = "<new-title>", codeTraceability = CodeTraceabilityExample() }, note = "update task detail" }),
+                WriteCapability("update_task_detail", "task", true, ["taskId"], ["title", "description", "dueDate", "estimatedEffort", "codeTraceability"], new { operation = "update_task_detail", targetType = "task", targetId = "<task-id>", requiredFields = new { taskId = "<task-id>" }, optionalFields = new { title = "<new-title>", estimatedEffort = new { value = 2, unit = "hours" }, codeTraceability = CodeTraceabilityExample() }, note = "update task detail" }),
                 WriteCapability("check_task_subtask", "task", true, ["taskId", "subtaskId"], [], new { operation = "check_task_subtask", targetType = "task", targetId = "<task-id>", requiredFields = new { taskId = "<task-id>", subtaskId = "<subtask-id>" }, optionalFields = new { }, note = "check subtask" }),
                 WriteCapability("uncheck_task_subtask", "task", true, ["taskId", "subtaskId"], [], new { operation = "uncheck_task_subtask", targetType = "task", targetId = "<task-id>", requiredFields = new { taskId = "<task-id>", subtaskId = "<subtask-id>" }, optionalFields = new { }, note = "uncheck subtask" }),
                 WriteCapability("move_task_state", "task", true, ["taskId", "targetStateKey"], [], new { operation = "move_task_state", targetType = "task", targetId = "<task-id>", requiredFields = new { taskId = "<task-id>", targetStateKey = "Done" }, optionalFields = new { }, note = "move task state" }),
@@ -164,7 +164,10 @@ internal static class AiJsonContractFormatter
         };
     }
 
-    public static object ProjectListSummary(ProjectListView projects, Func<Guid, int> openTaskCountProvider)
+    public static object ProjectListSummary(
+        ProjectListView projects,
+        Func<Guid, int> openTaskCountProvider,
+        Func<Guid, int> hatcheryTaskCountProvider)
     {
         return new
         {
@@ -177,6 +180,7 @@ internal static class AiJsonContractFormatter
                 projectName = project.Name,
                 role = NormalizeRole(project.Role),
                 openTaskCount = openTaskCountProvider(project.Id),
+                hatcheryTaskCount = hatcheryTaskCountProvider(project.Id),
             }).ToArray(),
             nextActions = new[] { "read_project_board_summary", "create_project", "activate_scope" },
         };
@@ -220,6 +224,11 @@ internal static class AiJsonContractFormatter
                 taskId = task.Id,
                 title = task.Title,
                 isInFlow = false,
+                hatcheryStatus = DescribeHatcheryStatus(task),
+                readyToEnterFlow = IsReadyLeafTask(task),
+                completionConditionCount = task.CompletionConditionCount,
+                hasEstimatedEffort = task.HasEstimatedEffort,
+                missingReadyFields = GetMissingReadyFields(task),
                 childCount = task.Children.Count,
             }).ToArray(),
             visibleTasks = board.Columns
@@ -237,15 +246,20 @@ internal static class AiJsonContractFormatter
 
     public static object CurrentWorkSummary(ProjectBoardView board)
     {
-        var openTasks = FlattenTaskTree(board.TaskTree)
+        var hatcheryTasks = FlattenTaskTree(board.TaskTree)
             .Select(task => new
             {
                 taskId = task.Id,
                 title = task.Title,
-                workflowStateKey = "Hatchery",
                 isInFlow = false,
+                hatcheryStatus = DescribeHatcheryStatus(task),
+                readyToEnterFlow = IsReadyLeafTask(task),
+                completionConditionCount = task.CompletionConditionCount,
+                hasEstimatedEffort = task.HasEstimatedEffort,
+                missingReadyFields = GetMissingReadyFields(task),
             })
-            .Concat(board.Columns
+            .ToArray();
+        var openTasks = board.Columns
             .Where(column => !column.IsCompletedState)
             .SelectMany(column => column.Tasks.Select(task => new
             {
@@ -253,7 +267,8 @@ internal static class AiJsonContractFormatter
                 title = task.Title,
                 workflowStateKey = NormalizeWorkflowKey(column.StateKey),
                 isInFlow = true,
-            })))
+                executionStatus = "executable_in_flow",
+            }))
             .ToArray();
 
         return new
@@ -263,13 +278,19 @@ internal static class AiJsonContractFormatter
             projectId = board.ProjectId,
             projectName = board.ProjectName,
             openTaskCount = openTasks.Length,
+            hatcheryTaskCount = hatcheryTasks.Length,
             openTasks,
+            hatcheryTasks,
             nextActions = new[] { "read_task_detail_summary", "update_task_detail", "move_task_state" },
         };
     }
 
     public static object TaskDetailSummary(TaskDetailView task)
     {
+        var isInFlow = task.IsInFlow;
+        var workflowStateKey = NormalizeWorkflowKey(task.CurrentState.Key);
+        var nextActions = BuildTaskDetailNextActions(task).ToArray();
+
         return new
         {
             version = "RonFlow Task Detail Summary v1",
@@ -279,9 +300,16 @@ internal static class AiJsonContractFormatter
             title = task.Title,
             description = task.Description,
             dueDate = task.DueDate?.ToString("yyyy-MM-dd"),
-            workflowStateKey = NormalizeWorkflowKey(task.CurrentState.Key),
-            workflowStateName = task.CurrentState.Label,
-            isInFlow = task.IsInFlow,
+            estimatedEffort = task.EstimatedEffort is null ? null : new { task.EstimatedEffort.Value, task.EstimatedEffort.Unit },
+            isInFlow,
+            flowMembershipStatus = isInFlow ? "in_flow" : "hatchery",
+            workflowStateKey = isInFlow ? workflowStateKey : null,
+            workflowStateName = isInFlow ? task.CurrentState.Label : null,
+            hatcheryStatus = DescribeHatcheryStatus(task),
+            readyToEnterFlow = IsReadyLeafTask(task),
+            completionConditionCount = task.Subtasks.Count,
+            hasEstimatedEffort = task.EstimatedEffort is not null,
+            missingReadyFields = GetMissingReadyFields(task),
             lifecycleState = NormalizeLifecycleState(task.LifecycleState),
             subtasks = task.Subtasks.OrderBy(subtask => subtask.Order).Select(subtask => new
             {
@@ -292,9 +320,7 @@ internal static class AiJsonContractFormatter
             }).ToArray(),
             codeTraceabilitySummary = CodeTraceabilitySummary(task.CodeTraceability),
             recentActivities = task.ActivityTimeline.Take(2).Select(activity => activity.Message).ToArray(),
-            nextActions = task.Subtasks.Count > 0
-                ? new[] { "update_task_detail", "check_task_subtask", "uncheck_task_subtask", "move_task_state", "reorder_task", "archive_task", "trash_task" }
-                : new[] { "update_task_detail", "move_task_state", "reorder_task", "archive_task", "trash_task" },
+            nextActions,
         };
     }
 
@@ -397,6 +423,112 @@ internal static class AiJsonContractFormatter
             RonFlow.Domain.TaskLifecycleState.Trashed => "trashed",
             _ => lifecycleState.ToString(),
         };
+    }
+
+    private static bool IsReadyLeafTask(BoardTaskCardView task)
+    {
+        return task.Children.Count == 0 && task.CompletionConditionCount > 0 && task.HasEstimatedEffort;
+    }
+
+    private static bool IsReadyLeafTask(TaskDetailView task)
+    {
+        return task.ChildTasks.Count == 0 && task.Subtasks.Count > 0 && task.EstimatedEffort is not null;
+    }
+
+    private static string DescribeHatcheryStatus(BoardTaskCardView task)
+    {
+        if (task.IsInFlow)
+        {
+            return "in_flow";
+        }
+
+        if (task.Children.Count > 0)
+        {
+            return "parent_not_executable";
+        }
+
+        return IsReadyLeafTask(task) ? "ready_leaf_not_in_flow" : "not_ready_leaf";
+    }
+
+    private static string DescribeHatcheryStatus(TaskDetailView task)
+    {
+        if (task.IsInFlow)
+        {
+            return "in_flow";
+        }
+
+        if (task.ChildTasks.Count > 0)
+        {
+            return "parent_not_executable";
+        }
+
+        return IsReadyLeafTask(task) ? "ready_leaf_not_in_flow" : "not_ready_leaf";
+    }
+
+    private static IReadOnlyList<string> GetMissingReadyFields(BoardTaskCardView task)
+    {
+        if (task.Children.Count > 0)
+        {
+            return ["none_parent_tasks_cannot_enter_flow"];
+        }
+
+        var missingFields = new List<string>();
+        if (task.CompletionConditionCount == 0)
+        {
+            missingFields.Add("completion_conditions");
+        }
+
+        if (!task.HasEstimatedEffort)
+        {
+            missingFields.Add("estimated_effort");
+        }
+
+        return missingFields.Count == 0 ? ["none"] : missingFields;
+    }
+
+    private static IReadOnlyList<string> GetMissingReadyFields(TaskDetailView task)
+    {
+        if (task.ChildTasks.Count > 0)
+        {
+            return ["none_parent_tasks_cannot_enter_flow"];
+        }
+
+        var missingFields = new List<string>();
+        if (task.Subtasks.Count == 0)
+        {
+            missingFields.Add("completion_conditions");
+        }
+
+        if (task.EstimatedEffort is null)
+        {
+            missingFields.Add("estimated_effort");
+        }
+
+        return missingFields.Count == 0 ? ["none"] : missingFields;
+    }
+
+    private static IEnumerable<string> BuildTaskDetailNextActions(TaskDetailView task)
+    {
+        yield return "update_task_detail";
+
+        if (task.Subtasks.Count > 0)
+        {
+            yield return "check_task_subtask";
+            yield return "uncheck_task_subtask";
+        }
+
+        if (task.IsInFlow || IsReadyLeafTask(task))
+        {
+            yield return "move_task_state";
+        }
+
+        if (task.IsInFlow)
+        {
+            yield return "reorder_task";
+        }
+
+        yield return "archive_task";
+        yield return "trash_task";
     }
 
     private static IEnumerable<BoardTaskCardView> FlattenTaskTree(IEnumerable<BoardTaskCardView> tasks)

@@ -241,12 +241,22 @@ public sealed record BoardTaskCardResponse(
     string Title,
     bool IsCompleted,
     bool IsInFlow,
+    int CompletionConditionCount,
+    bool HasEstimatedEffort,
     string ParentPath,
     IReadOnlyList<BoardTaskCardResponse> Children)
 {
     public static BoardTaskCardResponse FromView(BoardTaskCardView view)
     {
-        return new(view.Id, view.Title, view.IsCompleted, view.IsInFlow, view.ParentPath, view.Children.Select(FromView).ToArray());
+        return new(
+            view.Id,
+            view.Title,
+            view.IsCompleted,
+            view.IsInFlow,
+            view.CompletionConditionCount,
+            view.HasEstimatedEffort,
+            view.ParentPath,
+            view.Children.Select(FromView).ToArray());
     }
 }
 

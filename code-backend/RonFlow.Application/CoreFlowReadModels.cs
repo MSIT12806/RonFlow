@@ -47,6 +47,8 @@ public sealed record BoardTaskCardView(
     string Title,
     bool IsCompleted,
     bool IsInFlow,
+    int CompletionConditionCount,
+    bool HasEstimatedEffort,
     string ParentPath,
     IReadOnlyList<BoardTaskCardView> Children);
 
@@ -234,6 +236,8 @@ internal static class CoreFlowReadModelFactory
             task.Title,
             task.CurrentState.IsCompletedState,
             task.IsInFlow,
+            task.Subtasks.Count,
+            task.EstimatedEffort is not null,
             parentPaths.GetValueOrDefault(task.Id, string.Empty),
             children ?? []);
     }

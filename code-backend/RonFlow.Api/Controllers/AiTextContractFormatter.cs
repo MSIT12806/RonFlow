@@ -121,6 +121,7 @@ internal static class AiTextContractFormatter
             "  route_param_sources:",
             "  - projectId <- read_project_list_summary.project_id or read_session_summary.active_scope",
             "  - taskId <- read_project_board_summary.visible_tasks.task_id or read_current_work_summary.open_tasks.task_id",
+            "  - note: current_work_summary.open_tasks contains only tasks already in Flow; Hatchery tasks are listed separately as hatchery_tasks",
             string.Empty,
             "- capability: read_current_work_summary",
             "  category: read",
@@ -216,10 +217,10 @@ internal static class AiTextContractFormatter
             "  category: write",
             "  active_scope_required: yes",
             "  required_inputs: taskId",
-            "  optional_inputs: title, description, dueDate, codeTraceability",
+            "  optional_inputs: title, description, dueDate, estimatedEffort, codeTraceability",
             "  apply_endpoint: POST /api/ai/apply",
             "  required_fields_path: requiredFields.taskId",
-            "  optional_fields_path: optionalFields.title, optionalFields.description, optionalFields.dueDate, optionalFields.codeTraceability",
+            "  optional_fields_path: optionalFields.title, optionalFields.description, optionalFields.dueDate, optionalFields.estimatedEffort, optionalFields.codeTraceability",
             "  apply_request_example: {\"operation\":\"update_task_detail\",\"targetType\":\"task\",\"targetId\":\"<task-id>\",\"requiredFields\":{\"taskId\":\"<task-id>\"},\"optionalFields\":{\"title\":\"<new-title>\",\"codeTraceability\":{\"api\":[{\"changeType\":\"modified\",\"target\":\"GET /api/ai/capabilities\"}],\"frontendPages\":[],\"frontendComponents\":[]}},\"note\":\"update task detail\"}",
             string.Empty,
             "- capability: check_task_subtask",
@@ -350,7 +351,10 @@ internal static class AiTextContractFormatter
         return builder.ToString().TrimEnd();
     }
 
-    public static string ProjectListSummary(ProjectListView projects, Func<Guid, int> openTaskCountProvider)
+    public static string ProjectListSummary(
+        ProjectListView projects,
+        Func<Guid, int> openTaskCountProvider,
+        Func<Guid, int> hatcheryTaskCountProvider)
     {
         var builder = new StringBuilder();
         builder.AppendLine("RonFlow Project List Summary v1");
@@ -364,6 +368,7 @@ internal static class AiTextContractFormatter
             builder.AppendLine($"  project_name: {project.Name}");
             builder.AppendLine($"  role: {NormalizeRole(project.Role)}");
             builder.AppendLine($"  open_task_count: {openTaskCountProvider(project.Id)}");
+            builder.AppendLine($"  hatchery_task_count: {hatcheryTaskCountProvider(project.Id)}");
             builder.AppendLine();
         }
 
@@ -399,6 +404,11 @@ internal static class AiTextContractFormatter
             builder.AppendLine($"- task_id: {task.Id}");
             builder.AppendLine($"  title: {task.Title}");
             builder.AppendLine("  is_in_flow: no");
+            builder.AppendLine($"  hatchery_status: {DescribeHatcheryStatus(task)}");
+            builder.AppendLine($"  ready_to_enter_flow: {(IsReadyLeafTask(task) ? "yes" : "no")}");
+            builder.AppendLine($"  completion_condition_count: {task.CompletionConditionCount}");
+            builder.AppendLine($"  has_estimated_effort: {(task.HasEstimatedEffort ? "yes" : "no")}");
+            AppendMissingReadyFields(builder, "  ", task);
             builder.AppendLine($"  child_count: {task.Children.Count}");
         }
 
@@ -467,21 +477,20 @@ internal static class AiTextContractFormatter
     public static string CurrentWorkSummary(ProjectBoardView board)
     {
         var builder = new StringBuilder();
-        var openTasks = FlattenTaskTree(board.TaskTree)
+        var hatcheryTasks = FlattenTaskTree(board.TaskTree)
             .Select(task => new
             {
                 Task = task,
-                WorkflowStateKey = "Hatchery",
-                IsInFlow = false,
+                HatcheryStatus = DescribeHatcheryStatus(task),
             })
-            .Concat(board.Columns
+            .ToArray();
+        var openTasks = board.Columns
             .Where(column => !column.IsCompletedState)
             .SelectMany(column => column.Tasks.Select(task => new
             {
                 Task = task,
                 WorkflowStateKey = NormalizeWorkflowKey(column.StateKey),
-                IsInFlow = true,
-            })))
+            }))
             .ToArray();
 
         builder.AppendLine("RonFlow Current Work Summary v1");
@@ -489,6 +498,7 @@ internal static class AiTextContractFormatter
         builder.AppendLine($"project_id: {board.ProjectId}");
         builder.AppendLine($"project_name: {board.ProjectName}");
         builder.AppendLine($"open_task_count: {openTasks.Length}");
+        builder.AppendLine($"hatchery_task_count: {hatcheryTasks.Length}");
         builder.AppendLine();
         builder.AppendLine("open_tasks:");
 
@@ -497,7 +507,23 @@ internal static class AiTextContractFormatter
             builder.AppendLine($"- task_id: {task.Task.Id}");
             builder.AppendLine($"  title: {task.Task.Title}");
             builder.AppendLine($"  workflow_state_key: {task.WorkflowStateKey}");
-            builder.AppendLine($"  is_in_flow: {(task.IsInFlow ? "yes" : "no")}");
+            builder.AppendLine("  is_in_flow: yes");
+            builder.AppendLine("  execution_status: executable_in_flow");
+        }
+
+        builder.AppendLine();
+        builder.AppendLine("hatchery_tasks:");
+
+        foreach (var task in hatcheryTasks)
+        {
+            builder.AppendLine($"- task_id: {task.Task.Id}");
+            builder.AppendLine($"  title: {task.Task.Title}");
+            builder.AppendLine("  is_in_flow: no");
+            builder.AppendLine($"  hatchery_status: {task.HatcheryStatus}");
+            builder.AppendLine($"  ready_to_enter_flow: {(IsReadyLeafTask(task.Task) ? "yes" : "no")}");
+            builder.AppendLine($"  completion_condition_count: {task.Task.CompletionConditionCount}");
+            builder.AppendLine($"  has_estimated_effort: {(task.Task.HasEstimatedEffort ? "yes" : "no")}");
+            AppendMissingReadyFields(builder, "  ", task.Task);
         }
 
         builder.AppendLine();
@@ -519,9 +545,16 @@ internal static class AiTextContractFormatter
         builder.AppendLine($"title: {task.Title}");
         builder.AppendLine($"description: {task.Description}");
         builder.AppendLine($"due_date: {(task.DueDate.HasValue ? task.DueDate.Value.ToString("yyyy-MM-dd") : "none")}");
-        builder.AppendLine($"workflow_state_key: {workflowStateKey}");
-        builder.AppendLine($"workflow_state_name: {task.CurrentState.Label}");
+        builder.AppendLine($"estimated_effort: {DescribeEstimatedEffort(task.EstimatedEffort)}");
         builder.AppendLine($"is_in_flow: {(task.IsInFlow ? "yes" : "no")}");
+        builder.AppendLine($"flow_membership_status: {(task.IsInFlow ? "in_flow" : "hatchery")}");
+        builder.AppendLine($"workflow_state_key: {(task.IsInFlow ? workflowStateKey : "none")}");
+        builder.AppendLine($"workflow_state_name: {(task.IsInFlow ? task.CurrentState.Label : "none")}");
+        builder.AppendLine($"hatchery_status: {DescribeHatcheryStatus(task)}");
+        builder.AppendLine($"ready_to_enter_flow: {(IsReadyLeafTask(task) ? "yes" : "no")}");
+        builder.AppendLine($"completion_condition_count: {task.Subtasks.Count}");
+        builder.AppendLine($"has_estimated_effort: {(task.EstimatedEffort is not null ? "yes" : "no")}");
+        AppendMissingReadyFields(builder, string.Empty, task);
         builder.AppendLine($"lifecycle_state: {NormalizeLifecycleState(task.LifecycleState)}");
         builder.AppendLine("code_traceability_summary:");
         AppendTraceabilitySummary(builder, "api", task.CodeTraceability.Api);
@@ -552,12 +585,18 @@ internal static class AiTextContractFormatter
             builder.AppendLine("- check_task_subtask");
             builder.AppendLine("- uncheck_task_subtask");
         }
-        builder.AppendLine("- move_task_state");
-        builder.AppendLine("- reorder_task");
+        if (task.IsInFlow || IsReadyLeafTask(task))
+        {
+            builder.AppendLine("- move_task_state");
+        }
+        if (task.IsInFlow)
+        {
+            builder.AppendLine("- reorder_task");
+        }
         builder.AppendLine("- archive_task");
         builder.AppendLine("- trash_task");
 
-        if (string.Equals(workflowStateKey, "Todo", StringComparison.Ordinal))
+        if (task.IsInFlow && string.Equals(workflowStateKey, "Todo", StringComparison.Ordinal))
         {
             builder.AppendLine();
             builder.AppendLine("recommended_start_work_apply:");
@@ -693,6 +732,107 @@ internal static class AiTextContractFormatter
             TaskLifecycleState.Trashed => "trashed",
             _ => lifecycleState.ToString(),
         };
+    }
+
+    private static string DescribeEstimatedEffort(TaskEstimatedEffortView? estimatedEffort)
+    {
+        return estimatedEffort is null ? "none" : $"{estimatedEffort.Value} {estimatedEffort.Unit}";
+    }
+
+    private static bool IsReadyLeafTask(BoardTaskCardView task)
+    {
+        return task.Children.Count == 0 && task.CompletionConditionCount > 0 && task.HasEstimatedEffort;
+    }
+
+    private static bool IsReadyLeafTask(TaskDetailView task)
+    {
+        return task.ChildTasks.Count == 0 && task.Subtasks.Count > 0 && task.EstimatedEffort is not null;
+    }
+
+    private static string DescribeHatcheryStatus(BoardTaskCardView task)
+    {
+        if (task.IsInFlow)
+        {
+            return "in_flow";
+        }
+
+        if (task.Children.Count > 0)
+        {
+            return "parent_not_executable";
+        }
+
+        return IsReadyLeafTask(task) ? "ready_leaf_not_in_flow" : "not_ready_leaf";
+    }
+
+    private static string DescribeHatcheryStatus(TaskDetailView task)
+    {
+        if (task.IsInFlow)
+        {
+            return "in_flow";
+        }
+
+        if (task.ChildTasks.Count > 0)
+        {
+            return "parent_not_executable";
+        }
+
+        return IsReadyLeafTask(task) ? "ready_leaf_not_in_flow" : "not_ready_leaf";
+    }
+
+    private static void AppendMissingReadyFields(StringBuilder builder, string indent, BoardTaskCardView task)
+    {
+        builder.AppendLine($"{indent}missing_ready_fields:");
+        if (task.Children.Count > 0)
+        {
+            builder.AppendLine($"{indent}- none_parent_tasks_cannot_enter_flow");
+            return;
+        }
+
+        var missingCount = 0;
+        if (task.CompletionConditionCount == 0)
+        {
+            builder.AppendLine($"{indent}- completion_conditions");
+            missingCount += 1;
+        }
+
+        if (!task.HasEstimatedEffort)
+        {
+            builder.AppendLine($"{indent}- estimated_effort");
+            missingCount += 1;
+        }
+
+        if (missingCount == 0)
+        {
+            builder.AppendLine($"{indent}- none");
+        }
+    }
+
+    private static void AppendMissingReadyFields(StringBuilder builder, string indent, TaskDetailView task)
+    {
+        builder.AppendLine($"{indent}missing_ready_fields:");
+        if (task.ChildTasks.Count > 0)
+        {
+            builder.AppendLine($"{indent}- none_parent_tasks_cannot_enter_flow");
+            return;
+        }
+
+        var missingCount = 0;
+        if (task.Subtasks.Count == 0)
+        {
+            builder.AppendLine($"{indent}- completion_conditions");
+            missingCount += 1;
+        }
+
+        if (task.EstimatedEffort is null)
+        {
+            builder.AppendLine($"{indent}- estimated_effort");
+            missingCount += 1;
+        }
+
+        if (missingCount == 0)
+        {
+            builder.AppendLine($"{indent}- none");
+        }
     }
 
     private static void AppendTraceabilitySummary(

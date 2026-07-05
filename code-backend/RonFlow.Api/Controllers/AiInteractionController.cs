@@ -101,10 +101,11 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
         var projects = getProjectsQueryService.Get(currentUserId);
 
         int OpenTaskCount(Guid projectId) => CountOpenTasks(getProjectBoardQueryService.Get(projectId));
+        int HatcheryTaskCount(Guid projectId) => CountHatcheryTasks(getProjectBoardQueryService.Get(projectId));
 
         return ContractResponse(
-            AiTextContractFormatter.ProjectListSummary(projects, OpenTaskCount),
-            AiJsonContractFormatter.ProjectListSummary(projects, OpenTaskCount),
+            AiTextContractFormatter.ProjectListSummary(projects, OpenTaskCount, HatcheryTaskCount),
+            AiJsonContractFormatter.ProjectListSummary(projects, OpenTaskCount, HatcheryTaskCount),
             format);
     }
 
@@ -1277,9 +1278,14 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
             return 0;
         }
 
-        return CountTaskTreeNodes(board.TaskTree) + board.Columns
+        return board.Columns
             .Where(column => !column.IsCompletedState)
             .Sum(column => column.Tasks.Count);
+    }
+
+    private static int CountHatcheryTasks(ProjectBoardView? board)
+    {
+        return board is null ? 0 : CountTaskTreeNodes(board.TaskTree);
     }
 
     private static int CountTaskTreeNodes(IEnumerable<BoardTaskCardView> tasks)

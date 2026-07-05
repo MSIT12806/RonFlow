@@ -85,7 +85,8 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("- capability: create_task"));
         Assert.That(payload, Does.Contain("required_fields_path: requiredFields.projectId, requiredFields.title"));
         Assert.That(payload, Does.Contain("\"operation\":\"create_task\""));
-        Assert.That(payload, Does.Contain("optional_inputs: title, description, dueDate, codeTraceability"));
+        Assert.That(payload, Does.Contain("optional_inputs: title, description, dueDate, estimatedEffort, codeTraceability"));
+        Assert.That(payload, Does.Contain("optionalFields.estimatedEffort"));
         Assert.That(payload, Does.Contain("optionalFields.codeTraceability"));
         Assert.That(payload, Does.Contain("- capability: invite_project_member"));
         Assert.That(payload, Does.Contain("- capability: accept_project_invitation"));
@@ -184,6 +185,8 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("projects_count: 1"));
         Assert.That(payload, Does.Contain($"project_id: {project.Id}"));
         Assert.That(payload, Does.Contain("project_name: AI Project Summary"));
+        Assert.That(payload, Does.Contain("open_task_count: 0"));
+        Assert.That(payload, Does.Contain("hatchery_task_count: 0"));
         Assert.That(payload, Does.Contain("next_actions:"));
         Assert.That(payload, Does.Contain("- read_project_board_summary"));
     }
@@ -211,6 +214,7 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(projectSummary.GetProperty("projectId").GetGuid(), Is.EqualTo(project.Id));
         Assert.That(projectSummary.GetProperty("projectName").GetString(), Is.EqualTo("AI JSON Project Summary"));
         Assert.That(projectSummary.TryGetProperty("openTaskCount", out _), Is.True);
+        Assert.That(projectSummary.TryGetProperty("hatcheryTaskCount", out _), Is.True);
     }
 
     [Test]
@@ -267,6 +271,12 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain($"task_id: {task.Id}"));
         Assert.That(payload, Does.Contain("title: Build AI Board"));
         Assert.That(payload, Does.Contain("is_in_flow: no"));
+        Assert.That(payload, Does.Contain("hatchery_status: not_ready_leaf"));
+        Assert.That(payload, Does.Contain("ready_to_enter_flow: no"));
+        Assert.That(payload, Does.Contain("completion_condition_count: 0"));
+        Assert.That(payload, Does.Contain("has_estimated_effort: no"));
+        Assert.That(payload, Does.Contain("- completion_conditions"));
+        Assert.That(payload, Does.Contain("- estimated_effort"));
         Assert.That(payload, Does.Contain("visible_tasks:"));
         Assert.That(payload, Does.Contain("next_actions:"));
     }
@@ -286,12 +296,17 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
 
         Assert.That(payload, Does.Contain("RonFlow Current Work Summary v1"));
         Assert.That(payload, Does.Contain($"project_id: {project.Id}"));
-        Assert.That(payload, Does.Contain("open_task_count: 1"));
+        Assert.That(payload, Does.Contain("open_task_count: 0"));
+        Assert.That(payload, Does.Contain("hatchery_task_count: 1"));
         Assert.That(payload, Does.Contain("open_tasks:"));
+        Assert.That(payload, Does.Contain("hatchery_tasks:"));
         Assert.That(payload, Does.Contain($"task_id: {task.Id}"));
         Assert.That(payload, Does.Contain("title: Build AI Discovery Surface"));
-        Assert.That(payload, Does.Contain("workflow_state_key: Hatchery"));
         Assert.That(payload, Does.Contain("is_in_flow: no"));
+        Assert.That(payload, Does.Contain("hatchery_status: not_ready_leaf"));
+        Assert.That(payload, Does.Contain("ready_to_enter_flow: no"));
+        Assert.That(payload, Does.Contain("- completion_conditions"));
+        Assert.That(payload, Does.Contain("- estimated_effort"));
     }
 
     [Test]
@@ -310,19 +325,23 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("RonFlow Task Detail Summary v1"));
         Assert.That(payload, Does.Contain($"task_id: {task.Id}"));
         Assert.That(payload, Does.Contain("title: Build AI Task Summary"));
-        Assert.That(payload, Does.Contain("workflow_state_key: Todo"));
+        Assert.That(payload, Does.Contain("estimated_effort: none"));
+        Assert.That(payload, Does.Contain("flow_membership_status: hatchery"));
+        Assert.That(payload, Does.Contain("workflow_state_key: none"));
+        Assert.That(payload, Does.Contain("workflow_state_name: none"));
+        Assert.That(payload, Does.Contain("hatchery_status: not_ready_leaf"));
+        Assert.That(payload, Does.Contain("ready_to_enter_flow: no"));
+        Assert.That(payload, Does.Contain("completion_condition_count: 0"));
+        Assert.That(payload, Does.Contain("has_estimated_effort: no"));
+        Assert.That(payload, Does.Contain("- completion_conditions"));
+        Assert.That(payload, Does.Contain("- estimated_effort"));
         Assert.That(payload, Does.Contain("code_traceability_summary:"));
         Assert.That(payload, Does.Contain("category: api"));
         Assert.That(payload, Does.Contain("item_count: 0"));
         Assert.That(payload, Does.Contain("next_actions:"));
         Assert.That(payload, Does.Contain("- update_task_detail"));
-        Assert.That(payload, Does.Contain("recommended_start_work_apply:"));
-        Assert.That(payload, Does.Contain("operation: move_task_state"));
-        Assert.That(payload, Does.Contain($"targetId: {task.Id}"));
-        Assert.That(payload, Does.Contain("requiredFields:"));
-        Assert.That(payload, Does.Contain($"  taskId: {task.Id}"));
-        Assert.That(payload, Does.Contain("  targetStateKey: Active"));
-        Assert.That(payload, Does.Contain("skip_when: only inspecting, comparing, estimating, clarifying, or explicitly told not to change task state"));
+        Assert.That(payload, Does.Not.Contain("- move_task_state"));
+        Assert.That(payload, Does.Not.Contain("recommended_start_work_apply:"));
     }
 
     [Test]
