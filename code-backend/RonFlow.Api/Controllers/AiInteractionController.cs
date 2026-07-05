@@ -1018,6 +1018,15 @@ public sealed class AiInteractionController : AuthenticatedControllerBase
 
     private static IResult ValidationFailed(string fieldName, string message)
     {
+        if (string.Equals(fieldName, "optionalFields.estimatedEffort", StringComparison.OrdinalIgnoreCase))
+        {
+            return ErrorText(
+                StatusCodes.Status400BadRequest,
+                "ValidationFailed",
+                "Use optionalFields.estimatedEffort as an object: {\"value\":5,\"unit\":\"hours\"}. Valid units: minutes, hours, days. Do not send \"5h\" or \"5 hours\".",
+                message);
+        }
+
         return ErrorText(StatusCodes.Status400BadRequest, "ValidationFailed", $"Correct `{fieldName}` and submit the write request again.", message);
     }
 

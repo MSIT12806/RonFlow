@@ -221,7 +221,15 @@ internal static class AiTextContractFormatter
             "  apply_endpoint: POST /api/ai/apply",
             "  required_fields_path: requiredFields.taskId",
             "  optional_fields_path: optionalFields.title, optionalFields.description, optionalFields.dueDate, optionalFields.estimatedEffort, optionalFields.codeTraceability",
-            "  apply_request_example: {\"operation\":\"update_task_detail\",\"targetType\":\"task\",\"targetId\":\"<task-id>\",\"requiredFields\":{\"taskId\":\"<task-id>\"},\"optionalFields\":{\"title\":\"<new-title>\",\"codeTraceability\":{\"api\":[{\"changeType\":\"modified\",\"target\":\"GET /api/ai/capabilities\"}],\"frontendPages\":[],\"frontendComponents\":[]}},\"note\":\"update task detail\"}",
+            "  estimatedEffort_shape:",
+            "    optionalFields.estimatedEffort:",
+            "      value: positive integer",
+            "      unit: one of minutes, hours, days",
+            "    example: {\"value\":5,\"unit\":\"hours\"}",
+            "    invalid_examples:",
+            "    - \"5h\"",
+            "    - \"5 hours\"",
+            "  apply_request_example: {\"operation\":\"update_task_detail\",\"targetType\":\"task\",\"targetId\":\"<task-id>\",\"requiredFields\":{\"taskId\":\"<task-id>\"},\"optionalFields\":{\"title\":\"<new-title>\",\"estimatedEffort\":{\"value\":5,\"unit\":\"hours\"},\"codeTraceability\":{\"api\":[{\"changeType\":\"modified\",\"target\":\"GET /api/ai/capabilities\"}],\"frontendPages\":[],\"frontendComponents\":[]}},\"note\":\"update task detail\"}",
             string.Empty,
             "- capability: check_task_subtask",
             "  category: write",
@@ -409,6 +417,7 @@ internal static class AiTextContractFormatter
             builder.AppendLine($"  completion_condition_count: {task.CompletionConditionCount}");
             builder.AppendLine($"  has_estimated_effort: {(task.HasEstimatedEffort ? "yes" : "no")}");
             AppendMissingReadyFields(builder, "  ", task);
+            AppendReadyFieldFormats(builder, "  ", task);
             builder.AppendLine($"  child_count: {task.Children.Count}");
         }
 
@@ -524,6 +533,7 @@ internal static class AiTextContractFormatter
             builder.AppendLine($"  completion_condition_count: {task.Task.CompletionConditionCount}");
             builder.AppendLine($"  has_estimated_effort: {(task.Task.HasEstimatedEffort ? "yes" : "no")}");
             AppendMissingReadyFields(builder, "  ", task.Task);
+            AppendReadyFieldFormats(builder, "  ", task.Task);
         }
 
         builder.AppendLine();
@@ -555,6 +565,7 @@ internal static class AiTextContractFormatter
         builder.AppendLine($"completion_condition_count: {task.Subtasks.Count}");
         builder.AppendLine($"has_estimated_effort: {(task.EstimatedEffort is not null ? "yes" : "no")}");
         AppendMissingReadyFields(builder, string.Empty, task);
+        AppendReadyFieldFormats(builder, string.Empty, task);
         builder.AppendLine($"lifecycle_state: {NormalizeLifecycleState(task.LifecycleState)}");
         builder.AppendLine("code_traceability_summary:");
         AppendTraceabilitySummary(builder, "api", task.CodeTraceability.Api);
@@ -833,6 +844,28 @@ internal static class AiTextContractFormatter
         {
             builder.AppendLine($"{indent}- none");
         }
+    }
+
+    private static void AppendReadyFieldFormats(StringBuilder builder, string indent, BoardTaskCardView task)
+    {
+        if (task.Children.Count == 0 && !task.HasEstimatedEffort)
+        {
+            AppendEstimatedEffortReadyFieldFormat(builder, indent);
+        }
+    }
+
+    private static void AppendReadyFieldFormats(StringBuilder builder, string indent, TaskDetailView task)
+    {
+        if (task.ChildTasks.Count == 0 && task.EstimatedEffort is null)
+        {
+            AppendEstimatedEffortReadyFieldFormat(builder, indent);
+        }
+    }
+
+    private static void AppendEstimatedEffortReadyFieldFormat(StringBuilder builder, string indent)
+    {
+        builder.AppendLine($"{indent}ready_field_formats:");
+        builder.AppendLine($"{indent}- estimated_effort: optionalFields.estimatedEffort = {{\"value\": <positive integer>, \"unit\": \"minutes|hours|days\"}}");
     }
 
     private static void AppendTraceabilitySummary(
