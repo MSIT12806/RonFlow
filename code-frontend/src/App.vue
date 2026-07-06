@@ -41,7 +41,11 @@
         :error-message="pageError"
         error-scope="page"
       >
-        <section class="workspace-layout">
+        <section
+          class="workspace-layout"
+          :class="{ 'workspace-layout-collapsed': isTaskDetailOpen && taskDetailViewMode === 'drawer' }"
+          data-testid="workspace-layout"
+        >
           <ProjectSidebar
             :projects="projects"
             :active-project-id="activeProjectId"
@@ -182,6 +186,7 @@
       :can-enable-reminder-delivery="canEnableReminderDelivery"
       :is-enabling-reminder-delivery="isEnablingReminderDelivery"
       :mode="taskDetailMode"
+      :view-mode="taskDetailViewMode"
       :display-title="taskDetailDisplayTitle"
       :task="selectedTask"
       :format-timeline-time="formatTimelineTime"
@@ -284,6 +289,7 @@ const showAsyncStatePlayground = import.meta.env.DEV
 const createProjectModalRef = ref<InstanceType<typeof CreateProjectModal> | null>(null)
 const createTaskModalRef = ref<InstanceType<typeof CreateTaskModal> | null>(null)
 const currentWorkspaceView = ref<WorkspaceView>('board')
+const taskDetailViewMode = ref<'drawer' | 'modal'>('drawer')
 const invitationInboxCount = ref(0)
 const isProjectSubtaskTemplatesOpen = ref(false)
 const isLoadingProjectSubtaskTemplates = ref(false)

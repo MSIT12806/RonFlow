@@ -386,6 +386,53 @@ button {
   align-items: start;
 }
 
+@media (min-width: 1101px) {
+  .workspace-layout-collapsed {
+    grid-template-columns: minmax(88px, 112px) minmax(0, 1fr);
+  }
+
+  .workspace-layout-collapsed .project-panel {
+    position: sticky;
+    top: 16px;
+    overflow: hidden;
+    padding: 16px 10px;
+  }
+
+  .workspace-layout-collapsed .panel-heading-row {
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    text-align: center;
+  }
+
+  .workspace-layout-collapsed .panel-heading-row .eyebrow,
+  .workspace-layout-collapsed .panel-title,
+  .workspace-layout-collapsed .project-panel-actions,
+  .workspace-layout-collapsed .project-chip small,
+  .workspace-layout-collapsed .empty-copy {
+    display: none;
+  }
+
+  .workspace-layout-collapsed .project-list {
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .workspace-layout-collapsed .project-chip {
+    align-items: center;
+    min-height: 54px;
+    padding: 12px 8px;
+    text-align: center;
+  }
+
+  .workspace-layout-collapsed .project-chip-title {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 .project-panel,
 .board-panel {
   border: 1px solid rgba(255, 255, 255, 0.75);

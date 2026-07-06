@@ -4,11 +4,16 @@
     data-testid="base-modal-shell"
     :class="[
       'base-modal-shell__backdrop',
+      `base-modal-shell__backdrop--${presentation}`,
       { 'base-modal-shell__backdrop--allow-underlay-interaction': allowUnderlayInteraction },
     ]"
   >
     <div
-      :class="['base-modal-shell__card', { 'base-modal-shell__card--wide': size === 'wide' }]"
+      :class="[
+        'base-modal-shell__card',
+        `base-modal-shell__card--${presentation}`,
+        { 'base-modal-shell__card--wide': size === 'wide' },
+      ]"
       data-testid="base-modal-shell-card"
       role="dialog"
       :aria-modal="allowUnderlayInteraction ? 'false' : 'true'"
@@ -42,11 +47,13 @@ withDefaults(defineProps<{
   titleId: string
   eyebrow?: string
   size?: 'default' | 'wide'
+  presentation?: 'modal' | 'drawer'
   closeDisabled?: boolean
   allowUnderlayInteraction?: boolean
 }>(), {
   eyebrow: '',
   size: 'default',
+  presentation: 'modal',
   closeDisabled: false,
   allowUnderlayInteraction: false,
 })
@@ -69,6 +76,13 @@ defineEmits<{
   background: rgba(15, 23, 42, 0.34);
 }
 
+.base-modal-shell__backdrop--drawer {
+  align-items: stretch;
+  justify-content: flex-end;
+  padding: 16px;
+  background: transparent;
+}
+
 .base-modal-shell__backdrop--allow-underlay-interaction {
   pointer-events: none;
 }
@@ -88,6 +102,17 @@ defineEmits<{
   width: min(720px, 100%);
 }
 
+.base-modal-shell__card--drawer {
+  width: min(640px, 100%);
+  max-height: calc(100dvh - 32px);
+  border-radius: 24px;
+  box-shadow: 0 28px 72px rgba(15, 23, 42, 0.18);
+}
+
+.base-modal-shell__card--drawer.base-modal-shell__card--wide {
+  width: min(680px, 100%);
+}
+
 .base-modal-shell__header {
   display: flex;
   align-items: center;
@@ -100,6 +125,10 @@ defineEmits<{
 }
 
 @media (max-width: 720px) {
+  .base-modal-shell__backdrop--drawer {
+    padding: 0;
+  }
+
   .base-modal-shell__header {
     flex-direction: column;
     align-items: stretch;
@@ -107,6 +136,12 @@ defineEmits<{
 
   .base-modal-shell__card {
     padding: 20px;
+  }
+
+  .base-modal-shell__card--drawer {
+    width: 100%;
+    max-height: 100dvh;
+    border-radius: 0;
   }
 }
 </style>

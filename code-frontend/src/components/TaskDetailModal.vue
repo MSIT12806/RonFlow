@@ -7,6 +7,7 @@
     title-id="task-detail-title"
     eyebrow="Task detail"
     size="wide"
+    :presentation="viewMode"
     @close="$emit('close')"
   >
       <section v-if="displayTitle" class="detail-preview-header">
@@ -465,6 +466,7 @@ const props = withDefaults(defineProps<{
   canEnableReminderDelivery: boolean
   isEnablingReminderDelivery: boolean
   mode: TaskDetailMode
+  viewMode?: 'drawer' | 'modal'
   displayTitle: string
   task: TaskDetailResponse | null
   formatTimelineTime: (occurredAt: string) => string
@@ -472,6 +474,7 @@ const props = withDefaults(defineProps<{
   isEditing: false,
   isReadOnly: false,
   canEnterEdit: true,
+  viewMode: 'drawer',
 })
 
 const emit = defineEmits<{
