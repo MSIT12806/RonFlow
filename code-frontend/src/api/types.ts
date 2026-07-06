@@ -32,6 +32,13 @@ export type TaskReminderResponse = {
   description: string
 }
 
+export type TaskEstimatedEffortUnit = 'minutes' | 'hours' | 'days'
+
+export type TaskEstimatedEffortResponse = {
+  value: number
+  unit: TaskEstimatedEffortUnit
+}
+
 export type ProjectSubtaskTemplateResponse = {
   id: string
   title: string
@@ -61,8 +68,10 @@ export type TaskDetailResponse = {
   dueDate: string | null
   createdAt: string
   completedAt: string | null
+  estimatedEffort: TaskEstimatedEffortResponse | null
   subtasks: TaskSubtaskResponse[]
   childTasks: BoardTaskCardResponse[]
+  parentPath: string
   codeTraceability: TaskCodeTraceabilityResponse
   reminders?: TaskReminderResponse[]
   activityTimeline: ActivityTimelineItemResponse[]
@@ -87,6 +96,9 @@ export type LifecycleTaskListResponse = {
 export type BoardTaskCardResponse = {
   id: string
   title: string
+  isCompleted: boolean
+  isInFlow: boolean
+  parentPath: string
   children: BoardTaskCardResponse[]
 }
 
@@ -164,6 +176,14 @@ export type CycleTimeMetricSummaryResponse = {
   p90Hours: number | null
 }
 
+export type CycleTimeStateTransitionSummaryResponse = {
+  fromStateKey: WorkflowKey
+  fromStateLabel: string
+  toStateKey: WorkflowKey
+  toStateLabel: string
+  duration: CycleTimeMetricSummaryResponse
+}
+
 export type CycleTimeReportResponse = {
   projectId: string
   completedFrom: string
@@ -171,6 +191,7 @@ export type CycleTimeReportResponse = {
   lastUpdatedAt: string
   leadTime: CycleTimeMetricSummaryResponse
   cycleTime: CycleTimeMetricSummaryResponse
+  stateTransitions: CycleTimeStateTransitionSummaryResponse[]
 }
 
 export type ProjectResponse = {

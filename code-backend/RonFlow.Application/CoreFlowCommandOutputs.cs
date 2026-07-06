@@ -22,6 +22,7 @@ public sealed record CreateTaskOutput(
     DateOnly? DueDate,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
+    TaskEstimatedEffortOutput? EstimatedEffort,
     IReadOnlyList<TaskSubtaskOutput> Subtasks,
     TaskCodeTraceabilityOutput CodeTraceability,
     IReadOnlyList<CreatedTaskReminderOutput> Reminders,
@@ -35,6 +36,8 @@ public sealed record TaskCodeTraceabilityOutput(
     IReadOnlyList<TaskCodeTraceabilityItemOutput> FrontendComponents);
 
 public sealed record TaskCodeTraceabilityItemOutput(string ChangeType, string Target);
+
+public sealed record TaskEstimatedEffortOutput(int Value, string Unit);
 
 public sealed record ProjectSubtaskTemplateOutput(Guid Id, string Title, int Order);
 
@@ -67,6 +70,7 @@ internal static class CoreFlowCommandOutputFactory
             task.DueDate,
             task.CreatedAt,
             task.CompletedAt,
+            task.EstimatedEffort is null ? null : new TaskEstimatedEffortOutput(task.EstimatedEffort.Value, task.EstimatedEffort.Unit),
             task.Subtasks.Select(CreateTaskSubtask).ToArray(),
             CreateTaskCodeTraceability(task.CodeTraceability),
             task.Reminders.Select(CreateTaskReminder).ToArray(),

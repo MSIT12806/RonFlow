@@ -20,6 +20,8 @@ public sealed record TaskCodeTraceabilityModel(
     IReadOnlyList<TaskCodeTraceabilityItemModel> FrontendPages,
     IReadOnlyList<TaskCodeTraceabilityItemModel> FrontendComponents);
 
+public sealed record TaskEstimatedEffortModel(int Value, string Unit);
+
 public sealed record ProjectSubtaskTemplateModel(Guid Id, string Title, int Order);
 
 public sealed record TaskSubtaskModel(Guid Id, string Title, bool IsChecked, int Order);
@@ -39,6 +41,7 @@ public sealed record TaskModel(
     DateTimeOffset? ArchivedAt,
     DateTimeOffset? TrashedAt,
     int SortOrder,
+    TaskEstimatedEffortModel? EstimatedEffort,
     IReadOnlyList<TaskSubtaskModel> Subtasks,
     IReadOnlyList<TaskReminderModel> Reminders,
     TaskCodeTraceabilityModel CodeTraceability,

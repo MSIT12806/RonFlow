@@ -193,6 +193,7 @@
       @close="closeTaskDetail"
       @enter-edit="enterTaskDetailEditMode"
       @save="onTaskDetailSave"
+      @send-to-flow="onSendTaskToFlow"
       @replace-subtasks="onReplaceTaskSubtasks"
       @create-child-task="onCreateChildTask"
       @open-child-task="onOpenTaskDetail"
@@ -252,6 +253,7 @@ import type {
   ProjectCodeTraceabilityItemResponse,
   ProjectSubtaskTemplateResponse,
   TaskAgingReportResponse,
+  TaskEstimatedEffortResponse,
   WorkflowThroughputReportResponse,
 } from './api/ronflowApi'
 import { ApiValidationError, activateRonFlowSession, releaseRonFlowProjectScope } from './api/ronflowApi'
@@ -379,6 +381,7 @@ const {
   closeTaskDetail,
   moveTaskToState,
   updateTaskDetail,
+  sendTaskToFlow,
   replaceTaskSubtasks,
   createChildTask,
   createReminder,
@@ -700,6 +703,7 @@ async function onTaskDetailSave(payload: {
   title: string
   description: string
   dueDate: string | null
+  estimatedEffort: TaskEstimatedEffortResponse | null
   codeTraceability: EditableTaskCodeTraceability
   subtasks: EditableTaskSubtask[]
 }) {
@@ -708,9 +712,14 @@ async function onTaskDetailSave(payload: {
     payload.title,
     payload.description,
     payload.dueDate,
+    payload.estimatedEffort,
     payload.codeTraceability,
     payload.subtasks,
   )
+}
+
+async function onSendTaskToFlow(taskId: string) {
+  await sendTaskToFlow(taskId)
 }
 
 async function onReplaceTaskSubtasks(payload: { taskId: string; subtasks: EditableTaskSubtask[] }) {

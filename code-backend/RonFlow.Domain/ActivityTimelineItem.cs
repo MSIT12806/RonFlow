@@ -34,6 +34,11 @@ public sealed record ActivityTimelineItem(string Type, string Message, DateTimeO
         return new("TaskDueDateChanged", message, occurredAt);
     }
 
+    public static ActivityTimelineItem TaskEstimatedEffortChanged(DateTimeOffset occurredAt)
+    {
+        return new("TaskEstimatedEffortChanged", "已更新預估耗時", occurredAt);
+    }
+
     public static ActivityTimelineItem TaskCodeTraceabilityChanged(DateTimeOffset occurredAt)
     {
         return new("TaskCodeTraceabilityChanged", "已更新程式修改追蹤", occurredAt);

@@ -1,5 +1,5 @@
 import { apiPath, request } from './request'
-import type { LifecycleTaskListResponse, TaskDetailResponse } from './types'
+import type { LifecycleTaskListResponse, TaskDetailResponse, TaskEstimatedEffortResponse } from './types'
 
 export async function createTask(projectId: string, title: string) {
   return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks`), {
@@ -38,6 +38,7 @@ export async function updateTask(projectId: string, taskId: string, payload: {
   title: string
   description: string
   dueDate: string | null
+  estimatedEffort: TaskEstimatedEffortResponse | null
   codeTraceability: {
     api: Array<{ changeType: 'added' | 'modified' | 'removed'; target: string }>
     frontendPages: Array<{ changeType: 'added' | 'modified' | 'removed'; target: string }>

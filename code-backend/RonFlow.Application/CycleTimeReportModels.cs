@@ -8,13 +8,21 @@ public sealed record CycleTimeMetricSummaryView(
     double? MedianHours,
     double? P90Hours);
 
+public sealed record CycleTimeStateTransitionSummaryView(
+    string FromStateKey,
+    string FromStateLabel,
+    string ToStateKey,
+    string ToStateLabel,
+    CycleTimeMetricSummaryView Duration);
+
 public sealed record CycleTimeReportView(
     Guid ProjectId,
     DateOnly CompletedFrom,
     DateOnly CompletedTo,
     DateTimeOffset LastUpdatedAt,
     CycleTimeMetricSummaryView LeadTime,
-    CycleTimeMetricSummaryView CycleTime);
+    CycleTimeMetricSummaryView CycleTime,
+    IReadOnlyList<CycleTimeStateTransitionSummaryView> StateTransitions);
 
 public sealed class GetCycleTimeReportQueryService(
     ProjectAccessService projectAccessService,
@@ -67,13 +75,16 @@ public sealed class GetCycleTimeReportQueryService(
             .Select(value => value!.Value)
             .ToArray();
 
+        var stateTransitions = CreateStateTransitionSummaries(board.WorkflowStates, completedTasks);
+
         return OwnedResourceQueryResult<CycleTimeReportView>.Success(new CycleTimeReportView(
             projectId,
             effectiveFrom,
             effectiveTo,
             now,
             CreateSummary(leadTimeSamples),
-            CreateSummary(cycleTimeSamples)));
+            CreateSummary(cycleTimeSamples),
+            stateTransitions));
     }
 
     private static bool IsWithinDateRange(DateTimeOffset completedAt, DateOnly completedFrom, DateOnly completedTo)
@@ -105,6 +116,123 @@ public sealed class GetCycleTimeReportQueryService(
 
         enteredAt = candidate;
         return true;
+    }
+
+    private static IReadOnlyList<CycleTimeStateTransitionSummaryView> CreateStateTransitionSummaries(
+        IReadOnlyList<WorkflowStateModel> workflowStates,
+        IReadOnlyList<TaskModel> completedTasks)
+    {
+        var transitions = new[]
+        {
+            ("todo", "active"),
+            ("active", "review"),
+            ("review", "done"),
+        };
+
+        var statesByKey = workflowStates.ToDictionary(state => state.Key, StringComparer.OrdinalIgnoreCase);
+        var summaries = new List<CycleTimeStateTransitionSummaryView>();
+        foreach (var (fromStateKey, toStateKey) in transitions)
+        {
+            if (!statesByKey.TryGetValue(fromStateKey, out var fromState)
+                || !statesByKey.TryGetValue(toStateKey, out var toState))
+            {
+                continue;
+            }
+
+            var samples = completedTasks
+                .Select(task => TryGetTransitionDurationHours(task, workflowStates, fromState.Key, toState.Key, out var durationHours)
+                    ? (double?)durationHours
+                    : null)
+                .Where(value => value.HasValue)
+                .Select(value => value!.Value)
+                .ToArray();
+
+            summaries.Add(new CycleTimeStateTransitionSummaryView(
+                fromState.Key,
+                fromState.Label,
+                toState.Key,
+                toState.Label,
+                CreateSummary(samples)));
+        }
+
+        return summaries;
+    }
+
+    private static bool TryGetTransitionDurationHours(
+        TaskModel task,
+        IReadOnlyList<WorkflowStateModel> workflowStates,
+        string fromStateKey,
+        string toStateKey,
+        out double durationHours)
+    {
+        durationHours = default;
+        if (task.CompletedAt is null)
+        {
+            return false;
+        }
+
+        var orderedEntries = CreateStateEntries(task, workflowStates, task.CompletedAt.Value);
+        var toStateIndex = -1;
+        for (var index = orderedEntries.Count - 1; index >= 0; index -= 1)
+        {
+            if (string.Equals(orderedEntries[index].StateKey, toStateKey, StringComparison.OrdinalIgnoreCase))
+            {
+                toStateIndex = index;
+                break;
+            }
+        }
+
+        if (toStateIndex <= 0)
+        {
+            return false;
+        }
+
+        for (var index = toStateIndex - 1; index >= 0; index -= 1)
+        {
+            if (!string.Equals(orderedEntries[index].StateKey, fromStateKey, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            durationHours = (orderedEntries[toStateIndex].EnteredAt - orderedEntries[index].EnteredAt).TotalHours;
+            return durationHours >= 0;
+        }
+
+        return false;
+    }
+
+    private static IReadOnlyList<StateEntry> CreateStateEntries(
+        TaskModel task,
+        IReadOnlyList<WorkflowStateModel> workflowStates,
+        DateTimeOffset completedAt)
+    {
+        var statesByLabel = workflowStates
+            .GroupBy(state => state.Label, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        var initialState = workflowStates.FirstOrDefault(state => state.IsInitialState) ?? workflowStates.First();
+        var entries = new List<StateEntry> { new(initialState.Key, task.CreatedAt) };
+
+        foreach (var item in task.ActivityTimeline
+            .Where(item => string.Equals(item.Type, "TaskStateChanged", StringComparison.Ordinal))
+            .Where(item => item.OccurredAt <= completedAt)
+            .OrderBy(item => item.OccurredAt))
+        {
+            const string prefix = "任務狀態已變更為 ";
+            if (!item.Message.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var stateLabel = item.Message[prefix.Length..];
+            if (!statesByLabel.TryGetValue(stateLabel, out var state))
+            {
+                continue;
+            }
+
+            entries.Add(new StateEntry(state.Key, item.OccurredAt));
+        }
+
+        return entries;
     }
 
     private static CycleTimeMetricSummaryView CreateSummary(IReadOnlyList<double> samples)
@@ -139,4 +267,6 @@ public sealed class GetCycleTimeReportQueryService(
         var rank = (int)Math.Ceiling(orderedSamples.Count * 0.9d);
         return orderedSamples[Math.Max(0, rank - 1)];
     }
+
+    private sealed record StateEntry(string StateKey, DateTimeOffset EnteredAt);
 }

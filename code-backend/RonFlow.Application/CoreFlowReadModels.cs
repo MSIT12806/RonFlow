@@ -42,7 +42,15 @@ public sealed record BoardColumnView(
     string EmptyStateMessage,
     IReadOnlyList<BoardTaskCardView> Tasks);
 
-public sealed record BoardTaskCardView(Guid Id, string Title, IReadOnlyList<BoardTaskCardView> Children);
+public sealed record BoardTaskCardView(
+    Guid Id,
+    string Title,
+    bool IsCompleted,
+    bool IsInFlow,
+    int CompletionConditionCount,
+    bool HasEstimatedEffort,
+    string ParentPath,
+    IReadOnlyList<BoardTaskCardView> Children);
 
 public sealed record ProjectCodeTraceabilityView(IReadOnlyList<ProjectCodeTraceabilityItemView> Items);
 
@@ -66,6 +74,8 @@ public sealed record TaskCodeTraceabilityView(
     IReadOnlyList<TaskCodeTraceabilityItemView> FrontendPages,
     IReadOnlyList<TaskCodeTraceabilityItemView> FrontendComponents);
 
+public sealed record TaskEstimatedEffortView(int Value, string Unit);
+
 public sealed record TaskDetailView(
     Guid Id,
     Guid ProjectId,
@@ -78,8 +88,10 @@ public sealed record TaskDetailView(
     DateOnly? DueDate,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
+    TaskEstimatedEffortView? EstimatedEffort,
     IReadOnlyList<TaskSubtaskView> Subtasks,
     IReadOnlyList<BoardTaskCardView> ChildTasks,
+    string ParentPath,
     TaskCodeTraceabilityView CodeTraceability,
     IReadOnlyList<TaskReminderView> Reminders,
     IReadOnlyList<ActivityTimelineItemView> ActivityTimeline);
@@ -128,6 +140,11 @@ internal static class CoreFlowReadModelFactory
 
     public static ProjectBoardView CreateProjectBoard(ProjectBoardModel board)
     {
+        var activeTasks = board.Tasks
+            .Where(task => task.LifecycleState == TaskLifecycleState.ActiveRecord)
+            .ToArray();
+        var parentPaths = CreateParentPathLookup(activeTasks);
+
         var columns = board.WorkflowStates
             .Select(state => new BoardColumnView(
                 state.Key,
@@ -135,25 +152,29 @@ internal static class CoreFlowReadModelFactory
                 state.IsInitialState,
                 state.IsCompletedState,
                 "目前沒有任務",
-                board.Tasks
-                    .Where(task => task.LifecycleState == TaskLifecycleState.ActiveRecord)
+                activeTasks
                     .Where(task => task.IsInFlow)
                     .Where(task => task.CurrentState.Key == state.Key)
-                    .Select(CreateBoardTaskCard)
+                    .Select(task => CreateBoardTaskCard(task, parentPaths))
                     .ToArray()))
             .ToArray();
 
-        var activeTasks = board.Tasks
-            .Where(task => task.LifecycleState == TaskLifecycleState.ActiveRecord)
+        var taskTreeRoots = activeTasks
             .Where(task => task.IsInFlow is false)
+            .Where(task => task.ParentTaskId is null)
             .ToArray();
-        var taskTree = BuildTaskTree(activeTasks, parentTaskId: null);
+        var taskTree = BuildTaskTree(activeTasks, taskTreeRoots, parentPaths);
 
         return new ProjectBoardView(board.ProjectId, board.ProjectName, taskTree, columns);
     }
 
     public static TaskDetailView CreateTaskDetail(TaskModel task, IReadOnlyList<TaskModel>? childTasks = null)
     {
+        var activeTasks = (childTasks ?? [])
+            .Where(childTask => childTask.LifecycleState == TaskLifecycleState.ActiveRecord)
+            .ToArray();
+        var parentPaths = CreateParentPathLookup(activeTasks);
+
         return new TaskDetailView(
             task.Id,
             task.ProjectId,
@@ -166,10 +187,10 @@ internal static class CoreFlowReadModelFactory
             task.DueDate,
             task.CreatedAt,
             task.CompletedAt,
+            task.EstimatedEffort is null ? null : new TaskEstimatedEffortView(task.EstimatedEffort.Value, task.EstimatedEffort.Unit),
             task.Subtasks.Select(CreateTaskSubtask).ToArray(),
-            BuildTaskTree(
-                (childTasks ?? []).Where(childTask => childTask.LifecycleState == TaskLifecycleState.ActiveRecord).ToArray(),
-                task.Id),
+            BuildTaskTree(activeTasks, activeTasks.Where(childTask => childTask.ParentTaskId == task.Id).ToArray(), parentPaths),
+            parentPaths.GetValueOrDefault(task.Id, string.Empty),
             CreateTaskCodeTraceability(task.CodeTraceability),
             task.Reminders.Select(CreateTaskReminder).ToArray(),
             task.ActivityTimeline.Select(CreateActivityTimelineItem).ToArray());
@@ -205,20 +226,63 @@ internal static class CoreFlowReadModelFactory
         return new ProjectListItemView(project.Id, project.Name, project.UpdatedAt, "專案擁有者");
     }
 
-    private static BoardTaskCardView CreateBoardTaskCard(TaskModel task)
+    private static BoardTaskCardView CreateBoardTaskCard(
+        TaskModel task,
+        IReadOnlyDictionary<Guid, string> parentPaths,
+        IReadOnlyList<BoardTaskCardView>? children = null)
     {
-        return new BoardTaskCardView(task.Id, task.Title, []);
+        return new BoardTaskCardView(
+            task.Id,
+            task.Title,
+            task.CurrentState.IsCompletedState,
+            task.IsInFlow,
+            task.Subtasks.Count,
+            task.EstimatedEffort is not null,
+            parentPaths.GetValueOrDefault(task.Id, string.Empty),
+            children ?? []);
     }
 
-    private static IReadOnlyList<BoardTaskCardView> BuildTaskTree(IReadOnlyList<TaskModel> tasks, Guid? parentTaskId)
+    private static IReadOnlyList<BoardTaskCardView> BuildTaskTree(
+        IReadOnlyList<TaskModel> allActiveTasks,
+        IReadOnlyList<TaskModel> currentLevelTasks,
+        IReadOnlyDictionary<Guid, string> parentPaths)
     {
-        return tasks
-            .Where(task => task.ParentTaskId == parentTaskId)
-            .Select(task => new BoardTaskCardView(
-                task.Id,
-                task.Title,
-                BuildTaskTree(tasks, task.Id)))
+        return currentLevelTasks
+            .Select(task => CreateBoardTaskCard(
+                task,
+                parentPaths,
+                BuildTaskTree(
+                    allActiveTasks,
+                    allActiveTasks.Where(childTask => childTask.ParentTaskId == task.Id).ToArray(),
+                    parentPaths)))
             .ToArray();
+    }
+
+    private static IReadOnlyDictionary<Guid, string> CreateParentPathLookup(IReadOnlyList<TaskModel> tasks)
+    {
+        var tasksById = tasks.ToDictionary(task => task.Id);
+
+        return tasks
+            .ToDictionary(
+                task => task.Id,
+                task => string.Join(" > ", GetAncestorTitles(task, tasksById)));
+    }
+
+    private static IReadOnlyList<string> GetAncestorTitles(TaskModel task, IReadOnlyDictionary<Guid, TaskModel> tasksById)
+    {
+        var titles = new Stack<string>();
+        var visitedTaskIds = new HashSet<Guid> { task.Id };
+        var currentParentTaskId = task.ParentTaskId;
+
+        while (currentParentTaskId is not null
+            && tasksById.TryGetValue(currentParentTaskId.Value, out var parentTask)
+            && visitedTaskIds.Add(parentTask.Id))
+        {
+            titles.Push(parentTask.Title);
+            currentParentTaskId = parentTask.ParentTaskId;
+        }
+
+        return titles.ToArray();
     }
 
     internal static WorkflowStateView CreateWorkflowState(WorkflowStateModel workflowState)

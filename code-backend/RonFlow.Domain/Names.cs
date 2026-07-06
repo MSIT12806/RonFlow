@@ -47,3 +47,48 @@ public sealed record TaskTitle
         return true;
     }
 }
+
+public sealed record TaskEstimatedEffort
+{
+    private static readonly HashSet<string> SupportedUnits = new(StringComparer.Ordinal)
+    {
+        "minutes",
+        "hours",
+        "days",
+    };
+
+    private TaskEstimatedEffort(int value, string unit)
+    {
+        Value = value;
+        Unit = unit;
+    }
+
+    public int Value { get; }
+
+    public string Unit { get; }
+
+    public static bool TryCreate(int? rawValue, string? rawUnit, out TaskEstimatedEffort? estimatedEffort)
+    {
+        var unit = rawUnit?.Trim();
+
+        if (rawValue is null && string.IsNullOrWhiteSpace(unit))
+        {
+            estimatedEffort = null;
+            return true;
+        }
+
+        if (rawValue is null || rawValue.Value <= 0 || string.IsNullOrWhiteSpace(unit) || !SupportedUnits.Contains(unit))
+        {
+            estimatedEffort = null;
+            return false;
+        }
+
+        estimatedEffort = new TaskEstimatedEffort(rawValue.Value, unit);
+        return true;
+    }
+
+    public TaskEstimatedEffortModel ToModel()
+    {
+        return new(Value, Unit);
+    }
+}

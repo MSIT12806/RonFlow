@@ -101,6 +101,11 @@
             <strong>{{ task.currentState.label }}</strong>
           </div>
 
+          <div v-if="task.parentPath" class="detail-card">
+            <p class="detail-label">任務樹位置</p>
+            <strong>{{ task.parentPath }}</strong>
+          </div>
+
           <div class="detail-card">
             <div class="detail-field">
               <label class="detail-label" for="task-detail-due-date-input">到期日</label>
@@ -169,11 +174,10 @@
             </ul>
           </div>
 
-          <div v-if="!isParentTask" class="detail-card detail-card-full" data-testid="task-checklist-section">
+          <div v-if="!isParentTask" class="detail-card detail-card-full detail-ready-list" data-testid="task-ready-list-section">
             <div class="detail-section-header">
               <div>
-                <p class="detail-label">完成條件</p>
-                <p class="detail-supporting-copy">用結構化 checklist 追蹤這個任務是否已進入 review-ready。</p>
+                <p class="detail-label">Ready list</p>
               </div>
 
               <button
@@ -187,6 +191,50 @@
               </button>
             </div>
 
+            <div class="detail-ready-grid">
+              <div class="detail-field">
+                <label class="detail-label" for="task-detail-estimated-effort-value">預估耗時</label>
+
+                <div class="detail-reminder-grid">
+                  <div class="detail-field-control">
+                    <InputText
+                      id="task-detail-estimated-effort-value"
+                      v-model="draftEstimatedEffortValue"
+                      fluid
+                      inputmode="numeric"
+                      type="number"
+                      min="1"
+                      :disabled="isSaving || isReadOnly"
+                    />
+                  </div>
+
+                  <div class="detail-field-control">
+                    <select
+                      v-model="draftEstimatedEffortUnit"
+                      :disabled="isSaving || isReadOnly"
+                    >
+                      <option value="minutes">分鐘</option>
+                      <option value="hours">小時</option>
+                      <option value="days">天</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div class="detail-ready-action">
+                <button
+                  v-if="canShowSendToFlow"
+                  type="button"
+                  class="primary-button"
+                  :disabled="isSaving || isForcedReadOnly || isEditing || !isReadyForFlow"
+                  @click="emitSendToFlow"
+                >
+                  送進 Flow
+                </button>
+              </div>
+            </div>
+
+            <p class="detail-label">完成條件</p>
             <p v-if="draftSubtasks.length === 0" class="detail-supporting-copy">目前沒有完成條件</p>
 
             <ul v-else class="history-list">
@@ -427,6 +475,7 @@ import BaseModalShell from './bases/BaseModalShell.vue'
 import type {
   TaskCodeTraceabilityChangeType,
   TaskDetailResponse,
+  TaskEstimatedEffortUnit,
   TaskReminderResponse,
 } from '../api/ronflowApi'
 import type { TaskDetailMode } from '../composables/useRonFlowBoard'
@@ -485,9 +534,11 @@ const emit = defineEmits<{
     title: string
     description: string
     dueDate: string | null
+    estimatedEffort: { value: number; unit: TaskEstimatedEffortUnit } | null
     codeTraceability: DraftTaskCodeTraceability
     subtasks: Array<{ id: string | null; title: string; isChecked: boolean; order: number }>
   }): void
+  (event: 'send-to-flow', taskId: string): void
   (event: 'replace-subtasks', payload: {
     taskId: string
     subtasks: Array<{ id: string | null; title: string; isChecked: boolean; order: number }>
@@ -505,6 +556,8 @@ const emit = defineEmits<{
 const draftTitle = ref('')
 const draftDescription = ref('')
 const draftDueDate = ref('')
+const draftEstimatedEffortValue = ref('')
+const draftEstimatedEffortUnit = ref<TaskEstimatedEffortUnit>('hours')
 const draftReminderDateTime = ref('')
 const draftReminderDescription = ref('')
 const draftChildTaskTitle = ref('')
@@ -535,6 +588,13 @@ const taskReminders = computed(() => props.task?.reminders ?? [])
 const childTasks = computed(() => props.task?.childTasks ?? [])
 const isParentTask = computed(() => childTasks.value.length > 0)
 const canCreateChildTask = computed(() => !isForcedReadOnly.value && !isLifecycleReadOnly.value && canEnterEdit.value)
+const hasCompletionCriteria = computed(() => draftSubtasks.value.some((subtask) => subtask.title.trim().length > 0))
+const hasEstimatedEffort = computed(() => {
+  const value = Number(draftEstimatedEffortValue.value)
+  return Number.isInteger(value) && value > 0
+})
+const isReadyForFlow = computed(() => !isParentTask.value && hasCompletionCriteria.value && hasEstimatedEffort.value)
+const canShowSendToFlow = computed(() => Boolean(props.task) && !props.task?.isInFlow && !isParentTask.value && !isLifecycleReadOnly.value)
 const reminderValidationError = computed(() =>
   props.reminderDatetimeValidationError
   ?? props.reminderDateTimeValidationError
@@ -638,6 +698,7 @@ function submit() {
     title: draftTitle.value,
     description: draftDescription.value,
     dueDate: draftDueDate.value || null,
+    estimatedEffort: buildEstimatedEffortPayload(),
     codeTraceability: buildCodeTraceabilityPayload(),
     subtasks: buildSubtaskPayload(),
   })
@@ -707,6 +768,18 @@ function buildSubtaskPayload(): Array<{ id: string | null; title: string; isChec
       ...subtask,
       order: index,
     }))
+}
+
+function buildEstimatedEffortPayload(): { value: number; unit: TaskEstimatedEffortUnit } | null {
+  const value = Number(draftEstimatedEffortValue.value)
+  if (!Number.isInteger(value) || value <= 0) {
+    return null
+  }
+
+  return {
+    value,
+    unit: draftEstimatedEffortUnit.value,
+  }
 }
 
 function addCodeTraceabilityItem(categoryKey: TraceabilityCategoryKey) {
@@ -892,6 +965,14 @@ function emitRestore() {
   emit('restore', props.task.id, props.mode)
 }
 
+function emitSendToFlow() {
+  if (!props.task || props.isSaving || isForcedReadOnly.value || isEditing.value || !isReadyForFlow.value) {
+    return
+  }
+
+  emit('send-to-flow', props.task.id)
+}
+
 watch(
   () => [
     props.isOpen,
@@ -900,6 +981,8 @@ watch(
     props.task?.title,
     props.task?.description,
     props.task?.dueDate,
+    props.task?.estimatedEffort?.value ?? null,
+    props.task?.estimatedEffort?.unit ?? null,
     props.task?.subtasks?.length ?? 0,
     props.task?.childTasks?.length ?? 0,
     props.task?.codeTraceability?.api?.length ?? 0,
@@ -918,6 +1001,8 @@ watch(
     draftTitle.value = props.task.title
     draftDescription.value = props.task.description
     draftDueDate.value = props.task.dueDate ?? ''
+    draftEstimatedEffortValue.value = props.task.estimatedEffort?.value ? String(props.task.estimatedEffort.value) : ''
+    draftEstimatedEffortUnit.value = props.task.estimatedEffort?.unit ?? 'hours'
     draftReminderDateTime.value = ''
     draftReminderDescription.value = ''
     draftChildTaskTitle.value = ''

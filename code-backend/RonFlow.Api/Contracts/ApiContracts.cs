@@ -46,6 +46,13 @@ public sealed class TaskCodeTraceabilityRequest
     public List<TaskCodeTraceabilityItemRequest>? FrontendComponents { get; init; }
 }
 
+public sealed class TaskEstimatedEffortRequest
+{
+    public int? Value { get; init; }
+
+    public string? Unit { get; init; }
+}
+
 public sealed class UpdateTaskRequest
 {
     public UpdateTaskRequest()
@@ -229,11 +236,27 @@ public sealed record BoardColumnResponse(
     }
 }
 
-public sealed record BoardTaskCardResponse(Guid Id, string Title, IReadOnlyList<BoardTaskCardResponse> Children)
+public sealed record BoardTaskCardResponse(
+    Guid Id,
+    string Title,
+    bool IsCompleted,
+    bool IsInFlow,
+    int CompletionConditionCount,
+    bool HasEstimatedEffort,
+    string ParentPath,
+    IReadOnlyList<BoardTaskCardResponse> Children)
 {
     public static BoardTaskCardResponse FromView(BoardTaskCardView view)
     {
-        return new(view.Id, view.Title, view.Children.Select(FromView).ToArray());
+        return new(
+            view.Id,
+            view.Title,
+            view.IsCompleted,
+            view.IsInFlow,
+            view.CompletionConditionCount,
+            view.HasEstimatedEffort,
+            view.ParentPath,
+            view.Children.Select(FromView).ToArray());
     }
 }
 
@@ -345,6 +368,19 @@ public sealed record TaskCodeTraceabilityResponse(
     }
 }
 
+public sealed record TaskEstimatedEffortResponse(int Value, string Unit)
+{
+    public static TaskEstimatedEffortResponse FromOutput(TaskEstimatedEffortOutput output)
+    {
+        return new(output.Value, output.Unit);
+    }
+
+    public static TaskEstimatedEffortResponse FromView(TaskEstimatedEffortView view)
+    {
+        return new(view.Value, view.Unit);
+    }
+}
+
 public sealed record TaskDetailResponse(
     Guid Id,
     Guid ProjectId,
@@ -357,8 +393,10 @@ public sealed record TaskDetailResponse(
     DateOnly? DueDate,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
+    TaskEstimatedEffortResponse? EstimatedEffort,
     IReadOnlyList<TaskSubtaskResponse> Subtasks,
     IReadOnlyList<BoardTaskCardResponse> ChildTasks,
+    string ParentPath,
     TaskCodeTraceabilityResponse CodeTraceability,
     IReadOnlyList<TaskReminderResponse> Reminders,
     IReadOnlyList<ActivityTimelineItemResponse> ActivityTimeline,
@@ -378,8 +416,10 @@ public sealed record TaskDetailResponse(
             output.DueDate,
             output.CreatedAt,
             output.CompletedAt,
+            output.EstimatedEffort is null ? null : TaskEstimatedEffortResponse.FromOutput(output.EstimatedEffort),
             output.Subtasks.Select(TaskSubtaskResponse.FromOutput).ToArray(),
             [],
+            string.Empty,
             TaskCodeTraceabilityResponse.FromOutput(output.CodeTraceability),
             output.Reminders.Select(TaskReminderResponse.FromOutput).ToArray(),
             output.ActivityTimeline.Select(ActivityTimelineItemResponse.FromOutput).ToArray(),
@@ -400,8 +440,10 @@ public sealed record TaskDetailResponse(
             view.DueDate,
             view.CreatedAt,
             view.CompletedAt,
+            view.EstimatedEffort is null ? null : TaskEstimatedEffortResponse.FromView(view.EstimatedEffort),
             view.Subtasks.Select(TaskSubtaskResponse.FromView).ToArray(),
             view.ChildTasks.Select(BoardTaskCardResponse.FromView).ToArray(),
+            view.ParentPath,
             TaskCodeTraceabilityResponse.FromView(view.CodeTraceability),
             view.Reminders.Select(TaskReminderResponse.FromView).ToArray(),
             view.ActivityTimeline.Select(ActivityTimelineItemResponse.FromView).ToArray(),
@@ -567,13 +609,32 @@ public sealed record CycleTimeMetricSummaryResponse(
     }
 }
 
+public sealed record CycleTimeStateTransitionSummaryResponse(
+    string FromStateKey,
+    string FromStateLabel,
+    string ToStateKey,
+    string ToStateLabel,
+    CycleTimeMetricSummaryResponse Duration)
+{
+    public static CycleTimeStateTransitionSummaryResponse FromView(CycleTimeStateTransitionSummaryView view)
+    {
+        return new(
+            view.FromStateKey,
+            view.FromStateLabel,
+            view.ToStateKey,
+            view.ToStateLabel,
+            CycleTimeMetricSummaryResponse.FromView(view.Duration));
+    }
+}
+
 public sealed record CycleTimeReportResponse(
     Guid ProjectId,
     DateOnly CompletedFrom,
     DateOnly CompletedTo,
     DateTimeOffset LastUpdatedAt,
     CycleTimeMetricSummaryResponse LeadTime,
-    CycleTimeMetricSummaryResponse CycleTime)
+    CycleTimeMetricSummaryResponse CycleTime,
+    IReadOnlyList<CycleTimeStateTransitionSummaryResponse> StateTransitions)
 {
     public static CycleTimeReportResponse FromView(CycleTimeReportView view)
     {
@@ -583,6 +644,7 @@ public sealed record CycleTimeReportResponse(
             view.CompletedTo,
             view.LastUpdatedAt,
             CycleTimeMetricSummaryResponse.FromView(view.LeadTime),
-            CycleTimeMetricSummaryResponse.FromView(view.CycleTime));
+            CycleTimeMetricSummaryResponse.FromView(view.CycleTime),
+            view.StateTransitions.Select(CycleTimeStateTransitionSummaryResponse.FromView).ToArray());
     }
 }

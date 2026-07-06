@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using RonFlow.Application;
@@ -85,7 +85,14 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("- capability: create_task"));
         Assert.That(payload, Does.Contain("required_fields_path: requiredFields.projectId, requiredFields.title"));
         Assert.That(payload, Does.Contain("\"operation\":\"create_task\""));
-        Assert.That(payload, Does.Contain("optional_inputs: title, description, dueDate, codeTraceability"));
+        Assert.That(payload, Does.Contain("optional_inputs: title, description, dueDate, estimatedEffort, codeTraceability"));
+        Assert.That(payload, Does.Contain("optionalFields.estimatedEffort"));
+        Assert.That(payload, Does.Contain("estimatedEffort_shape:"));
+        Assert.That(payload, Does.Contain("value: positive integer"));
+        Assert.That(payload, Does.Contain("unit: one of minutes, hours, days"));
+        Assert.That(payload, Does.Contain("example: {\"value\":5,\"unit\":\"hours\"}"));
+        Assert.That(payload, Does.Contain("- \"5h\""));
+        Assert.That(payload, Does.Contain("- \"5 hours\""));
         Assert.That(payload, Does.Contain("optionalFields.codeTraceability"));
         Assert.That(payload, Does.Contain("- capability: invite_project_member"));
         Assert.That(payload, Does.Contain("- capability: accept_project_invitation"));
@@ -125,6 +132,19 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(updateTaskDetail.GetProperty("requiredFields").EnumerateArray().Select(item => item.GetString()), Does.Contain("taskId"));
         Assert.That(updateTaskDetail.GetProperty("optionalFields").EnumerateArray().Select(item => item.GetString()), Does.Contain("codeTraceability"));
         Assert.That(updateTaskDetail.GetProperty("exampleRequest").GetProperty("optionalFields").TryGetProperty("codeTraceability", out _), Is.True);
+        Assert.That(updateTaskDetail.GetProperty("exampleRequest").GetProperty("optionalFields").GetProperty("estimatedEffort").GetProperty("value").GetInt32(), Is.EqualTo(5));
+
+        var estimatedEffortSchema = updateTaskDetail
+            .GetProperty("fieldSchemas")
+            .EnumerateArray()
+            .Single(schema => schema.GetProperty("name").GetString() == "estimatedEffort");
+
+        Assert.That(estimatedEffortSchema.GetProperty("path").GetString(), Is.EqualTo("optionalFields.estimatedEffort"));
+        Assert.That(estimatedEffortSchema.GetProperty("type").GetString(), Is.EqualTo("object"));
+        Assert.That(estimatedEffortSchema.GetProperty("requiredProperties").GetProperty("value").GetString(), Is.EqualTo("positive integer"));
+        Assert.That(estimatedEffortSchema.GetProperty("requiredProperties").GetProperty("unit").GetString(), Is.EqualTo("minutes | hours | days"));
+        Assert.That(estimatedEffortSchema.GetProperty("example").GetProperty("unit").GetString(), Is.EqualTo("hours"));
+        Assert.That(estimatedEffortSchema.GetProperty("invalidExamples").EnumerateArray().Select(item => item.GetString()), Does.Contain("5h"));
     }
 
     [Test]
@@ -184,6 +204,8 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("projects_count: 1"));
         Assert.That(payload, Does.Contain($"project_id: {project.Id}"));
         Assert.That(payload, Does.Contain("project_name: AI Project Summary"));
+        Assert.That(payload, Does.Contain("open_task_count: 0"));
+        Assert.That(payload, Does.Contain("hatchery_task_count: 0"));
         Assert.That(payload, Does.Contain("next_actions:"));
         Assert.That(payload, Does.Contain("- read_project_board_summary"));
     }
@@ -211,6 +233,7 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(projectSummary.GetProperty("projectId").GetGuid(), Is.EqualTo(project.Id));
         Assert.That(projectSummary.GetProperty("projectName").GetString(), Is.EqualTo("AI JSON Project Summary"));
         Assert.That(projectSummary.TryGetProperty("openTaskCount", out _), Is.True);
+        Assert.That(projectSummary.TryGetProperty("hatcheryTaskCount", out _), Is.True);
     }
 
     [Test]
@@ -267,6 +290,12 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain($"task_id: {task.Id}"));
         Assert.That(payload, Does.Contain("title: Build AI Board"));
         Assert.That(payload, Does.Contain("is_in_flow: no"));
+        Assert.That(payload, Does.Contain("hatchery_status: not_ready_leaf"));
+        Assert.That(payload, Does.Contain("ready_to_enter_flow: no"));
+        Assert.That(payload, Does.Contain("completion_condition_count: 0"));
+        Assert.That(payload, Does.Contain("has_estimated_effort: no"));
+        Assert.That(payload, Does.Contain("- completion_conditions"));
+        Assert.That(payload, Does.Contain("- estimated_effort"));
         Assert.That(payload, Does.Contain("visible_tasks:"));
         Assert.That(payload, Does.Contain("next_actions:"));
     }
@@ -286,12 +315,17 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
 
         Assert.That(payload, Does.Contain("RonFlow Current Work Summary v1"));
         Assert.That(payload, Does.Contain($"project_id: {project.Id}"));
-        Assert.That(payload, Does.Contain("open_task_count: 1"));
+        Assert.That(payload, Does.Contain("open_task_count: 0"));
+        Assert.That(payload, Does.Contain("hatchery_task_count: 1"));
         Assert.That(payload, Does.Contain("open_tasks:"));
+        Assert.That(payload, Does.Contain("hatchery_tasks:"));
         Assert.That(payload, Does.Contain($"task_id: {task.Id}"));
         Assert.That(payload, Does.Contain("title: Build AI Discovery Surface"));
-        Assert.That(payload, Does.Contain("workflow_state_key: Hatchery"));
         Assert.That(payload, Does.Contain("is_in_flow: no"));
+        Assert.That(payload, Does.Contain("hatchery_status: not_ready_leaf"));
+        Assert.That(payload, Does.Contain("ready_to_enter_flow: no"));
+        Assert.That(payload, Does.Contain("- completion_conditions"));
+        Assert.That(payload, Does.Contain("- estimated_effort"));
     }
 
     [Test]
@@ -310,19 +344,25 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("RonFlow Task Detail Summary v1"));
         Assert.That(payload, Does.Contain($"task_id: {task.Id}"));
         Assert.That(payload, Does.Contain("title: Build AI Task Summary"));
-        Assert.That(payload, Does.Contain("workflow_state_key: Todo"));
+        Assert.That(payload, Does.Contain("estimated_effort: none"));
+        Assert.That(payload, Does.Contain("flow_membership_status: hatchery"));
+        Assert.That(payload, Does.Contain("workflow_state_key: none"));
+        Assert.That(payload, Does.Contain("workflow_state_name: none"));
+        Assert.That(payload, Does.Contain("hatchery_status: not_ready_leaf"));
+        Assert.That(payload, Does.Contain("ready_to_enter_flow: no"));
+        Assert.That(payload, Does.Contain("completion_condition_count: 0"));
+        Assert.That(payload, Does.Contain("has_estimated_effort: no"));
+        Assert.That(payload, Does.Contain("- completion_conditions"));
+        Assert.That(payload, Does.Contain("- estimated_effort"));
+        Assert.That(payload, Does.Contain("ready_field_formats:"));
+        Assert.That(payload, Does.Contain("- estimated_effort: optionalFields.estimatedEffort = {\"value\": <positive integer>, \"unit\": \"minutes|hours|days\"}"));
         Assert.That(payload, Does.Contain("code_traceability_summary:"));
         Assert.That(payload, Does.Contain("category: api"));
         Assert.That(payload, Does.Contain("item_count: 0"));
         Assert.That(payload, Does.Contain("next_actions:"));
         Assert.That(payload, Does.Contain("- update_task_detail"));
-        Assert.That(payload, Does.Contain("recommended_start_work_apply:"));
-        Assert.That(payload, Does.Contain("operation: move_task_state"));
-        Assert.That(payload, Does.Contain($"targetId: {task.Id}"));
-        Assert.That(payload, Does.Contain("requiredFields:"));
-        Assert.That(payload, Does.Contain($"  taskId: {task.Id}"));
-        Assert.That(payload, Does.Contain("  targetStateKey: Active"));
-        Assert.That(payload, Does.Contain("skip_when: only inspecting, comparing, estimating, clarifying, or explicitly told not to change task state"));
+        Assert.That(payload, Does.Not.Contain("- move_task_state"));
+        Assert.That(payload, Does.Not.Contain("recommended_start_work_apply:"));
     }
 
     [Test]
@@ -738,6 +778,48 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
     }
 
     [Test]
+    public async Task ApplyUpdateTaskDetail_WhenEstimatedEffortHasStringShape_ReturnsSpecificRecoveryHint()
+    {
+        using var sessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-ai-apply-estimated-effort-invalid");
+
+        await EnsureKnownUserAsync(sessionClient);
+        await ActivateSessionAsync(sessionClient);
+
+        var project = await CreateProjectAsync(sessionClient, "AI Estimated Effort Invalid Project");
+        var task = await CreateTaskAsync(sessionClient, project.Id, "AI Estimated Effort Invalid Task");
+
+        var activateResponse = await sessionClient.PostAsJsonAsync("/api/ai/active-scope", new { projectId = project.Id });
+        Assert.That(activateResponse.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
+
+        var response = await sessionClient.PostAsJsonAsync("/api/ai/apply", new
+        {
+            operation = "update_task_detail",
+            targetType = "task",
+            targetId = task.Id,
+            requiredFields = new
+            {
+                taskId = task.Id,
+            },
+            optionalFields = new
+            {
+                estimatedEffort = "5h",
+            },
+            note = "invalid estimated effort shape",
+        });
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+
+        var payload = await response.Content.ReadAsStringAsync();
+
+        Assert.That(payload, Does.Contain("RonFlow Error v1"));
+        Assert.That(payload, Does.Contain("error_code: ValidationFailed"));
+        Assert.That(payload, Does.Contain("message: 預估耗時格式不正確"));
+        Assert.That(payload, Does.Contain("recovery_hint: Use optionalFields.estimatedEffort as an object: {\"value\":5,\"unit\":\"hours\"}."));
+        Assert.That(payload, Does.Contain("Valid units: minutes, hours, days."));
+        Assert.That(payload, Does.Contain("Do not send \"5h\" or \"5 hours\"."));
+    }
+
+    [Test]
     public async Task ApplyUpdateTaskDetail_WhenScopeIsActive_ReturnsApplyResultAndAuditEntryCanBeReadBack()
     {
         using var sessionClient = CreateSessionAuthenticatedClient(TestUser.OwnerA, "owner-a-ai-apply-update-task");
@@ -1006,6 +1088,8 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         var project = await CreateProjectAsync(sessionClient, "AI Reorder Project");
         var firstTask = await CreateTaskAsync(sessionClient, project.Id, "Task A");
         var secondTask = await CreateTaskAsync(sessionClient, project.Id, "Task B");
+        firstTask = await ReadyTaskForFlowAsync(sessionClient, project.Id, firstTask);
+        secondTask = await ReadyTaskForFlowAsync(sessionClient, project.Id, secondTask);
 
         var enterFirstTaskFlowResponse = await sessionClient.PatchAsJsonAsync(
             $"/api/projects/{project.Id}/tasks/{firstTask.Id}/state",

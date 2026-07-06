@@ -185,6 +185,25 @@
               <div><dt>說明</dt><dd>僅計算曾進入 Active 並最終完成的任務</dd></div>
             </dl>
           </article>
+
+          <article
+            v-for="transition in cycleReport.stateTransitions"
+            :key="`${transition.fromStateKey}-${transition.toStateKey}`"
+            class="lifecycle-task-card reports-bucket-card"
+            data-testid="cycle-time-state-transition-card"
+          >
+            <div class="lifecycle-task-copy">
+              <strong>{{ transition.fromStateLabel }} → {{ transition.toStateLabel }}</strong>
+              <span class="task-meta">樣本數 {{ transition.duration.sampleCount }}</span>
+            </div>
+
+            <dl class="lifecycle-task-details traceability-result-details reports-bucket-details">
+              <div><dt>平均值</dt><dd>{{ formatDuration(transition.duration.averageHours) }}</dd></div>
+              <div><dt>中位數</dt><dd>{{ formatDuration(transition.duration.medianHours) }}</dd></div>
+              <div><dt>p90</dt><dd>{{ formatDuration(transition.duration.p90Hours) }}</dd></div>
+              <div><dt>區間</dt><dd>{{ cycleReport.completedFrom }} ~ {{ cycleReport.completedTo }}</dd></div>
+            </dl>
+          </article>
         </div>
       </AsyncStateBoundary>
     </section>

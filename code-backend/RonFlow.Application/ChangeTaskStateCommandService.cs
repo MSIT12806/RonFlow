@@ -50,6 +50,27 @@ public sealed class ChangeTaskStateCommandService(
             return ChangeTaskStateResult.Invalid("stateKey", "指定的狀態不存在於此專案 workflow");
         }
 
+        if (!task.IsInFlow)
+        {
+            var activeChildTaskCount = taskRepository.GetByProjectId(projectId)
+                .Count(projectTask => projectTask.ParentTaskId == task.Id && projectTask.LifecycleState == TaskLifecycleState.ActiveRecord);
+
+            if (activeChildTaskCount > 0)
+            {
+                return ChangeTaskStateResult.Invalid("readyList", "父任務不可送進 Flow");
+            }
+
+            if (task.Subtasks.Count == 0)
+            {
+                return ChangeTaskStateResult.Invalid("readyList", "至少需要一筆完成條件才能送進 Flow");
+            }
+
+            if (task.EstimatedEffort is null)
+            {
+                return ChangeTaskStateResult.Invalid("estimatedEffort", "需要填寫預估耗時才能送進 Flow");
+            }
+        }
+
         var changedAt = timeProvider.GetUtcNow();
         var wasCompleted = task.CurrentState.IsCompletedState;
         var wasInFlow = task.IsInFlow;
@@ -80,9 +101,50 @@ public sealed class ChangeTaskStateCommandService(
             workflowThroughputProjectionOutbox.EnqueueTaskReopened(project.Id, task.Id, changedAt);
         }
 
+        if (!wasCompleted && targetState.IsCompletedState)
+        {
+            CompleteParentsWhenAllChildrenAreDone(project, task, changedAt);
+        }
+
         project.Touch(changedAt);
         projectRepository.Update(project);
 
         return ChangeTaskStateResult.Success(CoreFlowCommandOutputFactory.CreateTask(task.ToModel()));
+    }
+
+    private void CompleteParentsWhenAllChildrenAreDone(Project project, RonFlow.Domain.Task completedTask, DateTimeOffset changedAt)
+    {
+        var activeTasks = taskRepository.GetByProjectId(project.Id)
+            .Where(projectTask => projectTask.LifecycleState == TaskLifecycleState.ActiveRecord)
+            .ToList();
+        var completedState = project.WorkflowStates.SingleOrDefault(state => state.IsCompletedState);
+        var parentTaskId = completedTask.ParentTaskId;
+
+        while (parentTaskId is not null && completedState is not null)
+        {
+            var parentTask = activeTasks.SingleOrDefault(projectTask => projectTask.Id == parentTaskId.Value);
+            if (parentTask is null || parentTask.CurrentState.IsCompletedState)
+            {
+                return;
+            }
+
+            var childTasks = activeTasks
+                .Where(projectTask => projectTask.ParentTaskId == parentTask.Id)
+                .ToArray();
+
+            if (childTasks.Length == 0 || childTasks.Any(childTask => childTask.CurrentState.IsCompletedState is false))
+            {
+                return;
+            }
+
+            if (parentTask.CompleteFromChildren(completedState, changedAt))
+            {
+                taskRepository.Update(parentTask);
+                workflowThroughputProjectionOutbox.EnqueueTaskStateChanged(project.Id, parentTask.Id, completedState.Key, changedAt);
+                workflowThroughputProjectionOutbox.EnqueueTaskCompleted(project.Id, parentTask.Id, changedAt);
+            }
+
+            parentTaskId = parentTask.ParentTaskId;
+        }
     }
 }

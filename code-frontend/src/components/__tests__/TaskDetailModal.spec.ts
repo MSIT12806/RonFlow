@@ -20,7 +20,9 @@ function createTask(overrides: Partial<TaskDetailResponse> = {}): TaskDetailResp
     lifecycleState: 'activeRecord',
     createdAt: '2026-05-12T08:00:00.000Z',
     completedAt: null,
+    estimatedEffort: null,
     childTasks: [],
+    parentPath: '',
     subtasks: [
       {
         id: 'subtask-1',
@@ -135,6 +137,15 @@ describe('TaskDetailModal', () => {
     expect(wrapper.text()).not.toContain('建立時間')
   })
 
+  it('shows task tree position as plain text when the task has a parent path', () => {
+    const wrapper = mountTaskDetail(createTask({
+      parentPath: '設計 Hatchery > Flow 關聯提示',
+    }))
+
+    expect(wrapper.text()).toContain('任務樹位置')
+    expect(wrapper.text()).toContain('設計 Hatchery > Flow 關聯提示')
+  })
+
   it('shows structured code traceability entries in view mode', () => {
     const wrapper = mountTaskDetail(createTask({
       codeTraceability: {
@@ -176,6 +187,30 @@ describe('TaskDetailModal', () => {
     expect(wrapper.text()).not.toContain('儲存變更')
   })
 
+  it('groups completion criteria, estimated effort, and send-to-flow in the Ready list block', async () => {
+    const wrapper = mountTaskDetail(createTask({
+      isInFlow: false,
+      estimatedEffort: {
+        value: 2,
+        unit: 'hours',
+      },
+    }))
+
+    const readyList = wrapper.get('[data-testid="task-ready-list-section"]')
+
+    expect(readyList.text()).toContain('Ready list')
+    expect(readyList.text()).toContain('完成條件')
+    expect(readyList.text()).toContain('預估耗時')
+
+    const sendButton = readyList.findAll('button').find((button) => button.text() === '送進 Flow')
+    expect(sendButton).toBeDefined()
+    expect(sendButton!.attributes('disabled')).toBeUndefined()
+
+    await sendButton!.trigger('click')
+
+    expect(wrapper.emitted('send-to-flow')).toEqual([['task-1']])
+  })
+
   it('emits direct checklist replacement when a subtask is checked in view mode', async () => {
     const wrapper = mountTaskDetail(createTask())
 
@@ -200,7 +235,7 @@ describe('TaskDetailModal', () => {
   it('creates child tasks and opens existing child task detail', async () => {
     const wrapper = mountTaskDetail(createTask({
       childTasks: [
-        { id: 'child-task-1', title: '撰寫 SRS', children: [] },
+        { id: 'child-task-1', title: '撰寫 SRS', isCompleted: false, isInFlow: false, parentPath: '補上 Drawer 編輯測試', children: [] },
       ],
     }))
 
@@ -213,7 +248,7 @@ describe('TaskDetailModal', () => {
       title: '撰寫驗收測試',
     }]])
     expect(wrapper.emitted('open-child-task')).toEqual([['child-task-1', '撰寫 SRS']])
-    expect(wrapper.find('[data-testid="task-checklist-section"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="task-ready-list-section"]').exists()).toBe(false)
   })
 
   it('disables checklist checkboxes when the task is locked by another user', () => {
@@ -368,6 +403,7 @@ describe('TaskDetailModal', () => {
       title: '補上 Drawer 編輯測試',
       description: '讓使用者可以直接在 Task Detail Drawer 編輯標題、描述與到期日。',
       dueDate: '2026-05-20',
+      estimatedEffort: null,
       codeTraceability: {
         api: [
           { changeType: 'added', target: 'GET /api/build-info' },

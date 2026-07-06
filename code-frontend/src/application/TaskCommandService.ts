@@ -14,6 +14,7 @@ import {
   restoreTrashedTask,
   updateTask,
   type TaskDetailResponse,
+  type TaskEstimatedEffortResponse,
   type WorkflowKey,
 } from '../api/ronflowApi'
 
@@ -36,13 +37,14 @@ export class TaskCommandService {
     title: string,
     description: string,
     dueDate: string | null,
+    estimatedEffort: TaskEstimatedEffortResponse | null,
     codeTraceability: {
       api: Array<{ changeType: 'added' | 'modified' | 'removed'; target: string }>
       frontendPages: Array<{ changeType: 'added' | 'modified' | 'removed'; target: string }>
       frontendComponents: Array<{ changeType: 'added' | 'modified' | 'removed'; target: string }>
     },
   ): Promise<TaskDetailResponse> {
-    return updateTask(projectId, taskId, { title, description, dueDate, codeTraceability })
+    return updateTask(projectId, taskId, { title, description, dueDate, estimatedEffort, codeTraceability })
   }
 
   async reorder(projectId: string, taskId: string, targetTaskId: string): Promise<TaskDetailResponse> {
