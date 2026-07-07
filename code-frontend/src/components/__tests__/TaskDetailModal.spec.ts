@@ -42,7 +42,12 @@ function createTask(overrides: Partial<TaskDetailResponse> = {}): TaskDetailResp
   }
 }
 
-function mountTaskDetail(task: TaskDetailResponse) {
+const baseModalShellStub = {
+  props: ['presentation', 'allowUnderlayInteraction'],
+  template: '<div data-testid="base-modal-shell-stub" :data-presentation="presentation" :data-allow-underlay-interaction="allowUnderlayInteraction"><slot /></div>',
+}
+
+function mountTaskDetail(task: TaskDetailResponse, propOverrides: Record<string, unknown> = {}) {
   return mount(TaskDetailModal, {
     props: {
       isOpen: true,
@@ -60,12 +65,11 @@ function mountTaskDetail(task: TaskDetailResponse) {
       displayTitle: task.title,
       task,
       formatTimelineTime: (occurredAt: string) => occurredAt,
+      ...propOverrides,
     },
     global: {
       stubs: {
-        BaseModalShell: {
-          template: '<div><slot /></div>',
-        },
+        BaseModalShell: baseModalShellStub,
         AsyncStateBoundary: {
           template: '<div><slot /></div>',
         },
@@ -87,6 +91,15 @@ function mountTaskDetail(task: TaskDetailResponse) {
 }
 
 describe('TaskDetailModal', () => {
+  it('uses drawer presentation by default and keeps modal view available', () => {
+    const drawerWrapper = mountTaskDetail(createTask())
+    const modalWrapper = mountTaskDetail(createTask(), { viewMode: 'modal' })
+
+    expect(drawerWrapper.get('[data-testid="base-modal-shell-stub"]').attributes('data-presentation')).toBe('drawer')
+    expect(drawerWrapper.get('[data-testid="base-modal-shell-stub"]').attributes('data-allow-underlay-interaction')).toBeDefined()
+    expect(modalWrapper.get('[data-testid="base-modal-shell-stub"]').attributes('data-presentation')).toBe('modal')
+  })
+
   it('shows completed time when the current workflow state is completed', () => {
     const wrapper = mountTaskDetail(createTask({
       currentState: {

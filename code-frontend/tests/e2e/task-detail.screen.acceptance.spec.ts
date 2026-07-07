@@ -62,6 +62,24 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Detail Screen', () => {
     await expect(detailDialog.getByRole('button', { name: '新增提醒', exact: true })).toBeDisabled()
   })
 
+  test('Task Detail 預設以右側 drawer 開啟，workspace 進入 collapsed 且底層仍可操作', async ({ page }, testInfo) => {
+    const { projectName, taskTitle } = createScenarioData(testInfo)
+
+    await setupTaskBoard(page, projectName, taskTitle)
+    await openTaskDetail(page, 'todo', taskTitle)
+
+    const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
+
+    await expect(detailDialog).toBeVisible()
+    await expect(page.getByTestId('base-modal-shell')).toHaveClass(/base-modal-shell__backdrop--drawer/)
+    await expect(page.getByTestId('base-modal-shell-card')).toHaveClass(/base-modal-shell__card--drawer/)
+    await expect(page.getByTestId('workspace-layout')).toHaveClass(/workspace-layout-collapsed/)
+
+    await page.getByRole('button', { name: '建立任務', exact: true }).click()
+    await expect(page.getByRole('dialog', { name: '建立任務' })).toBeVisible()
+    await expect(detailDialog).toBeVisible()
+  })
+
   test('任務詳細資訊載入中時在 drawer 內顯示 shared loading state', async ({ page, request }, testInfo) => {
     const { projectName, taskTitle } = createScenarioData(testInfo)
 
@@ -74,7 +92,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Detail Screen', () => {
       delayMs: 600,
     }])
 
-    await page.getByTestId('workflow-column-todo').getByText(taskTitle, { exact: true }).click()
+    await openTaskDetail(page, 'todo', taskTitle)
 
     const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
 

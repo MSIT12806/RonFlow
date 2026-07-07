@@ -71,7 +71,16 @@ export async function createTask(page: Page, taskTitle: string) {
 }
 
 export async function openTaskDetail(page: Page, stateKey: string, taskTitle: string) {
-  await page.getByTestId(`workflow-column-${stateKey}`).getByText(taskTitle, { exact: true }).click()
+  const workflowTask = page.getByTestId(`workflow-column-${stateKey}`).getByText(taskTitle, { exact: true })
+  const taskTreeTask = page.locator('.task-tree-panel').getByText(taskTitle, { exact: true })
+
+  try {
+    await expect(workflowTask).toBeVisible({ timeout: 3000 })
+    await workflowTask.click()
+  } catch {
+    await taskTreeTask.click()
+  }
+
   await expect(page.getByRole('dialog', { name: '任務詳細資訊' })).toBeVisible()
 }
 

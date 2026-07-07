@@ -259,9 +259,11 @@ Flow / Kanban 區域
 
 新任務建立後預設為葉任務，並可在 detail modal 中編輯 Ready 欄位。
 
-### 9.3 Task Detail Modal
+### 9.3 Task Detail Side View
 
-MVP 沿用既有 Task Detail Modal，不新增獨立任務詳細頁，不改成 drawer。
+MVP 沿用既有 Task Detail 的內容與操作能力，但預設呈現方式改為右側 side view / drawer。
+
+既有置中 modal view 模式相關程式碼需保留，作為後續可能加入的顯示模式切換基礎。使用者開啟 task detail drawer 時，底層 Project workspace 應保持可互動，並套用 workspace collapsed 狀態，讓任務樹、Flow board 與 task detail 可以在同一個 Project 脈絡下並存瀏覽。
 
 葉任務 detail modal 應支援：
 
