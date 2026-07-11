@@ -23,42 +23,71 @@
         loading-message="正在載入任務詳細資訊..."
       >
         <section v-if="task" class="detail-layout">
-          <div class="detail-card detail-card-full detail-toolbar">
-            <div v-if="isLifecycleReadOnly" class="detail-lifecycle-banner">
-              <strong v-if="mode === 'archived'">此任務已封存</strong>
-              <strong v-else>此任務位於垃圾桶</strong>
-            </div>
+          <div class="detail-card detail-card-full detail-toolbar" data-testid="task-detail-toolbar">
+            <div class="detail-toolbar-row">
+              <div v-if="isLifecycleReadOnly" class="detail-lifecycle-banner">
+                <strong v-if="mode === 'archived'">此任務已封存</strong>
+                <strong v-else>此任務位於垃圾桶</strong>
+              </div>
 
-            <div v-else-if="!isForcedReadOnly" class="detail-toolbar-actions">
-              <button
-                v-if="!isEditing"
-                type="button"
-                class="primary-button"
-                :disabled="isSaving || !canEnterEdit"
-                @click="emitEnterEdit"
-              >
-                編輯
-              </button>
-
-              <button
-                type="button"
-                class="secondary-button"
-                aria-haspopup="menu"
-                :aria-expanded="isActionsOpen"
-                :disabled="isSaving || isLifecycleReadOnly || isEditing || !canEnterEdit"
-                @click="toggleActionsMenu"
-              >
-                更多操作
-              </button>
-
-              <div v-if="isActionsOpen" class="detail-actions-menu" role="menu">
-                <button type="button" class="detail-actions-menu-item" role="menuitem" @click="emitArchive">
-                  封存
+              <div v-if="!isForcedReadOnly" class="detail-toolbar-actions">
+                <button
+                  v-if="isEditing"
+                  type="button"
+                  class="primary-button"
+                  :disabled="isSaving"
+                  @click="submit"
+                >
+                  儲存變更
                 </button>
-                <button type="button" class="detail-actions-menu-item" role="menuitem" @click="emitMoveToTrash">
-                  移到垃圾桶
+
+                <template v-else-if="!isLifecycleReadOnly">
+                  <button
+                    type="button"
+                    class="primary-button"
+                    :disabled="isSaving || !canEnterEdit"
+                    @click="emitEnterEdit"
+                  >
+                    編輯
+                  </button>
+
+                  <button
+                    type="button"
+                    class="secondary-button"
+                    aria-haspopup="menu"
+                    :aria-expanded="isActionsOpen"
+                    :disabled="isSaving || isLifecycleReadOnly || isEditing || !canEnterEdit"
+                    @click="toggleActionsMenu"
+                  >
+                    更多操作
+                  </button>
+                </template>
+
+                <button
+                  v-else
+                  type="button"
+                  class="primary-button"
+                  :disabled="isSaving"
+                  @click="emitRestore"
+                >
+                  還原
                 </button>
               </div>
+            </div>
+
+            <ApiCommandResourceView
+              :is-submitting="isSaving"
+              :error-message="saveErrorMessage"
+              submitting-message="正在提交任務操作，請稍候..."
+            />
+
+            <div v-if="isActionsOpen" class="detail-actions-menu" role="menu">
+              <button type="button" class="detail-actions-menu-item" role="menuitem" @click="emitArchive">
+                封存
+              </button>
+              <button type="button" class="detail-actions-menu-item" role="menuitem" @click="emitMoveToTrash">
+                移到垃圾桶
+              </button>
             </div>
           </div>
 
@@ -434,19 +463,6 @@
                   </div>
                 </li>
               </ul>
-            </div>
-          </div>
-
-          <div class="detail-card detail-card-full">
-            <ApiCommandResourceView
-              :is-submitting="isSaving"
-              :error-message="saveErrorMessage"
-              submitting-message="正在提交任務操作，請稍候..."
-            />
-
-            <div class="modal-actions">
-              <button v-if="!isReadOnly" type="button" class="primary-button" :disabled="isSaving" @click="submit">儲存變更</button>
-              <button v-else-if="isLifecycleReadOnly" type="button" class="primary-button" :disabled="isSaving" @click="emitRestore">還原</button>
             </div>
           </div>
 

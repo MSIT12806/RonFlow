@@ -1348,7 +1348,25 @@ button {
 }
 
 .detail-toolbar {
-  position: relative;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: rgba(255, 252, 248, 0.96);
+  backdrop-filter: blur(14px);
+}
+
+.detail-toolbar-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.detail-toolbar .command-resource-shell {
+  gap: 0;
 }
 
 .detail-lifecycle-banner {
@@ -1465,6 +1483,11 @@ button {
   .detail-reminder-grid,
   .detail-ready-grid {
     grid-template-columns: 1fr;
+  }
+
+  .detail-toolbar-row {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .detail-toolbar-actions,

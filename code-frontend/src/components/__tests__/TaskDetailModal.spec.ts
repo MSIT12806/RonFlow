@@ -182,9 +182,11 @@ describe('TaskDetailModal', () => {
 
   it('opens active tasks in view mode until the user explicitly enters edit mode', () => {
     const wrapper = mountTaskDetail(createTask())
+    const toolbar = wrapper.get('[data-testid="task-detail-toolbar"]')
 
-    expect(wrapper.text()).toContain('編輯')
-    expect(wrapper.text()).not.toContain('儲存變更')
+    expect(toolbar.text()).toContain('編輯')
+    expect(toolbar.text()).toContain('更多操作')
+    expect(toolbar.text()).not.toContain('儲存變更')
   })
 
   it('groups completion criteria, estimated effort, and send-to-flow in the Ready list block', async () => {
@@ -298,7 +300,7 @@ describe('TaskDetailModal', () => {
     expect(wrapper.find('input[type="checkbox"]').attributes('disabled')).toBeDefined()
   })
 
-  it('shows save action after entering edit mode', () => {
+  it('shows save action in the sticky toolbar after entering edit mode', () => {
     const wrapper = mount(TaskDetailModal, {
       props: {
         isOpen: true,
@@ -341,8 +343,24 @@ describe('TaskDetailModal', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('儲存變更')
-    expect(wrapper.findAll('button').some((button) => button.text() === '編輯')).toBe(false)
+    const toolbar = wrapper.get('[data-testid="task-detail-toolbar"]')
+
+    expect(toolbar.text()).toContain('儲存變更')
+    expect(toolbar.text()).not.toContain('編輯')
+    expect(toolbar.text()).not.toContain('更多操作')
+  })
+
+  it('shows restore action in the sticky toolbar for archived tasks', () => {
+    const wrapper = mountTaskDetail(createTask({
+      lifecycleState: 'archived',
+    }), {
+      mode: 'archived',
+    })
+
+    const toolbar = wrapper.get('[data-testid="task-detail-toolbar"]')
+
+    expect(toolbar.text()).toContain('此任務已封存')
+    expect(toolbar.text()).toContain('還原')
   })
 
   it('emits structured code traceability in save payload', async () => {
