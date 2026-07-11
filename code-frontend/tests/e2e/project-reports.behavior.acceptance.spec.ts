@@ -85,4 +85,18 @@ test.describe('RonFlow UI/UX 驗收規格 - Project Reports Behavior', () => {
     await expect(page.getByTestId('cycle-time-state-transition-card').filter({ hasText: '進行中 → 審查中' })).toContainText('樣本數 0')
     await expect(page.getByTestId('cycle-time-state-transition-card').filter({ hasText: '審查中 → 已完成' })).toContainText('樣本數 0')
   })
+
+  test('使用者可以在完成月份報表查看當月已完成 task', async ({ page, request }, testInfo) => {
+    const { projectName, taskTitle } = createScenarioData(testInfo)
+
+    await setupCompletedTaskBoardThroughApi(request, page, projectName, taskTitle)
+    await openProjectReportsView(page)
+
+    await page.getByRole('button', { name: '完成月份', exact: true }).click()
+
+    const currentMonthBucket = page.getByTestId('completed-month-bucket').first()
+    await expect(currentMonthBucket).toBeVisible()
+    await expect(currentMonthBucket).toContainText(taskTitle)
+    await expect(page.getByRole('button', { name: '較新月份 →' })).toBeDisabled()
+  })
 })

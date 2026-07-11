@@ -98,6 +98,7 @@ export type BoardTaskCardResponse = {
   title: string
   isCompleted: boolean
   isInFlow: boolean
+  completedAt: string | null
   parentPath: string
   children: BoardTaskCardResponse[]
 }
@@ -192,6 +193,27 @@ export type CycleTimeReportResponse = {
   leadTime: CycleTimeMetricSummaryResponse
   cycleTime: CycleTimeMetricSummaryResponse
   stateTransitions: CycleTimeStateTransitionSummaryResponse[]
+}
+
+export type CompletedTasksByMonthTaskResponse = {
+  taskId: string
+  title: string
+  completedAt: string
+}
+
+export type CompletedTasksByMonthBucketResponse = {
+  monthStart: string
+  tasks: CompletedTasksByMonthTaskResponse[]
+}
+
+export type CompletedTasksByMonthReportResponse = {
+  projectId: string
+  anchorMonth: string
+  monthCount: number
+  lastUpdatedAt: string
+  canMoveNewer: boolean
+  canMoveOlder: boolean
+  months: CompletedTasksByMonthBucketResponse[]
 }
 
 export type ProjectResponse = {

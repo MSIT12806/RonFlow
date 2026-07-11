@@ -32,6 +32,16 @@ test.describe('RonFlow UI/UX 驗收規格 - Project Board Screen', () => {
     }
   })
 
+  test('專案側欄預設顯示本月已完成篩選控制', async ({ page }, testInfo) => {
+    const { projectName } = createScenarioData(testInfo)
+
+    await setupProjectBoard(page, projectName)
+
+    await expect(page.getByText('已完成篩選')).toBeVisible()
+    await expect(page.getByRole('heading', { name: '本月', level: 3 })).toBeVisible()
+    await expect(page.getByLabel('已完成任務顯示範圍')).toBeVisible()
+  })
+
   test('建立任務對話框開啟後焦點直接落在任務標題欄位，且只有單一輸入欄位', async ({ page }, testInfo) => {
     const { projectName } = createScenarioData(testInfo)
 

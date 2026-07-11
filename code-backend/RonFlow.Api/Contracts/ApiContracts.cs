@@ -243,6 +243,7 @@ public sealed record BoardTaskCardResponse(
     string Title,
     bool IsCompleted,
     bool IsInFlow,
+    DateTimeOffset? CompletedAt,
     int CompletionConditionCount,
     bool HasEstimatedEffort,
     string ParentPath,
@@ -255,6 +256,7 @@ public sealed record BoardTaskCardResponse(
             view.Title,
             view.IsCompleted,
             view.IsInFlow,
+            view.CompletedAt,
             view.CompletionConditionCount,
             view.HasEstimatedEffort,
             view.ParentPath,
@@ -648,5 +650,50 @@ public sealed record CycleTimeReportResponse(
             CycleTimeMetricSummaryResponse.FromView(view.LeadTime),
             CycleTimeMetricSummaryResponse.FromView(view.CycleTime),
             view.StateTransitions.Select(CycleTimeStateTransitionSummaryResponse.FromView).ToArray());
+    }
+}
+
+public sealed record CompletedTasksByMonthTaskResponse(
+    Guid TaskId,
+    string Title,
+    DateTimeOffset CompletedAt)
+{
+    public static CompletedTasksByMonthTaskResponse FromView(CompletedTasksByMonthTaskView view)
+    {
+        return new(view.TaskId, view.Title, view.CompletedAt);
+    }
+}
+
+public sealed record CompletedTasksByMonthBucketResponse(
+    DateOnly MonthStart,
+    IReadOnlyList<CompletedTasksByMonthTaskResponse> Tasks)
+{
+    public static CompletedTasksByMonthBucketResponse FromView(CompletedTasksByMonthBucketView view)
+    {
+        return new(
+            view.MonthStart,
+            view.Tasks.Select(CompletedTasksByMonthTaskResponse.FromView).ToArray());
+    }
+}
+
+public sealed record CompletedTasksByMonthReportResponse(
+    Guid ProjectId,
+    DateOnly AnchorMonth,
+    int MonthCount,
+    DateTimeOffset LastUpdatedAt,
+    bool CanMoveNewer,
+    bool CanMoveOlder,
+    IReadOnlyList<CompletedTasksByMonthBucketResponse> Months)
+{
+    public static CompletedTasksByMonthReportResponse FromView(CompletedTasksByMonthReportView view)
+    {
+        return new(
+            view.ProjectId,
+            view.AnchorMonth,
+            view.MonthCount,
+            view.LastUpdatedAt,
+            view.CanMoveNewer,
+            view.CanMoveOlder,
+            view.Months.Select(CompletedTasksByMonthBucketResponse.FromView).ToArray());
     }
 }

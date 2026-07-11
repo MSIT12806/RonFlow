@@ -249,6 +249,33 @@ public sealed class ReportingProjectionApiIntegrationTests : ApiIntegrationTestB
         Assert.That(report.StateTransitions.Single(item => item.FromStateKey == "review" && item.ToStateKey == "done").Duration.SampleCount, Is.EqualTo(0));
     }
 
+    [Test]
+    public async Task GetCompletedTasksByMonthReport_WhenCompletedTasksExist_ReturnsCurrentMonthBucket()
+    {
+        var project = await CreateProjectAsync("Completed by Month Project");
+        var doneTask = await CreateTaskAsync(project.Id, "Monthly done task");
+        doneTask = await ReadyTaskForFlowAsync(project.Id, doneTask);
+
+        var completeResponse = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{doneTask.Id}/state",
+            new ChangeTaskStateRequest("done"));
+        Assert.That(completeResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var currentMonth = new DateOnly(doneTask.CreatedAt.UtcDateTime.Year, doneTask.CreatedAt.UtcDateTime.Month, 1);
+        var response = await Client.GetAsync($"/api/projects/{project.Id}/reports/completed-by-month?anchorMonth={currentMonth:yyyy-MM-dd}&monthCount=3");
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var report = await response.Content.ReadFromJsonAsync<CompletedTasksByMonthReportResponse>();
+        Assert.That(report, Is.Not.Null);
+        Assert.That(report!.ProjectId, Is.EqualTo(project.Id));
+        Assert.That(report.AnchorMonth, Is.EqualTo(currentMonth));
+        Assert.That(report.MonthCount, Is.EqualTo(3));
+        Assert.That(report.CanMoveNewer, Is.False);
+        Assert.That(report.Months, Has.Count.EqualTo(3));
+        Assert.That(report.Months[0].MonthStart, Is.EqualTo(currentMonth));
+        Assert.That(report.Months[0].Tasks.Select(task => task.TaskId), Does.Contain(doneTask.Id));
+    }
+
     private void ChangeTaskStateAt(Guid projectId, Guid taskId, string stateKey, DateTimeOffset changedAt)
     {
         var project = GetRequiredService<IProjectRepository>().Get(projectId);

@@ -9,7 +9,6 @@ using RonFlow.Api.Contracts;
 using RonFlow.Domain;
 using RonFlow.Infrastructure;
 using RonFlow.Observability;
-using RonFlow.Testing.Infrastructure;
 
 namespace RonFlow.Api;
 
@@ -47,16 +46,7 @@ public partial class Program
                 .AddRuntimeInstrumentation()
                 .AddMeter(RonFlowObservabilityMetrics.MeterName)
                 .AddPrometheusExporter());
-        builder.Services.AddScoped<ObservedOperationServerTimingFilter>();
-        builder.Services.AddScoped<ObservedOperationResultTimingFilter>();
-        builder.Services.AddSingleton<ITestHttpFaultStore>(builder.Environment.IsEnvironment("Testing")
-            ? new InMemoryTestHttpFaultStore()
-            : new NoOpTestHttpFaultStore());
-        builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
-        builder.Services.AddSingleton(_ => PushNotificationConfiguration.Create(
-            builder.Configuration["PushNotifications:Subject"],
-            builder.Configuration["PushNotifications:PublicKey"],
-            builder.Configuration["PushNotifications:PrivateKey"]));
+        builder.Services.AddRonFlowPlatformServices(builder.Environment, builder.Configuration);
         var ronAuthOptions = builder.Configuration.GetSection(RonAuthAuthenticationOptions.SectionName).Get<RonAuthAuthenticationOptions>()
             ?? new RonAuthAuthenticationOptions();
         var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(ronAuthOptions.SigningKey));
@@ -80,52 +70,10 @@ public partial class Program
                 };
             });
         builder.Services.AddAuthorization();
-        builder.Services.AddSingleton<IDomainEventDispatcher, InProcessDomainEventDispatcher>();
-        builder.Services.AddSingleton<IDomainEventHandler, DatabaseSyncDomainEventHandler>();
-        ConfigurePersistence(builder);
-        builder.Services.AddSingleton<ProjectAccessService>();
-        builder.Services.AddSingleton<CreateProjectCommandService>();
-        builder.Services.AddSingleton<CreateTaskCommandService>();
-        builder.Services.AddSingleton<CreateChildTaskCommandService>();
-        builder.Services.AddSingleton<ReplaceProjectSubtaskTemplatesCommandService>();
-        builder.Services.AddSingleton<ReplaceTaskSubtasksCommandService>();
-        builder.Services.AddSingleton<ChangeTaskStateCommandService>();
-        builder.Services.AddSingleton<UpdateTaskCommandService>();
-        builder.Services.AddSingleton<TaskContentEditLockService>();
-        builder.Services.AddSingleton<TaskMutationGuard>();
-        builder.Services.AddSingleton<ProjectPresenceRegistry>();
-        builder.Services.AddSingleton<AiAuditRegistry>();
-        builder.Services.AddSingleton<ProcessAiAuditProjectionService>();
-        builder.Services.AddSingleton<RonFlowActiveSessionRegistry>();
-        builder.Services.AddSingleton<ProcessWorkflowThroughputProjectionService>();
-        builder.Services.AddSingleton<ReorderTaskCommandService>();
-        builder.Services.AddSingleton<CreateTaskReminderCommandService>();
-        builder.Services.AddSingleton<DeleteTaskReminderCommandService>();
-        builder.Services.AddSingleton<RegisterPushSubscriptionCommandService>();
-        builder.Services.AddSingleton<DeliverDueReminderNotificationsCommandService>();
-        builder.Services.AddSingleton<ArchiveTaskCommandService>();
-        builder.Services.AddSingleton<RestoreArchivedTaskCommandService>();
-        builder.Services.AddSingleton<MoveTaskToTrashCommandService>();
-        builder.Services.AddSingleton<RestoreTrashedTaskCommandService>();
-        builder.Services.AddSingleton<ProjectInvitationCommandService>();
-        builder.Services.AddSingleton<IPushNotificationSender, WebPushNotificationSender>();
-        builder.Services.AddSingleton<GetProjectsQueryService>();
-        builder.Services.AddSingleton<GetProjectBoardQueryService>();
-        builder.Services.AddSingleton<GetProjectCodeTraceabilityQueryService>();
-        builder.Services.AddSingleton<GetProjectSubtaskTemplatesQueryService>();
-        builder.Services.AddSingleton<IGetProjectBoardQueryService>(serviceProvider =>
-            new ObservedGetProjectBoardQueryService(serviceProvider.GetRequiredService<GetProjectBoardQueryService>()));
-        builder.Services.AddSingleton<ProjectCollaborationQueryService>();
-        builder.Services.AddSingleton<GetTaskDetailQueryService>();
-        builder.Services.AddSingleton<GetWorkflowThroughputReportQueryService>();
-        builder.Services.AddSingleton<GetTaskAgingReportQueryService>();
-        builder.Services.AddSingleton<GetCycleTimeReportQueryService>();
-        builder.Services.AddSingleton<GetArchivedTasksQueryService>();
-        builder.Services.AddSingleton<GetTrashedTasksQueryService>();
-        builder.Services.AddHostedService<ReminderNotificationBackgroundService>();
-        builder.Services.AddHostedService<AiAuditProjectionBackgroundService>();
-        builder.Services.AddHostedService<WorkflowThroughputProjectionBackgroundService>();
-        builder.Services.AddHostedService<DatabaseSyncBackgroundService>();
+        builder.Services.AddRonFlowPersistence(builder.Environment, builder.Configuration);
+        builder.Services.AddRonFlowCommandServices();
+        builder.Services.AddRonFlowQueryServices();
+        builder.Services.AddRonFlowBackgroundServices();
 
         var app = builder.Build();
 
@@ -152,83 +100,6 @@ public partial class Program
         app.Run();
     }
 
-    private static void ConfigurePersistence(WebApplicationBuilder builder)
-    {
-        if (builder.Environment.IsEnvironment("Testing"))
-        {
-            builder.Services.AddSingleton<IDatabaseSyncCoordinator>(NoOpDatabaseSyncCoordinator.Instance);
-            builder.Services.AddSingleton<IProjectRepository, InMemoryProjectRepository>();
-            builder.Services.AddSingleton<ITaskRepository, InMemoryTaskRepository>();
-            builder.Services.AddSingleton<IPushSubscriptionRepository, InMemoryPushSubscriptionRepository>();
-            builder.Services.AddSingleton<IAiAuditProjectionOutbox, InMemoryAiAuditProjectionOutbox>();
-            builder.Services.AddSingleton<IAiAuditReadModelStore, InMemoryAiAuditReadModelStore>();
-            builder.Services.AddSingleton<IWorkflowThroughputProjectionOutbox, InMemoryWorkflowThroughputProjectionOutbox>();
-            builder.Services.AddSingleton<IWorkflowThroughputProjectionStore, InMemoryWorkflowThroughputProjectionStore>();
-            builder.Services.AddSingleton<InMemoryCoreFlowReadStore>();
-            builder.Services.AddSingleton<ICoreFlowReadStore>(serviceProvider =>
-                new ObservedCoreFlowReadStore(serviceProvider.GetRequiredService<InMemoryCoreFlowReadStore>()));
-            builder.Services.AddSingleton<IUserDirectory, InMemoryUserDirectory>();
-            return;
-        }
-
-        var configuredDatabasePath = builder.Configuration["Persistence:Sqlite:DatabasePath"];
-        var databasePath = string.IsNullOrWhiteSpace(configuredDatabasePath)
-            ? Path.Combine(builder.Environment.ContentRootPath, "App_Data", "ronflow.db")
-            : ResolveDatabasePath(builder.Environment.ContentRootPath, configuredDatabasePath);
-
-        var databaseSyncOptions = CreateDatabaseSyncOptions(builder.Environment.ContentRootPath, builder.Configuration, databasePath);
-        builder.Services.AddSingleton(databaseSyncOptions);
-        builder.Services.AddSingleton<IDatabaseSyncCoordinator>(serviceProvider =>
-        {
-            IDatabaseSyncCoordinator databaseSyncCoordinator;
-            if (databaseSyncOptions.Enabled)
-            {
-                serviceProvider.GetRequiredService<ILogger<Program>>().LogInformation(
-                    "RonFlow database Git sync is enabled. RuntimeDatabasePath: {RuntimeDatabasePath}; RepositoryPath: {RepositoryPath}; RemoteUrlConfigured: {RemoteUrlConfigured}; Branch: {Branch}; DatabaseFileName: {DatabaseFileName}; GitCommandTimeoutSeconds: {GitCommandTimeoutSeconds}",
-                    databaseSyncOptions.RuntimeDatabasePath,
-                    databaseSyncOptions.RepositoryPath,
-                    !string.IsNullOrWhiteSpace(databaseSyncOptions.RemoteUrl),
-                    databaseSyncOptions.Branch,
-                    databaseSyncOptions.DatabaseFileName,
-                    databaseSyncOptions.GitCommandTimeoutSeconds);
-
-                databaseSyncCoordinator = new DatabaseSyncCoordinator(
-                    databaseSyncOptions,
-                    new SqliteDatabaseSnapshotStore(),
-                    new GitDatabaseRepositorySync(databaseSyncOptions),
-                    new DbMergerDatabaseSnapshotMerger(),
-                    serviceProvider.GetRequiredService<ILogger<DatabaseSyncCoordinator>>());
-            }
-            else
-            {
-                serviceProvider.GetRequiredService<ILogger<Program>>().LogWarning(
-                    "RonFlow database Git sync is disabled. RuntimeDatabasePath: {RuntimeDatabasePath}; RepositoryPath: {RepositoryPath}; RemoteUrlConfigured: {RemoteUrlConfigured}; Branch: {Branch}; DatabaseFileName: {DatabaseFileName}",
-                    databaseSyncOptions.RuntimeDatabasePath,
-                    databaseSyncOptions.RepositoryPath,
-                    !string.IsNullOrWhiteSpace(databaseSyncOptions.RemoteUrl),
-                    databaseSyncOptions.Branch,
-                    databaseSyncOptions.DatabaseFileName);
-                databaseSyncCoordinator = NoOpDatabaseSyncCoordinator.Instance;
-            }
-
-            databaseSyncCoordinator.PullBeforeOpen();
-            return databaseSyncCoordinator;
-        });
-        builder.Services.AddSingleton(serviceProvider =>
-            new SqliteCoreFlowStore(databasePath, serviceProvider.GetRequiredService<IDomainEventDispatcher>()));
-        builder.Services.AddSingleton<IProjectRepository, SqliteProjectRepository>();
-        builder.Services.AddSingleton<ITaskRepository, SqliteTaskRepository>();
-        builder.Services.AddSingleton<IPushSubscriptionRepository, SqlitePushSubscriptionRepository>();
-        builder.Services.AddSingleton<IAiAuditProjectionOutbox, SqliteAiAuditProjectionOutbox>();
-        builder.Services.AddSingleton<IAiAuditReadModelStore, SqliteAiAuditReadModelStore>();
-        builder.Services.AddSingleton<IWorkflowThroughputProjectionOutbox, SqliteWorkflowThroughputProjectionOutbox>();
-        builder.Services.AddSingleton<IWorkflowThroughputProjectionStore, SqliteWorkflowThroughputProjectionStore>();
-        builder.Services.AddSingleton<SqliteCoreFlowReadStore>();
-        builder.Services.AddSingleton<ICoreFlowReadStore>(serviceProvider =>
-            new ObservedCoreFlowReadStore(serviceProvider.GetRequiredService<SqliteCoreFlowReadStore>()));
-        builder.Services.AddSingleton<IUserDirectory, SqliteUserDirectory>();
-    }
-
     private static string[] GetAllowedCorsOrigins(ConfigurationManager configuration)
     {
         var configuredOrigins = configuration["Cors:AllowedOrigins"];
@@ -243,42 +114,6 @@ public partial class Program
             .ToArray();
     }
 
-    private static string ResolveDatabasePath(string contentRootPath, string configuredDatabasePath)
-    {
-        return Path.IsPathRooted(configuredDatabasePath)
-            ? configuredDatabasePath
-            : Path.Combine(contentRootPath, configuredDatabasePath);
-    }
-
-    private static DatabaseSyncOptions CreateDatabaseSyncOptions(
-        string contentRootPath,
-        ConfigurationManager configuration,
-        string databasePath)
-    {
-        var section = configuration.GetSection("Persistence:DatabaseGitSync");
-        var enabled = section.GetValue<bool>("Enabled");
-        var configuredRepositoryPath = section["RepositoryPath"];
-        var repositoryPath = string.IsNullOrWhiteSpace(configuredRepositoryPath)
-            ? Path.Combine(contentRootPath, "App_Data", "ronflow-db-repository")
-            : ResolveDatabasePath(contentRootPath, configuredRepositoryPath);
-        var configuredBranch = section["Branch"];
-        var configuredDatabaseFileName = section["DatabaseFileName"];
-        var configuredRemoteUrl = section["RemoteUrl"];
-        var configuredAccessToken = section["AccessToken"];
-        var configuredGitCommandTimeoutSeconds = section.GetValue<int?>("GitCommandTimeoutSeconds");
-
-        return new DatabaseSyncOptions
-        {
-            Enabled = enabled,
-            RuntimeDatabasePath = databasePath,
-            RepositoryPath = repositoryPath,
-            RemoteUrl = string.IsNullOrWhiteSpace(configuredRemoteUrl) ? null : configuredRemoteUrl,
-            AccessToken = string.IsNullOrWhiteSpace(configuredAccessToken) ? null : configuredAccessToken,
-            Branch = string.IsNullOrWhiteSpace(configuredBranch) ? "main" : configuredBranch,
-            DatabaseFileName = string.IsNullOrWhiteSpace(configuredDatabaseFileName) ? "ronflow.db" : configuredDatabaseFileName,
-            GitCommandTimeoutSeconds = configuredGitCommandTimeoutSeconds.GetValueOrDefault(30),
-        };
-    }
 }
 
 internal static class ValidationResults

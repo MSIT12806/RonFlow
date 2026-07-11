@@ -122,4 +122,36 @@ public sealed class ProjectReportsController : AuthenticatedControllerBase
             ? Results.NotFound()
             : Results.Ok(CycleTimeReportResponse.FromView(result.Resource!));
     }
+
+    [HttpGet("completed-by-month")]
+    [ProducesResponseType<CompletedTasksByMonthReportResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public IResult GetCompletedByMonth(
+        Guid projectId,
+        [FromQuery] DateOnly? anchorMonth,
+        [FromQuery] int? monthCount,
+        [FromServices] GetCompletedTasksByMonthReportQueryService queryService)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        if (monthCount is not null && (monthCount < 1 || monthCount > 12))
+        {
+            return ValidationResults.FromError(new ValidationError("monthCount", "monthCount 必須介於 1 到 12 之間"));
+        }
+
+        var result = queryService.Get(currentUserId, projectId, anchorMonth, monthCount);
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
+        }
+
+        return result.NotFound
+            ? Results.NotFound()
+            : Results.Ok(CompletedTasksByMonthReportResponse.FromView(result.Resource!));
+    }
 }

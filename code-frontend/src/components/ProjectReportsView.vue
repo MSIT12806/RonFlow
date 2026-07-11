@@ -22,6 +22,9 @@
       <button type="button" class="secondary-button" :class="{ 'tab-active': activeTab === 'cycle' }" @click="setActiveTab('cycle')">
         週期時間
       </button>
+      <button type="button" class="secondary-button" :class="{ 'tab-active': activeTab === 'completed' }" @click="setActiveTab('completed')">
+        完成月份
+      </button>
     </div>
 
     <section v-if="activeTab === 'workflow'" class="reports-section">
@@ -131,7 +134,7 @@
       </AsyncStateBoundary>
     </section>
 
-    <section v-else class="reports-section">
+    <section v-else-if="activeTab === 'cycle'" class="reports-section">
       <div class="traceability-filter-bar">
         <label>
           完成起日
@@ -207,19 +210,101 @@
         </div>
       </AsyncStateBoundary>
     </section>
+
+    <section v-else class="reports-section">
+      <div class="traceability-filter-bar reports-month-nav">
+        <div class="reports-month-nav-copy">
+          <strong>按月份瀏覽已完成 task</strong>
+          <span class="task-meta">左移看更早月份，右移回到較新的月份區間。</span>
+          <span class="task-meta">最後更新時間：{{ formatLastUpdatedAt(completedByMonthReport?.lastUpdatedAt ?? null) }}</span>
+        </div>
+
+        <div class="reports-month-nav-actions">
+          <button
+            type="button"
+            class="secondary-button"
+            :disabled="!completedByMonthReport?.canMoveOlder"
+            @click="$emit('shift-completed-month-window', 'older')"
+          >
+            ← 更早月份
+          </button>
+
+          <button
+            type="button"
+            class="secondary-button"
+            :disabled="!completedByMonthReport?.canMoveNewer"
+            @click="$emit('shift-completed-month-window', 'newer')"
+          >
+            較新月份 →
+          </button>
+        </div>
+      </div>
+
+      <AsyncStateBoundary
+        :is-loading="isLoadingCompletedByMonth"
+        :error-message="completedByMonthErrorMessage"
+        loading-message="正在載入已完成月份報表..."
+      >
+        <div v-if="!completedByMonthReport || isCompletedByMonthEmpty" class="board-empty-state reports-placeholder-state">
+          <p class="eyebrow">Completed Tasks by Month</p>
+          <h3>目前這段月份沒有已完成任務。</h3>
+          <p class="empty-copy">完成任務後，這裡會依月份排列已完成 task，方便回頭瀏覽歷史案件。</p>
+        </div>
+
+        <div v-else class="reports-month-grid">
+          <article
+            v-for="bucket in completedByMonthReport.months"
+            :key="bucket.monthStart"
+            class="lifecycle-task-card reports-bucket-card"
+            data-testid="completed-month-bucket"
+          >
+            <div class="lifecycle-task-copy">
+              <strong>{{ formatMonthLabel(bucket.monthStart) }}</strong>
+              <span class="task-meta">{{ bucket.tasks.length }} 筆已完成 task</span>
+            </div>
+
+            <div v-if="bucket.tasks.length === 0" class="column-empty reports-month-empty">
+              此月份目前沒有已完成任務。
+            </div>
+
+            <div v-else class="traceability-result-list">
+              <button
+                v-for="task in bucket.tasks"
+                :key="task.taskId"
+                type="button"
+                class="lifecycle-task-card reports-month-task"
+                data-testid="completed-month-task"
+                @click="$emit('open-task-detail', task.taskId, task.title)"
+              >
+                <div class="lifecycle-task-copy">
+                  <strong>{{ task.title }}</strong>
+                  <span class="task-meta">完成於 {{ formatLastUpdatedAt(task.completedAt) }}</span>
+                </div>
+              </button>
+            </div>
+          </article>
+        </div>
+      </AsyncStateBoundary>
+    </section>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import AsyncStateBoundary from './bases/AsyncStateBoundary.vue'
-import type { CycleTimeReportResponse, TaskAgingReportResponse, WorkflowThroughputReportResponse } from '../api/ronflowApi'
+import type {
+  CompletedTasksByMonthReportResponse,
+  CycleTimeReportResponse,
+  TaskAgingReportResponse,
+  WorkflowThroughputReportResponse,
+} from '../api/ronflowApi'
 
 const props = defineProps<{
   activeProjectName: string | null
   report: WorkflowThroughputReportResponse | null
   agingReport: TaskAgingReportResponse | null
   cycleReport: CycleTimeReportResponse | null
+  completedByMonthReport: CompletedTasksByMonthReportResponse | null
   agingThresholds: {
     todoThresholdDays: number
     activeThresholdDays: number
@@ -233,9 +318,11 @@ const props = defineProps<{
   isLoading: boolean
   isLoadingAging: boolean
   isLoadingCycle: boolean
+  isLoadingCompletedByMonth: boolean
   errorMessage: string
   agingErrorMessage: string
   cycleErrorMessage: string
+  completedByMonthErrorMessage: string
 }>()
 
 const emit = defineEmits<{
@@ -243,10 +330,11 @@ const emit = defineEmits<{
   (event: 'change-bucket', bucket: 'day' | 'week'): void
   (event: 'change-task-aging-thresholds', thresholds: { todoThresholdDays: number; activeThresholdDays: number; reviewThresholdDays: number }): void
   (event: 'change-cycle-range', range: { completedFrom: string; completedTo: string }): void
+  (event: 'shift-completed-month-window', direction: 'older' | 'newer'): void
   (event: 'open-task-detail', taskId: string, taskTitle: string): void
 }>()
 
-const activeTab = ref<'workflow' | 'aging' | 'cycle'>('workflow')
+const activeTab = ref<'workflow' | 'aging' | 'cycle' | 'completed'>('workflow')
 const localThresholds = ref({ ...props.agingThresholds })
 const localCycleRange = ref({ ...props.cycleRange })
 
@@ -266,6 +354,9 @@ const isCycleReportEmpty = computed(() => {
 
   return props.cycleReport.leadTime.sampleCount === 0 && props.cycleReport.cycleTime.sampleCount === 0
 })
+const isCompletedByMonthEmpty = computed(() =>
+  !props.completedByMonthReport || props.completedByMonthReport.months.every((bucket) => bucket.tasks.length === 0),
+)
 
 function formatLastUpdatedAt(value: string | null) {
   if (!value) {
@@ -281,7 +372,7 @@ function formatLastUpdatedAt(value: string | null) {
   }).format(new Date(value))
 }
 
-function setActiveTab(tab: 'workflow' | 'aging' | 'cycle') {
+function setActiveTab(tab: 'workflow' | 'aging' | 'cycle' | 'completed') {
   activeTab.value = tab
 }
 
@@ -326,5 +417,14 @@ function formatDuration(value: number | null) {
   }
 
   return `${value.toFixed(1)} 小時`
+}
+
+function formatMonthLabel(value: string) {
+  const monthDate = new Date(`${value}T00:00:00Z`)
+  return new Intl.DateTimeFormat('zh-TW', {
+    year: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  }).format(monthDate)
 }
 </script>

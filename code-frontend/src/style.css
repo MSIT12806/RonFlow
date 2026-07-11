@@ -408,6 +408,7 @@ button {
   .workspace-layout-collapsed .panel-heading-row .eyebrow,
   .workspace-layout-collapsed .panel-title,
   .workspace-layout-collapsed .project-panel-actions,
+  .workspace-layout-collapsed .project-sidebar-control,
   .workspace-layout-collapsed .project-chip small,
   .workspace-layout-collapsed .empty-copy {
     display: none;
@@ -565,6 +566,60 @@ button {
 
 .project-panel-actions {
   margin-top: 20px;
+}
+
+.project-sidebar-control {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 20px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: var(--shadow-md);
+}
+
+.project-sidebar-control-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.project-sidebar-control-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.project-sidebar-control-badge {
+  min-width: 54px;
+}
+
+.project-sidebar-control-copy {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.88rem;
+  line-height: 1.7;
+}
+
+.project-sidebar-slider {
+  width: 100%;
+  accent-color: var(--brand-strong);
+}
+
+.project-sidebar-slider-scale {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  color: var(--text-soft);
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.project-sidebar-slider-scale-active {
+  color: var(--brand-strong);
 }
 
 .project-chip,
@@ -979,6 +1034,14 @@ button {
   font-size: 1.15rem;
 }
 
+.column-filter-note {
+  margin: 6px 0 0;
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
 .column-empty {
   display: flex;
   flex: 1;
@@ -1168,6 +1231,40 @@ button {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.reports-month-nav {
+  grid-template-columns: minmax(0, 1.6fr) auto;
+  align-items: center;
+}
+
+.reports-month-nav-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reports-month-nav-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.reports-month-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.reports-month-empty {
+  min-height: 120px;
+}
+
+.reports-month-task {
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
 }
 
 .traceability-task-card {
@@ -1451,6 +1548,10 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .reports-month-grid {
+    grid-template-columns: 1fr;
+  }
+
   .collaboration-grid {
     grid-template-columns: 1fr;
   }
@@ -1480,7 +1581,8 @@ button {
 
   .board-grid,
   .playground-examples,
-  .detail-layout {
+  .detail-layout,
+  .reports-month-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1520,6 +1622,15 @@ button {
   .board-panel,
   .topbar {
     padding: 20px;
+  }
+
+  .project-sidebar-slider-scale,
+  .reports-month-nav {
+    grid-template-columns: 1fr;
+  }
+
+  .reports-month-nav-actions {
+    justify-content: stretch;
   }
 
   .board-panel {

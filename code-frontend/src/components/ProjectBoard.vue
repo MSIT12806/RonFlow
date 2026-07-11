@@ -102,7 +102,15 @@
             @drop.prevent="handleTaskDrop($event, column.stateKey)"
           >
             <header class="column-header">
-              <h3>{{ column.label }}</h3>
+              <div>
+                <h3>{{ column.label }}</h3>
+                <p
+                  v-if="getCompletedColumnSummary(column.stateKey)"
+                  class="column-filter-note"
+                >
+                  {{ getCompletedColumnSummary(column.stateKey) }}
+                </p>
+              </div>
               <span class="count-badge">{{ column.tasks.length }}</span>
             </header>
 
@@ -164,6 +172,11 @@ const props = defineProps<{
   isLoadingBoard: boolean
   commandErrorMessage: string
   canManageMembers?: boolean
+  completedColumnSummaries?: Array<{
+    stateKey: string
+    selectedLabel: string
+    hiddenTaskCount: number
+  }>
 }>()
 
 const emit = defineEmits<{
@@ -188,6 +201,17 @@ const taskTreeNodeCount = computed(() => countTaskTreeNodes(props.taskTree))
 
 function countTaskTreeNodes(tasks: BoardTaskCardResponse[]): number {
   return tasks.reduce((total, task) => total + 1 + countTaskTreeNodes(task.children), 0)
+}
+
+function getCompletedColumnSummary(stateKey: string) {
+  const summary = props.completedColumnSummaries?.find((item) => item.stateKey === stateKey)
+  if (!summary) {
+    return ''
+  }
+
+  return summary.hiddenTaskCount > 0
+    ? `篩選：${summary.selectedLabel}，已隱藏 ${summary.hiddenTaskCount} 筆較早完成任務`
+    : `篩選：${summary.selectedLabel}`
 }
 
 const draggingTaskId = ref<string | null>(null)

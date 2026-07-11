@@ -53,18 +53,21 @@
             :is-loading-projects="isLoadingProjects"
             :has-error="Boolean(pageError)"
             :format-project-meta="formatProjectMeta"
+            :completed-tasks-visibility="completedTasksVisibility"
             @select-project="onSelectProject"
             @open-invitation-inbox="openInvitationInbox"
+            @change-completed-tasks-visibility="onChangeCompletedTasksVisibility"
           />
 
           <ProjectBoard
             v-if="currentWorkspaceView === 'board'"
             :active-project-name="activeProject?.name ?? null"
             :task-tree="activeTaskTree"
-            :columns="activeColumns"
+            :columns="displayColumns"
             :is-loading-board="isLoadingBoard"
             :command-error-message="boardCommandError"
             :can-manage-members="activeProject?.role !== '專案成員'"
+            :completed-column-summaries="completedColumnSummaries"
             @open-create-task="onOpenCreateTask"
             @open-project-subtask-templates="openProjectSubtaskTemplatesModal"
             @open-project-members="openProjectMembersPanel"
@@ -140,19 +143,23 @@
             :report="workflowThroughputReport"
             :aging-report="taskAgingReport"
             :cycle-report="cycleTimeReport"
+            :completed-by-month-report="completedTasksByMonthReport"
             :aging-thresholds="taskAgingThresholds"
             :cycle-range="cycleTimeRange"
             :bucket-type="workflowThroughputBucket"
             :is-loading="isLoadingWorkflowThroughput"
             :is-loading-aging="isLoadingTaskAging"
             :is-loading-cycle="isLoadingCycleTime"
+            :is-loading-completed-by-month="isLoadingCompletedTasksByMonth"
             :error-message="workflowThroughputError"
             :aging-error-message="taskAgingError"
             :cycle-error-message="cycleTimeError"
+            :completed-by-month-error-message="completedTasksByMonthError"
             @back-to-board="openBoardView"
             @change-bucket="loadWorkflowThroughputReport"
             @change-task-aging-thresholds="loadTaskAgingReport"
             @change-cycle-range="loadCycleTimeReport"
+            @shift-completed-month-window="shiftCompletedMonthWindow"
             @open-task-detail="onOpenTaskDetail"
           />
         </section>
@@ -233,7 +240,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import AsyncStatePlayground from './devtools/playground/AsyncStatePlayground.vue'
 import AsyncStateBoundary from './components/bases/AsyncStateBoundary.vue'
 import CodeTraceabilityQueryView from './components/CodeTraceabilityQueryView.vue'
@@ -250,6 +257,8 @@ import RonAuthEntryPanel from './components/RonAuthEntryPanel.vue'
 import TaskDetailModal from './components/TaskDetailModal.vue'
 import type { PasswordLoginInput, RegisterUserInput } from './api/ronauth'
 import type {
+  BoardColumnResponse,
+  CompletedTasksByMonthReportResponse,
   CycleTimeReportResponse,
   ProjectCodeTraceabilityItemResponse,
   ProjectSubtaskTemplateResponse,
@@ -261,6 +270,13 @@ import { ApiValidationError, activateRonFlowSession, releaseRonFlowProjectScope 
 import { ProjectCommandService, ProjectQueryService } from './application'
 import { usePushNotifications } from './composables/usePushNotifications'
 import { useRonFlowAuth } from './composables/useRonFlowAuth'
+import {
+  COMPLETED_TASKS_VISIBILITY_STORAGE_KEY,
+  getCompletedTasksVisibilityLabel,
+  isCompletedTaskVisible,
+  isCompletedTasksVisibilityValue,
+  type CompletedTasksVisibilityValue,
+} from './features/completedTasksVisibility'
 import {
   useRonFlowBoard,
   type EditableTaskCodeTraceability,
@@ -284,6 +300,28 @@ function createDefaultCycleTimeRange() {
     completedFrom: formatDateInput(completedFrom),
     completedTo: formatDateInput(completedTo),
   }
+}
+
+function createCurrentMonthAnchor() {
+  const now = new Date()
+  return `${now.getUTCFullYear()}-${`${now.getUTCMonth() + 1}`.padStart(2, '0')}-01`
+}
+
+function addMonthsToIsoDate(value: string, monthDelta: number) {
+  const date = new Date(`${value}T00:00:00Z`)
+  date.setUTCMonth(date.getUTCMonth() + monthDelta)
+  return `${date.getUTCFullYear()}-${`${date.getUTCMonth() + 1}`.padStart(2, '0')}-01`
+}
+
+function getInitialCompletedTasksVisibility(): CompletedTasksVisibilityValue {
+  if (typeof window === 'undefined') {
+    return 'current-month'
+  }
+
+  const storedValue = window.localStorage.getItem(COMPLETED_TASKS_VISIBILITY_STORAGE_KEY)
+  return storedValue && isCompletedTasksVisibilityValue(storedValue)
+    ? storedValue
+    : 'current-month'
 }
 
 const showAsyncStatePlayground = import.meta.env.DEV
@@ -319,6 +357,14 @@ const cycleTimeReport = ref<CycleTimeReportResponse | null>(null)
 const cycleTimeRange = ref(createDefaultCycleTimeRange())
 const isLoadingCycleTime = ref(false)
 const cycleTimeError = ref('')
+const completedTasksByMonthReport = ref<CompletedTasksByMonthReportResponse | null>(null)
+const completedTasksByMonthWindow = ref({
+  anchorMonth: createCurrentMonthAnchor(),
+  monthCount: 3,
+})
+const isLoadingCompletedTasksByMonth = ref(false)
+const completedTasksByMonthError = ref('')
+const completedTasksVisibility = ref<CompletedTasksVisibilityValue>(getInitialCompletedTasksVisibility())
 
 const projectQueryService = new ProjectQueryService()
 const projectCommandService = new ProjectCommandService()
@@ -404,6 +450,39 @@ const {
   refreshSelectedTaskDetailSilently,
 } = useRonFlowBoard()
 
+type DisplayBoardColumn = BoardColumnResponse
+type CompletedColumnSummary = {
+  stateKey: string
+  selectedLabel: string
+  hiddenTaskCount: number
+}
+
+const displayColumns = computed<DisplayBoardColumn[]>(() =>
+  activeColumns.value.map((column) => {
+    if (!column.isCompletedState) {
+      return column
+    }
+
+    return {
+      ...column,
+      tasks: column.tasks.filter((task) => isCompletedTaskVisible(task, completedTasksVisibility.value)),
+    }
+  }),
+)
+
+const completedColumnSummaries = computed<CompletedColumnSummary[]>(() =>
+  activeColumns.value
+    .filter((column) => column.isCompletedState)
+    .map((column) => {
+      const visibleColumn = displayColumns.value.find((candidate) => candidate.stateKey === column.stateKey)
+      return {
+        stateKey: column.stateKey,
+        selectedLabel: getCompletedTasksVisibilityLabel(completedTasksVisibility.value),
+        hiddenTaskCount: Math.max(0, column.tasks.length - (visibleColumn?.tasks.length ?? 0)),
+      }
+    }),
+)
+
 onMounted(async () => {
   removeSessionInvalidatedListener = onRonFlowSessionInvalidated(() => {
     handleSessionInvalidated()
@@ -425,6 +504,14 @@ watch(isAuthenticated, (authenticated) => {
     stopWorkspacePolling()
     invitationInboxCount.value = 0
   }
+})
+
+watch(completedTasksVisibility, (value) => {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(COMPLETED_TASKS_VISIBILITY_STORAGE_KEY, value)
 })
 
 async function initializeWorkspace() {
@@ -461,6 +548,7 @@ async function pollWorkspace() {
       await loadWorkflowThroughputReport(workflowThroughputBucket.value, true)
       await loadTaskAgingReport(taskAgingThresholds.value, true)
       await loadCycleTimeReport(cycleTimeRange.value, true)
+      await loadCompletedTasksByMonthReport(completedTasksByMonthWindow.value, true)
     }
 
     await refreshInvitationInboxCount()
@@ -506,6 +594,10 @@ async function onRegister(payload: RegisterUserInput) {
 
 async function onRefreshCurrentUser() {
   await loadCurrentUser()
+}
+
+function onChangeCompletedTasksVisibility(value: CompletedTasksVisibilityValue) {
+  completedTasksVisibility.value = value
 }
 
 async function onLogout() {
@@ -585,6 +677,7 @@ async function openReportsView() {
     loadWorkflowThroughputReport(workflowThroughputBucket.value),
     loadTaskAgingReport(taskAgingThresholds.value),
     loadCycleTimeReport(cycleTimeRange.value),
+    loadCompletedTasksByMonthReport(completedTasksByMonthWindow.value),
   ])
 }
 
@@ -664,6 +757,41 @@ async function loadCycleTimeReport(
       isLoadingCycleTime.value = false
     }
   }
+}
+
+async function loadCompletedTasksByMonthReport(
+  options: { anchorMonth: string; monthCount: number },
+  silent = false,
+) {
+  if (!activeProjectId.value) {
+    return
+  }
+
+  completedTasksByMonthWindow.value = { ...options }
+
+  if (!silent) {
+    isLoadingCompletedTasksByMonth.value = true
+  }
+
+  completedTasksByMonthError.value = ''
+
+  try {
+    completedTasksByMonthReport.value = await projectQueryService.getCompletedTasksByMonth(activeProjectId.value, completedTasksByMonthWindow.value)
+  } catch {
+    completedTasksByMonthError.value = '無法載入已完成月份報表，請稍後再試。'
+  } finally {
+    if (!silent) {
+      isLoadingCompletedTasksByMonth.value = false
+    }
+  }
+}
+
+function shiftCompletedMonthWindow(direction: 'older' | 'newer') {
+  const monthDelta = direction === 'older' ? -1 : 1
+  void loadCompletedTasksByMonthReport({
+    ...completedTasksByMonthWindow.value,
+    anchorMonth: addMonthsToIsoDate(completedTasksByMonthWindow.value.anchorMonth, monthDelta),
+  })
 }
 
 async function onSelectProject(projectId: string) {

@@ -197,6 +197,31 @@ public sealed class ProjectApiIntegrationTests : ApiIntegrationTestBase
     }
 
     [Test]
+    public async Task GetBoard_WhenCompletedTaskExists_ReturnsCompletedTimestampOnDoneCard()
+    {
+        var project = await CreateProjectAsync("Completed Timestamp Project");
+        var task = await CreateTaskAsync(project.Id, "Done task");
+        task = await ReadyTaskForFlowAsync(project.Id, task);
+
+        var completeResponse = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{task.Id}/state",
+            new ChangeTaskStateRequest("done"));
+        Assert.That(completeResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var boardResponse = await Client.GetAsync($"/api/projects/{project.Id}/board");
+        Assert.That(boardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var board = await boardResponse.Content.ReadFromJsonAsync<ProjectBoardResponse>();
+        Assert.That(board, Is.Not.Null);
+
+        var doneTask = board!.Columns
+            .Single(column => column.StateKey == "done")
+            .Tasks
+            .Single(card => card.Id == task.Id);
+        Assert.That(doneTask.CompletedAt, Is.Not.Null);
+    }
+
+    [Test]
     public async Task GetCodeTraceability_WhenProjectHasTraceableTasks_ReturnsFlattenedTraceabilityItems()
     {
         var project = await CreateProjectAsync("RonFlow Project");

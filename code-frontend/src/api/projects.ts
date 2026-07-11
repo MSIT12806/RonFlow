@@ -1,5 +1,6 @@
 import { apiPath, request } from './request'
 import type {
+  CompletedTasksByMonthReportResponse,
   CycleTimeReportResponse,
   ProjectBoardResponse,
   ProjectCodeTraceabilityResponse,
@@ -60,6 +61,18 @@ export async function getCycleTimeReport(projectId: string, range: {
   })
 
   return request<CycleTimeReportResponse>(apiPath(`/projects/${projectId}/reports/cycle-time?${query.toString()}`))
+}
+
+export async function getCompletedTasksByMonthReport(projectId: string, options: {
+  anchorMonth: string
+  monthCount: number
+}) {
+  const query = new URLSearchParams({
+    anchorMonth: options.anchorMonth,
+    monthCount: `${options.monthCount}`,
+  })
+
+  return request<CompletedTasksByMonthReportResponse>(apiPath(`/projects/${projectId}/reports/completed-by-month?${query.toString()}`))
 }
 
 export async function getProjectSubtaskTemplates(projectId: string) {
