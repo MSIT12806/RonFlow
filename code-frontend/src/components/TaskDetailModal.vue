@@ -171,6 +171,9 @@
             <div class="detail-section-header">
               <div>
                 <p class="detail-label">Child tasks</p>
+                <p v-if="isParentTask" class="detail-supporting-copy" data-testid="task-child-progress">
+                  直接子任務進度 {{ completedChildTaskCount }} / {{ childTasks.length }}
+                </p>
               </div>
             </div>
 
@@ -610,6 +613,7 @@ const isChecklistTextReadOnly = computed(() => isForcedReadOnly.value || isLifec
 const taskReminders = computed(() => props.task?.reminders ?? [])
 const childTasks = computed(() => props.task?.childTasks ?? [])
 const isParentTask = computed(() => childTasks.value.length > 0)
+const completedChildTaskCount = computed(() => childTasks.value.filter((childTask) => childTask.isCompleted).length)
 const canCreateChildTask = computed(() => !isForcedReadOnly.value && !isLifecycleReadOnly.value && canEnterEdit.value)
 const hasCompletionCriteria = computed(() => draftSubtasks.value.some((subtask) => subtask.title.trim().length > 0))
 const hasEstimatedEffort = computed(() => {

@@ -261,6 +261,17 @@ describe('TaskDetailModal', () => {
     expect(wrapper.find('[data-testid="task-ready-list-section"]').exists()).toBe(false)
   })
 
+  it('shows direct child completion progress for parent tasks', () => {
+    const wrapper = mountTaskDetail(createTask({
+      childTasks: [
+        { id: 'child-task-1', title: '撰寫 SRS', isCompleted: true, isInFlow: false, parentPath: '補上 Drawer 編輯測試', children: [] },
+        { id: 'child-task-2', title: '撰寫驗收測試', isCompleted: false, isInFlow: false, parentPath: '補上 Drawer 編輯測試', children: [] },
+      ],
+    }))
+
+    expect(wrapper.get('[data-testid="task-child-progress"]').text()).toContain('直接子任務進度 1 / 2')
+  })
+
   it('preserves the child task draft title when the same task detail is refreshed', async () => {
     const wrapper = mountTaskDetail(createTask())
 

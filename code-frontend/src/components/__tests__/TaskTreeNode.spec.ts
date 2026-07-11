@@ -16,6 +16,21 @@ function createTask(overrides: Partial<BoardTaskCardResponse> = {}): BoardTaskCa
 }
 
 describe('TaskTreeNode', () => {
+  it('shows direct child completion progress for parent tasks', () => {
+    const wrapper = mount(TaskTreeNode, {
+      props: {
+        task: createTask({
+          children: [
+            createTask({ id: 'child-1', title: 'Child 1', isCompleted: true }),
+            createTask({ id: 'child-2', title: 'Child 2', isCompleted: false }),
+          ],
+        }),
+      },
+    })
+
+    expect(wrapper.text()).toContain('Parent task · 1 / 2 completed')
+  })
+
   it('shows an inside drop guide on the target task card', () => {
     const wrapper = mount(TaskTreeNode, {
       props: {

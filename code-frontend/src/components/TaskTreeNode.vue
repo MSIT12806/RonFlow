@@ -104,6 +104,7 @@ const hasChildren = computed(() => props.task.children.length > 0)
 const isDropBefore = computed(() => props.activeDropTarget?.taskId === props.task.id && props.activeDropTarget.placement === 'before')
 const isDropAfter = computed(() => props.activeDropTarget?.taskId === props.task.id && props.activeDropTarget.placement === 'after')
 const isDropInside = computed(() => props.activeDropTarget?.taskId === props.task.id && props.activeDropTarget.placement === 'inside')
+const completedDirectChildCount = computed(() => props.task.children.filter((childTask) => childTask.isCompleted).length)
 
 const nodeMeta = computed(() => {
   if (props.task.isInFlow) {
@@ -114,7 +115,7 @@ const nodeMeta = computed(() => {
     return 'Leaf task'
   }
 
-  return `Parent task · ${props.task.children.length} child${props.task.children.length === 1 ? '' : 'ren'}`
+  return `Parent task · ${completedDirectChildCount.value} / ${props.task.children.length} completed`
 })
 
 function resolveDropPlacement(event: DragEvent): TaskTreeDropPlacement {
