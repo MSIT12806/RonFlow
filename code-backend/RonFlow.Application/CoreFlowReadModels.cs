@@ -155,6 +155,8 @@ internal static class CoreFlowReadModelFactory
                 activeTasks
                     .Where(task => task.IsInFlow)
                     .Where(task => task.CurrentState.Key == state.Key)
+                    .OrderBy(task => task.SortOrder)
+                    .ThenBy(task => task.CreatedAt)
                     .Select(task => CreateBoardTaskCard(task, parentPaths))
                     .ToArray()))
             .ToArray();
@@ -162,6 +164,8 @@ internal static class CoreFlowReadModelFactory
         var taskTreeRoots = activeTasks
             .Where(task => task.IsInFlow is false)
             .Where(task => task.ParentTaskId is null)
+            .OrderBy(task => task.SortOrder)
+            .ThenBy(task => task.CreatedAt)
             .ToArray();
         var taskTree = BuildTaskTree(activeTasks, taskTreeRoots, parentPaths);
 
@@ -248,12 +252,18 @@ internal static class CoreFlowReadModelFactory
         IReadOnlyDictionary<Guid, string> parentPaths)
     {
         return currentLevelTasks
+            .OrderBy(task => task.SortOrder)
+            .ThenBy(task => task.CreatedAt)
             .Select(task => CreateBoardTaskCard(
                 task,
                 parentPaths,
                 BuildTaskTree(
                     allActiveTasks,
-                    allActiveTasks.Where(childTask => childTask.ParentTaskId == task.Id).ToArray(),
+                    allActiveTasks
+                        .Where(childTask => childTask.ParentTaskId == task.Id)
+                        .OrderBy(childTask => childTask.SortOrder)
+                        .ThenBy(childTask => childTask.CreatedAt)
+                        .ToArray(),
                     parentPaths)))
             .ToArray();
     }

@@ -1,6 +1,12 @@
 import { apiPath, request } from './request'
 import type { LifecycleTaskListResponse, TaskDetailResponse, TaskEstimatedEffortResponse } from './types'
 
+export type MoveTaskInTreePayload = {
+  targetParentTaskId: string | null
+  targetSiblingTaskId: string | null
+  insertAfter: boolean
+}
+
 export async function createTask(projectId: string, title: string) {
   return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks`), {
     method: 'POST',
@@ -64,6 +70,13 @@ export async function reorderTask(projectId: string, taskId: string, targetTaskI
   return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}/order`), {
     method: 'PATCH',
     body: JSON.stringify({ targetTaskId }),
+  })
+}
+
+export async function moveTaskInTree(projectId: string, taskId: string, payload: MoveTaskInTreePayload) {
+  return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}/tree-position`), {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
   })
 }
 

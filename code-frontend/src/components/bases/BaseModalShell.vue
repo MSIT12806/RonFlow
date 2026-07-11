@@ -9,6 +9,7 @@
     ]"
   >
     <div
+      ref="cardRef"
       :class="[
         'base-modal-shell__card',
         `base-modal-shell__card--${presentation}`,
@@ -20,19 +21,22 @@
       :aria-labelledby="titleId"
     >
       <div class="base-modal-shell__header">
-        <div>
+        <div class="base-modal-shell__header-copy">
           <p v-if="eyebrow" class="eyebrow">{{ eyebrow }}</p>
           <h2 :id="titleId" class="base-modal-shell__title">{{ title }}</h2>
         </div>
-        <button
-          type="button"
-          class="ghost-icon-button"
-          aria-label="關閉視窗"
-          :disabled="closeDisabled"
-          @click="$emit('close')"
-        >
-          ×
-        </button>
+        <div class="base-modal-shell__header-actions">
+          <slot name="header-actions" />
+          <button
+            type="button"
+            class="ghost-icon-button"
+            aria-label="關閉視窗"
+            :disabled="closeDisabled"
+            @click="$emit('close')"
+          >
+            ×
+          </button>
+        </div>
       </div>
 
       <slot />
@@ -41,7 +45,9 @@
 </template>
 
 <script setup lang="ts">
-withDefaults(defineProps<{
+import { onBeforeUnmount, ref, watch } from 'vue'
+
+const props = withDefaults(defineProps<{
   isOpen: boolean
   title: string
   titleId: string
@@ -50,17 +56,90 @@ withDefaults(defineProps<{
   presentation?: 'modal' | 'drawer'
   closeDisabled?: boolean
   allowUnderlayInteraction?: boolean
+  closeOnEscape?: boolean
+  closeOnInteractOutside?: boolean
 }>(), {
   eyebrow: '',
   size: 'default',
   presentation: 'modal',
   closeDisabled: false,
   allowUnderlayInteraction: false,
+  closeOnEscape: false,
+  closeOnInteractOutside: false,
 })
 
-defineEmits<{
+const emit = defineEmits<{
   (event: 'close'): void
 }>()
+
+const cardRef = ref<HTMLElement | null>(null)
+let pendingOutsideListenerTimer: ReturnType<typeof window.setTimeout> | null = null
+
+function handleDocumentClick(event: MouseEvent) {
+  if (!props.isOpen || props.closeDisabled || !props.closeOnInteractOutside) {
+    return
+  }
+
+  const target = event.target
+  const card = cardRef.value
+  if (!(target instanceof Node) || card === null || card.contains(target)) {
+    return
+  }
+
+  const dialogAncestor = target instanceof Element ? target.closest('[role="dialog"]') : null
+  if (dialogAncestor && dialogAncestor !== card) {
+    return
+  }
+
+  emit('close')
+}
+
+function handleWindowKeydown(event: KeyboardEvent) {
+  if (!props.isOpen || props.closeDisabled || !props.closeOnEscape || event.key !== 'Escape') {
+    return
+  }
+
+  emit('close')
+}
+
+function stopGlobalListeners() {
+  if (pendingOutsideListenerTimer !== null) {
+    window.clearTimeout(pendingOutsideListenerTimer)
+    pendingOutsideListenerTimer = null
+  }
+
+  document.removeEventListener('click', handleDocumentClick)
+  window.removeEventListener('keydown', handleWindowKeydown)
+}
+
+function syncGlobalListeners() {
+  stopGlobalListeners()
+
+  if (!props.isOpen) {
+    return
+  }
+
+  if (props.closeOnInteractOutside) {
+    pendingOutsideListenerTimer = window.setTimeout(() => {
+      document.addEventListener('click', handleDocumentClick)
+      pendingOutsideListenerTimer = null
+    }, 0)
+  }
+
+  if (props.closeOnEscape) {
+    window.addEventListener('keydown', handleWindowKeydown)
+  }
+}
+
+watch(
+  () => [props.isOpen, props.closeOnEscape, props.closeOnInteractOutside],
+  syncGlobalListeners,
+  { immediate: true },
+)
+
+onBeforeUnmount(() => {
+  stopGlobalListeners()
+})
 </script>
 
 <style scoped>
@@ -114,10 +193,29 @@ defineEmits<{
 }
 
 .base-modal-shell__header {
+  position: sticky;
+  top: -24px;
+  z-index: 8;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  margin: -24px -24px 0;
+  padding: 24px 24px 16px;
+  background: rgba(255, 252, 248, 0.96);
+  backdrop-filter: blur(14px);
+}
+
+.base-modal-shell__header-copy {
+  min-width: 0;
+}
+
+.base-modal-shell__header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .base-modal-shell__title {
@@ -132,6 +230,9 @@ defineEmits<{
   .base-modal-shell__header {
     flex-direction: column;
     align-items: stretch;
+    top: -20px;
+    margin: -20px -20px 0;
+    padding: 20px 20px 14px;
   }
 
   .base-modal-shell__card {

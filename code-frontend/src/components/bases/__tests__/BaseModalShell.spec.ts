@@ -108,4 +108,45 @@ describe('BaseModalShell', () => {
     expect(wrapper.get('[data-testid="base-modal-shell-card"]').classes()).toContain('base-modal-shell__card--drawer')
     expect(wrapper.get('[role="dialog"]').attributes('aria-modal')).toBe('false')
   })
+
+  it('emits close when escape is pressed and closeOnEscape is enabled', async () => {
+    const wrapper = mount(BaseModalShell, {
+      attachTo: document.body,
+      props: {
+        isOpen: true,
+        title: '任務詳細資訊',
+        titleId: 'task-detail-title',
+        closeOnEscape: true,
+      },
+    })
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.emitted('close')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('emits close when clicking outside the card and closeOnInteractOutside is enabled', async () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+
+    const wrapper = mount(BaseModalShell, {
+      attachTo: host,
+      props: {
+        isOpen: true,
+        title: '任務詳細資訊',
+        titleId: 'task-detail-title',
+        closeOnInteractOutside: true,
+      },
+    })
+
+    await new Promise((resolve) => window.setTimeout(resolve, 0))
+    host.click()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.emitted('close')).toHaveLength(1)
+    wrapper.unmount()
+    host.remove()
+  })
 })

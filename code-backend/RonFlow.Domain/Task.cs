@@ -417,6 +417,19 @@ public sealed class Task
         return true;
     }
 
+    public bool UpdateTreePosition(Guid? parentTaskId, DateTimeOffset changedAt, bool recordActivity)
+    {
+        var hasChanged = ParentTaskId != parentTaskId;
+        ParentTaskId = parentTaskId;
+
+        if (recordActivity)
+        {
+            activityTimeline.Add(ActivityTimelineItem.TaskReordered(changedAt));
+        }
+
+        return hasChanged;
+    }
+
     public TaskMutationExecutionResult ReplaceSubtasks(TaskMutationAuthorization authorization, IEnumerable<TaskSubtask> updatedSubtasks, WorkflowState? reviewState, DateTimeOffset changedAt)
     {
         if (TryRejectLockedMutation(authorization, TaskMutationKind.ReplaceSubtasks, out var lockedResult))

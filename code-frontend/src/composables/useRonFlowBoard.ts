@@ -182,6 +182,14 @@ export function useRonFlowBoard() {
       taskCommandService.reorder(projectId, taskId, targetTaskId),
   )
 
+  const moveTaskInTreeResource = useApiResource(
+    (
+      projectId: string,
+      taskId: string,
+      payload: { targetParentTaskId: string | null; targetSiblingTaskId: string | null; insertAfter: boolean },
+    ) => taskCommandService.moveInTree(projectId, taskId, payload),
+  )
+
   const createTaskReminderResource = useApiResource(
     (projectId: string, taskId: string, reminderDateTime: string, description: string) =>
       taskCommandService.createReminder(projectId, taskId, reminderDateTime, description),
@@ -620,6 +628,41 @@ export function useRonFlowBoard() {
     }
   }
 
+  async function moveTaskWithinTree(
+    taskId: string,
+    payload: { targetParentTaskId: string | null; targetSiblingTaskId: string | null; insertAfter: boolean },
+  ) {
+    if (!activeProjectId.value) {
+      return
+    }
+
+    boardCommandError.value = ''
+
+    try {
+      const updatedTask = await moveTaskInTreeResource.execute(activeProjectId.value, taskId, payload)
+
+      if (selectedTask.value?.id === taskId) {
+        taskDetailResource.setData(updatedTask)
+      }
+
+      await loadBoard(activeProjectId.value)
+    } catch (error) {
+      if (error instanceof ApiValidationError) {
+        boardCommandError.value = error.errors.targetParentTaskId?.[0]
+          ?? error.errors.targetSiblingTaskId?.[0]
+          ?? '調整任務樹位置失敗，請重新整理後再試。'
+        return
+      }
+
+      if (error instanceof ApiRequestError && error.status === 404) {
+        boardCommandError.value = '找不到指定的任務，請重新整理專案看板。'
+        return
+      }
+
+      boardCommandError.value = '調整任務樹位置失敗，請稍後再試。'
+    }
+  }
+
   async function createReminder(taskId: string, reminderDateTime: string, description: string) {
     if (!activeProjectId.value) {
       return false
@@ -947,6 +990,7 @@ export function useRonFlowBoard() {
     createReminder,
     deleteReminder,
     reorderTaskWithinColumn,
+    moveTaskWithinTree,
     loadArchivedTasks,
     loadTrashedTasks,
     archiveTask,

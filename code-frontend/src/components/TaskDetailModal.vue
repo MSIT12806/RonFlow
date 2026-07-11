@@ -8,12 +8,68 @@
     eyebrow="Task detail"
     size="wide"
     :presentation="viewMode"
+    :close-on-escape="canAutoCloseDrawer"
+    :close-on-interact-outside="canAutoCloseDrawer"
     @close="$emit('close')"
   >
-      <section v-if="displayTitle" class="detail-preview-header">
-        <div>
+    <template #header-actions>
+      <div v-if="!isForcedReadOnly" class="detail-header-actions" data-testid="task-detail-header-actions">
+        <button
+          v-if="isEditing"
+          type="button"
+          class="primary-button"
+          :disabled="isSaving"
+          @click="submit"
+        >
+          儲存變更
+        </button>
+
+        <template v-else-if="!isLifecycleReadOnly">
+          <button
+            type="button"
+            class="primary-button"
+            :disabled="isSaving || !canEnterEdit"
+            @click="emitEnterEdit"
+          >
+            編輯
+          </button>
+
+          <button
+            type="button"
+            class="secondary-button"
+            aria-haspopup="menu"
+            :aria-expanded="isActionsOpen"
+            :disabled="isSaving || isLifecycleReadOnly || isEditing || !canEnterEdit"
+            @click="toggleActionsMenu"
+          >
+            更多操作
+          </button>
+        </template>
+
+        <button
+          v-else
+          type="button"
+          class="primary-button"
+          :disabled="isSaving"
+          @click="emitRestore"
+        >
+          還原
+        </button>
+
+        <div v-if="isActionsOpen" class="detail-actions-menu" role="menu">
+          <button type="button" class="detail-actions-menu-item" role="menuitem" @click="emitArchive">
+            封存
+          </button>
+          <button type="button" class="detail-actions-menu-item" role="menuitem" @click="emitMoveToTrash">
+            移到垃圾桶
+          </button>
+        </div>
+      </div>
+    </template>
+
+      <section v-if="!task && displayTitle" class="detail-preview-header">
+        <div class="detail-preview-copy">
           <h3>{{ displayTitle }}</h3>
-          <p v-if="task" class="detail-preview-meta">建立 {{ formatTimelineTime(task.createdAt) }}</p>
         </div>
       </section>
 
@@ -22,62 +78,41 @@
         :error-message="errorMessage"
         loading-message="正在載入任務詳細資訊..."
       >
-        <section v-if="task" class="detail-layout">
-          <div class="detail-card detail-card-full detail-toolbar">
-            <div v-if="isLifecycleReadOnly" class="detail-lifecycle-banner">
+        <section v-if="task" class="detail-preview-header">
+          <div class="detail-preview-copy" data-testid="task-detail-title-header">
+            <template v-if="isEditing">
+              <label class="detail-label" for="task-detail-title-input">任務標題</label>
+              <InputText
+                id="task-detail-title-input"
+                v-model="draftTitle"
+                fluid
+                :disabled="isSaving || isReadOnly"
+                :invalid="Boolean(titleValidationError)"
+              />
+              <p v-if="titleValidationError" class="error-copy">{{ titleValidationError }}</p>
+            </template>
+
+            <template v-else>
+              <h3>{{ task.title }}</h3>
+            </template>
+
+            <p class="detail-preview-meta">建立 {{ formatTimelineTime(task.createdAt) }}</p>
+            <p v-if="isLifecycleReadOnly" class="detail-preview-status">
               <strong v-if="mode === 'archived'">此任務已封存</strong>
               <strong v-else>此任務位於垃圾桶</strong>
-            </div>
-
-            <div v-else-if="!isForcedReadOnly" class="detail-toolbar-actions">
-              <button
-                v-if="!isEditing"
-                type="button"
-                class="primary-button"
-                :disabled="isSaving || !canEnterEdit"
-                @click="emitEnterEdit"
-              >
-                編輯
-              </button>
-
-              <button
-                type="button"
-                class="secondary-button"
-                aria-haspopup="menu"
-                :aria-expanded="isActionsOpen"
-                :disabled="isSaving || isLifecycleReadOnly || isEditing || !canEnterEdit"
-                @click="toggleActionsMenu"
-              >
-                更多操作
-              </button>
-
-              <div v-if="isActionsOpen" class="detail-actions-menu" role="menu">
-                <button type="button" class="detail-actions-menu-item" role="menuitem" @click="emitArchive">
-                  封存
-                </button>
-                <button type="button" class="detail-actions-menu-item" role="menuitem" @click="emitMoveToTrash">
-                  移到垃圾桶
-                </button>
-              </div>
-            </div>
+            </p>
           </div>
+        </section>
 
-          <div class="detail-card">
-            <div class="detail-field">
-              <label class="detail-label" for="task-detail-title-input">任務標題</label>
+        <ApiCommandResourceView
+          v-if="task && (isSaving || saveErrorMessage)"
+          class="detail-command-status"
+          :is-submitting="isSaving"
+          :error-message="saveErrorMessage"
+          submitting-message="正在提交任務操作，請稍候..."
+        />
 
-              <div class="detail-field-control">
-                <InputText
-                  id="task-detail-title-input"
-                  v-model="draftTitle"
-                  fluid
-                  :disabled="isSaving || isReadOnly"
-                  :invalid="Boolean(titleValidationError)"
-                />
-                <p v-if="titleValidationError" class="error-copy">{{ titleValidationError }}</p>
-              </div>
-            </div>
-          </div>
+        <section v-if="task" class="detail-layout">
 
           <div class="detail-card detail-card-full">
             <div class="detail-field">
@@ -438,19 +473,6 @@
           </div>
 
           <div class="detail-card detail-card-full">
-            <ApiCommandResourceView
-              :is-submitting="isSaving"
-              :error-message="saveErrorMessage"
-              submitting-message="正在提交任務操作，請稍候..."
-            />
-
-            <div class="modal-actions">
-              <button v-if="!isReadOnly" type="button" class="primary-button" :disabled="isSaving" @click="submit">儲存變更</button>
-              <button v-else-if="isLifecycleReadOnly" type="button" class="primary-button" :disabled="isSaving" @click="emitRestore">還原</button>
-            </div>
-          </div>
-
-          <div class="detail-card detail-card-full">
             <p class="detail-label">活動紀錄</p>
             <ul class="history-list">
               <li v-for="entry in task.activityTimeline" :key="`${entry.type}-${entry.occurredAt}`">
@@ -582,6 +604,7 @@ const isLifecycleReadOnly = computed(() => props.mode !== 'active')
 const canEnterEdit = computed(() => !isForcedReadOnly.value && !isLifecycleReadOnly.value && (props.canEnterEdit ?? true))
 const isEditing = computed(() => !isForcedReadOnly.value && !isLifecycleReadOnly.value && Boolean(props.isEditing))
 const isReadOnly = computed(() => isForcedReadOnly.value || isLifecycleReadOnly.value || !isEditing.value)
+const canAutoCloseDrawer = computed(() => props.viewMode === 'drawer' && !isEditing.value && !props.isSaving)
 const canToggleSubtaskCheckbox = computed(() => !isForcedReadOnly.value && !isLifecycleReadOnly.value && canEnterEdit.value)
 const isChecklistTextReadOnly = computed(() => isForcedReadOnly.value || isLifecycleReadOnly.value || !isEditing.value)
 const taskReminders = computed(() => props.task?.reminders ?? [])

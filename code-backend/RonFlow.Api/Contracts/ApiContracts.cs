@@ -90,6 +90,8 @@ public sealed record TaskSubtaskItemRequest(Guid? Id, string? Title, bool IsChec
 
 public sealed record ReorderTaskRequest(Guid? TargetTaskId);
 
+public sealed record MoveTaskInTreeRequest(Guid? TargetParentTaskId, Guid? TargetSiblingTaskId, bool InsertAfter);
+
 public sealed record PushNotificationPublicKeyResponse(string PublicKey);
 
 public sealed record DeploymentComponentResponse(

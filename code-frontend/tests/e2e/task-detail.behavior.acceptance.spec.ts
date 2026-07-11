@@ -4,6 +4,8 @@ import {
   createScenarioData,
   createTask,
   createTaskTitle,
+  expectTaskNotVisibleInWorkspace,
+  expectTaskVisibleInWorkspace,
   openInvitationInbox,
   openCreateProjectModal,
   openCreateTaskModal,
@@ -108,7 +110,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Detail Behavior', () => {
     await expect(page.getByRole('button', { name: '登出' })).toBeVisible()
     await page.getByRole('button', { name: projectName }).click()
     await expect(page.getByRole('heading', { name: projectName })).toBeVisible()
-    await expect(page.getByTestId('workflow-column-todo')).toContainText(taskTitle)
+    await expectTaskVisibleInWorkspace(page, 'todo', taskTitle)
   })
 
   test('使用者可以在 Drawer 修改任務標題、描述與到期日，並看到最新資料與活動紀錄', async ({ page }, testInfo) => {
@@ -140,8 +142,8 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Detail Behavior', () => {
     await expect(detailDialog.getByText('已更新任務標題', { exact: true })).toBeVisible()
     await expect(detailDialog.getByText('已更新任務描述', { exact: true })).toBeVisible()
     await expect(detailDialog.getByText('已設定到期日為 2026/05/20', { exact: true })).toBeVisible()
-    await expect(page.getByTestId('workflow-column-todo')).toContainText(updatedTaskTitle)
-    await expect(page.getByTestId('workflow-column-todo')).not.toContainText(taskTitle)
+    await expectTaskVisibleInWorkspace(page, 'todo', updatedTaskTitle)
+    await expectTaskNotVisibleInWorkspace(page, 'todo', taskTitle)
   })
 
   test('project template 建立後，新 task 應繼承 checklist，view mode 全部勾選後自動進入 review', async ({ page }, testInfo) => {
@@ -252,8 +254,8 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Detail Behavior', () => {
     await ownerDetailDialog.getByRole('button', { name: '儲存變更' }).click()
 
     await expect(memberDetailDialog.getByLabel('任務標題')).toHaveValue(updatedTaskTitle, { timeout: 10000 })
-    await expect(memberPage.getByTestId('workflow-column-todo')).toContainText(updatedTaskTitle, { timeout: 10000 })
-    await expect(memberPage.getByTestId('workflow-column-todo')).not.toContainText(taskTitle)
+    await expectTaskVisibleInWorkspace(memberPage, 'todo', updatedTaskTitle, 10000)
+    await expectTaskNotVisibleInWorkspace(memberPage, 'todo', taskTitle)
 
     await ownerContext.close()
     await memberContext.close()

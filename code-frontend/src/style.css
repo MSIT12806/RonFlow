@@ -484,7 +484,14 @@ button {
 }
 
 .detail-preview-header {
+  position: relative;
   margin-bottom: 18px;
+}
+
+.detail-preview-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .detail-preview-header h3 {
@@ -498,6 +505,16 @@ button {
   color: var(--text-soft);
   font-size: 0.88rem;
   font-weight: 600;
+}
+
+.detail-preview-status {
+  margin: 0;
+  color: var(--brand-strong);
+  font-weight: 800;
+}
+
+.detail-command-status {
+  margin-bottom: 18px;
 }
 
 .base-state-block {
@@ -654,7 +671,6 @@ button {
 }
 
 .board-header-actions,
-.detail-toolbar-actions,
 .lifecycle-task-actions {
   display: flex;
   flex-wrap: wrap;
@@ -709,6 +725,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  position: relative;
 }
 
 .task-tree-row {
@@ -717,6 +734,27 @@ button {
   gap: 8px;
   align-items: stretch;
   padding-left: calc(var(--task-tree-depth, 0) * 24px);
+}
+
+.task-tree-node-drop-before::before,
+.task-tree-node-drop-after::after {
+  content: '';
+  position: absolute;
+  left: calc(var(--task-tree-depth, 0) * 24px + 40px);
+  right: 0;
+  height: 0;
+  border-top: 2px solid rgba(14, 165, 233, 0.88);
+  box-shadow: 0 0 0 3px rgba(186, 230, 253, 0.72);
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.task-tree-node-drop-before::before {
+  top: -4px;
+}
+
+.task-tree-node-drop-after::after {
+  bottom: -4px;
 }
 
 .task-tree-toggle,
@@ -822,6 +860,16 @@ button {
 .task-tree-item:hover {
   border-color: rgba(20, 184, 166, 0.42);
   background: rgba(240, 253, 250, 0.82);
+}
+
+.task-tree-item-drop-inside {
+  border-color: rgba(14, 165, 233, 0.74);
+  box-shadow:
+    inset 0 0 0 2px rgba(14, 165, 233, 0.84),
+    0 14px 28px rgba(14, 165, 233, 0.14);
+  background:
+    linear-gradient(135deg, rgba(224, 242, 254, 0.92), rgba(255, 255, 255, 0.92)),
+    rgba(248, 250, 252, 0.82);
 }
 
 .task-tree-empty {
@@ -1340,26 +1388,18 @@ button {
   gap: 4px;
 }
 
-.detail-toolbar-actions {
+.detail-header-actions {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 12px;
 }
 
-.detail-toolbar {
-  position: relative;
-}
-
-.detail-lifecycle-banner {
-  color: var(--brand-strong);
-  font-weight: 800;
-}
-
 .detail-actions-menu {
   position: absolute;
-  top: calc(100% - 8px);
-  right: 18px;
+  top: calc(100% + 8px);
+  right: 0;
   z-index: 2;
   display: flex;
   flex-direction: column;
@@ -1433,7 +1473,6 @@ button {
   }
 
   .board-header-actions,
-  .detail-toolbar-actions,
   .lifecycle-task-actions,
   .lifecycle-task-details {
     grid-template-columns: 1fr;
@@ -1467,10 +1506,14 @@ button {
     grid-template-columns: 1fr;
   }
 
-  .detail-toolbar-actions,
   .detail-checklist-actions,
   .detail-ready-action {
     justify-content: stretch;
+  }
+
+  .detail-header-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .project-panel,
