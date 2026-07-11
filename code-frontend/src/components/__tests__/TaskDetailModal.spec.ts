@@ -261,6 +261,32 @@ describe('TaskDetailModal', () => {
     expect(wrapper.find('[data-testid="task-ready-list-section"]').exists()).toBe(false)
   })
 
+  it('preserves the child task draft title when the same task detail is refreshed', async () => {
+    const wrapper = mountTaskDetail(createTask())
+
+    ;(wrapper.vm as unknown as { draftChildTaskTitle: string }).draftChildTaskTitle = '撰寫驗收測試'
+    await wrapper.setProps({
+      task: createTask(),
+    })
+
+    expect((wrapper.vm as unknown as { draftChildTaskTitle: string }).draftChildTaskTitle).toBe('撰寫驗收測試')
+  })
+
+  it('clears the child task draft title after the child task list changes', async () => {
+    const wrapper = mountTaskDetail(createTask())
+
+    ;(wrapper.vm as unknown as { draftChildTaskTitle: string }).draftChildTaskTitle = '撰寫驗收測試'
+    await wrapper.setProps({
+      task: createTask({
+        childTasks: [
+          { id: 'child-task-1', title: '撰寫驗收測試', isCompleted: false, isInFlow: false, parentPath: '補上 Drawer 編輯測試', children: [] },
+        ],
+      }),
+    })
+
+    expect((wrapper.vm as unknown as { draftChildTaskTitle: string }).draftChildTaskTitle).toBe('')
+  })
+
   it('disables checklist checkboxes when the task is locked by another user', () => {
     const wrapper = mount(TaskDetailModal, {
       props: {

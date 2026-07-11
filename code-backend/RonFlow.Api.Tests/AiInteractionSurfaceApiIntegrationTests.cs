@@ -164,12 +164,36 @@ public sealed class AiInteractionSurfaceApiIntegrationTests : ApiIntegrationTest
         Assert.That(payload, Does.Contain("- discover projects -> GET /api/ai/projects/summary -> yields projectId"));
         Assert.That(payload, Does.Contain("- inspect scoped work -> GET /api/ai/projects/{projectId}/board-summary or GET /api/ai/projects/{projectId}/current-work-summary -> yields taskId"));
         Assert.That(payload, Does.Contain("task_start_rules:"));
-        Assert.That(payload, Does.Contain("- when the human asks the AI to execute a RonFlow task and the confirmed task is in Todo, move it to Active before implementation work begins"));
+        Assert.That(payload, Does.Contain("- when the human asks the AI to complete a RonFlow task, ensure the confirmed task is already in Flow Active before implementation work begins"));
+        Assert.That(payload, Does.Contain("- if the task is still in Hatchery, fill the missing ready fields first, enter Flow, and then move it to Active before implementation work begins"));
+        Assert.That(payload, Does.Contain("- if the task is already in Flow Todo, move it to Active before implementation work begins"));
         Assert.That(payload, Does.Contain("- use move_task_state with targetStateKey: Active"));
+        Assert.That(payload, Does.Contain("- skip this only when the human is decomposing, planning, clarifying, or estimating the task instead of completing it; the target task is ambiguous; the project has no Active state; or the human explicitly asks not to change state"));
         Assert.That(payload, Does.Contain("checklist_rules:"));
         Assert.That(payload, Does.Contain("- use check_task_subtask when one checklist item is finished"));
         Assert.That(payload, Does.Contain("invitation_rules:"));
         Assert.That(payload, Does.Contain("read_invitation_inbox_summary"));
+    }
+
+    [Test]
+    public async Task GetWorkflowGuidance_WhenJsonFormatIsRequested_ReturnsStructuredCompletionFirstTaskStartRules()
+    {
+        var response = await Client.GetAsync("/api/ai/workflow-guidance?format=json");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(response.Content.Headers.ContentType?.MediaType, Is.EqualTo("application/json"));
+
+        await using var stream = await response.Content.ReadAsStreamAsync();
+        using var document = await JsonDocument.ParseAsync(stream);
+        var root = document.RootElement;
+
+        Assert.That(root.GetProperty("version").GetString(), Is.EqualTo("RonFlow Workflow Guidance v1"));
+
+        var taskStartRules = root.GetProperty("taskStartRules").EnumerateArray().Select(item => item.GetString()).ToArray();
+        Assert.That(taskStartRules, Does.Contain("when the human asks the AI to complete a RonFlow task, ensure the confirmed task is already in Flow Active before implementation work begins"));
+        Assert.That(taskStartRules, Does.Contain("if the task is still in Hatchery, fill the missing ready fields first, enter Flow, and then move it to Active before implementation work begins"));
+        Assert.That(taskStartRules, Does.Contain("if the task is already in Flow Todo, move it to Active before implementation work begins"));
+        Assert.That(taskStartRules, Does.Contain("use move_task_state with targetStateKey: Active"));
     }
 
     [Test]

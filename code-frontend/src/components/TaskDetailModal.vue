@@ -997,24 +997,49 @@ function emitSendToFlow() {
 }
 
 watch(
-  () => [
-    props.isOpen,
-    props.isEditing,
-    props.task?.id,
-    props.task?.title,
-    props.task?.description,
-    props.task?.dueDate,
-    props.task?.estimatedEffort?.value ?? null,
-    props.task?.estimatedEffort?.unit ?? null,
-    props.task?.subtasks?.length ?? 0,
-    props.task?.childTasks?.length ?? 0,
-    props.task?.codeTraceability?.api?.length ?? 0,
-    props.task?.codeTraceability?.frontendPages?.length ?? 0,
-    props.task?.codeTraceability?.frontendComponents?.length ?? 0,
-    props.task?.reminders?.length ?? 0,
-    props.mode,
+  [
+    () => props.isOpen,
+    () => props.isEditing,
+    () => props.task?.id ?? null,
+    () => props.task?.title ?? '',
+    () => props.task?.description ?? '',
+    () => props.task?.dueDate ?? null,
+    () => props.task?.estimatedEffort?.value ?? null,
+    () => props.task?.estimatedEffort?.unit ?? null,
+    () => props.task?.subtasks?.length ?? 0,
+    () => props.task?.childTasks?.length ?? 0,
+    () => props.task?.codeTraceability?.api?.length ?? 0,
+    () => props.task?.codeTraceability?.frontendPages?.length ?? 0,
+    () => props.task?.codeTraceability?.frontendComponents?.length ?? 0,
+    () => props.task?.reminders?.length ?? 0,
+    () => props.mode,
   ] as const,
-  ([isOpen]) => {
+  (
+    [
+      isOpen,
+      ,
+      taskId,
+      ,
+      ,
+      ,
+      ,
+      ,
+      ,
+      childTaskCount,
+    ],
+    [
+      wasOpen,
+      ,
+      previousTaskId,
+      ,
+      ,
+      ,
+      ,
+      ,
+      ,
+      previousChildTaskCount,
+    ] = [false, false, null, '', '', null, null, null, 0, 0, 0, 0, 0, 0, 'active'],
+  ) => {
     isActionsOpen.value = false
 
     if (!isOpen || !props.task) {
@@ -1028,7 +1053,9 @@ watch(
     draftEstimatedEffortUnit.value = props.task.estimatedEffort?.unit ?? 'hours'
     draftReminderDateTime.value = ''
     draftReminderDescription.value = ''
-    draftChildTaskTitle.value = ''
+    if (!wasOpen || taskId !== previousTaskId || childTaskCount !== previousChildTaskCount) {
+      draftChildTaskTitle.value = ''
+    }
     draftCodeTraceability.value = createDraftCodeTraceability(props.task)
     draftSubtasks.value = props.task.subtasks.map((subtask) => ({
       id: subtask.id,

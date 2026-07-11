@@ -137,9 +137,12 @@ internal static class AiJsonContractFormatter
             },
             taskStartRules = new[]
             {
-                "when the human asks the AI to execute a RonFlow task and the confirmed task is in Todo, move it to Active before implementation work begins",
+                "when the human asks the AI to complete a RonFlow task, ensure the confirmed task is already in Flow Active before implementation work begins",
+                "if the task is still in Hatchery, fill the missing ready fields first, enter Flow, and then move it to Active before implementation work begins",
+                "if the task is already in Flow Todo, move it to Active before implementation work begins",
                 "use move_task_state with targetStateKey: Active",
                 "inspect the apply result before continuing implementation work",
+                "skip this only when the human is decomposing, planning, clarifying, or estimating the task instead of completing it; the target task is ambiguous; the project has no Active state; or the human explicitly asks not to change state",
             },
             checklistRules = new[]
             {

@@ -297,6 +297,8 @@ test.describe('RonFlow AI 驗收規格 - AI Interaction Surface', () => {
       '4. prepare write request',
       '6. inspect result',
       'task_start_rules:',
+      '- when the human asks the AI to complete a RonFlow task, ensure the confirmed task is already in Flow Active before implementation work begins',
+      '- if the task is still in Hatchery, fill the missing ready fields first, enter Flow, and then move it to Active before implementation work begins',
       '- use move_task_state with targetStateKey: Active',
       'ask_human_when:',
     ])
