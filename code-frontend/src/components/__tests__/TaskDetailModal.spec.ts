@@ -44,7 +44,7 @@ function createTask(overrides: Partial<TaskDetailResponse> = {}): TaskDetailResp
 
 const baseModalShellStub = {
   props: ['presentation', 'allowUnderlayInteraction'],
-  template: '<div data-testid="base-modal-shell-stub" :data-presentation="presentation" :data-allow-underlay-interaction="allowUnderlayInteraction"><slot /></div>',
+  template: '<div data-testid="base-modal-shell-stub" :data-presentation="presentation" :data-allow-underlay-interaction="allowUnderlayInteraction"><div data-testid="base-modal-shell-header-actions"><slot name="header-actions" /></div><slot /></div>',
 }
 
 function mountTaskDetail(task: TaskDetailResponse, propOverrides: Record<string, unknown> = {}) {
@@ -137,6 +137,14 @@ describe('TaskDetailModal', () => {
     expect(wrapper.text()).not.toContain('建立時間')
   })
 
+  it('shows the task title in the shared header area instead of a duplicate title field card', () => {
+    const wrapper = mountTaskDetail(createTask())
+    const titleHeader = wrapper.get('[data-testid="task-detail-title-header"]')
+
+    expect(titleHeader.text()).toContain('補上 Drawer 編輯測試')
+    expect(wrapper.find('label[for="task-detail-title-input"]').exists()).toBe(false)
+  })
+
   it('shows task tree position as plain text when the task has a parent path', () => {
     const wrapper = mountTaskDetail(createTask({
       parentPath: '設計 Hatchery > Flow 關聯提示',
@@ -182,11 +190,11 @@ describe('TaskDetailModal', () => {
 
   it('opens active tasks in view mode until the user explicitly enters edit mode', () => {
     const wrapper = mountTaskDetail(createTask())
-    const toolbar = wrapper.get('[data-testid="task-detail-toolbar"]')
+    const headerActions = wrapper.get('[data-testid="task-detail-header-actions"]')
 
-    expect(toolbar.text()).toContain('編輯')
-    expect(toolbar.text()).toContain('更多操作')
-    expect(toolbar.text()).not.toContain('儲存變更')
+    expect(headerActions.text()).toContain('編輯')
+    expect(headerActions.text()).toContain('更多操作')
+    expect(headerActions.text()).not.toContain('儲存變更')
   })
 
   it('groups completion criteria, estimated effort, and send-to-flow in the Ready list block', async () => {
@@ -275,9 +283,7 @@ describe('TaskDetailModal', () => {
       },
       global: {
         stubs: {
-          BaseModalShell: {
-            template: '<div><slot /></div>',
-          },
+          BaseModalShell: baseModalShellStub,
           AsyncStateBoundary: {
             template: '<div><slot /></div>',
           },
@@ -300,7 +306,7 @@ describe('TaskDetailModal', () => {
     expect(wrapper.find('input[type="checkbox"]').attributes('disabled')).toBeDefined()
   })
 
-  it('shows save action in the sticky toolbar after entering edit mode', () => {
+  it('shows save action in the modal header after entering edit mode', () => {
     const wrapper = mount(TaskDetailModal, {
       props: {
         isOpen: true,
@@ -321,9 +327,7 @@ describe('TaskDetailModal', () => {
       },
       global: {
         stubs: {
-          BaseModalShell: {
-            template: '<div><slot /></div>',
-          },
+          BaseModalShell: baseModalShellStub,
           AsyncStateBoundary: {
             template: '<div><slot /></div>',
           },
@@ -343,24 +347,28 @@ describe('TaskDetailModal', () => {
       },
     })
 
-    const toolbar = wrapper.get('[data-testid="task-detail-toolbar"]')
+    const headerActions = wrapper.get('[data-testid="task-detail-header-actions"]')
+    const titleHeader = wrapper.get('[data-testid="task-detail-title-header"]')
 
-    expect(toolbar.text()).toContain('儲存變更')
-    expect(toolbar.text()).not.toContain('編輯')
-    expect(toolbar.text()).not.toContain('更多操作')
+    expect(headerActions.text()).toContain('儲存變更')
+    expect(headerActions.text()).not.toContain('編輯')
+    expect(headerActions.text()).not.toContain('更多操作')
+    expect(titleHeader.find('label[for="task-detail-title-input"]').exists()).toBe(true)
+    expect(titleHeader.find('h3').exists()).toBe(false)
   })
 
-  it('shows restore action in the sticky toolbar for archived tasks', () => {
+  it('shows restore action in the modal header for archived tasks', () => {
     const wrapper = mountTaskDetail(createTask({
       lifecycleState: 'archived',
     }), {
       mode: 'archived',
     })
 
-    const toolbar = wrapper.get('[data-testid="task-detail-toolbar"]')
+    const headerActions = wrapper.get('[data-testid="task-detail-header-actions"]')
+    const titleHeader = wrapper.get('[data-testid="task-detail-title-header"]')
 
-    expect(toolbar.text()).toContain('此任務已封存')
-    expect(toolbar.text()).toContain('還原')
+    expect(headerActions.text()).toContain('還原')
+    expect(titleHeader.text()).toContain('此任務已封存')
   })
 
   it('emits structured code traceability in save payload', async () => {
@@ -392,9 +400,7 @@ describe('TaskDetailModal', () => {
       },
       global: {
         stubs: {
-          BaseModalShell: {
-            template: '<div><slot /></div>',
-          },
+          BaseModalShell: baseModalShellStub,
           AsyncStateBoundary: {
             template: '<div><slot /></div>',
           },
@@ -461,9 +467,7 @@ describe('TaskDetailModal', () => {
       },
       global: {
         stubs: {
-          BaseModalShell: {
-            template: '<div><slot /></div>',
-          },
+          BaseModalShell: baseModalShellStub,
           AsyncStateBoundary: {
             template: '<div><slot /></div>',
           },
