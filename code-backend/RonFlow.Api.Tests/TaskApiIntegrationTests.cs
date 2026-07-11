@@ -1117,6 +1117,86 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
     }
 
     [Test]
+    public async Task MoveTaskInTree_WhenDroppedBeforeSibling_ReordersTaskTreeRoots()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var firstTask = await CreateTaskAsync(project.Id, "Task A");
+        var secondTask = await CreateTaskAsync(project.Id, "Task B");
+
+        var response = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{secondTask.Id}/tree-position",
+            new MoveTaskInTreeRequest(null, firstTask.Id, false));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var movedTask = await response.Content.ReadFromJsonAsync<TaskDetailResponse>();
+        Assert.That(movedTask, Is.Not.Null);
+        Assert.That(movedTask!.ParentTaskId, Is.Null);
+        Assert.That(movedTask.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskReordered"));
+
+        var boardResponse = await Client.GetAsync($"/api/projects/{project.Id}/board");
+        var board = await boardResponse.Content.ReadFromJsonAsync<ProjectBoardResponse>();
+
+        Assert.That(boardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(board, Is.Not.Null);
+        Assert.That(board!.TaskTree.Select(task => task.Id), Is.EqualTo(new[] { secondTask.Id, firstTask.Id }));
+    }
+
+    [Test]
+    public async Task MoveTaskInTree_WhenDroppedIntoAnotherTask_MakesItAChildTask()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var parentTask = await CreateTaskAsync(project.Id, "Parent Task");
+        var childTask = await CreateTaskAsync(project.Id, "Standalone Task");
+
+        var response = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{childTask.Id}/tree-position",
+            new MoveTaskInTreeRequest(parentTask.Id, null, false));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var movedTask = await response.Content.ReadFromJsonAsync<TaskDetailResponse>();
+        Assert.That(movedTask, Is.Not.Null);
+        Assert.That(movedTask!.ParentTaskId, Is.EqualTo(parentTask.Id));
+        Assert.That(movedTask.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskReordered"));
+
+        var boardResponse = await Client.GetAsync($"/api/projects/{project.Id}/board");
+        var board = await boardResponse.Content.ReadFromJsonAsync<ProjectBoardResponse>();
+
+        Assert.That(boardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(board, Is.Not.Null);
+
+        Assert.That(board!.TaskTree.Select(task => task.Id), Is.EqualTo(new[] { parentTask.Id }));
+        Assert.That(board.TaskTree.Single(task => task.Id == parentTask.Id).Children.Select(task => task.Id), Is.EqualTo(new[] { childTask.Id }));
+    }
+
+    [Test]
+    public async Task MoveTaskInTree_WhenTargetParentIsDescendant_ReturnsValidationError()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var parentTask = await CreateTaskAsync(project.Id, "Parent Task");
+
+        var createChildResponse = await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{parentTask.Id}/children",
+            new CreateChildTaskRequest("Child Task"));
+
+        Assert.That(createChildResponse.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+
+        var childTask = await createChildResponse.Content.ReadFromJsonAsync<TaskDetailResponse>();
+        Assert.That(childTask, Is.Not.Null);
+
+        var response = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{parentTask.Id}/tree-position",
+            new MoveTaskInTreeRequest(childTask!.Id, null, false));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+
+        var errors = await ReadValidationErrorsAsync(response);
+        Assert.That(errors, Does.ContainKey("targetParentTaskId"));
+        Assert.That(errors["targetParentTaskId"], Does.Contain("任務不可放入自己的子任務底下"));
+    }
+
+    [Test]
     public async Task ReorderTask_WhenTargetTaskIdIsMissing_ReturnsValidationError()
     {
         var project = await CreateProjectAsync("RonFlow Project");

@@ -75,6 +75,7 @@
             @open-task-detail="onOpenTaskDetail"
             @move-task-to-state="moveTaskToState"
             @reorder-task-within-column="reorderTaskWithinColumn"
+            @move-task-within-tree="moveTaskWithinTree"
           />
 
           <ProjectMembersPanel
@@ -387,6 +388,7 @@ const {
   createReminder,
   deleteReminder,
   reorderTaskWithinColumn,
+  moveTaskWithinTree,
   loadArchivedTasks,
   loadTrashedTasks,
   archiveTask,

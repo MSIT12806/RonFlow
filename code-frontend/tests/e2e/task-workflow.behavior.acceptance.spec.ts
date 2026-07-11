@@ -4,7 +4,9 @@ import {
   createTask,
   createTaskTitle,
   dragTaskToColumn,
+  expectTaskTreeRootOrder,
   expectTaskOrder,
+  getTaskTreeItem,
   getTaskCard,
   openCreateTaskModal,
   openProjectFromList,
@@ -198,5 +200,64 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Workflow Behavior', () => {
 
     const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
     await expect(detailDialog.getByText('已調整任務順序', { exact: true })).toBeVisible()
+  })
+
+  test('使用者可以在任務樹內拖曳調整根任務順序', async ({ page }, testInfo) => {
+    const { projectName } = createScenarioData(testInfo)
+    const firstTaskTitle = createTaskTitle(testInfo, 'Tree Task A')
+    const secondTaskTitle = createTaskTitle(testInfo, 'Tree Task B')
+
+    await setupProjectBoard(page, projectName)
+
+    await openCreateTaskModal(page)
+    await createTask(page, firstTaskTitle)
+
+    await openCreateTaskModal(page)
+    await createTask(page, secondTaskTitle)
+
+    await expectTaskTreeRootOrder(page, [firstTaskTitle, secondTaskTitle])
+
+    const responsePromise = page.waitForResponse((response) => {
+      return response.request().method() === 'PATCH'
+        && /\/api\/projects\/[^/]+\/tasks\/[^/]+\/tree-position$/.test(response.url())
+        && response.ok()
+    })
+
+    await getTaskTreeItem(page, secondTaskTitle).dragTo(getTaskTreeItem(page, firstTaskTitle), {
+      targetPosition: { x: 40, y: 6 },
+    })
+    await responsePromise
+
+    await expectTaskTreeRootOrder(page, [secondTaskTitle, firstTaskTitle])
+  })
+
+  test('使用者可以把任務拖進另一個任務成為子任務', async ({ page }, testInfo) => {
+    const { projectName } = createScenarioData(testInfo)
+    const parentTaskTitle = createTaskTitle(testInfo, 'Parent Tree Task')
+    const childTaskTitle = createTaskTitle(testInfo, 'Moved Tree Task')
+
+    await setupProjectBoard(page, projectName)
+
+    await openCreateTaskModal(page)
+    await createTask(page, parentTaskTitle)
+
+    await openCreateTaskModal(page)
+    await createTask(page, childTaskTitle)
+
+    const responsePromise = page.waitForResponse((response) => {
+      return response.request().method() === 'PATCH'
+        && /\/api\/projects\/[^/]+\/tasks\/[^/]+\/tree-position$/.test(response.url())
+        && response.ok()
+    })
+
+    await getTaskTreeItem(page, childTaskTitle).dragTo(getTaskTreeItem(page, parentTaskTitle), {
+      targetPosition: { x: 40, y: 28 },
+    })
+    await responsePromise
+
+    await expectTaskTreeRootOrder(page, [parentTaskTitle])
+    await expect(
+      page.locator('.task-tree-list > .task-tree-node').first().locator('.task-tree-children .task-title'),
+    ).toHaveText([childTaskTitle])
   })
 })

@@ -76,7 +76,15 @@
               v-for="task in taskTree"
               :key="task.id"
               :task="task"
+              :parent-task-id="null"
+              :dragging-task-id="draggingTaskSource?.source === 'tree' ? draggingTaskSource.taskId : null"
+              :active-drop-target="activeTaskTreeDropTarget"
               @open-task-detail="(taskId, taskTitle) => $emit('open-task-detail', taskId, taskTitle)"
+              @task-drag-start="handleTaskTreeDragStart"
+              @task-drag-end="handleTaskTreeDragEnd"
+              @task-drag-over="handleTaskTreeDragOver"
+              @task-drag-leave="handleTaskTreeDragLeave"
+              @task-drop="handleTaskTreeDrop"
             />
           </ul>
         </section>
@@ -169,6 +177,11 @@ const emit = defineEmits<{
   (event: 'open-task-detail', taskId: string, taskTitle: string): void
   (event: 'move-task-to-state', taskId: string, stateKey: WorkflowKey): void
   (event: 'reorder-task-within-column', taskId: string, targetTaskId: string): void
+  (event: 'move-task-within-tree', taskId: string, payload: {
+    targetParentTaskId: string | null
+    targetSiblingTaskId: string | null
+    insertAfter: boolean
+  }): void
 }>()
 
 const taskTreeNodeCount = computed(() => countTaskTreeNodes(props.taskTree))
@@ -180,9 +193,20 @@ function countTaskTreeNodes(tasks: BoardTaskCardResponse[]): number {
 const draggingTaskId = ref<string | null>(null)
 const dragOverStateKey = ref<WorkflowKey | null>(null)
 const dragOverTaskId = ref<string | null>(null)
+const draggingTaskSource = ref<{ taskId: string; source: 'board' | 'tree' } | null>(null)
+const activeTaskTreeDropTarget = ref<{ taskId: string; placement: 'before' | 'after' | 'inside' } | null>(null)
+
+type TaskTreeDropPlacement = 'before' | 'after' | 'inside'
+
+type TaskTreeDropEventPayload = {
+  taskId: string
+  parentTaskId: string | null
+  placement: TaskTreeDropPlacement
+}
 
 function handleTaskDragStart(event: DragEvent, taskId: string) {
   draggingTaskId.value = taskId
+  draggingTaskSource.value = { taskId, source: 'board' }
 
   if (!event.dataTransfer) {
     return
@@ -194,12 +218,14 @@ function handleTaskDragStart(event: DragEvent, taskId: string) {
 
 function handleTaskDragEnd() {
   draggingTaskId.value = null
+  draggingTaskSource.value = null
   dragOverStateKey.value = null
   dragOverTaskId.value = null
+  activeTaskTreeDropTarget.value = null
 }
 
 function handleColumnDragEnter(stateKey: WorkflowKey) {
-  if (!draggingTaskId.value) {
+  if (!draggingTaskId.value || draggingTaskSource.value?.source !== 'board') {
     return
   }
 
@@ -207,7 +233,7 @@ function handleColumnDragEnter(stateKey: WorkflowKey) {
 }
 
 function handleColumnDragOver(event: DragEvent, stateKey: WorkflowKey) {
-  if (!draggingTaskId.value) {
+  if (!draggingTaskId.value || draggingTaskSource.value?.source !== 'board') {
     return
   }
 
@@ -227,7 +253,7 @@ function handleColumnDragLeave(stateKey: WorkflowKey) {
 }
 
 function handleTaskCardDragEnter(taskId: string) {
-  if (!draggingTaskId.value || draggingTaskId.value === taskId) {
+  if (!draggingTaskId.value || draggingTaskSource.value?.source !== 'board' || draggingTaskId.value === taskId) {
     return
   }
 
@@ -235,7 +261,7 @@ function handleTaskCardDragEnter(taskId: string) {
 }
 
 function handleTaskCardDragOver(event: DragEvent, taskId: string) {
-  if (!draggingTaskId.value || draggingTaskId.value === taskId) {
+  if (!draggingTaskId.value || draggingTaskSource.value?.source !== 'board' || draggingTaskId.value === taskId) {
     return
   }
 
@@ -255,6 +281,10 @@ function handleTaskCardDragLeave(taskId: string) {
 }
 
 function handleTaskDrop(event: DragEvent, targetStateKey: WorkflowKey) {
+  if (draggingTaskSource.value?.source !== 'board') {
+    return
+  }
+
   const taskId = draggingTaskId.value ?? event.dataTransfer?.getData('text/plain') ?? null
   if (!taskId) {
     return
@@ -273,6 +303,10 @@ function handleTaskDrop(event: DragEvent, targetStateKey: WorkflowKey) {
 }
 
 function handleTaskCardDrop(event: DragEvent, targetStateKey: WorkflowKey, targetTaskId: string) {
+  if (draggingTaskSource.value?.source !== 'board') {
+    return
+  }
+
   const taskId = draggingTaskId.value ?? event.dataTransfer?.getData('text/plain') ?? null
   if (!taskId || taskId === targetTaskId) {
     return
@@ -293,5 +327,69 @@ function handleTaskCardDrop(event: DragEvent, targetStateKey: WorkflowKey, targe
   }
 
   emit('move-task-to-state', taskId, targetStateKey)
+}
+
+function handleTaskTreeDragStart(event: DragEvent, taskId: string) {
+  draggingTaskId.value = taskId
+  draggingTaskSource.value = { taskId, source: 'tree' }
+
+  if (!event.dataTransfer) {
+    return
+  }
+
+  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer.setData('text/plain', taskId)
+}
+
+function handleTaskTreeDragEnd() {
+  draggingTaskId.value = null
+  draggingTaskSource.value = null
+  activeTaskTreeDropTarget.value = null
+}
+
+function handleTaskTreeDragOver(payload: TaskTreeDropEventPayload) {
+  if (!draggingTaskId.value || draggingTaskSource.value?.source !== 'tree' || draggingTaskId.value === payload.taskId) {
+    return
+  }
+
+  activeTaskTreeDropTarget.value = {
+    taskId: payload.taskId,
+    placement: payload.placement,
+  }
+}
+
+function handleTaskTreeDragLeave(taskId: string) {
+  if (activeTaskTreeDropTarget.value?.taskId !== taskId) {
+    return
+  }
+
+  activeTaskTreeDropTarget.value = null
+}
+
+function handleTaskTreeDrop(payload: TaskTreeDropEventPayload) {
+  if (!draggingTaskId.value || draggingTaskSource.value?.source !== 'tree' || draggingTaskId.value === payload.taskId) {
+    handleTaskTreeDragEnd()
+    return
+  }
+
+  const taskId = draggingTaskId.value
+  activeTaskTreeDropTarget.value = null
+  draggingTaskId.value = null
+  draggingTaskSource.value = null
+
+  if (payload.placement === 'inside') {
+    emit('move-task-within-tree', taskId, {
+      targetParentTaskId: payload.taskId,
+      targetSiblingTaskId: null,
+      insertAfter: false,
+    })
+    return
+  }
+
+  emit('move-task-within-tree', taskId, {
+    targetParentTaskId: payload.parentTaskId,
+    targetSiblingTaskId: payload.taskId,
+    insertAfter: payload.placement === 'after',
+  })
 }
 </script>

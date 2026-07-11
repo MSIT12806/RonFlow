@@ -353,6 +353,50 @@ public sealed class TasksController : AuthenticatedControllerBase
             : Results.Ok(TaskDetailResponse.FromOutput(result.Task!));
     }
 
+    [HttpPatch("{taskId:guid}/tree-position")]
+    [Consumes(MediaTypeNames.Application.Json)]
+    [ProducesResponseType<TaskDetailResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public IResult MoveTaskInTree(
+        Guid projectId,
+        Guid taskId,
+        [FromBody] MoveTaskInTreeRequest request,
+        [FromServices] ReorderTaskCommandService commandService)
+    {
+        if (request.TargetParentTaskId is null && request.TargetSiblingTaskId is null)
+        {
+            return ValidationResults.FromError(new ValidationError("targetSiblingTaskId", "目標位置為必填欄位"));
+        }
+
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = commandService.MoveInTree(
+            currentUserId,
+            projectId,
+            taskId,
+            request.TargetParentTaskId,
+            request.TargetSiblingTaskId,
+            request.InsertAfter);
+
+        if (result.ValidationError is not null)
+        {
+            return ValidationResults.FromError(result.ValidationError);
+        }
+
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
+        }
+
+        return result.TaskNotFound
+            ? Results.NotFound()
+            : Results.Ok(TaskDetailResponse.FromOutput(result.Task!));
+    }
+
     [HttpGet("{taskId:guid}")]
     [ProducesResponseType<TaskDetailResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
