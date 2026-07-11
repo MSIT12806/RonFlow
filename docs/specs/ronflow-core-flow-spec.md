@@ -751,6 +751,7 @@ Feature: 建立任務
 8. 提醒清單應直接顯示在 Task Detail Drawer 中，讓使用者不需要離開目前 Task 上下文即可管理提醒。
 9. 程式修改追蹤應以三個清楚區塊呈現：API、前端頁面、前端元件。
 10. 每筆程式修改追蹤在 view mode 應直接顯示 change type 與 target，讓人類能快速讀出這個 Task 改了哪些面向。
+11. Task Detail Drawer 的主要操作按鈕（例如編輯、更多操作、儲存變更、還原）應放在 Drawer header，並與關閉按鈕位於同一頂部區域，避免使用者滾動長內容後失去主要操作入口。
 ```
 
 **State Handling / Feedback**

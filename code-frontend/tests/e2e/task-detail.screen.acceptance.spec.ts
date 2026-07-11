@@ -63,6 +63,29 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Detail Screen', () => {
     await expect(detailDialog.getByRole('button', { name: '新增提醒', exact: true })).toBeDisabled()
   })
 
+  test('Task Detail 將主要操作放在 header，且任務標題在同一區塊切換顯示與編輯', async ({ page }, testInfo) => {
+    const { projectName, taskTitle } = createScenarioData(testInfo)
+
+    await setupTaskBoard(page, projectName, taskTitle)
+    await openTaskDetail(page, 'todo', taskTitle)
+
+    const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
+    const headerActions = detailDialog.getByTestId('task-detail-header-actions')
+    const titleHeader = detailDialog.getByTestId('task-detail-title-header')
+
+    await expect(headerActions.getByRole('button', { name: '編輯', exact: true })).toBeVisible()
+    await expect(headerActions.getByRole('button', { name: '更多操作', exact: true })).toBeVisible()
+    await expect(titleHeader).toContainText(taskTitle)
+    await expect(titleHeader.getByLabel('任務標題')).toHaveCount(0)
+
+    await headerActions.getByRole('button', { name: '編輯', exact: true }).click()
+
+    await expect(headerActions.getByRole('button', { name: '儲存變更', exact: true })).toBeVisible()
+    await expect(titleHeader.getByLabel('任務標題')).toHaveValue(taskTitle)
+    await expect(titleHeader.getByRole('heading', { name: taskTitle })).toHaveCount(0)
+    await expect(detailDialog.getByRole('button', { name: '關閉視窗', exact: true })).toBeVisible()
+  })
+
   test('Task Detail 預設以右側 drawer 開啟，workspace 進入 collapsed 且底層仍可操作', async ({ page }, testInfo) => {
     const { projectName, taskTitle } = createScenarioData(testInfo)
 
