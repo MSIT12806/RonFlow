@@ -40,7 +40,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Detail Screen', () => {
 
     await expect(detailDialog).toBeVisible()
     await expect(detailDialog.getByRole('heading', { name: '任務詳細資訊' })).toBeVisible()
-    await expect(detailDialog.getByLabel('任務標題')).toHaveValue(taskTitle)
+    await expect(detailDialog.getByTestId('task-detail-title-header')).toContainText(taskTitle)
     await expect(detailDialog.getByText('待處理', { exact: true })).toBeVisible()
     await expect(detailDialog.getByText('已建立任務', { exact: true })).toBeVisible()
     await expect(detailDialog.getByText('完成時間', { exact: true })).toHaveCount(0)
@@ -56,7 +56,8 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Detail Screen', () => {
 
     await expect(detailDialog.getByRole('button', { name: '編輯', exact: true })).toBeVisible()
     await expect(detailDialog.getByRole('button', { name: '儲存變更', exact: true })).toHaveCount(0)
-    await expect(detailDialog.getByLabel('任務標題')).toBeDisabled()
+    await expect(detailDialog.getByLabel('任務標題')).toHaveCount(0)
+    await expect(detailDialog.getByTestId('task-detail-title-header')).toContainText(taskTitle)
     await expect(detailDialog.getByLabel('任務描述')).toBeDisabled()
     await expect(detailDialog.getByLabel('到期日')).toBeDisabled()
     await expect(detailDialog.getByRole('button', { name: '新增提醒', exact: true })).toBeDisabled()
@@ -75,9 +76,40 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Detail Screen', () => {
     await expect(page.getByTestId('base-modal-shell-card')).toHaveClass(/base-modal-shell__card--drawer/)
     await expect(page.getByTestId('workspace-layout')).toHaveClass(/workspace-layout-collapsed/)
 
-    await page.getByRole('button', { name: '建立任務', exact: true }).click()
-    await expect(page.getByRole('dialog', { name: '建立任務' })).toBeVisible()
+    await page.getByRole('heading', { name: projectName }).click()
+    await expect(detailDialog).toHaveCount(0)
+  })
+
+  test('Task Detail 在 view mode 按下 ESC 時會自動縮回 side view', async ({ page }, testInfo) => {
+    const { projectName, taskTitle } = createScenarioData(testInfo)
+
+    await setupTaskBoard(page, projectName, taskTitle)
+    await openTaskDetail(page, 'todo', taskTitle)
+
+    const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
+
     await expect(detailDialog).toBeVisible()
+    await page.keyboard.press('Escape')
+
+    await expect(detailDialog).toHaveCount(0)
+  })
+
+  test('Task Detail 在 edit mode 不會因為點擊 main view 或 ESC 自動縮回', async ({ page }, testInfo) => {
+    const { projectName, taskTitle } = createScenarioData(testInfo)
+
+    await setupTaskBoard(page, projectName, taskTitle)
+    await openTaskDetail(page, 'todo', taskTitle)
+
+    const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
+
+    await detailDialog.getByRole('button', { name: '編輯', exact: true }).click()
+    await expect(detailDialog.getByRole('button', { name: '儲存變更', exact: true })).toBeVisible()
+
+    await page.getByRole('heading', { name: projectName }).click()
+    await page.keyboard.press('Escape')
+
+    await expect(detailDialog).toBeVisible()
+    await expect(detailDialog.getByRole('button', { name: '儲存變更', exact: true })).toBeVisible()
   })
 
   test('任務詳細資訊載入中時在 drawer 內顯示 shared loading state', async ({ page, request }, testInfo) => {
