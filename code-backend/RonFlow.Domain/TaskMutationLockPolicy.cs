@@ -6,6 +6,7 @@ namespace RonFlow.Domain;
 public enum TaskMutationKind
 {
     UpdateDetails,
+    SetSplitComplete,
     ReplaceSubtasks,
     CreateChildTask,
     CreateReminder,
@@ -38,6 +39,7 @@ public static class TaskMutationLockPolicy
         return mutationKind switch
         {
             TaskMutationKind.UpdateDetails => TaskMutationLockRequirement.RequireOwnedLock,
+            TaskMutationKind.SetSplitComplete => TaskMutationLockRequirement.RequireUnlockedOrOwnedLock,
             TaskMutationKind.ReplaceSubtasks => TaskMutationLockRequirement.RequireUnlockedOrOwnedLock,
             TaskMutationKind.CreateChildTask => TaskMutationLockRequirement.RequireUnlockedOrOwnedLock,
             TaskMutationKind.CreateReminder => TaskMutationLockRequirement.RequireOwnedLock,

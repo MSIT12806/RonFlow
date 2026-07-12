@@ -18,6 +18,7 @@ public sealed class Task
         string description,
         WorkflowState currentState,
         bool isInFlow,
+        bool isSplitComplete,
         TaskLifecycleState lifecycleState,
         DateOnly? dueDate,
         DateTimeOffset createdAt,
@@ -38,6 +39,7 @@ public sealed class Task
         Description = description;
         CurrentState = currentState;
         IsInFlow = isInFlow;
+        IsSplitComplete = isSplitComplete;
         LifecycleState = lifecycleState;
         DueDate = dueDate;
         CreatedAt = createdAt;
@@ -65,6 +67,8 @@ public sealed class Task
     public WorkflowState CurrentState { get; private set; }
 
     public bool IsInFlow { get; private set; }
+
+    public bool IsSplitComplete { get; private set; }
 
     public TaskLifecycleState LifecycleState { get; private set; }
 
@@ -107,6 +111,7 @@ public sealed class Task
             string.Empty,
             initialState,
             isInFlow,
+            false,
             TaskLifecycleState.ActiveRecord,
             null,
             createdAt,
@@ -129,6 +134,7 @@ public sealed class Task
         string description,
         WorkflowState currentState,
         bool isInFlow,
+        bool isSplitComplete,
         TaskLifecycleState lifecycleState,
         DateOnly? dueDate,
         DateTimeOffset createdAt,
@@ -142,7 +148,7 @@ public sealed class Task
         TaskCodeTraceability codeTraceability,
         IEnumerable<ActivityTimelineItem> activityTimeline)
     {
-        return new Task(id, projectId, parentTaskId, title, description, currentState, isInFlow, lifecycleState, dueDate, createdAt, completedAt, archivedAt, trashedAt, sortOrder, estimatedEffort, subtasks, reminders, codeTraceability, activityTimeline);
+        return new Task(id, projectId, parentTaskId, title, description, currentState, isInFlow, isSplitComplete, lifecycleState, dueDate, createdAt, completedAt, archivedAt, trashedAt, sortOrder, estimatedEffort, subtasks, reminders, codeTraceability, activityTimeline);
     }
 
     public TaskMutationExecutionResult MarkChildTaskAdded(TaskMutationAuthorization authorization, DateTimeOffset changedAt)
@@ -404,6 +410,25 @@ public sealed class Task
             : TaskMutationExecutionResult.NoChanges();
     }
 
+    public TaskMutationExecutionResult SetSplitComplete(TaskMutationAuthorization authorization, bool isSplitComplete, DateTimeOffset changedAt)
+    {
+        if (TryRejectLockedMutation(authorization, TaskMutationKind.SetSplitComplete, out var lockedResult))
+        {
+            return lockedResult;
+        }
+
+        if (IsSplitComplete == isSplitComplete)
+        {
+            return TaskMutationExecutionResult.NoChanges();
+        }
+
+        IsSplitComplete = isSplitComplete;
+        activityTimeline.Add(isSplitComplete
+            ? ActivityTimelineItem.TaskSplitCompleted(changedAt)
+            : ActivityTimelineItem.TaskSplitCompletionCleared(changedAt));
+        return TaskMutationExecutionResult.ChangedResult();
+    }
+
     public bool UpdateSortOrder(int sortOrder, DateTimeOffset changedAt, bool recordActivity)
     {
         var hasChanged = SortOrder != sortOrder;
@@ -496,6 +521,7 @@ public sealed class Task
             Description,
             CurrentState.ToModel(),
             IsInFlow,
+            IsSplitComplete,
             LifecycleState,
             DueDate,
             CreatedAt,

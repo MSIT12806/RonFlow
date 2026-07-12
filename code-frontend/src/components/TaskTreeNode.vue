@@ -27,6 +27,7 @@
         :class="{
           'task-tree-item-completed': task.isCompleted,
           'task-tree-item-in-flow': task.isInFlow,
+          'task-tree-item-split-complete': task.isSplitComplete,
           'task-tree-item-drop-inside': isDropInside,
         }"
         draggable="true"
@@ -45,6 +46,13 @@
           <span class="task-title">
             {{ task.title }}
             <span v-if="task.isInFlow" class="task-tree-flow-badge">In Flow</span>
+            <span
+              v-if="task.isSplitComplete"
+              class="task-status-badge task-status-badge-split-complete"
+              data-testid="task-split-complete-badge"
+            >
+              拆解完成
+            </span>
           </span>
         </span>
         <span class="task-meta">{{ nodeMeta }}</span>

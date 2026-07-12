@@ -9,6 +9,8 @@ function createTask(overrides: Partial<BoardTaskCardResponse> = {}): BoardTaskCa
     title: 'Task 1',
     isCompleted: false,
     isInFlow: false,
+    isSplitComplete: false,
+    completedAt: null,
     parentPath: '',
     children: [],
     ...overrides,
@@ -45,6 +47,22 @@ describe('TaskTreeNode', () => {
     expect(wrapper.get('.task-tree-item').classes()).toContain('task-tree-item-drop-inside')
     expect(wrapper.classes()).not.toContain('task-tree-node-drop-before')
     expect(wrapper.classes()).not.toContain('task-tree-node-drop-after')
+  })
+
+  it('shows split-complete styling and badge when the parent task is manually marked complete for decomposition', () => {
+    const wrapper = mount(TaskTreeNode, {
+      props: {
+        task: createTask({
+          isSplitComplete: true,
+          children: [
+            createTask({ id: 'child-1', title: 'Child 1' }),
+          ],
+        }),
+      },
+    })
+
+    expect(wrapper.get('.task-tree-item').classes()).toContain('task-tree-item-split-complete')
+    expect(wrapper.get('[data-testid="task-split-complete-badge"]').text()).toContain('拆解完成')
   })
 
   it('emits a before-drop payload when the cursor is near the top edge', async () => {

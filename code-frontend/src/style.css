@@ -899,6 +899,17 @@ button {
   background: rgba(240, 249, 255, 0.72);
 }
 
+.task-tree-item-split-complete {
+  border-color: rgba(249, 115, 22, 0.34);
+  background:
+    linear-gradient(135deg, rgba(255, 237, 213, 0.86), rgba(255, 255, 255, 0.9)),
+    rgba(248, 250, 252, 0.82);
+}
+
+.task-tree-item-split-complete .task-title {
+  color: #9a3412;
+}
+
 .task-tree-flow-badge {
   display: inline-flex;
   align-items: center;
@@ -1092,10 +1103,36 @@ button {
   text-align: left;
 }
 
+.task-card-main-split-complete {
+  padding: 10px 12px;
+  border: 1px solid rgba(249, 115, 22, 0.2);
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(255, 247, 237, 0.9), rgba(255, 255, 255, 0.92)),
+    rgba(255, 255, 255, 0.9);
+}
+
 .task-title {
   font-size: 1rem;
   font-weight: 700;
   color: #112031;
+}
+
+.task-status-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.task-status-badge-split-complete {
+  background: rgba(249, 115, 22, 0.14);
+  color: #c2410c;
 }
 
 .task-meta,
@@ -1376,6 +1413,13 @@ button {
   border: 1px solid rgba(255, 255, 255, 0.8);
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.78);
+}
+
+.detail-card-split-complete {
+  border-color: rgba(249, 115, 22, 0.28);
+  background:
+    linear-gradient(135deg, rgba(255, 237, 213, 0.72), rgba(255, 255, 255, 0.86)),
+    rgba(255, 255, 255, 0.78);
 }
 
 .detail-field {

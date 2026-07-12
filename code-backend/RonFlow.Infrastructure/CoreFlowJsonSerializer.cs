@@ -175,6 +175,7 @@ internal static class CoreFlowJsonSerializer
         writer.WritePropertyName("currentState");
         WriteWorkflowState(writer, task.CurrentState);
         writer.WriteBoolean("isInFlow", task.IsInFlow);
+        writer.WriteBoolean("isSplitComplete", task.IsSplitComplete);
         writer.WriteString("lifecycleState", task.LifecycleState.ToString());
         if (task.DueDate is null)
         {
@@ -311,6 +312,9 @@ internal static class CoreFlowJsonSerializer
         var isInFlow = root.TryGetProperty("isInFlow", out var isInFlowElement)
             ? isInFlowElement.GetBoolean()
             : true;
+        var isSplitComplete = root.TryGetProperty("isSplitComplete", out var isSplitCompleteElement)
+            && isSplitCompleteElement.ValueKind != JsonValueKind.Null
+            && isSplitCompleteElement.GetBoolean();
         var sortOrder = root.TryGetProperty("sortOrder", out var sortOrderElement)
             ? sortOrderElement.GetInt32()
             : 0;
@@ -353,6 +357,7 @@ internal static class CoreFlowJsonSerializer
             description,
             ReadWorkflowState(root.GetProperty("currentState")),
             isInFlow,
+            isSplitComplete,
             lifecycleState,
             dueDate,
             root.GetProperty("createdAt").GetDateTimeOffset(),

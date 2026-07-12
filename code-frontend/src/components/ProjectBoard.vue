@@ -132,12 +132,21 @@
                 <button
                   type="button"
                   class="task-card-main"
+                  :class="{ 'task-card-main-split-complete': task.isSplitComplete }"
                   draggable="true"
                   @dragstart="handleTaskDragStart($event, task.id)"
                   @dragend="handleTaskDragEnd"
                   @click="$emit('open-task-detail', task.id, task.title)"
                 >
-                  <span class="task-title">{{ task.title }}</span>
+                  <span class="task-title">
+                    {{ task.title }}
+                    <span
+                      v-if="task.isSplitComplete"
+                      class="task-status-badge task-status-badge-split-complete"
+                    >
+                      拆解完成
+                    </span>
+                  </span>
                   <span class="task-meta">{{ column.label }}</span>
                   <span v-if="task.parentPath" class="task-parent-path">來自：{{ task.parentPath }}</span>
                 </button>

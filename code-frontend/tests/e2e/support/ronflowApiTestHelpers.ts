@@ -156,6 +156,22 @@ export async function createTaskThroughApi(
   return response.json() as Promise<TaskResponse>
 }
 
+export async function createChildTaskThroughApi(
+  request: APIRequestContext,
+  session: RonFlowApiSession,
+  projectId: string,
+  parentTaskId: string,
+  taskTitle: string,
+) {
+  const response = await request.post(`${backendApiBaseUrl}/projects/${projectId}/tasks/${parentTaskId}/children`, {
+    headers: authHeaders(session.accessToken),
+    data: { title: taskTitle },
+  })
+
+  await expectJsonOk(response)
+  return response.json() as Promise<TaskResponse>
+}
+
 export async function moveTaskStateThroughApi(
   request: APIRequestContext,
   session: RonFlowApiSession,

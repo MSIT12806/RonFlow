@@ -177,6 +177,28 @@ export function useRonFlowBoard() {
     },
   )
 
+  const setTaskSplitCompleteResource = useApiResource(
+    (projectId: string, taskId: string, isSplitComplete: boolean) =>
+      taskCommandService.setSplitComplete(projectId, taskId, isSplitComplete),
+    {
+      mapErrorMessage: (error) => {
+        if (error instanceof ApiValidationError) {
+          return error.errors.isSplitComplete?.[0] ?? '拆解完成狀態無效'
+        }
+
+        if (error instanceof ApiRequestError && error.status === 409) {
+          return '目前有其他使用者正在編輯此任務，暫時無法更新拆解狀態。'
+        }
+
+        if (error instanceof ApiRequestError && error.status === 404) {
+          return '找不到指定的任務，請重新整理專案看板。'
+        }
+
+        return '更新拆解狀態失敗，請稍後再試。'
+      },
+    },
+  )
+
   const reorderTaskResource = useApiResource(
     (projectId: string, taskId: string, targetTaskId: string) =>
       taskCommandService.reorder(projectId, taskId, targetTaskId),
@@ -231,6 +253,7 @@ export function useRonFlowBoard() {
     updateTaskDetailResource.errorMessage.value
     || replaceTaskSubtasksResource.errorMessage.value
     || createChildTaskResource.errorMessage.value
+    || setTaskSplitCompleteResource.errorMessage.value
     || createTaskReminderResource.errorMessage.value
     || deleteTaskReminderResource.errorMessage.value
     || taskLifecycleCommandError.value,
@@ -242,6 +265,7 @@ export function useRonFlowBoard() {
     updateTaskDetailResource.isLoading.value
     || replaceTaskSubtasksResource.isLoading.value
     || createChildTaskResource.isLoading.value
+    || setTaskSplitCompleteResource.isLoading.value
     || createTaskReminderResource.isLoading.value
     || deleteTaskReminderResource.isLoading.value
     || archiveTaskResource.isLoading.value
@@ -371,6 +395,7 @@ export function useRonFlowBoard() {
     updateTaskDetailResource.reset()
     replaceTaskSubtasksResource.reset()
     createChildTaskResource.reset()
+    setTaskSplitCompleteResource.reset()
     createTaskReminderResource.reset()
     deleteTaskReminderResource.reset()
     taskLifecycleCommandError.value = ''
@@ -394,6 +419,7 @@ export function useRonFlowBoard() {
     updateTaskDetailResource.reset()
     replaceTaskSubtasksResource.reset()
     createChildTaskResource.reset()
+    setTaskSplitCompleteResource.reset()
     createTaskReminderResource.reset()
     deleteTaskReminderResource.reset()
     archivedTasksResource.reset()
@@ -419,6 +445,7 @@ export function useRonFlowBoard() {
     updateTaskDetailResource.reset()
     replaceTaskSubtasksResource.reset()
     createChildTaskResource.reset()
+    setTaskSplitCompleteResource.reset()
     createTaskReminderResource.reset()
     deleteTaskReminderResource.reset()
     taskLifecycleCommandError.value = ''
@@ -489,6 +516,7 @@ export function useRonFlowBoard() {
     updateTaskDetailResource.reset()
     replaceTaskSubtasksResource.reset()
     createChildTaskResource.reset()
+    setTaskSplitCompleteResource.reset()
     taskLifecycleCommandError.value = ''
 
     try {
@@ -559,6 +587,35 @@ export function useRonFlowBoard() {
         ...updatedTask,
         canEnterEdit: true,
       })
+      await loadBoard(activeProjectId.value)
+      return true
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 409) {
+        setSelectedTaskCanEnterEdit(false)
+      }
+
+      try {
+        const task = await taskQueryService.getDetail(activeProjectId.value, taskId)
+        taskDetailResource.setData(task)
+        taskDetailMode.value = resolveTaskDetailMode(task.lifecycleState)
+      } catch {}
+
+      return false
+    }
+  }
+
+  async function setTaskSplitComplete(taskId: string, isSplitComplete: boolean) {
+    if (!activeProjectId.value) {
+      return false
+    }
+
+    setTaskSplitCompleteResource.reset()
+
+    try {
+      await setTaskSplitCompleteResource.execute(activeProjectId.value, taskId, isSplitComplete)
+      const task = await taskQueryService.getDetail(activeProjectId.value, taskId)
+      taskDetailResource.setData(task)
+      taskDetailMode.value = resolveTaskDetailMode(task.lifecycleState)
       await loadBoard(activeProjectId.value)
       return true
     } catch (error) {
@@ -986,6 +1043,7 @@ export function useRonFlowBoard() {
     updateTaskDetail,
     sendTaskToFlow,
     replaceTaskSubtasks,
+    setTaskSplitComplete,
     createChildTask,
     createReminder,
     deleteReminder,

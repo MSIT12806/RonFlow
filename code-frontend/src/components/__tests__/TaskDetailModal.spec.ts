@@ -16,6 +16,7 @@ function createTask(overrides: Partial<TaskDetailResponse> = {}): TaskDetailResp
       isCompletedState: false,
     },
     isInFlow: true,
+    isSplitComplete: false,
     dueDate: '2026-05-20',
     lifecycleState: 'activeRecord',
     createdAt: '2026-05-12T08:00:00.000Z',
@@ -23,6 +24,7 @@ function createTask(overrides: Partial<TaskDetailResponse> = {}): TaskDetailResp
     estimatedEffort: null,
     childTasks: [],
     parentPath: '',
+    reminders: [],
     subtasks: [
       {
         id: 'subtask-1',
@@ -245,7 +247,7 @@ describe('TaskDetailModal', () => {
   it('creates child tasks and opens existing child task detail', async () => {
     const wrapper = mountTaskDetail(createTask({
       childTasks: [
-        { id: 'child-task-1', title: '撰寫 SRS', isCompleted: false, isInFlow: false, parentPath: '補上 Drawer 編輯測試', children: [] },
+        { id: 'child-task-1', title: '撰寫 SRS', isCompleted: false, isInFlow: false, isSplitComplete: false, completedAt: null, parentPath: '補上 Drawer 編輯測試', children: [] },
       ],
     }))
 
@@ -264,12 +266,42 @@ describe('TaskDetailModal', () => {
   it('shows direct child completion progress for parent tasks', () => {
     const wrapper = mountTaskDetail(createTask({
       childTasks: [
-        { id: 'child-task-1', title: '撰寫 SRS', isCompleted: true, isInFlow: false, parentPath: '補上 Drawer 編輯測試', children: [] },
-        { id: 'child-task-2', title: '撰寫驗收測試', isCompleted: false, isInFlow: false, parentPath: '補上 Drawer 編輯測試', children: [] },
+        { id: 'child-task-1', title: '撰寫 SRS', isCompleted: true, isInFlow: false, isSplitComplete: false, completedAt: '2026-05-13T09:30:00.000Z', parentPath: '補上 Drawer 編輯測試', children: [] },
+        { id: 'child-task-2', title: '撰寫驗收測試', isCompleted: false, isInFlow: false, isSplitComplete: false, completedAt: null, parentPath: '補上 Drawer 編輯測試', children: [] },
       ],
     }))
 
     expect(wrapper.get('[data-testid="task-child-progress"]').text()).toContain('直接子任務進度 1 / 2')
+  })
+
+  it('shows split-complete status and emits toggle events for parent tasks', async () => {
+    const wrapper = mountTaskDetail(createTask({
+      isInFlow: false,
+      isSplitComplete: true,
+      childTasks: [
+        { id: 'child-task-1', title: '撰寫 SRS', isCompleted: false, isInFlow: false, isSplitComplete: false, completedAt: null, parentPath: '補上 Drawer 編輯測試', children: [] },
+      ],
+    }))
+
+    expect(wrapper.get('[data-testid="task-split-complete-status"]').text()).toContain('拆解完成')
+    expect(wrapper.get('[data-testid="task-split-complete-toggle"]').text()).toContain('取消拆解完成')
+
+    await wrapper.get('[data-testid="task-split-complete-toggle"]').trigger('click')
+
+    expect(wrapper.emitted('set-split-complete')).toEqual([[{
+      taskId: 'task-1',
+      isSplitComplete: false,
+    }]])
+  })
+
+  it('shows split-complete badge on child tasks', () => {
+    const wrapper = mountTaskDetail(createTask({
+      childTasks: [
+        { id: 'child-task-1', title: '撰寫 SRS', isCompleted: false, isInFlow: false, isSplitComplete: true, completedAt: null, parentPath: '補上 Drawer 編輯測試', children: [] },
+      ],
+    }))
+
+    expect(wrapper.text()).toContain('拆解完成')
   })
 
   it('preserves the child task draft title when the same task detail is refreshed', async () => {
@@ -290,7 +322,7 @@ describe('TaskDetailModal', () => {
     await wrapper.setProps({
       task: createTask({
         childTasks: [
-          { id: 'child-task-1', title: '撰寫驗收測試', isCompleted: false, isInFlow: false, parentPath: '補上 Drawer 編輯測試', children: [] },
+          { id: 'child-task-1', title: '撰寫驗收測試', isCompleted: false, isInFlow: false, isSplitComplete: false, completedAt: null, parentPath: '補上 Drawer 編輯測試', children: [] },
         ],
       }),
     })

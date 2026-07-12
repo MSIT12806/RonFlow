@@ -197,6 +197,50 @@ public sealed class TasksController : AuthenticatedControllerBase
             : Results.Ok(TaskDetailResponse.FromOutput(result.Task!));
     }
 
+    [HttpPatch("{taskId:guid}/split-complete")]
+    [Consumes(MediaTypeNames.Application.Json)]
+    [ProducesResponseType<TaskDetailResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public IResult SetTaskSplitComplete(
+        Guid projectId,
+        Guid taskId,
+        [FromBody] SetTaskSplitCompleteRequest request,
+        [FromServices] SetTaskSplitCompleteCommandService commandService)
+    {
+        if (request.IsSplitComplete is null)
+        {
+            return ValidationResults.FromError(new ValidationError("isSplitComplete", "拆解完成狀態為必填欄位"));
+        }
+
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = commandService.Set(currentUserId, projectId, taskId, request.IsSplitComplete.Value);
+
+        if (result.ValidationError is not null)
+        {
+            return ValidationResults.FromError(result.ValidationError);
+        }
+
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
+        }
+
+        if (result.Conflict)
+        {
+            return Results.Conflict();
+        }
+
+        return result.TaskNotFound
+            ? Results.NotFound()
+            : Results.Ok(TaskDetailResponse.FromOutput(result.Task!));
+    }
+
     [HttpPut("{taskId:guid}/subtasks")]
     [Consumes(MediaTypeNames.Application.Json)]
     [ProducesResponseType<TaskDetailResponse>(StatusCodes.Status200OK)]

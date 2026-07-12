@@ -64,6 +64,7 @@ export type TaskDetailResponse = {
   description: string
   currentState: WorkflowStateResponse
   isInFlow: boolean
+  isSplitComplete: boolean
   lifecycleState: TaskLifecycleState
   dueDate: string | null
   createdAt: string
@@ -98,6 +99,7 @@ export type BoardTaskCardResponse = {
   title: string
   isCompleted: boolean
   isInFlow: boolean
+  isSplitComplete: boolean
   completedAt: string | null
   parentPath: string
   children: BoardTaskCardResponse[]

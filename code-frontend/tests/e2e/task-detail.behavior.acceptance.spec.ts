@@ -15,6 +15,7 @@ import {
 } from './support/ronflowTestHelpers'
 import {
   acceptInvitationThroughApi,
+  createChildTaskThroughApi,
   createProjectThroughApi,
   createTaskThroughApi,
   getInvitationInboxThroughApi,
@@ -144,6 +145,49 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Detail Behavior', () => {
     await expect(detailDialog.getByText('已設定到期日為 2026/05/20', { exact: true })).toBeVisible()
     await expectTaskVisibleInWorkspace(page, 'todo', updatedTaskTitle)
     await expectTaskNotVisibleInWorkspace(page, 'todo', taskTitle)
+  })
+
+  test('父任務可手動標記與取消拆解完成，新增 child task 後也不會自動取消', async ({ page, request }, testInfo) => {
+    const { projectName } = createScenarioData(testInfo)
+    const parentTaskTitle = createTaskTitle(testInfo, 'Parent Task')
+    const firstChildTitle = createTaskTitle(testInfo, 'Initial Child Task')
+    const secondChildTitle = createTaskTitle(testInfo, 'Follow-up Child Task')
+    const session = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
+    const project = await createProjectThroughApi(request, session, projectName)
+    const parentTask = await createTaskThroughApi(request, session, project.id, parentTaskTitle)
+
+    await createChildTaskThroughApi(request, session, project.id, parentTask.id, firstChildTitle)
+
+    await loginAndEnterWorkspace(page, session.user)
+    await openProjectFromList(page, projectName)
+    await openTaskDetail(page, 'todo', parentTaskTitle)
+
+    const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
+    const splitStatusCard = detailDialog.getByTestId('task-split-complete-status')
+    const splitToggleButton = detailDialog.getByTestId('task-split-complete-toggle')
+    const parentTreeItem = page.locator('.task-tree-item').filter({ hasText: parentTaskTitle }).first()
+
+    await expect(splitStatusCard).toContainText('拆解中')
+    await expect(splitToggleButton).toHaveText('標記拆解完成')
+
+    await splitToggleButton.click()
+
+    await expect(splitStatusCard).toContainText('拆解完成')
+    await expect(splitToggleButton).toHaveText('取消拆解完成')
+    await expect(parentTreeItem.getByTestId('task-split-complete-badge')).toBeVisible()
+
+    await detailDialog.getByLabel('Child task 標題').fill(secondChildTitle)
+    await detailDialog.getByRole('button', { name: '建立 child task', exact: true }).click()
+
+    await expect(detailDialog.getByText(secondChildTitle, { exact: true })).toBeVisible()
+    await expect(splitStatusCard).toContainText('拆解完成')
+    await expect(splitToggleButton).toHaveText('取消拆解完成')
+
+    await splitToggleButton.click()
+
+    await expect(splitStatusCard).toContainText('拆解中')
+    await expect(splitToggleButton).toHaveText('標記拆解完成')
+    await expect(parentTreeItem.getByTestId('task-split-complete-badge')).toHaveCount(0)
   })
 
   test('project template 建立後，新 task 應繼承 checklist，view mode 全部勾選後自動進入 review', async ({ page }, testInfo) => {

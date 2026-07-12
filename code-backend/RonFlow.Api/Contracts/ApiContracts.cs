@@ -24,6 +24,8 @@ public sealed record CreateChildTaskRequest(string? Title);
 
 public sealed record ChangeTaskStateRequest(string? StateKey);
 
+public sealed record SetTaskSplitCompleteRequest(bool? IsSplitComplete);
+
 public sealed record CreateTaskReminderRequest(string? ReminderDateTime, string? Description);
 
 public sealed record PushSubscriptionKeysRequest(string? P256dh, string? Auth);
@@ -243,6 +245,7 @@ public sealed record BoardTaskCardResponse(
     string Title,
     bool IsCompleted,
     bool IsInFlow,
+    bool IsSplitComplete,
     DateTimeOffset? CompletedAt,
     int CompletionConditionCount,
     bool HasEstimatedEffort,
@@ -256,6 +259,7 @@ public sealed record BoardTaskCardResponse(
             view.Title,
             view.IsCompleted,
             view.IsInFlow,
+            view.IsSplitComplete,
             view.CompletedAt,
             view.CompletionConditionCount,
             view.HasEstimatedEffort,
@@ -393,6 +397,7 @@ public sealed record TaskDetailResponse(
     string Description,
     WorkflowStateResponse CurrentState,
     bool IsInFlow,
+    bool IsSplitComplete,
     string LifecycleState,
     DateOnly? DueDate,
     DateTimeOffset CreatedAt,
@@ -416,6 +421,7 @@ public sealed record TaskDetailResponse(
             output.Description,
             WorkflowStateResponse.FromOutput(output.CurrentState),
             output.IsInFlow,
+            output.IsSplitComplete,
             ToTaskLifecycleStateResponse(output.LifecycleState),
             output.DueDate,
             output.CreatedAt,
@@ -440,6 +446,7 @@ public sealed record TaskDetailResponse(
             view.Description,
             WorkflowStateResponse.FromView(view.CurrentState),
             view.IsInFlow,
+            view.IsSplitComplete,
             ToTaskLifecycleStateResponse(view.LifecycleState),
             view.DueDate,
             view.CreatedAt,

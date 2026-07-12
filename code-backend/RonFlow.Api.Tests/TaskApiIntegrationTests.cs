@@ -35,6 +35,7 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
         string Title,
         WorkflowStateResponse CurrentState,
         bool IsInFlow,
+        bool IsSplitComplete,
         DateTimeOffset? CompletedAt,
         IReadOnlyList<TaskSubtaskResponse> Subtasks,
         IReadOnlyList<BoardTaskCardResponse> ChildTasks,
@@ -196,6 +197,100 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
         var errors = await ReadValidationErrorsAsync(response);
 
         Assert.That(errors, Does.ContainKey("title"));
+    }
+
+    [Test]
+    public async Task SetTaskSplitComplete_WhenParentTaskHasChildren_PersistsStatusInDetailBoardAndTimeline()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var parentTask = await CreateTaskAsync(project.Id, "Design Hatchery");
+
+        await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{parentTask.Id}/children",
+            new CreateChildTaskRequest("Write SRS"));
+
+        var markResponse = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{parentTask.Id}/split-complete",
+            new SetTaskSplitCompleteRequest(true));
+
+        Assert.That(markResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var parentDetailResponse = await Client.GetAsync($"/api/projects/{project.Id}/tasks/{parentTask.Id}");
+        var parentDetail = await parentDetailResponse.Content.ReadFromJsonAsync<ChecklistTaskDetailResponse>();
+
+        Assert.That(parentDetailResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(parentDetail, Is.Not.Null);
+        Assert.That(parentDetail!.IsSplitComplete, Is.True);
+        Assert.That(parentDetail.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskSplitCompleted"));
+
+        var boardResponse = await Client.GetAsync($"/api/projects/{project.Id}/board");
+        var board = await boardResponse.Content.ReadFromJsonAsync<ProjectBoardResponse>();
+
+        Assert.That(boardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(board, Is.Not.Null);
+        Assert.That(board!.TaskTree.Single(task => task.Id == parentTask.Id).IsSplitComplete, Is.True);
+
+        var clearResponse = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{parentTask.Id}/split-complete",
+            new SetTaskSplitCompleteRequest(false));
+
+        Assert.That(clearResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var clearedDetailResponse = await Client.GetAsync($"/api/projects/{project.Id}/tasks/{parentTask.Id}");
+        var clearedDetail = await clearedDetailResponse.Content.ReadFromJsonAsync<ChecklistTaskDetailResponse>();
+
+        Assert.That(clearedDetailResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(clearedDetail, Is.Not.Null);
+        Assert.That(clearedDetail!.IsSplitComplete, Is.False);
+        Assert.That(clearedDetail.ActivityTimeline.Select(item => item.Type), Does.Contain("TaskSplitCompletionCleared"));
+    }
+
+    [Test]
+    public async Task SetTaskSplitComplete_AfterAddingAnotherChild_KeepsSplitCompleteUntilUserClearsIt()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var parentTask = await CreateTaskAsync(project.Id, "Design Hatchery");
+
+        await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{parentTask.Id}/children",
+            new CreateChildTaskRequest("Write SRS"));
+
+        var markResponse = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{parentTask.Id}/split-complete",
+            new SetTaskSplitCompleteRequest(true));
+
+        Assert.That(markResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var createSecondChildResponse = await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{parentTask.Id}/children",
+            new CreateChildTaskRequest("Write API Tests"));
+
+        Assert.That(createSecondChildResponse.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+
+        var parentDetailResponse = await Client.GetAsync($"/api/projects/{project.Id}/tasks/{parentTask.Id}");
+        var parentDetail = await parentDetailResponse.Content.ReadFromJsonAsync<ChecklistTaskDetailResponse>();
+
+        Assert.That(parentDetailResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(parentDetail, Is.Not.Null);
+        Assert.That(parentDetail!.IsSplitComplete, Is.True);
+        Assert.That(parentDetail.ChildTasks.Select(task => task.Title), Is.EquivalentTo(new[] { "Write SRS", "Write API Tests" }));
+    }
+
+    [Test]
+    public async Task SetTaskSplitComplete_WhenTaskHasNoChildren_ReturnsValidationError()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var task = await CreateTaskAsync(project.Id, "Leaf Task");
+
+        var response = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{task.Id}/split-complete",
+            new SetTaskSplitCompleteRequest(true));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+
+        var errors = await ReadValidationErrorsAsync(response);
+        Assert.That(errors, Does.ContainKey("isSplitComplete"));
+        Assert.That(errors["isSplitComplete"], Does.Contain("只有父任務可以標記拆解完成"));
     }
 
     [Test]

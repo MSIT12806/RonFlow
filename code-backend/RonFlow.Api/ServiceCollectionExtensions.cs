@@ -130,6 +130,7 @@ internal static class ServiceCollectionExtensions
         services.AddSingleton<ReplaceTaskSubtasksCommandService>();
         services.AddSingleton<ChangeTaskStateCommandService>();
         services.AddSingleton<UpdateTaskCommandService>();
+        services.AddSingleton<SetTaskSplitCompleteCommandService>();
         services.AddSingleton<ReorderTaskCommandService>();
         services.AddSingleton<CreateTaskReminderCommandService>();
         services.AddSingleton<DeleteTaskReminderCommandService>();

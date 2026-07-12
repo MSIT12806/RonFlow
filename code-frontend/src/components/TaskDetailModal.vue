@@ -26,6 +26,17 @@
 
         <template v-else-if="!isLifecycleReadOnly">
           <button
+            v-if="canToggleSplitCompleteAction"
+            type="button"
+            class="secondary-button"
+            data-testid="task-split-complete-toggle"
+            :disabled="isSaving || isEditing || !canEnterEdit"
+            @click="emitToggleSplitComplete"
+          >
+            {{ splitCompleteActionLabel }}
+          </button>
+
+          <button
             type="button"
             class="primary-button"
             :disabled="isSaving || !canEnterEdit"
@@ -136,6 +147,16 @@
             <strong>{{ task.currentState.label }}</strong>
           </div>
 
+          <div
+            v-if="showsSplitCompleteStatus"
+            class="detail-card"
+            :class="{ 'detail-card-split-complete': task.isSplitComplete }"
+            data-testid="task-split-complete-status"
+          >
+            <p class="detail-label">拆解狀態</p>
+            <strong>{{ task.isSplitComplete ? '拆解完成' : '拆解中' }}</strong>
+          </div>
+
           <div v-if="task.parentPath" class="detail-card">
             <p class="detail-label">任務樹位置</p>
             <strong>{{ task.parentPath }}</strong>
@@ -203,9 +224,18 @@
                 <button
                   type="button"
                   class="task-card-main"
+                  :class="{ 'task-card-main-split-complete': childTask.isSplitComplete }"
                   @click="emitOpenChildTask(childTask.id, childTask.title)"
                 >
-                  <span class="task-title">{{ childTask.title }}</span>
+                  <span class="task-title">
+                    {{ childTask.title }}
+                    <span
+                      v-if="childTask.isSplitComplete"
+                      class="task-status-badge task-status-badge-split-complete"
+                    >
+                      拆解完成
+                    </span>
+                  </span>
                   <span class="task-meta">Child task</span>
                 </button>
               </li>
@@ -568,6 +598,7 @@ const emit = defineEmits<{
     taskId: string
     subtasks: Array<{ id: string | null; title: string; isChecked: boolean; order: number }>
   }): void
+  (event: 'set-split-complete', payload: { taskId: string; isSplitComplete: boolean }): void
   (event: 'create-child-task', payload: { parentTaskId: string; title: string }): void
   (event: 'open-child-task', taskId: string, taskTitle: string): void
   (event: 'add-reminder', payload: { taskId: string; reminderDateTime: string; description: string }): void
@@ -613,6 +644,15 @@ const isChecklistTextReadOnly = computed(() => isForcedReadOnly.value || isLifec
 const taskReminders = computed(() => props.task?.reminders ?? [])
 const childTasks = computed(() => props.task?.childTasks ?? [])
 const isParentTask = computed(() => childTasks.value.length > 0)
+const showsSplitCompleteStatus = computed(() => isParentTask.value || Boolean(props.task?.isSplitComplete))
+const canToggleSplitCompleteAction = computed(() =>
+  Boolean(props.task)
+  && !isForcedReadOnly.value
+  && !isLifecycleReadOnly.value
+  && !props.task?.isInFlow
+  && showsSplitCompleteStatus.value,
+)
+const splitCompleteActionLabel = computed(() => props.task?.isSplitComplete ? '取消拆解完成' : '標記拆解完成')
 const completedChildTaskCount = computed(() => childTasks.value.filter((childTask) => childTask.isCompleted).length)
 const canCreateChildTask = computed(() => !isForcedReadOnly.value && !isLifecycleReadOnly.value && canEnterEdit.value)
 const hasCompletionCriteria = computed(() => draftSubtasks.value.some((subtask) => subtask.title.trim().length > 0))
@@ -998,6 +1038,17 @@ function emitSendToFlow() {
   }
 
   emit('send-to-flow', props.task.id)
+}
+
+function emitToggleSplitComplete() {
+  if (!props.task || props.isSaving || isEditing.value || !canToggleSplitCompleteAction.value || !canEnterEdit.value) {
+    return
+  }
+
+  emit('set-split-complete', {
+    taskId: props.task.id,
+    isSplitComplete: !props.task.isSplitComplete,
+  })
 }
 
 watch(

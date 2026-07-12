@@ -149,6 +149,34 @@ public sealed record UpdateTaskResult(CreateTaskOutput? Task, ValidationError? V
     }
 }
 
+public sealed record SetTaskSplitCompleteResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound, bool AccessDenied, bool Conflict)
+{
+    public static SetTaskSplitCompleteResult Success(CreateTaskOutput task)
+    {
+        return new(task, null, false, false, false);
+    }
+
+    public static SetTaskSplitCompleteResult Invalid(string field, string message)
+    {
+        return new(null, new ValidationError(field, message), false, false, false);
+    }
+
+    public static SetTaskSplitCompleteResult NotFound()
+    {
+        return new(null, null, true, false, false);
+    }
+
+    public static SetTaskSplitCompleteResult Denied()
+    {
+        return new(null, null, false, true, false);
+    }
+
+    public static SetTaskSplitCompleteResult Locked()
+    {
+        return new(null, null, false, false, true);
+    }
+}
+
 public sealed record ReplaceTaskSubtasksResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound, bool AccessDenied, bool Conflict)
 {
     public static ReplaceTaskSubtasksResult Success(CreateTaskOutput task)

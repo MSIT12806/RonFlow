@@ -13,6 +13,7 @@ import {
   releaseTaskContentEditLock,
   restoreArchivedTask,
   restoreTrashedTask,
+  setTaskSplitComplete,
   updateTask,
   type TaskDetailResponse,
   type TaskEstimatedEffortResponse,
@@ -46,6 +47,10 @@ export class TaskCommandService {
     },
   ): Promise<TaskDetailResponse> {
     return updateTask(projectId, taskId, { title, description, dueDate, estimatedEffort, codeTraceability })
+  }
+
+  async setSplitComplete(projectId: string, taskId: string, isSplitComplete: boolean): Promise<TaskDetailResponse> {
+    return setTaskSplitComplete(projectId, taskId, isSplitComplete)
   }
 
   async reorder(projectId: string, taskId: string, targetTaskId: string): Promise<TaskDetailResponse> {

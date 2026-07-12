@@ -57,6 +57,13 @@ export async function updateTask(projectId: string, taskId: string, payload: {
   })
 }
 
+export async function setTaskSplitComplete(projectId: string, taskId: string, isSplitComplete: boolean) {
+  return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}/split-complete`), {
+    method: 'PATCH',
+    body: JSON.stringify({ isSplitComplete }),
+  })
+}
+
 export async function replaceTaskSubtasks(projectId: string, taskId: string, payload: {
   items: Array<{ id?: string | null; title: string; isChecked: boolean; order?: number | null }>
 }) {

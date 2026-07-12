@@ -44,6 +44,16 @@ public sealed record ActivityTimelineItem(string Type, string Message, DateTimeO
         return new("TaskCodeTraceabilityChanged", "已更新程式修改追蹤", occurredAt);
     }
 
+    public static ActivityTimelineItem TaskSplitCompleted(DateTimeOffset occurredAt)
+    {
+        return new("TaskSplitCompleted", "已標記拆解完成", occurredAt);
+    }
+
+    public static ActivityTimelineItem TaskSplitCompletionCleared(DateTimeOffset occurredAt)
+    {
+        return new("TaskSplitCompletionCleared", "已取消拆解完成", occurredAt);
+    }
+
     public static ActivityTimelineItem TaskCompleted(DateTimeOffset occurredAt)
     {
         return new("TaskCompleted", "已完成任務", occurredAt);

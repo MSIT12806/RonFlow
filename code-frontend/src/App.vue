@@ -203,6 +203,7 @@
       @save="onTaskDetailSave"
       @send-to-flow="onSendTaskToFlow"
       @replace-subtasks="onReplaceTaskSubtasks"
+      @set-split-complete="onSetTaskSplitComplete"
       @create-child-task="onCreateChildTask"
       @open-child-task="onOpenTaskDetail"
       @add-reminder="onAddReminder"
@@ -430,6 +431,7 @@ const {
   updateTaskDetail,
   sendTaskToFlow,
   replaceTaskSubtasks,
+  setTaskSplitComplete,
   createChildTask,
   createReminder,
   deleteReminder,
@@ -854,6 +856,10 @@ async function onSendTaskToFlow(taskId: string) {
 
 async function onReplaceTaskSubtasks(payload: { taskId: string; subtasks: EditableTaskSubtask[] }) {
   await replaceTaskSubtasks(payload.taskId, payload.subtasks)
+}
+
+async function onSetTaskSplitComplete(payload: { taskId: string; isSplitComplete: boolean }) {
+  await setTaskSplitComplete(payload.taskId, payload.isSplitComplete)
 }
 
 async function onCreateChildTask(payload: { parentTaskId: string; title: string }) {
