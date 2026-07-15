@@ -28,7 +28,7 @@ public sealed class TasksController : AuthenticatedControllerBase
             return Results.Unauthorized();
         }
 
-        var result = commandService.Create(currentUserId, projectId, request.Title);
+        var result = commandService.Create(currentUserId, projectId, request.Title, request.IsShort == true);
 
         if (result.ValidationError is not null)
         {
@@ -164,6 +164,10 @@ public sealed class TasksController : AuthenticatedControllerBase
         var rawEstimatedEffort = request.TryGetProperty("estimatedEffort", out var estimatedEffortElement)
             ? estimatedEffortElement
             : (JsonElement?)null;
+        var isShort = request.TryGetProperty("isShort", out var isShortElement)
+            && isShortElement.ValueKind is JsonValueKind.True or JsonValueKind.False
+                ? isShortElement.GetBoolean()
+                : (bool?)null;
 
         if (!TryMapEstimatedEffort(rawEstimatedEffort, out var estimatedEffort, out var estimatedEffortValidationError))
         {
@@ -175,7 +179,7 @@ public sealed class TasksController : AuthenticatedControllerBase
             return ValidationResults.FromError(validationError!);
         }
 
-        var result = commandService.Update(currentUserId, projectId, taskId, title, description, dueDate, estimatedEffort, codeTraceability);
+        var result = commandService.Update(currentUserId, projectId, taskId, title, description, dueDate, estimatedEffort, codeTraceability, isShort);
 
         if (result.ValidationError is not null)
         {

@@ -17,7 +17,8 @@ public sealed class UpdateTaskCommandService(
         string? rawDescription,
         DateOnly? dueDate,
         TaskEstimatedEffort? estimatedEffort,
-        TaskCodeTraceability? codeTraceability)
+        TaskCodeTraceability? codeTraceability,
+        bool? isShort = null)
     {
         if (!TaskTitle.TryCreate(rawTitle, out var taskTitle))
         {
@@ -43,6 +44,28 @@ public sealed class UpdateTaskCommandService(
             return UpdateTaskResult.NotFound();
         }
 
+        if (isShort == true)
+        {
+            if (project.SubtaskTemplates.Count == 0)
+            {
+                return UpdateTaskResult.Invalid("isShort", "專案尚未設定完成條件模板，無法使用 short 任務");
+            }
+
+            var hasActiveChildren = taskRepository.GetByProjectId(projectId)
+                .Any(projectTask => projectTask.ParentTaskId == task.Id && projectTask.LifecycleState == TaskLifecycleState.ActiveRecord);
+            if (hasActiveChildren)
+            {
+                return UpdateTaskResult.Invalid("isShort", "父任務不可使用 short 任務");
+            }
+
+            if (task.Subtasks.Count == 0)
+            {
+                return UpdateTaskResult.Invalid("isShort", "short 任務至少需要一筆完成條件才能送進 Flow");
+            }
+
+            TaskEstimatedEffort.TryCreate(15, "minutes", out estimatedEffort);
+        }
+
         var changedAt = timeProvider.GetUtcNow();
         var mutationResult = task.UpdateDetails(
             taskMutationGuard.Authorize(currentUserId, taskId, TaskMutationKind.UpdateDetails),
@@ -51,11 +74,24 @@ public sealed class UpdateTaskCommandService(
             dueDate,
             estimatedEffort,
             codeTraceability,
-            changedAt);
+            changedAt,
+            isShort);
 
         if (mutationResult.Locked)
         {
             return UpdateTaskResult.Locked();
+        }
+
+        if (isShort == true && !task.IsInFlow)
+        {
+            var flowMutation = task.ChangeState(
+                taskMutationGuard.Authorize(currentUserId, taskId, TaskMutationKind.ChangeWorkflowState),
+                project.GetDefaultWorkflowState(),
+                changedAt);
+            if (flowMutation.Locked)
+            {
+                return UpdateTaskResult.Locked();
+            }
         }
 
         taskRepository.Update(task);

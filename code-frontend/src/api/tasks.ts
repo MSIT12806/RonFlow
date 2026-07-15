@@ -7,10 +7,10 @@ export type MoveTaskInTreePayload = {
   insertAfter: boolean
 }
 
-export async function createTask(projectId: string, title: string) {
+export async function createTask(projectId: string, title: string, isShort = false) {
   return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks`), {
     method: 'POST',
-    body: JSON.stringify({ title }),
+    body: JSON.stringify({ title, isShort }),
   })
 }
 
@@ -45,6 +45,7 @@ export async function updateTask(projectId: string, taskId: string, payload: {
   description: string
   dueDate: string | null
   estimatedEffort: TaskEstimatedEffortResponse | null
+  isShort: boolean
   codeTraceability: {
     api: Array<{ changeType: 'added' | 'modified' | 'removed'; target: string }>
     frontendPages: Array<{ changeType: 'added' | 'modified' | 'removed'; target: string }>

@@ -22,6 +22,71 @@
             <span>{{ currentUser?.email }}</span>
           </div>
 
+          <div class="sync-notification-menu">
+            <button
+              type="button"
+              class="secondary-button sync-notification-button"
+              title="Git 同步通知"
+              @click="toggleDatabaseSyncNotifications"
+            >
+              <i class="pi pi-cloud-upload" aria-hidden="true"></i>
+              <span>同步</span>
+              <span
+                v-if="databaseSyncUnreadCount > 0"
+                class="sync-notification-badge"
+              >
+                {{ databaseSyncUnreadCount }}
+              </span>
+            </button>
+
+            <section
+              v-if="isDatabaseSyncNotificationsOpen"
+              class="sync-notification-panel"
+              aria-label="Git 同步通知"
+            >
+              <div class="sync-notification-panel-header">
+                <div>
+                  <p class="eyebrow">Git sync</p>
+                  <h2>同步通知</h2>
+                </div>
+                <span
+                  class="sync-notification-connection"
+                  :class="{ 'sync-notification-connection-online': isDatabaseSyncNotificationConnected }"
+                >
+                  {{ isDatabaseSyncNotificationConnected ? '已連線' : '未連線' }}
+                </span>
+              </div>
+
+              <p v-if="databaseSyncNotificationError" class="sync-notification-error">
+                {{ databaseSyncNotificationError }}
+              </p>
+
+              <p v-else-if="databaseSyncNotifications.length === 0" class="sync-notification-empty">
+                目前沒有 Git 同步結果。
+              </p>
+
+              <ul v-else class="sync-notification-list">
+                <li
+                  v-for="operation in databaseSyncNotifications"
+                  :key="operation.id"
+                  class="sync-notification-item"
+                >
+                  <div class="sync-notification-item-header">
+                    <span
+                      class="sync-notification-status"
+                      :class="`sync-notification-status-${operation.status}`"
+                    >
+                      {{ formatDatabaseSyncStatus(operation.status) }}
+                    </span>
+                    <time>{{ formatDatabaseSyncTime(operation) }}</time>
+                  </div>
+                  <p>{{ operation.reason }}</p>
+                  <small v-if="operation.failureSummary">{{ operation.failureSummary }}</small>
+                </li>
+              </ul>
+            </section>
+          </div>
+
           <button type="button" class="secondary-button" @click="onRefreshCurrentUser">
             重新整理 me
           </button>
@@ -261,6 +326,8 @@ import type {
   BoardColumnResponse,
   CompletedTasksByMonthReportResponse,
   CycleTimeReportResponse,
+  DatabaseSyncOperationResponse,
+  DatabaseSyncOperationStatus,
   ProjectCodeTraceabilityItemResponse,
   ProjectSubtaskTemplateResponse,
   TaskAgingReportResponse,
@@ -269,6 +336,7 @@ import type {
 } from './api/ronflowApi'
 import { ApiValidationError, activateRonFlowSession, releaseRonFlowProjectScope } from './api/ronflowApi'
 import { ProjectCommandService, ProjectQueryService } from './application'
+import { useDatabaseSyncNotifications } from './composables/useDatabaseSyncNotifications'
 import { usePushNotifications } from './composables/usePushNotifications'
 import { useRonFlowAuth } from './composables/useRonFlowAuth'
 import {
@@ -366,6 +434,7 @@ const completedTasksByMonthWindow = ref({
 const isLoadingCompletedTasksByMonth = ref(false)
 const completedTasksByMonthError = ref('')
 const completedTasksVisibility = ref<CompletedTasksVisibilityValue>(getInitialCompletedTasksVisibility())
+const isDatabaseSyncNotificationsOpen = ref(false)
 
 const projectQueryService = new ProjectQueryService()
 const projectCommandService = new ProjectCommandService()
@@ -394,6 +463,16 @@ const {
   isEnablingReminderDelivery,
   enableReminderDelivery,
 } = usePushNotifications()
+
+const {
+  operations: databaseSyncNotifications,
+  unreadCount: databaseSyncUnreadCount,
+  isConnected: isDatabaseSyncNotificationConnected,
+  errorMessage: databaseSyncNotificationError,
+  start: startDatabaseSyncNotifications,
+  stop: stopDatabaseSyncNotifications,
+  markAllSeen: markDatabaseSyncNotificationsSeen,
+} = useDatabaseSyncNotifications()
 
 const {
   projects,
@@ -498,12 +577,15 @@ onMounted(async () => {
 
 onUnmounted(() => {
   stopWorkspacePolling()
+  void stopDatabaseSyncNotifications()
   removeSessionInvalidatedListener?.()
 })
 
 watch(isAuthenticated, (authenticated) => {
   if (!authenticated) {
     stopWorkspacePolling()
+    void stopDatabaseSyncNotifications()
+    isDatabaseSyncNotificationsOpen.value = false
     invitationInboxCount.value = 0
   }
 })
@@ -519,6 +601,7 @@ watch(completedTasksVisibility, (value) => {
 async function initializeWorkspace() {
   currentWorkspaceView.value = 'board'
   await activateRonFlowSession()
+  void startDatabaseSyncNotifications()
   await loadProjects()
   await refreshInvitationInboxCount()
   startWorkspacePolling()
@@ -575,8 +658,10 @@ function stopWorkspacePolling() {
 
 function handleSessionInvalidated() {
   stopWorkspacePolling()
+  void stopDatabaseSyncNotifications()
   clearLocalSession('RonFlow session 已失效，請重新登入。')
   currentWorkspaceView.value = 'board'
+  isDatabaseSyncNotificationsOpen.value = false
   invitationInboxCount.value = 0
 }
 
@@ -604,10 +689,37 @@ function onChangeCompletedTasksVisibility(value: CompletedTasksVisibilityValue) 
 
 async function onLogout() {
   stopWorkspacePolling()
+  await stopDatabaseSyncNotifications()
   await leaveActiveProjectScope()
   await logout()
   currentWorkspaceView.value = 'board'
+  isDatabaseSyncNotificationsOpen.value = false
   invitationInboxCount.value = 0
+}
+
+function toggleDatabaseSyncNotifications() {
+  isDatabaseSyncNotificationsOpen.value = !isDatabaseSyncNotificationsOpen.value
+
+  if (isDatabaseSyncNotificationsOpen.value) {
+    markDatabaseSyncNotificationsSeen()
+  }
+}
+
+function formatDatabaseSyncStatus(status: DatabaseSyncOperationStatus) {
+  switch (status) {
+    case 'succeeded':
+      return '完成'
+    case 'failed':
+      return '失敗'
+    case 'running':
+      return '同步中'
+    default:
+      return '排隊中'
+  }
+}
+
+function formatDatabaseSyncTime(operation: DatabaseSyncOperationResponse) {
+  return formatTimelineTime(operation.completedAt ?? operation.startedAt ?? operation.requestedAt)
 }
 
 async function leaveActiveProjectScope() {
@@ -836,6 +948,7 @@ async function onTaskDetailSave(payload: {
   description: string
   dueDate: string | null
   estimatedEffort: TaskEstimatedEffortResponse | null
+  isShort: boolean
   codeTraceability: EditableTaskCodeTraceability
   subtasks: EditableTaskSubtask[]
 }) {
@@ -845,6 +958,7 @@ async function onTaskDetailSave(payload: {
     payload.description,
     payload.dueDate,
     payload.estimatedEffort,
+    payload.isShort,
     payload.codeTraceability,
     payload.subtasks,
   )

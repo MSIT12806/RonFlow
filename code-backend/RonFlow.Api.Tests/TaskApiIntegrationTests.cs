@@ -144,6 +144,45 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
     }
 
     [Test]
+    public async Task CreateTask_AsShortTask_SetsFifteenMinutesAndEntersFlow()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        await Client.PutAsJsonAsync(
+            $"/api/projects/{project.Id}/subtask-templates",
+            new { items = new[] { new { title = "需求已釐清" } } });
+
+        var response = await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks",
+            new CreateTaskRequest("調整按鈕間距", IsShort: true));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+
+        var task = await response.Content.ReadFromJsonAsync<TaskDetailResponse>();
+
+        Assert.That(task, Is.Not.Null);
+        Assert.That(task!.IsShort, Is.True);
+        Assert.That(task.IsInFlow, Is.True);
+        Assert.That(task.EstimatedEffort, Is.Not.Null);
+        Assert.That(task.EstimatedEffort!.Value, Is.EqualTo(15));
+        Assert.That(task.EstimatedEffort.Unit, Is.EqualTo("minutes"));
+    }
+
+    [Test]
+    public async Task CreateTask_AsShortTaskWithoutProjectTemplates_ReturnsValidationError()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+
+        var response = await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks",
+            new CreateTaskRequest("調整按鈕間距", IsShort: true));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+
+        var errors = await ReadValidationErrorsAsync(response);
+        Assert.That(errors, Does.ContainKey("isShort"));
+    }
+
+    [Test]
     public async Task CreateChildTask_WithValidTitle_CreatesFormalTaskAndListsItUnderParent()
     {
         var project = await CreateProjectAsync("RonFlow Project");

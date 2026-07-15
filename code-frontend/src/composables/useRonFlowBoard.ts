@@ -113,8 +113,9 @@ export function useRonFlowBoard() {
       description: string,
       dueDate: string | null,
       estimatedEffort: TaskEstimatedEffortResponse | null,
+      isShort: boolean,
       codeTraceability: EditableTaskCodeTraceability,
-    ) => taskCommandService.update(projectId, taskId, title, description, dueDate, estimatedEffort, codeTraceability),
+    ) => taskCommandService.update(projectId, taskId, title, description, dueDate, estimatedEffort, isShort, codeTraceability),
     {
       mapErrorMessage: (error) => {
         if (error instanceof ApiValidationError) {
@@ -505,6 +506,7 @@ export function useRonFlowBoard() {
     description: string,
     dueDate: string | null,
     estimatedEffort: TaskEstimatedEffortResponse | null,
+    isShort: boolean,
     codeTraceability: EditableTaskCodeTraceability,
     subtasks: EditableTaskSubtask[],
   ) {
@@ -527,6 +529,7 @@ export function useRonFlowBoard() {
         description,
         dueDate,
         estimatedEffort,
+        isShort,
         codeTraceability,
       )
       updatedTask = await replaceTaskSubtasksResource.execute(

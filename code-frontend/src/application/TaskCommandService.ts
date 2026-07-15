@@ -21,8 +21,8 @@ import {
 } from '../api/ronflowApi'
 
 export class TaskCommandService {
-  async create(projectId: string, title: string): Promise<TaskDetailResponse> {
-    return createTask(projectId, title)
+  async create(projectId: string, title: string, isShort = false): Promise<TaskDetailResponse> {
+    return createTask(projectId, title, isShort)
   }
 
   async createChild(projectId: string, parentTaskId: string, title: string): Promise<TaskDetailResponse> {
@@ -40,13 +40,14 @@ export class TaskCommandService {
     description: string,
     dueDate: string | null,
     estimatedEffort: TaskEstimatedEffortResponse | null,
+    isShort: boolean,
     codeTraceability: {
       api: Array<{ changeType: 'added' | 'modified' | 'removed'; target: string }>
       frontendPages: Array<{ changeType: 'added' | 'modified' | 'removed'; target: string }>
       frontendComponents: Array<{ changeType: 'added' | 'modified' | 'removed'; target: string }>
     },
   ): Promise<TaskDetailResponse> {
-    return updateTask(projectId, taskId, { title, description, dueDate, estimatedEffort, codeTraceability })
+    return updateTask(projectId, taskId, { title, description, dueDate, estimatedEffort, isShort, codeTraceability })
   }
 
   async setSplitComplete(projectId: string, taskId: string, isSplitComplete: boolean): Promise<TaskDetailResponse> {

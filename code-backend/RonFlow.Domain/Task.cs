@@ -19,6 +19,7 @@ public sealed class Task
         WorkflowState currentState,
         bool isInFlow,
         bool isSplitComplete,
+        bool isShort,
         TaskLifecycleState lifecycleState,
         DateOnly? dueDate,
         DateTimeOffset createdAt,
@@ -41,6 +42,7 @@ public sealed class Task
         CurrentState = currentState;
         IsInFlow = isInFlow;
         IsSplitComplete = isSplitComplete;
+        IsShort = isShort;
         LifecycleState = lifecycleState;
         DueDate = dueDate;
         CreatedAt = createdAt;
@@ -71,6 +73,8 @@ public sealed class Task
     public bool IsInFlow { get; private set; }
 
     public bool IsSplitComplete { get; private set; }
+
+    public bool IsShort { get; private set; }
 
     public TaskLifecycleState LifecycleState { get; private set; }
 
@@ -106,8 +110,15 @@ public sealed class Task
         int sortOrder,
         bool isInFlow = false,
         Guid? parentTaskId = null,
-        IEnumerable<TaskSubtask>? subtasks = null)
+        IEnumerable<TaskSubtask>? subtasks = null,
+        bool isShort = false)
     {
+        TaskEstimatedEffort? estimatedEffort = null;
+        if (isShort)
+        {
+            TaskEstimatedEffort.TryCreate(15, "minutes", out estimatedEffort);
+        }
+
         return new Task(
             Guid.NewGuid(),
             projectId,
@@ -115,8 +126,9 @@ public sealed class Task
             title.Value,
             string.Empty,
             initialState,
-            isInFlow,
+            isInFlow || isShort,
             false,
+            isShort,
             TaskLifecycleState.ActiveRecord,
             null,
             createdAt,
@@ -125,7 +137,7 @@ public sealed class Task
             null,
             null,
             sortOrder,
-            null,
+            estimatedEffort,
             subtasks ?? [],
             [],
             TaskCodeTraceability.Empty,
@@ -141,6 +153,7 @@ public sealed class Task
         WorkflowState currentState,
         bool isInFlow,
         bool isSplitComplete,
+        bool isShort,
         TaskLifecycleState lifecycleState,
         DateOnly? dueDate,
         DateTimeOffset createdAt,
@@ -155,7 +168,7 @@ public sealed class Task
         TaskCodeTraceability codeTraceability,
         IEnumerable<ActivityTimelineItem> activityTimeline)
     {
-        return new Task(id, projectId, parentTaskId, title, description, currentState, isInFlow, isSplitComplete, lifecycleState, dueDate, createdAt, mutationAt, completedAt, archivedAt, trashedAt, sortOrder, estimatedEffort, subtasks, reminders, codeTraceability, activityTimeline);
+        return new Task(id, projectId, parentTaskId, title, description, currentState, isInFlow, isSplitComplete, isShort, lifecycleState, dueDate, createdAt, mutationAt, completedAt, archivedAt, trashedAt, sortOrder, estimatedEffort, subtasks, reminders, codeTraceability, activityTimeline);
     }
 
     public TaskMutationExecutionResult MarkChildTaskAdded(TaskMutationAuthorization authorization, DateTimeOffset changedAt)
@@ -383,7 +396,7 @@ public sealed class Task
         return true;
     }
 
-    public TaskMutationExecutionResult UpdateDetails(TaskMutationAuthorization authorization, TaskTitle title, string description, DateOnly? dueDate, TaskEstimatedEffort? estimatedEffort, TaskCodeTraceability? nextCodeTraceability, DateTimeOffset changedAt)
+    public TaskMutationExecutionResult UpdateDetails(TaskMutationAuthorization authorization, TaskTitle title, string description, DateOnly? dueDate, TaskEstimatedEffort? estimatedEffort, TaskCodeTraceability? nextCodeTraceability, DateTimeOffset changedAt, bool? isShort = null)
     {
         if (TryRejectLockedMutation(authorization, TaskMutationKind.UpdateDetails, out var lockedResult))
         {
@@ -417,6 +430,12 @@ public sealed class Task
         {
             EstimatedEffort = estimatedEffort;
             activityTimeline.Add(ActivityTimelineItem.TaskEstimatedEffortChanged(changedAt));
+            hasChanged = true;
+        }
+
+        if (isShort is not null && IsShort != isShort.Value)
+        {
+            IsShort = isShort.Value;
             hasChanged = true;
         }
 
@@ -562,6 +581,7 @@ public sealed class Task
             CurrentState.ToModel(),
             IsInFlow,
             IsSplitComplete,
+            IsShort,
             LifecycleState,
             DueDate,
             CreatedAt,

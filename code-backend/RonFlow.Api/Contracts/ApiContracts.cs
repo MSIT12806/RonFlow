@@ -1,5 +1,6 @@
 using RonFlow.Application;
 using RonFlow.Domain;
+using RonFlow.Infrastructure;
 using System.Text.Json;
 
 namespace RonFlow.Api.Contracts;
@@ -18,7 +19,7 @@ public sealed record AiApplyRequest(
 
 public sealed record CreateProjectInvitationRequest(string? Invitee);
 
-public sealed record CreateTaskRequest(string? Title);
+public sealed record CreateTaskRequest(string? Title, bool? IsShort = null);
 
 public sealed record CreateChildTaskRequest(string? Title);
 
@@ -95,6 +96,42 @@ public sealed record ReorderTaskRequest(Guid? TargetTaskId);
 public sealed record MoveTaskInTreeRequest(Guid? TargetParentTaskId, Guid? TargetSiblingTaskId, bool InsertAfter);
 
 public sealed record PushNotificationPublicKeyResponse(string PublicKey);
+
+public sealed record DatabaseSyncOperationListResponse(IReadOnlyList<DatabaseSyncOperationResponse> Items);
+
+public sealed record DatabaseSyncOperationResponse(
+    Guid Id,
+    string Reason,
+    string Status,
+    DateTimeOffset RequestedAt,
+    DateTimeOffset? StartedAt,
+    DateTimeOffset? CompletedAt,
+    string? FailureSummary)
+{
+    public static DatabaseSyncOperationResponse FromOperation(DatabaseSyncOperation operation)
+    {
+        return new(
+            operation.Id,
+            operation.Reason,
+            ToStatusResponse(operation.Status),
+            operation.RequestedAt,
+            operation.StartedAt,
+            operation.CompletedAt,
+            operation.FailureSummary);
+    }
+
+    private static string ToStatusResponse(DatabaseSyncOperationStatus status)
+    {
+        return status switch
+        {
+            DatabaseSyncOperationStatus.Queued => "queued",
+            DatabaseSyncOperationStatus.Running => "running",
+            DatabaseSyncOperationStatus.Succeeded => "succeeded",
+            DatabaseSyncOperationStatus.Failed => "failed",
+            _ => "queued",
+        };
+    }
+}
 
 public sealed record DeploymentComponentResponse(
     string Application,
@@ -400,6 +437,7 @@ public sealed record TaskDetailResponse(
     WorkflowStateResponse CurrentState,
     bool IsInFlow,
     bool IsSplitComplete,
+    bool IsShort,
     string LifecycleState,
     DateOnly? DueDate,
     DateTimeOffset CreatedAt,
@@ -424,6 +462,7 @@ public sealed record TaskDetailResponse(
             WorkflowStateResponse.FromOutput(output.CurrentState),
             output.IsInFlow,
             output.IsSplitComplete,
+            output.IsShort,
             ToTaskLifecycleStateResponse(output.LifecycleState),
             output.DueDate,
             output.CreatedAt,
@@ -449,6 +488,7 @@ public sealed record TaskDetailResponse(
             WorkflowStateResponse.FromView(view.CurrentState),
             view.IsInFlow,
             view.IsSplitComplete,
+            view.IsShort,
             ToTaskLifecycleStateResponse(view.LifecycleState),
             view.DueDate,
             view.CreatedAt,

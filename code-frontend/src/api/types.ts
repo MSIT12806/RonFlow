@@ -65,6 +65,7 @@ export type TaskDetailResponse = {
   currentState: WorkflowStateResponse
   isInFlow: boolean
   isSplitComplete: boolean
+  isShort: boolean
   lifecycleState: TaskLifecycleState
   dueDate: string | null
   createdAt: string
@@ -266,4 +267,20 @@ export type ValidationErrorBag = Record<string, string[]>
 
 export type PushNotificationPublicKeyResponse = {
   publicKey: string
+}
+
+export type DatabaseSyncOperationStatus = 'queued' | 'running' | 'succeeded' | 'failed'
+
+export type DatabaseSyncOperationResponse = {
+  id: string
+  reason: string
+  status: DatabaseSyncOperationStatus
+  requestedAt: string
+  startedAt: string | null
+  completedAt: string | null
+  failureSummary: string | null
+}
+
+export type DatabaseSyncOperationListResponse = {
+  items: DatabaseSyncOperationResponse[]
 }

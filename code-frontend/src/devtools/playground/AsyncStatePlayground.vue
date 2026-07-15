@@ -416,6 +416,7 @@ const playgroundTaskDetail: TaskDetailResponse = {
   },
   isInFlow: true,
   isSplitComplete: false,
+  isShort: false,
   lifecycleState: 'activeRecord',
   dueDate: '2026-05-20',
   createdAt: '2026-05-12T08:00:00.000Z',

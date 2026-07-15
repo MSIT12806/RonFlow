@@ -17,12 +17,12 @@ public sealed class CreateTaskCommandService(
     {
     }
 
-    public CreateTaskResult Create(Guid projectId, string? rawTitle)
+    public CreateTaskResult Create(Guid projectId, string? rawTitle, bool isShort = false)
     {
-        return Create(Guid.Empty, projectId, rawTitle);
+        return Create(Guid.Empty, projectId, rawTitle, isShort);
     }
 
-    public CreateTaskResult Create(Guid currentUserId, Guid projectId, string? rawTitle)
+    public CreateTaskResult Create(Guid currentUserId, Guid projectId, string? rawTitle, bool isShort = false)
     {
         if (!TaskTitle.TryCreate(rawTitle, out var taskTitle))
         {
@@ -42,6 +42,11 @@ public sealed class CreateTaskCommandService(
 
         var project = access.Project!;
 
+        if (isShort && project.SubtaskTemplates.Count == 0)
+        {
+            return CreateTaskResult.Invalid("isShort", "專案尚未設定完成條件模板，無法建立 short 任務");
+        }
+
         var createdAt = timeProvider.GetUtcNow();
         var sortOrder = taskRepository.GetByProjectId(project.Id).Count;
         var task = DomainTask.Create(
@@ -50,7 +55,8 @@ public sealed class CreateTaskCommandService(
             project.GetDefaultWorkflowState(),
             createdAt,
             sortOrder,
-            subtasks: project.CreateSubtasksFromTemplates());
+            subtasks: project.CreateSubtasksFromTemplates(),
+            isShort: isShort);
         taskRepository.Add(task);
 
         project.Touch(createdAt);

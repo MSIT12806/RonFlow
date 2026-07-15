@@ -240,6 +240,7 @@
                 </button>
               </li>
             </ul>
+
           </div>
 
           <div v-if="!isParentTask" class="detail-card detail-card-full detail-ready-list" data-testid="task-ready-list-section">
@@ -331,6 +332,17 @@
                 </div>
               </li>
             </ul>
+
+            <label v-if="isEditing" class="detail-checklist-row" for="task-detail-is-short">
+              <input
+                id="task-detail-is-short"
+                v-model="draftIsShort"
+                type="checkbox"
+                :disabled="isSaving || isReadOnly || (!canUseShortTask && !draftIsShort)"
+              />
+              <span>short 任務（自動設定 15 分鐘並送進 Flow）</span>
+            </label>
+            <p v-if="isEditing && !canUseShortTask" class="detail-supporting-copy">專案沒有完成條件模板，無法啟用 short 任務。</p>
           </div>
 
           <div class="detail-card detail-card-full" data-testid="task-reminders-section">
@@ -533,6 +545,7 @@ import type {
   TaskEstimatedEffortUnit,
   TaskReminderResponse,
 } from '../api/ronflowApi'
+import { ProjectQueryService } from '../application'
 import type { TaskDetailMode } from '../composables/useRonFlowBoard'
 
 type DraftTaskSubtask = {
@@ -590,6 +603,7 @@ const emit = defineEmits<{
     description: string
     dueDate: string | null
     estimatedEffort: { value: number; unit: TaskEstimatedEffortUnit } | null
+    isShort: boolean
     codeTraceability: DraftTaskCodeTraceability
     subtasks: Array<{ id: string | null; title: string; isChecked: boolean; order: number }>
   }): void
@@ -614,12 +628,15 @@ const draftDescription = ref('')
 const draftDueDate = ref('')
 const draftEstimatedEffortValue = ref('')
 const draftEstimatedEffortUnit = ref<TaskEstimatedEffortUnit>('hours')
+const draftIsShort = ref(false)
 const draftReminderDateTime = ref('')
 const draftReminderDescription = ref('')
 const draftChildTaskTitle = ref('')
 const draftSubtasks = ref<DraftTaskSubtask[]>([])
 const draftCodeTraceability = ref<DraftTaskCodeTraceability>(createEmptyCodeTraceability())
 const isActionsOpen = ref(false)
+const canUseShortTask = ref(false)
+const projectQueryService = new ProjectQueryService()
 
 const traceabilityCategories: Array<{ key: TraceabilityCategoryKey; label: string; testId: string }> = [
   { key: 'api', label: 'API', testId: 'api' },
@@ -766,6 +783,7 @@ function submit() {
     description: draftDescription.value,
     dueDate: draftDueDate.value || null,
     estimatedEffort: buildEstimatedEffortPayload(),
+    isShort: draftIsShort.value,
     codeTraceability: buildCodeTraceabilityPayload(),
     subtasks: buildSubtaskPayload(),
   })
@@ -1106,6 +1124,7 @@ watch(
     draftDueDate.value = props.task.dueDate ?? ''
     draftEstimatedEffortValue.value = props.task.estimatedEffort?.value ? String(props.task.estimatedEffort.value) : ''
     draftEstimatedEffortUnit.value = props.task.estimatedEffort?.unit ?? 'hours'
+    draftIsShort.value = props.task.isShort
     draftReminderDateTime.value = ''
     draftReminderDescription.value = ''
     if (!wasOpen || taskId !== previousTaskId || childTaskCount !== previousChildTaskCount) {
@@ -1117,6 +1136,24 @@ watch(
       title: subtask.title,
       isChecked: subtask.isChecked,
     }))
+  },
+  { immediate: true },
+)
+
+watch(
+  () => [props.isOpen, props.task?.projectId] as const,
+  async ([isOpen, projectId]) => {
+    canUseShortTask.value = false
+    if (!isOpen || !projectId) {
+      return
+    }
+
+    try {
+      const templates = await projectQueryService.getSubtaskTemplates(projectId)
+      canUseShortTask.value = templates.items.length > 0
+    } catch {
+      canUseShortTask.value = false
+    }
   },
   { immediate: true },
 )
