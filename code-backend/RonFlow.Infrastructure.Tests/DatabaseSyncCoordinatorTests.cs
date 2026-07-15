@@ -162,6 +162,66 @@ public sealed class DatabaseSyncCoordinatorTests
     }
 
     [Test]
+    public void FlushPendingMutations_WhenInitiatorQueued_PublishesSucceededOperation()
+    {
+        using var temp = new TempDirectory();
+        var initiatorUserId = Guid.NewGuid();
+        var operationStore = new InMemoryDatabaseSyncOperationStore();
+        var notificationPublisher = new RecordingDatabaseSyncNotificationPublisher();
+        var repositoryPath = Path.Combine(temp.Path, "repo");
+        var runtimeDatabasePath = Path.Combine(temp.Path, "runtime", "ronflow.db");
+        var repositoryDatabasePath = Path.Combine(repositoryPath, "ronflow.db");
+        Directory.CreateDirectory(repositoryPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(runtimeDatabasePath)!);
+        File.WriteAllText(runtimeDatabasePath, "runtime snapshot");
+        File.WriteAllText(repositoryDatabasePath, "snapshot");
+        var coordinator = CreateCoordinator(
+            repositoryPath,
+            runtimeDatabasePath,
+            new RecordingSnapshotStore(),
+            new RecordingRepositorySync(),
+            new RecordingSnapshotMerger(),
+            operationStore: operationStore,
+            notificationPublisher: notificationPublisher);
+
+        coordinator.PushAfterMutation("task updated", new DatabaseSyncInitiator(initiatorUserId));
+        var processed = coordinator.FlushPendingMutations();
+
+        var operation = operationStore.GetForInitiator(initiatorUserId, 10).Single();
+        Assert.That(processed, Is.True);
+        Assert.That(operation.Status, Is.EqualTo(DatabaseSyncOperationStatus.Succeeded));
+        Assert.That(operation.CompletedAt, Is.Not.Null);
+        Assert.That(operation.FailureSummary, Is.Null);
+        Assert.That(notificationPublisher.PublishedOperations.Single().Id, Is.EqualTo(operation.Id));
+    }
+
+    [Test]
+    public void FlushPendingMutations_WhenSnapshotCannotBePushed_PublishesFailedOperation()
+    {
+        using var temp = new TempDirectory();
+        var initiatorUserId = Guid.NewGuid();
+        var operationStore = new InMemoryDatabaseSyncOperationStore();
+        var notificationPublisher = new RecordingDatabaseSyncNotificationPublisher();
+        var coordinator = CreateCoordinator(
+            Path.Combine(temp.Path, "repo"),
+            Path.Combine(temp.Path, "runtime", "ronflow.db"),
+            new RecordingSnapshotStore(),
+            new RecordingRepositorySync(),
+            operationStore: operationStore,
+            notificationPublisher: notificationPublisher);
+
+        coordinator.PushAfterMutation("task updated", new DatabaseSyncInitiator(initiatorUserId));
+        var processed = coordinator.FlushPendingMutations();
+
+        var operation = operationStore.GetForInitiator(initiatorUserId, 10).Single();
+        Assert.That(processed, Is.True);
+        Assert.That(operation.Status, Is.EqualTo(DatabaseSyncOperationStatus.Failed));
+        Assert.That(operation.CompletedAt, Is.Not.Null);
+        Assert.That(operation.FailureSummary, Is.Not.Empty);
+        Assert.That(notificationPublisher.PublishedOperations.Single().Id, Is.EqualTo(operation.Id));
+    }
+
+    [Test]
     public void FlushPendingMutations_CoalescesQueuedReasonsIntoOneRepositorySync()
     {
         using var temp = new TempDirectory();
@@ -284,7 +344,9 @@ public sealed class DatabaseSyncCoordinatorTests
         string runtimeDatabasePath,
         IDatabaseSnapshotStore snapshotStore,
         IDatabaseRepositorySync repositorySync,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IDatabaseSyncOperationStore? operationStore = null,
+        IDatabaseSyncNotificationPublisher? notificationPublisher = null)
     {
         return new DatabaseSyncCoordinator(
             new DatabaseSyncOptions
@@ -296,7 +358,9 @@ public sealed class DatabaseSyncCoordinatorTests
             snapshotStore,
             repositorySync,
             new RecordingSnapshotMerger(),
-            timeProvider: timeProvider);
+            timeProvider: timeProvider,
+            operationStore: operationStore,
+            notificationPublisher: notificationPublisher);
     }
 
     private static DatabaseSyncCoordinator CreateCoordinator(
@@ -305,7 +369,9 @@ public sealed class DatabaseSyncCoordinatorTests
         IDatabaseSnapshotStore snapshotStore,
         IDatabaseRepositorySync repositorySync,
         IDatabaseSnapshotMerger snapshotMerger,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IDatabaseSyncOperationStore? operationStore = null,
+        IDatabaseSyncNotificationPublisher? notificationPublisher = null)
     {
         return new DatabaseSyncCoordinator(
             new DatabaseSyncOptions
@@ -317,7 +383,9 @@ public sealed class DatabaseSyncCoordinatorTests
             snapshotStore,
             repositorySync,
             snapshotMerger,
-            timeProvider: timeProvider);
+            timeProvider: timeProvider,
+            operationStore: operationStore,
+            notificationPublisher: notificationPublisher);
     }
 
     private static DateTimeOffset GetUtcTimeAfterLastUpdate()
@@ -439,6 +507,16 @@ CREATE TABLE Tasks (
         {
             Merges.Add((localSnapshotPath, remoteSnapshotPath, outputSnapshotPath));
             return DatabaseSnapshotMergeResult.Success("merged");
+        }
+    }
+
+    private sealed class RecordingDatabaseSyncNotificationPublisher : IDatabaseSyncNotificationPublisher
+    {
+        public List<DatabaseSyncOperation> PublishedOperations { get; } = [];
+
+        public void Publish(DatabaseSyncNotification notification)
+        {
+            PublishedOperations.Add(notification.Operation);
         }
     }
 

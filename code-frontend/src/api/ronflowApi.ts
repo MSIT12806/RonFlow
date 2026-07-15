@@ -1,5 +1,6 @@
 export * from './types'
 export * from './errors'
+export * from './databaseSyncNotifications'
 export * from './pushNotifications'
 export * from './projects'
 export * from './session'

@@ -206,3 +206,42 @@ RonFlow 目前的資料模型會把 `OwnerId`、member `UserId`、`KnownUsers` �
 2. mutation 後的 push 是否要同步等待完成，還是改成背景執行。
 3. 外部 push reject 時，要不要自動 retry 或直接停止並報錯。
 4. snapshot 的實作要用 SQLite backup API 還是 `VACUUM INTO`。
+
+## 10. Initiator Notification For Background Sync
+
+Git sync 在背景執行時，使用者需要知道自己的資料是否已成功同步；但這不代表要把 Git 技術細節或所有系統事件廣播給每個使用者。
+
+### 10.1 Scope
+
+```text
+1. 第一版只涵蓋使用者發起的 mutation Git sync。
+2. 通知目標是發起 mutation 的 RonFlow user，不是所有 project member。
+3. 通知是頁面開啟期間的 in-app notification，不使用 Web Push、Service Worker 或 OS notification。
+4. 不提供手動重試 UI；背景 sync 的既有失敗處理仍不得讓本地 mutation 失敗。
+```
+
+### 10.2 Operation Lifecycle
+
+每個帶有發起者的 mutation sync request 應有唯一 operation id，並持久保存下列最小資料：
+
+```text
+- operation id
+- initiator user id
+- safe reason
+- queued / running / succeeded / failed status
+- requested / started / completed timestamps
+- safe failure summary (if failed)
+```
+
+多個 mutation 可被 coalesce 成一次 Git push；每個 operation 仍必須收到同一批次的正確終態。只有在 snapshot、pull、merge、commit、push 全部成功時，operation 才能標記為 succeeded。佇列被 drain 或 worker 曾嘗試執行，都不是成功訊號。
+
+### 10.3 Delivery Contract
+
+```text
+1. SignalR 是前景即時 delivery channel。
+2. Hub 必須同時驗證 JWT 與 RonFlow active session。
+3. delivery 必須限定在 initiator 的目前有效 session；失效 session 不得收到訊息。
+4. 持久化 operation query 是 reconnect / reload 的補讀來源，SignalR event 本身不作為唯一紀錄。
+5. payload 不得包含 access token、remote URL、branch credential 或原始 Git command output。
+6. IIS 未使用 WebSocket 時，SignalR transport fallback 必須仍可連線。
+```

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using RonFlow.Application;
 using RonFlow.Domain;
 using RonFlow.Infrastructure;
@@ -25,6 +26,8 @@ internal static class ServiceCollectionExtensions
             configuration["PushNotifications:PrivateKey"]));
         services.AddSingleton<IDomainEventDispatcher, InProcessDomainEventDispatcher>();
         services.AddSingleton<IDomainEventHandler, DatabaseSyncDomainEventHandler>();
+        services.TryAddSingleton<IDatabaseSyncInitiatorContext>(NoOpDatabaseSyncInitiatorContext.Instance);
+        services.TryAddSingleton<IDatabaseSyncNotificationPublisher>(NoOpDatabaseSyncNotificationPublisher.Instance);
 
         return services;
     }
@@ -37,6 +40,7 @@ internal static class ServiceCollectionExtensions
         if (environment.IsEnvironment("Testing"))
         {
             services.AddSingleton<IDatabaseSyncCoordinator>(NoOpDatabaseSyncCoordinator.Instance);
+            services.AddSingleton<IDatabaseSyncOperationStore, InMemoryDatabaseSyncOperationStore>();
             services.AddSingleton<IProjectRepository, InMemoryProjectRepository>();
             services.AddSingleton<ITaskRepository, InMemoryTaskRepository>();
             services.AddSingleton<IPushSubscriptionRepository, InMemoryPushSubscriptionRepository>();
@@ -58,6 +62,7 @@ internal static class ServiceCollectionExtensions
 
         var databaseSyncOptions = CreateDatabaseSyncOptions(environment.ContentRootPath, configuration, databasePath);
         services.AddSingleton(databaseSyncOptions);
+        services.AddSingleton<IDatabaseSyncOperationStore>(_ => new SqliteDatabaseSyncOperationStore(databasePath));
         services.AddSingleton<IDatabaseSyncCoordinator>(serviceProvider =>
         {
             IDatabaseSyncCoordinator databaseSyncCoordinator;
@@ -77,7 +82,9 @@ internal static class ServiceCollectionExtensions
                     new SqliteDatabaseSnapshotStore(),
                     new GitDatabaseRepositorySync(databaseSyncOptions),
                     new DbMergerDatabaseSnapshotMerger(),
-                    serviceProvider.GetRequiredService<ILogger<DatabaseSyncCoordinator>>());
+                    serviceProvider.GetRequiredService<ILogger<DatabaseSyncCoordinator>>(),
+                    operationStore: serviceProvider.GetRequiredService<IDatabaseSyncOperationStore>(),
+                    notificationPublisher: serviceProvider.GetRequiredService<IDatabaseSyncNotificationPublisher>());
             }
             else
             {

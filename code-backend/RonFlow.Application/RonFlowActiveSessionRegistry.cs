@@ -41,6 +41,16 @@ public sealed class RonFlowActiveSessionRegistry(
         return !activeSessions.TryGetValue(userId, out var currentSessionId) || currentSessionId == sessionId;
     }
 
+    public bool IsCurrentActiveSession(Guid userId, string sessionId)
+    {
+        return activeSessions.TryGetValue(userId, out var currentSessionId) && currentSessionId == sessionId;
+    }
+
+    public bool TryGetActiveSession(Guid userId, out string sessionId)
+    {
+        return activeSessions.TryGetValue(userId, out sessionId!);
+    }
+
     public void ReleaseProjectScope(string sessionId)
     {
         taskContentEditLockService.ReleaseAllOwnedBySession(sessionId);

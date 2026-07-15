@@ -29,7 +29,7 @@ public sealed class DatabaseSyncBackgroundService(
 
                 if (databaseSyncCoordinator.FlushPendingMutations())
                 {
-                    logger.LogInformation("RonFlow database Git sync background service processed queued mutations.");
+                    logger.LogInformation("RonFlow database Git sync background service finished a queued mutation batch.");
                 }
             }
             catch (Exception exception)

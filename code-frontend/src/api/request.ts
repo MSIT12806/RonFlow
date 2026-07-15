@@ -3,7 +3,7 @@ import type { ValidationErrorBag } from './types'
 import { ronAuthAccessTokenStore } from '../auth/ronauthClient'
 import { dispatchRonFlowSessionInvalidated, getRonFlowSessionId } from '../ronflowSession'
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '/api'
+export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
 export function apiPath(path: string) {
   return `${apiBaseUrl}${path}`

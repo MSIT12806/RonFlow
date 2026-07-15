@@ -21,6 +21,10 @@ public partial class Program
 
         builder.Services.AddOpenApi();
         builder.Services.AddControllers();
+        builder.Services.AddHttpContextAccessor();
+        builder.Services.AddSignalR();
+        builder.Services.AddSingleton<IDatabaseSyncInitiatorContext, HttpContextDatabaseSyncInitiatorContext>();
+        builder.Services.AddSingleton<IDatabaseSyncNotificationPublisher, SignalRDatabaseSyncNotificationPublisher>();
         builder.Services.AddCors(options =>
         {
             options.AddPolicy("Frontend", policy =>
@@ -68,6 +72,20 @@ public partial class Program
                     RoleClaimType = ClaimTypes.Role,
                     ClockSkew = TimeSpan.Zero,
                 };
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"].FirstOrDefault();
+                        if (!string.IsNullOrWhiteSpace(accessToken) &&
+                            context.HttpContext.Request.Path.StartsWithSegments(DatabaseSyncNotificationHub.Route))
+                        {
+                            context.Token = accessToken;
+                        }
+
+                        return System.Threading.Tasks.Task.CompletedTask;
+                    },
+                };
             });
         builder.Services.AddAuthorization();
         builder.Services.AddRonFlowPersistence(builder.Environment, builder.Configuration);
@@ -96,6 +114,7 @@ public partial class Program
         app.UseAuthorization();
         app.MapPrometheusScrapingEndpoint("/metrics");
         app.MapControllers();
+        app.MapHub<DatabaseSyncNotificationHub>(DatabaseSyncNotificationHub.Route);
 
         app.Run();
     }

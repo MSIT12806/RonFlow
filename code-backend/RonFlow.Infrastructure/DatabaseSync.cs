@@ -38,6 +38,11 @@ public interface IDatabaseSyncCoordinator
 
     void PushAfterMutation(string reason);
 
+    void PushAfterMutation(string reason, DatabaseSyncInitiator? initiator)
+    {
+        PushAfterMutation(reason);
+    }
+
     bool FlushPendingMutations();
 }
 
@@ -66,6 +71,10 @@ public sealed class NoOpDatabaseSyncCoordinator : IDatabaseSyncCoordinator
     {
     }
 
+    public void PushAfterMutation(string reason, DatabaseSyncInitiator? initiator)
+    {
+    }
+
     public bool FlushPendingMutations()
     {
         return false;
@@ -78,8 +87,11 @@ public sealed class DatabaseSyncCoordinator(
     IDatabaseRepositorySync repositorySync,
     IDatabaseSnapshotMerger snapshotMerger,
     ILogger<DatabaseSyncCoordinator>? logger = null,
-    TimeProvider? timeProvider = null) : IDatabaseSyncCoordinator
+    TimeProvider? timeProvider = null,
+    IDatabaseSyncOperationStore? operationStore = null,
+    IDatabaseSyncNotificationPublisher? notificationPublisher = null) : IDatabaseSyncCoordinator
 {
+    private const string UserVisibleFailureSummary = "Git database sync failed. Please check server sync diagnostics.";
     private const string RequestPullReason = "request-triggered pull refresh";
     private static readonly TimeSpan PullRefreshInterval = TimeSpan.FromHours(1);
     private static readonly object lastUpdateTimeRoot = new();
@@ -88,9 +100,11 @@ public sealed class DatabaseSyncCoordinator(
     private readonly object syncRoot = new();
     private readonly object pendingMutationReasonsRoot = new();
     private readonly object pendingPullRequestsRoot = new();
-    private readonly Queue<string> pendingMutationReasons = new();
+    private readonly Queue<DatabaseSyncMutationRequest> pendingMutationRequests = new();
     private readonly Queue<string> pendingPullReasons = new();
     private readonly TimeProvider timeProvider = timeProvider ?? TimeProvider.System;
+    private readonly IDatabaseSyncOperationStore operationStore = operationStore ?? NoOpDatabaseSyncOperationStore.Instance;
+    private readonly IDatabaseSyncNotificationPublisher notificationPublisher = notificationPublisher ?? NoOpDatabaseSyncNotificationPublisher.Instance;
 
     public static DateTime LastUpdateTime
     {
@@ -213,6 +227,11 @@ public sealed class DatabaseSyncCoordinator(
 
     public void PushAfterMutation(string reason)
     {
+        PushAfterMutation(reason, null);
+    }
+
+    public void PushAfterMutation(string reason, DatabaseSyncInitiator? initiator)
+    {
         if (!options.Enabled)
         {
             logger?.LogDebug("Skipped queueing RonFlow database Git sync mutation because sync is disabled. Reason: {Reason}", NormalizeReason(reason));
@@ -220,11 +239,15 @@ public sealed class DatabaseSyncCoordinator(
         }
 
         var normalizedReason = NormalizeReason(reason);
+        var operation = initiator is null
+            ? null
+            : operationStore.Create(initiator.UserId, normalizedReason, timeProvider.GetUtcNow());
+
         int pendingCount;
         lock (pendingMutationReasonsRoot)
         {
-            pendingMutationReasons.Enqueue(normalizedReason);
-            pendingCount = pendingMutationReasons.Count;
+            pendingMutationRequests.Enqueue(new DatabaseSyncMutationRequest(normalizedReason, operation?.Id));
+            pendingCount = pendingMutationRequests.Count;
         }
 
         WriteDiagnosticLog($"Queued database sync mutation '{normalizedReason}'. PendingCount: {pendingCount}");
@@ -241,19 +264,34 @@ public sealed class DatabaseSyncCoordinator(
             return false;
         }
 
-        var reasons = DrainPendingMutationReasons();
-        if (reasons.Count == 0)
+        var requests = DrainPendingMutationRequests();
+        if (requests.Count == 0)
         {
             return false;
         }
 
+        var operationIds = requests
+            .Select(request => request.OperationId)
+            .Where(operationId => operationId.HasValue)
+            .Select(operationId => operationId!.Value)
+            .Distinct()
+            .ToArray();
+        if (operationIds.Length > 0)
+        {
+            operationStore.MarkRunning(operationIds, timeProvider.GetUtcNow());
+        }
+
+        var reasons = requests.Select(request => request.Reason).ToArray();
         var reason = CreateCoalescedReason(reasons);
         var completedPullAndMerge = false;
+        var runSucceeded = false;
         lock (syncRoot)
         {
-            if (TryRun(
+            runSucceeded = TryRun(
                 $"push database snapshot after coalesced mutations '{reason}'",
-                () => completedPullAndMerge = PushDatabaseSnapshot(reason, reasons.Count)))
+                () => completedPullAndMerge = PushDatabaseSnapshot(reason, reasons.Length));
+
+            if (runSucceeded)
             {
                 if (completedPullAndMerge)
                 {
@@ -262,21 +300,36 @@ public sealed class DatabaseSyncCoordinator(
             }
         }
 
+        var succeeded = runSucceeded && completedPullAndMerge;
+        if (operationIds.Length > 0)
+        {
+            var completedOperations = operationStore.MarkCompleted(
+                operationIds,
+                succeeded,
+                timeProvider.GetUtcNow(),
+                succeeded ? null : UserVisibleFailureSummary);
+
+            foreach (var operation in completedOperations)
+            {
+                notificationPublisher.Publish(new DatabaseSyncNotification(operation));
+            }
+        }
+
         return true;
     }
 
-    private IReadOnlyList<string> DrainPendingMutationReasons()
+    private IReadOnlyList<DatabaseSyncMutationRequest> DrainPendingMutationRequests()
     {
         lock (pendingMutationReasonsRoot)
         {
-            if (pendingMutationReasons.Count == 0)
+            if (pendingMutationRequests.Count == 0)
             {
                 return [];
             }
 
-            var reasons = pendingMutationReasons.ToArray();
-            pendingMutationReasons.Clear();
-            return reasons;
+            var requests = pendingMutationRequests.ToArray();
+            pendingMutationRequests.Clear();
+            return requests;
         }
     }
 
@@ -572,6 +625,8 @@ public sealed class DatabaseSyncCoordinator(
             "github_pat_***",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     }
+
+    private sealed record DatabaseSyncMutationRequest(string Reason, Guid? OperationId);
 }
 
 public interface IDatabaseSnapshotStore

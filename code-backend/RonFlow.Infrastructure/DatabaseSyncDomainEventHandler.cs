@@ -5,6 +5,7 @@ namespace RonFlow.Infrastructure;
 
 public sealed class DatabaseSyncDomainEventHandler(
     IDatabaseSyncCoordinator databaseSyncCoordinator,
+    IDatabaseSyncInitiatorContext initiatorContext,
     ILogger<DatabaseSyncDomainEventHandler>? logger = null) : IDomainEventHandler
 {
     public bool CanHandle(IDomainEvent domainEvent)
@@ -18,7 +19,7 @@ public sealed class DatabaseSyncDomainEventHandler(
         {
             try
             {
-                databaseSyncCoordinator.PushAfterMutation(coreFlowDataChanged.Reason);
+                databaseSyncCoordinator.PushAfterMutation(coreFlowDataChanged.Reason, initiatorContext.GetCurrent());
             }
             catch (Exception exception)
             {
