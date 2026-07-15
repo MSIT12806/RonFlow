@@ -137,7 +137,7 @@ public sealed class DbMergerAcceptanceTests
     }
 
     [Test]
-    public void Merge_RonFlowSameIdentityConflict_WithLocalWin_SucceedsAndWritesLocalRow()
+    public void Merge_RonFlowSameIdentityDifferentContent_WithoutMutationAt_FallsBackToLocalRow()
     {
         using var temp = new TempDirectory();
         var localPath = temp.DatabasePath("local.db");
@@ -164,8 +164,72 @@ public sealed class DbMergerAcceptanceTests
         {
             new KeyedJsonRecord("shared-project", """{"id":"shared-project","name":"local"}"""),
         }));
-        Assert.That(result.Report.ConflictEntries.Single().AppliedPolicy, Is.EqualTo(ConflictResolutionKind.LocalWin));
-        Assert.That(result.Report.ConflictEntries.Single().Outcome, Is.EqualTo("UseLocal"));
+        Assert.That(result.Report.ConflictEntries, Is.Empty);
+        Assert.That(result.Report.Tables.Single(table => table.TableName == "Projects").UpdatedCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Merge_RonFlowSameIdentityDifferentContent_RemoteHasLaterMutationAt_WritesRemoteRow()
+    {
+        using var temp = new TempDirectory();
+        var localPath = temp.DatabasePath("local.db");
+        var remotePath = temp.DatabasePath("remote.db");
+        var outputPath = temp.DatabasePath("merged.db");
+        CreateRonFlowCoreDatabase(
+            localPath,
+            projects: [],
+            tasks: [new KeyedJsonRecord("shared-task", """{"id":"shared-task","title":"local","mutationAt":"2026-07-15T01:00:00+00:00"}""")]);
+        CreateRonFlowCoreDatabase(
+            remotePath,
+            projects: [],
+            tasks: [new KeyedJsonRecord("shared-task", """{"id":"shared-task","title":"remote","mutationAt":"2026-07-15T02:00:00+00:00"}""")]);
+
+        var result = new DbMergeService().Merge(new DbMergeRequest(
+            localPath,
+            remotePath,
+            outputPath,
+            DbMergeRecipeIds.RonFlow,
+            ConflictResolutionPolicy.LocalWin()));
+
+        Assert.That(result.Status, Is.EqualTo(DbMergeStatus.Succeeded));
+        Assert.That(ReadKeyedJsonRecords(outputPath, "Tasks", "Id"), Is.EqualTo(new[]
+        {
+            new KeyedJsonRecord("shared-task", """{"id":"shared-task","title":"remote","mutationAt":"2026-07-15T02:00:00+00:00"}"""),
+        }));
+        Assert.That(result.Report.ConflictEntries, Is.Empty);
+        Assert.That(result.Report.Tables.Single(table => table.TableName == "Tasks").UpdatedCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Merge_RonFlowSameIdentityDifferentContent_SameMutationAt_WritesLocalRow()
+    {
+        using var temp = new TempDirectory();
+        var localPath = temp.DatabasePath("local.db");
+        var remotePath = temp.DatabasePath("remote.db");
+        var outputPath = temp.DatabasePath("merged.db");
+        CreateRonFlowCoreDatabase(
+            localPath,
+            projects: [],
+            tasks: [new KeyedJsonRecord("shared-task", """{"id":"shared-task","title":"local","mutationAt":"2026-07-15T01:00:00+00:00"}""")]);
+        CreateRonFlowCoreDatabase(
+            remotePath,
+            projects: [],
+            tasks: [new KeyedJsonRecord("shared-task", """{"id":"shared-task","title":"remote","mutationAt":"2026-07-15T01:00:00+00:00"}""")]);
+
+        var result = new DbMergeService().Merge(new DbMergeRequest(
+            localPath,
+            remotePath,
+            outputPath,
+            DbMergeRecipeIds.RonFlow,
+            ConflictResolutionPolicy.LocalWin()));
+
+        Assert.That(result.Status, Is.EqualTo(DbMergeStatus.Succeeded));
+        Assert.That(ReadKeyedJsonRecords(outputPath, "Tasks", "Id"), Is.EqualTo(new[]
+        {
+            new KeyedJsonRecord("shared-task", """{"id":"shared-task","title":"local","mutationAt":"2026-07-15T01:00:00+00:00"}"""),
+        }));
+        Assert.That(result.Report.ConflictEntries, Is.Empty);
+        Assert.That(result.Report.Tables.Single(table => table.TableName == "Tasks").UpdatedCount, Is.EqualTo(1));
     }
 
     [Test]

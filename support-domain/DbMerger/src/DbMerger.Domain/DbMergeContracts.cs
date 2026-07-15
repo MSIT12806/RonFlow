@@ -1,5 +1,6 @@
 namespace DbMerger.Domain;
 
+using System.Text.Json;
 using Microsoft.Data.Sqlite;
 
 public static class DbMergeRecipeIds
@@ -391,6 +392,7 @@ CREATE TABLE KnownUsers (
         var mergedRows = new List<DatabaseRow>();
         var conflicts = new List<ConflictEntry>();
         var insertedCount = 0;
+        var updatedCount = 0;
         var unchangedCount = 0;
         var resolvedConflictCount = 0;
 
@@ -405,6 +407,13 @@ CREATE TABLE KnownUsers (
                 {
                     mergedRows.Add(localRow);
                     unchangedCount += 1;
+                    continue;
+                }
+
+                if (TryResolveRonFlowAggregateRow(table, localRow, remoteRow!, out var selectedRow))
+                {
+                    mergedRows.Add(selectedRow);
+                    updatedCount += 1;
                     continue;
                 }
 
@@ -437,11 +446,118 @@ CREATE TABLE KnownUsers (
             new TableMergeReport(
                 table.Name,
                 insertedCount,
-                0,
+                updatedCount,
                 unchangedCount,
                 resolvedConflictCount,
                 conflicts.Count(conflict => conflict.Outcome == "Unresolved")),
             conflicts);
+    }
+
+    private static bool TryResolveRonFlowAggregateRow(TableSpec table, DatabaseRow localRow, DatabaseRow remoteRow, out DatabaseRow selectedRow)
+    {
+        if (!IsRonFlowAggregateJsonTable(table.Name))
+        {
+            selectedRow = localRow;
+            return false;
+        }
+
+        var localMutationAt = TryReadMutationAt(localRow);
+        var remoteMutationAt = TryReadMutationAt(remoteRow);
+
+        selectedRow = (localMutationAt, remoteMutationAt) switch
+        {
+            ({ } local, { } remote) => local >= remote ? localRow : remoteRow,
+            ({ }, null) => localRow,
+            (null, { }) => remoteRow,
+            _ => localRow,
+        };
+
+        return true;
+    }
+
+    private static bool IsRonFlowAggregateJsonTable(string tableName)
+    {
+        return string.Equals(tableName, "Projects", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(tableName, "Tasks", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static DateTimeOffset? TryReadMutationAt(DatabaseRow row)
+    {
+        if (!row.Values.TryGetValue("Data", out var json) || string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            if (root.TryGetProperty("mutationAt", out var mutationAtElement)
+                && mutationAtElement.ValueKind != JsonValueKind.Null
+                && mutationAtElement.TryGetDateTimeOffset(out var mutationAt))
+            {
+                return mutationAt;
+            }
+
+            if (row.TableName.Equals("Projects", StringComparison.OrdinalIgnoreCase))
+            {
+                return TryReadDateTimeOffset(root, "updatedAt");
+            }
+
+            return TryInferTaskMutationAt(root);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
+
+    private static DateTimeOffset? TryInferTaskMutationAt(JsonElement root)
+    {
+        var mutationAt = TryReadDateTimeOffset(root, "createdAt");
+        mutationAt = Max(mutationAt, TryReadDateTimeOffset(root, "completedAt"));
+        mutationAt = Max(mutationAt, TryReadDateTimeOffset(root, "archivedAt"));
+        mutationAt = Max(mutationAt, TryReadDateTimeOffset(root, "trashedAt"));
+
+        if (!root.TryGetProperty("activityTimeline", out var activityTimelineElement) || activityTimelineElement.ValueKind == JsonValueKind.Null)
+        {
+            return mutationAt;
+        }
+
+        foreach (var item in activityTimelineElement.EnumerateArray())
+        {
+            mutationAt = Max(mutationAt, TryReadDateTimeOffset(item, "occurredAt"));
+        }
+
+        return mutationAt;
+    }
+
+    private static DateTimeOffset? TryReadDateTimeOffset(JsonElement element, string propertyName)
+    {
+        return element.TryGetProperty(propertyName, out var property)
+            && property.ValueKind != JsonValueKind.Null
+            && property.TryGetDateTimeOffset(out var value)
+                ? value
+                : null;
+    }
+
+    private static DateTimeOffset? Max(DateTimeOffset? first, DateTimeOffset? second)
+    {
+        if (first is null)
+        {
+            return second;
+        }
+
+        if (second is null)
+        {
+            return first;
+        }
+
+        return first >= second ? first : second;
     }
 
     private static SortedDictionary<string, DatabaseRow> ReadRows(string databasePath, TableSpec table)
@@ -620,6 +736,7 @@ CREATE TABLE KnownUsers (
         new("Projects", ["Id"], ["Id", "Data"]),
         new("Tasks", ["Id"], ["Id", "Data"]),
         new("PushSubscriptions", ["Endpoint"], ["Endpoint", "Data"]),
+        new("DatabaseSyncMetadata", ["Id"], ["Id", "DatabaseMutationAtUtc", "LastSuccessfulSyncAtUtc"]),
         new("WorkflowThroughputOutbox", ["MessageId"], ["MessageId", "ProjectId", "TaskId", "EventType", "StateKey", "OccurredAt", "ProcessedAt"]),
         new("WorkflowThroughputBuckets", ["ProjectId", "BucketType", "BucketStart"], ["ProjectId", "BucketType", "BucketStart", "CreatedCount", "MovedToActiveCount", "MovedToReviewCount", "CompletedCount", "ReopenedCount", "LastUpdatedAt"]),
         new("AiAuditOutbox", ["MessageId"], ["MessageId", "AuditEntryId", "SessionId", "ActorType", "ActorIdentity", "TargetType", "TargetId", "RequestedChange", "ResultStatus", "ActualDiffText", "OccurredAt", "ProcessedAt"]),
@@ -646,6 +763,12 @@ CREATE TABLE IF NOT EXISTS KnownUsers (
     UserId TEXT NOT NULL PRIMARY KEY,
     UserName TEXT NOT NULL,
     Email TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS DatabaseSyncMetadata (
+    Id INTEGER NOT NULL PRIMARY KEY CHECK (Id = 1),
+    DatabaseMutationAtUtc TEXT NOT NULL,
+    LastSuccessfulSyncAtUtc TEXT NULL
 );
 
 CREATE TABLE IF NOT EXISTS WorkflowThroughputOutbox (
