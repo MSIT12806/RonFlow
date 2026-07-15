@@ -275,7 +275,8 @@ MVP 沿用既有 Task Detail 的內容與操作能力，但預設呈現方式改
 1. 建立 child task。
 2. 編輯完成條件。
 3. 編輯預估耗時。
-4. 送進 Flow。
+4. 套用目前 Project 的完成條件模板，整份替換既有完成條件並重設為未完成。
+5. 送進 Flow。
 
 父任務 detail modal 應支援：
 
@@ -531,7 +532,9 @@ MVP 中預估耗時不直接整合 reminder。未來若需要整合，Task 可�
 
 現有 Project subtask template 會在建立 task 時自動產生 subtask checklist。
 
-MVP 中 Ready list 手動輸入，不整合 Project subtask template。未來可再評估是否讓 Ready list 套用 template 或與既有 subtask list 整合。
+既有 Task 不會因 Project template 更新而自動變更完成條件。使用者可在葉任務 detail modal 按下「套用完成條件模板」，以目前 Project template 整份取代該 Task 的完成條件；既有內容、順序與完成狀態都不保留，新項目全部以未完成狀態建立。
+
+若 Project 沒有完成條件模板，該操作不可用，且不得因此清空既有完成條件。
 
 ### 14.5 權限與多人協作
 
@@ -600,21 +603,20 @@ Hatchery MVP 完成定義如下：
 
 以下議題不納入 MVP，但應保留為後續版本候選：
 
-1. Ready list 與既有 subtask list 整合。
-2. Project subtask template 套用到 Ready list。
-3. 任務樹拖拉改層級。
-4. 任務依賴或 lock 機制。
-5. Markdown 大綱匯入。
-6. Mind Map 或多種視覺化 view。
-7. 父任務進度改採所有 descendant 或葉任務口徑。
-8. 拆解完成後新增 child task 的提示與狀態紀錄。
-9. 刪除父任務確認與復原機制。
-10. 已進 Flow 任務新增 child task 的提示。
-11. 完整狀態異動紀錄。
-12. Dashboard、報表與統計。
-13. 完成動畫或其他正向回饋。
-14. 多人協作權限與 audit 擴充。
-15. AI 輔助拆解、Ready 判讀或估時。
+1. Ready list 與既有 subtask list 的更深度整合。
+2. 任務樹拖拉改層級。
+3. 任務依賴或 lock 機制。
+4. Markdown 大綱匯入。
+5. Mind Map 或多種視覺化 view。
+6. 父任務進度改採所有 descendant 或葉任務口徑。
+7. 拆解完成後新增 child task 的提示與狀態紀錄。
+8. 刪除父任務確認與復原機制。
+9. 已進 Flow 任務新增 child task 的提示。
+10. 完整狀態異動紀錄。
+11. Dashboard、報表與統計。
+12. 完成動畫或其他正向回饋。
+13. 多人協作權限與 audit 擴充。
+14. AI 輔助拆解、Ready 判讀或估時。
 
 ## 19. SDD 待設計事項
 

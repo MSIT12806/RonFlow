@@ -1635,6 +1635,11 @@ Feature: Invitation inbox
 7. Task Detail Drawer 的可見名稱應為「任務詳細資訊」。
 8. Task Detail Drawer 應顯示該 Task 的 subtask checklist。
 9. 每個 subtask 至少應顯示 title 與完成狀態。
+10. ActiveRecord 且具備編輯權限的葉任務，應在 Task Detail Drawer 提供「套用完成條件模板」操作。
+11. 使用者套用模板後，系統應以目前 Project 的 subtask templates 整份取代該 Task 既有的 subtasks。
+12. 套用模板時，不論既有 subtask 的內容或完成狀態為何，都應移除既有項目並建立模板項目。
+13. 套用模板建立的每個 subtask 初始狀態都應為未完成，並依 Project template 順序排列。
+14. Archived、Trashed、唯讀或不具備 Task 編輯權限的 Task，不應提供可操作的模板套用功能。
 ```
 
 ### 9.4 Edit Task Detail In Drawer
@@ -1649,15 +1654,22 @@ Feature: Invitation inbox
 7. Subtask 應作為 Task 底下的結構化子實體，而不是一段自由文字描述。
 8. 當所有 subtasks 都已完成，Task 應自動進入「審查中」（Review），除非 Task 已位於 Done。
 9. 「已完成」（Done）不應因 subtasks 全勾而自動觸發，仍需由人類顯式確認。
+10. 使用者套用完成條件模板時，系統應整份替換既有 subtasks，不得合併、保留或沿用既有項目。
+11. 套用完成條件模板後，所有新建立的 subtasks 都應為未完成狀態。
+12. 若 Project 沒有任何 subtask template，套用模板操作應不可用，且不得清空 Task 既有 subtasks。
+13. 套用完成條件模板應沿用既有的 checklist replacement、Task lock、權限與 Review gating 規則。
 ```
 
 ### 9.4.1 Manage Project Subtask Templates
 
 ```text
 1. Project 可以定義預設的 subtask templates，作為工程任務的標準完成條件。
-2. Project Owner 可以新增、修改、刪除與排序 project-level subtask templates。
+2. Project Owner 或已接受邀請的 Project Member 可以新增、修改、刪除與排序 project-level subtask templates。
 3. Project-level subtask templates 應可被新建立的 Task 繼承。
 4. Task 建立後，仍可依自身情境覆寫或調整 subtasks，不受 template 綁死。
+5. Project template 更新後，不應自動改寫既有 Task 的 subtasks。
+6. Project 成員可以從既有 Task Detail Drawer 手動套用目前 Project template，以整份取代該 Task 的 subtasks。
+7. 手動套用 Project template 後，既有 subtasks 的內容、順序與完成狀態都不應保留。
 ```
 
 ### 9.5 Move Task State To Another Workflow State
