@@ -38,6 +38,7 @@ public sealed record TaskModel(
     TaskLifecycleState LifecycleState,
     DateOnly? DueDate,
     DateTimeOffset CreatedAt,
+    DateTimeOffset MutationAt,
     DateTimeOffset? CompletedAt,
     DateTimeOffset? ArchivedAt,
     DateTimeOffset? TrashedAt,
@@ -53,10 +54,11 @@ public sealed record ProjectModel(
     Guid OwnerId,
     string Name,
     DateTimeOffset UpdatedAt,
+    DateTimeOffset MutationAt,
     IReadOnlyList<ProjectSubtaskTemplateModel> SubtaskTemplates,
     IReadOnlyList<WorkflowStateModel> WorkflowStates);
 
-public sealed record ProjectSummaryModel(Guid Id, Guid OwnerId, string Name, DateTimeOffset UpdatedAt);
+public sealed record ProjectSummaryModel(Guid Id, Guid OwnerId, string Name, DateTimeOffset UpdatedAt, DateTimeOffset MutationAt);
 
 public sealed record ProjectBoardModel(
     Guid ProjectId,

@@ -40,8 +40,16 @@
         @drop.prevent="handleDrop"
       >
         <span class="task-tree-item-title-row">
-          <span class="task-tree-completion-indicator" :class="{ 'task-tree-completion-indicator-done': task.isCompleted }" aria-hidden="true">
-            {{ task.isCompleted ? '✓' : '' }}
+          <span
+            class="task-tree-completion-indicator"
+            :class="{
+              'task-tree-completion-indicator-todo': taskStatus === 'todo',
+              'task-tree-completion-indicator-doing': taskStatus === 'doing',
+              'task-tree-completion-indicator-done': taskStatus === 'completed',
+            }"
+            aria-hidden="true"
+          >
+            {{ taskStatusIcon }}
           </span>
           <span class="task-title">
             {{ task.title }}
@@ -55,7 +63,21 @@
             </span>
           </span>
         </span>
-        <span class="task-meta">{{ nodeMeta }}</span>
+        <span v-if="hasChildren" class="task-tree-child-status-summary" aria-label="子任務狀態統計">
+          <span class="task-tree-child-status" data-testid="task-tree-child-status-todo" title="Todo">
+            <span aria-hidden="true">○</span>
+            {{ childStatusSummary.todo }}
+          </span>
+          <span class="task-tree-child-status" data-testid="task-tree-child-status-doing" title="Doing">
+            <span aria-hidden="true">◐</span>
+            {{ childStatusSummary.doing }}
+          </span>
+          <span class="task-tree-child-status" data-testid="task-tree-child-status-completed" title="Completed">
+            <span aria-hidden="true">✓</span>
+            {{ childStatusSummary.completed }}
+          </span>
+        </span>
+        <span v-else class="task-meta">{{ nodeMeta }}</span>
       </button>
     </div>
 
@@ -107,12 +129,31 @@ const emit = defineEmits<{
   (event: 'task-drop', payload: { taskId: string; parentTaskId: string | null; placement: TaskTreeDropPlacement }): void
 }>()
 
-const isExpanded = ref(true)
+type TaskTreeStatus = 'todo' | 'doing' | 'completed'
+
+const isExpanded = ref(!props.task.isCompleted)
 const hasChildren = computed(() => props.task.children.length > 0)
 const isDropBefore = computed(() => props.activeDropTarget?.taskId === props.task.id && props.activeDropTarget.placement === 'before')
 const isDropAfter = computed(() => props.activeDropTarget?.taskId === props.task.id && props.activeDropTarget.placement === 'after')
 const isDropInside = computed(() => props.activeDropTarget?.taskId === props.task.id && props.activeDropTarget.placement === 'inside')
-const completedDirectChildCount = computed(() => props.task.children.filter((childTask) => childTask.isCompleted).length)
+const taskStatus = computed<TaskTreeStatus>(() => getTaskTreeStatus(props.task))
+const taskStatusIcon = computed(() => {
+  switch (taskStatus.value) {
+    case 'completed':
+      return '✓'
+    case 'doing':
+      return '◐'
+    default:
+      return '○'
+  }
+})
+const childStatusSummary = computed(() => props.task.children.reduce(
+  (summary, childTask) => {
+    summary[getTaskTreeStatus(childTask)] += 1
+    return summary
+  },
+  { todo: 0, doing: 0, completed: 0 },
+))
 
 const nodeMeta = computed(() => {
   if (props.task.isInFlow) {
@@ -123,8 +164,16 @@ const nodeMeta = computed(() => {
     return 'Leaf task'
   }
 
-  return `Parent task · ${completedDirectChildCount.value} / ${props.task.children.length} completed`
+  return 'Parent task'
 })
+
+function getTaskTreeStatus(task: BoardTaskCardResponse): TaskTreeStatus {
+  if (task.isCompleted) {
+    return 'completed'
+  }
+
+  return task.isInFlow ? 'doing' : 'todo'
+}
 
 function resolveDropPlacement(event: DragEvent): TaskTreeDropPlacement {
   const currentTarget = event.currentTarget

@@ -100,6 +100,7 @@ export type BoardTaskCardResponse = {
   isCompleted: boolean
   isInFlow: boolean
   isSplitComplete: boolean
+  createdAt: string
   completedAt: string | null
   parentPath: string
   children: BoardTaskCardResponse[]

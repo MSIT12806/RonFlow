@@ -10,6 +10,7 @@ function createTask(overrides: Partial<BoardTaskCardResponse> = {}): BoardTaskCa
     isCompleted: false,
     isInFlow: false,
     isSplitComplete: false,
+    createdAt: '2026-05-12T08:00:00.000Z',
     completedAt: null,
     parentPath: '',
     children: [],
@@ -18,19 +19,55 @@ function createTask(overrides: Partial<BoardTaskCardResponse> = {}): BoardTaskCa
 }
 
 describe('TaskTreeNode', () => {
-  it('shows direct child completion progress for parent tasks', () => {
+  it('shows direct child status counts for parent tasks', () => {
     const wrapper = mount(TaskTreeNode, {
       props: {
         task: createTask({
           children: [
             createTask({ id: 'child-1', title: 'Child 1', isCompleted: true }),
-            createTask({ id: 'child-2', title: 'Child 2', isCompleted: false }),
+            createTask({ id: 'child-2', title: 'Child 2', isInFlow: true }),
+            createTask({ id: 'child-3', title: 'Child 3' }),
           ],
         }),
       },
     })
 
-    expect(wrapper.text()).toContain('Parent task · 1 / 2 completed')
+    expect(wrapper.get('[data-testid="task-tree-child-status-todo"]').text()).toContain('○ 1')
+    expect(wrapper.get('[data-testid="task-tree-child-status-doing"]').text()).toContain('◐ 1')
+    expect(wrapper.get('[data-testid="task-tree-child-status-completed"]').text()).toContain('✓ 1')
+  })
+
+  it('collapses completed parent tasks by default', () => {
+    const wrapper = mount(TaskTreeNode, {
+      props: {
+        task: createTask({
+          isCompleted: true,
+          completedAt: '2026-05-13T09:30:00.000Z',
+          children: [
+            createTask({ id: 'child-1', title: 'Child 1', isCompleted: true }),
+          ],
+        }),
+      },
+    })
+
+    expect(wrapper.get('.task-tree-toggle').attributes('aria-expanded')).toBe('false')
+    expect(wrapper.text()).not.toContain('Child 1')
+  })
+
+  it('keeps completed in-flow tasks in the completed visual state', () => {
+    const wrapper = mount(TaskTreeNode, {
+      props: {
+        task: createTask({
+          isCompleted: true,
+          isInFlow: true,
+          completedAt: '2026-05-13T09:30:00.000Z',
+        }),
+      },
+    })
+
+    expect(wrapper.get('.task-tree-item').classes()).toContain('task-tree-item-completed')
+    expect(wrapper.get('.task-tree-item').classes()).toContain('task-tree-item-in-flow')
+    expect(wrapper.get('.task-tree-completion-indicator').text()).toBe('✓')
   })
 
   it('shows an inside drop guide on the target task card', () => {

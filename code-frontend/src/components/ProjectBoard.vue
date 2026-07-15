@@ -64,16 +64,37 @@
               <p class="eyebrow">Hatchery</p>
               <h3 id="task-tree-title">任務樹</h3>
             </div>
-            <span class="count-badge">{{ taskTreeNodeCount }}</span>
+            <div class="task-tree-header-actions">
+              <label class="task-tree-checkbox-control">
+                <input
+                  v-model="showCompletedTaskTree"
+                  type="checkbox"
+                  data-testid="show-completed-task-tree"
+                />
+                顯示已完成任務
+              </label>
+              <label class="task-tree-sort-control">
+                <span>建立時間</span>
+                <select
+                  v-model="createdAtSortDirection"
+                  aria-label="任務建立時間排序"
+                  data-testid="task-created-at-sort"
+                >
+                  <option value="asc">由舊到新</option>
+                  <option value="desc">由新到舊</option>
+                </select>
+              </label>
+              <span class="count-badge">{{ taskTreeNodeCount }}</span>
+            </div>
           </header>
 
-          <div v-if="taskTree.length === 0" class="task-tree-empty">
+          <div v-if="displayTaskTree.length === 0" class="task-tree-empty">
             目前沒有任務樹任務
           </div>
 
           <ul v-else class="task-tree-list">
             <TaskTreeNode
-              v-for="task in taskTree"
+              v-for="task in displayTaskTree"
               :key="task.id"
               :task="task"
               :parent-task-id="null"
@@ -91,7 +112,7 @@
 
         <div class="board-grid">
           <article
-            v-for="column in columns"
+            v-for="column in displayColumns"
             :key="column.stateKey"
             :data-testid="`workflow-column-${column.stateKey}`"
             class="board-column"
@@ -130,6 +151,7 @@
                 @drop.prevent="handleTaskCardDrop($event, column.stateKey, task.id)"
               >
                 <button
+                  :data-testid="`workflow-task-${task.id}`"
                   type="button"
                   class="task-card-main"
                   :class="{ 'task-card-main-split-complete': task.isSplitComplete }"
@@ -206,10 +228,49 @@ const emit = defineEmits<{
   }): void
 }>()
 
-const taskTreeNodeCount = computed(() => countTaskTreeNodes(props.taskTree))
+type CreatedAtSortDirection = 'asc' | 'desc'
+
+const showCompletedTaskTree = ref(false)
+const createdAtSortDirection = ref<CreatedAtSortDirection>('asc')
+const displayTaskTree = computed(() => sortTaskTree(props.taskTree, createdAtSortDirection.value, showCompletedTaskTree.value))
+const displayColumns = computed<BoardColumnResponse[]>(() =>
+  props.columns.map((column) => ({
+    ...column,
+    tasks: sortTasksByCreatedAt(column.tasks, createdAtSortDirection.value),
+  })),
+)
+const taskTreeNodeCount = computed(() => countTaskTreeNodes(displayTaskTree.value))
 
 function countTaskTreeNodes(tasks: BoardTaskCardResponse[]): number {
   return tasks.reduce((total, task) => total + 1 + countTaskTreeNodes(task.children), 0)
+}
+
+function sortTaskTree(
+  tasks: BoardTaskCardResponse[],
+  direction: CreatedAtSortDirection,
+  showCompletedTasks: boolean,
+): BoardTaskCardResponse[] {
+  return sortTasksByCreatedAt(tasks, direction)
+    .filter((task) => showCompletedTasks || !isCompletedTaskSubtree(task))
+    .map((task) => ({
+      ...task,
+      children: sortTaskTree(task.children, direction, showCompletedTasks),
+    }))
+}
+
+function sortTasksByCreatedAt(tasks: BoardTaskCardResponse[], direction: CreatedAtSortDirection): BoardTaskCardResponse[] {
+  return [...tasks].sort((firstTask, secondTask) => {
+    const firstCreatedAt = Date.parse(firstTask.createdAt)
+    const secondCreatedAt = Date.parse(secondTask.createdAt)
+    const createdAtDelta = firstCreatedAt - secondCreatedAt
+    const directedDelta = direction === 'asc' ? createdAtDelta : -createdAtDelta
+
+    return directedDelta || firstTask.title.localeCompare(secondTask.title, 'zh-Hant')
+  })
+}
+
+function isCompletedTaskSubtree(task: BoardTaskCardResponse): boolean {
+  return task.isCompleted && task.children.every(isCompletedTaskSubtree)
 }
 
 function getCompletedColumnSummary(stateKey: string) {

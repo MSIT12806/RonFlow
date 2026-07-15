@@ -355,8 +355,8 @@ const playgroundBoardColumns: BoardColumnResponse[] = [
     isCompletedState: false,
     emptyStateMessage: '目前沒有任務',
     tasks: [
-      { id: 'task-1', title: '整理 Sprint 2 測試清單', isCompleted: false, isInFlow: true, isSplitComplete: false, completedAt: null, parentPath: '整理 Hatchery 需求', children: [] },
-      { id: 'task-2', title: '確認拖曳失敗的回饋文案', isCompleted: false, isInFlow: true, isSplitComplete: false, completedAt: null, parentPath: '', children: [] },
+      { id: 'task-1', title: '整理 Sprint 2 測試清單', isCompleted: false, isInFlow: true, isSplitComplete: false, createdAt: '2026-05-10T08:00:00.000Z', completedAt: null, parentPath: '整理 Hatchery 需求', children: [] },
+      { id: 'task-2', title: '確認拖曳失敗的回饋文案', isCompleted: false, isInFlow: true, isSplitComplete: false, createdAt: '2026-05-10T08:10:00.000Z', completedAt: null, parentPath: '', children: [] },
     ],
   },
   {
@@ -365,7 +365,7 @@ const playgroundBoardColumns: BoardColumnResponse[] = [
     isInitialState: false,
     isCompletedState: false,
     emptyStateMessage: '目前沒有任務',
-    tasks: [{ id: 'task-3', title: '補上 board command error alert', isCompleted: false, isInFlow: true, isSplitComplete: false, completedAt: null, parentPath: '整理 Hatchery 需求', children: [] }],
+    tasks: [{ id: 'task-3', title: '補上 board command error alert', isCompleted: false, isInFlow: true, isSplitComplete: false, createdAt: '2026-05-10T08:20:00.000Z', completedAt: null, parentPath: '整理 Hatchery 需求', children: [] }],
   },
   {
     stateKey: 'review',
@@ -381,7 +381,7 @@ const playgroundBoardColumns: BoardColumnResponse[] = [
     isInitialState: false,
     isCompletedState: true,
     emptyStateMessage: '目前沒有任務',
-    tasks: [{ id: 'task-4', title: '完成 v0.1 scope 對齊', isCompleted: true, isInFlow: true, isSplitComplete: false, completedAt: '2026-05-11T09:00:00.000Z', parentPath: '', children: [] }],
+    tasks: [{ id: 'task-4', title: '完成 v0.1 scope 對齊', isCompleted: true, isInFlow: true, isSplitComplete: false, createdAt: '2026-05-10T08:30:00.000Z', completedAt: '2026-05-11T09:00:00.000Z', parentPath: '', children: [] }],
   },
 ]
 
@@ -392,11 +392,12 @@ const playgroundTaskTree = [
     isCompleted: false,
     isInFlow: false,
     isSplitComplete: true,
+    createdAt: '2026-05-10T07:00:00.000Z',
     completedAt: null,
     parentPath: '',
     children: [
-      { id: 'task-tree-1-1', title: '撰寫 SRS', isCompleted: true, isInFlow: true, isSplitComplete: false, completedAt: '2026-05-10T08:00:00.000Z', parentPath: '整理 Hatchery 需求', children: [] },
-      { id: 'task-tree-1-2', title: '拆解 MVP backlog', isCompleted: false, isInFlow: false, isSplitComplete: false, completedAt: null, parentPath: '整理 Hatchery 需求', children: [] },
+      { id: 'task-tree-1-1', title: '撰寫 SRS', isCompleted: true, isInFlow: true, isSplitComplete: false, createdAt: '2026-05-10T08:00:00.000Z', completedAt: '2026-05-10T08:00:00.000Z', parentPath: '整理 Hatchery 需求', children: [] },
+      { id: 'task-tree-1-2', title: '拆解 MVP backlog', isCompleted: false, isInFlow: false, isSplitComplete: false, createdAt: '2026-05-10T08:10:00.000Z', completedAt: null, parentPath: '整理 Hatchery 需求', children: [] },
     ],
   },
 ]

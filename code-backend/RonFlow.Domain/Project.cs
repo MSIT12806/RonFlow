@@ -17,6 +17,7 @@ public sealed class Project
         string ownerEmail,
         string name,
         DateTimeOffset updatedAt,
+        DateTimeOffset mutationAt,
         IEnumerable<WorkflowState> workflowStates,
         IEnumerable<ProjectSubtaskTemplate> subtaskTemplates,
         IEnumerable<ProjectMember> members,
@@ -28,6 +29,7 @@ public sealed class Project
         OwnerEmail = ownerEmail;
         Name = name;
         UpdatedAt = updatedAt;
+        MutationAt = mutationAt;
         this.workflowStates = workflowStates
             .Select(state => new WorkflowState(state.Key, state.Label, state.IsInitialState, state.IsCompletedState))
             .ToArray();
@@ -51,6 +53,8 @@ public sealed class Project
 
     public DateTimeOffset UpdatedAt { get; private set; }
 
+    public DateTimeOffset MutationAt { get; private set; }
+
     public IReadOnlyList<WorkflowState> WorkflowStates => workflowStates;
 
     public IReadOnlyList<ProjectSubtaskTemplate> SubtaskTemplates => subtaskTemplates;
@@ -72,7 +76,7 @@ public sealed class Project
         DateTimeOffset createdAt,
         IEnumerable<WorkflowState> workflowStates)
     {
-        return new Project(Guid.NewGuid(), ownerId, ownerUserName, ownerEmail, name.Value, createdAt, workflowStates, [], [], []);
+        return new Project(Guid.NewGuid(), ownerId, ownerUserName, ownerEmail, name.Value, createdAt, createdAt, workflowStates, [], [], []);
     }
 
     public static Project Create(ProjectName name, DateTimeOffset createdAt, IEnumerable<WorkflowState> workflowStates)
@@ -82,7 +86,7 @@ public sealed class Project
 
     public static Project Rehydrate(Guid id, Guid ownerId, string name, DateTimeOffset updatedAt, IEnumerable<WorkflowState> workflowStates)
     {
-        return Rehydrate(id, ownerId, string.Empty, string.Empty, name, updatedAt, workflowStates, [], [], []);
+        return Rehydrate(id, ownerId, string.Empty, string.Empty, name, updatedAt, updatedAt, workflowStates, [], [], []);
     }
 
     public static Project Rehydrate(
@@ -92,12 +96,13 @@ public sealed class Project
         string ownerEmail,
         string name,
         DateTimeOffset updatedAt,
+        DateTimeOffset mutationAt,
         IEnumerable<WorkflowState> workflowStates,
         IEnumerable<ProjectSubtaskTemplate> subtaskTemplates,
         IEnumerable<ProjectMember> members,
         IEnumerable<ProjectInvitation> invitations)
     {
-        return new Project(id, ownerId, ownerUserName, ownerEmail, name, updatedAt, workflowStates, subtaskTemplates, members, invitations);
+        return new Project(id, ownerId, ownerUserName, ownerEmail, name, updatedAt, mutationAt, workflowStates, subtaskTemplates, members, invitations);
     }
 
     public ProjectModel ToModel()
@@ -107,13 +112,14 @@ public sealed class Project
             OwnerId,
             Name,
             UpdatedAt,
+            MutationAt,
             subtaskTemplates.OrderBy(template => template.Order).Select(template => template.ToModel()).ToArray(),
             workflowStates.Select(state => state.ToModel()).ToArray());
     }
 
     public ProjectSummaryModel ToSummaryModel()
     {
-        return new ProjectSummaryModel(Id, OwnerId, Name, UpdatedAt);
+        return new ProjectSummaryModel(Id, OwnerId, Name, UpdatedAt, MutationAt);
     }
 
     /// <summary>
@@ -252,5 +258,6 @@ public sealed class Project
     public void Touch(DateTimeOffset updatedAt)
     {
         UpdatedAt = updatedAt;
+        MutationAt = updatedAt;
     }
 }

@@ -762,9 +762,43 @@ button {
   gap: 16px;
 }
 
+.task-tree-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .task-tree-header h3 {
   margin: 0;
   font-size: 1.15rem;
+}
+
+.task-tree-checkbox-control,
+.task-tree-sort-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #16324a;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.task-tree-checkbox-control input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--brand-strong);
+}
+
+.task-tree-sort-control select {
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.42);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #16324a;
+  font-weight: 700;
 }
 
 .task-tree-list {
@@ -876,6 +910,16 @@ button {
   line-height: 1;
 }
 
+.task-tree-completion-indicator-todo {
+  color: #64748b;
+}
+
+.task-tree-completion-indicator-doing {
+  border-color: rgba(14, 165, 233, 0.38);
+  background: rgba(240, 249, 255, 0.96);
+  color: #0369a1;
+}
+
 .task-tree-completion-indicator-done {
   border-color: rgba(15, 118, 110, 0.34);
   background: #0f766e;
@@ -910,6 +954,18 @@ button {
   color: #9a3412;
 }
 
+.task-tree-item-completed.task-tree-item-in-flow,
+.task-tree-item-completed.task-tree-item-split-complete {
+  border-style: solid;
+  border-color: rgba(15, 118, 110, 0.24);
+  background: rgba(236, 253, 245, 0.88);
+}
+
+.task-tree-item-completed.task-tree-item-in-flow .task-title,
+.task-tree-item-completed.task-tree-item-split-complete .task-title {
+  color: #34524e;
+}
+
 .task-tree-flow-badge {
   display: inline-flex;
   align-items: center;
@@ -923,9 +979,35 @@ button {
   text-decoration: none;
 }
 
+.task-tree-child-status-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.task-tree-child-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
 .task-tree-item:hover {
   border-color: rgba(20, 184, 166, 0.42);
   background: rgba(240, 253, 250, 0.82);
+}
+
+.task-tree-item-completed:hover,
+.task-tree-item-completed.task-tree-item-in-flow:hover,
+.task-tree-item-completed.task-tree-item-split-complete:hover {
+  border-color: rgba(15, 118, 110, 0.34);
+  background: rgba(236, 253, 245, 0.94);
 }
 
 .task-tree-item-drop-inside {

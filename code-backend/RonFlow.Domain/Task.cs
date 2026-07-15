@@ -22,6 +22,7 @@ public sealed class Task
         TaskLifecycleState lifecycleState,
         DateOnly? dueDate,
         DateTimeOffset createdAt,
+        DateTimeOffset mutationAt,
         DateTimeOffset? completedAt,
         DateTimeOffset? archivedAt,
         DateTimeOffset? trashedAt,
@@ -43,6 +44,7 @@ public sealed class Task
         LifecycleState = lifecycleState;
         DueDate = dueDate;
         CreatedAt = createdAt;
+        MutationAt = mutationAt;
         CompletedAt = completedAt;
         ArchivedAt = archivedAt;
         TrashedAt = trashedAt;
@@ -75,6 +77,9 @@ public sealed class Task
     public DateOnly? DueDate { get; private set; }
 
     public DateTimeOffset CreatedAt { get; }
+
+    public DateTimeOffset MutationAt { get; private set; }
+
     public DateTimeOffset? CompletedAt { get; private set; }
 
     public DateTimeOffset? ArchivedAt { get; private set; }
@@ -115,6 +120,7 @@ public sealed class Task
             TaskLifecycleState.ActiveRecord,
             null,
             createdAt,
+            createdAt,
             null,
             null,
             null,
@@ -138,6 +144,7 @@ public sealed class Task
         TaskLifecycleState lifecycleState,
         DateOnly? dueDate,
         DateTimeOffset createdAt,
+        DateTimeOffset mutationAt,
         DateTimeOffset? completedAt,
         DateTimeOffset? archivedAt,
         DateTimeOffset? trashedAt,
@@ -148,7 +155,7 @@ public sealed class Task
         TaskCodeTraceability codeTraceability,
         IEnumerable<ActivityTimelineItem> activityTimeline)
     {
-        return new Task(id, projectId, parentTaskId, title, description, currentState, isInFlow, isSplitComplete, lifecycleState, dueDate, createdAt, completedAt, archivedAt, trashedAt, sortOrder, estimatedEffort, subtasks, reminders, codeTraceability, activityTimeline);
+        return new Task(id, projectId, parentTaskId, title, description, currentState, isInFlow, isSplitComplete, lifecycleState, dueDate, createdAt, mutationAt, completedAt, archivedAt, trashedAt, sortOrder, estimatedEffort, subtasks, reminders, codeTraceability, activityTimeline);
     }
 
     public TaskMutationExecutionResult MarkChildTaskAdded(TaskMutationAuthorization authorization, DateTimeOffset changedAt)
@@ -164,6 +171,7 @@ public sealed class Task
         }
 
         activityTimeline.Add(ActivityTimelineItem.ChildTaskAdded(changedAt));
+        MutationAt = changedAt;
         return TaskMutationExecutionResult.ChangedResult();
     }
 
@@ -185,6 +193,7 @@ public sealed class Task
 
         reminders.Add(new TaskReminder(Guid.NewGuid(), normalizedDateTime, description.Trim()));
         activityTimeline.Add(ActivityTimelineItem.TaskReminderAdded(changedAt));
+        MutationAt = changedAt;
         return TaskMutationExecutionResult.ChangedResult();
     }
 
@@ -202,6 +211,7 @@ public sealed class Task
         }
 
         activityTimeline.Add(ActivityTimelineItem.TaskReminderDeleted(changedAt));
+        MutationAt = changedAt;
         return TaskDeleteReminderExecutionResult.ChangedResult();
     }
 
@@ -227,6 +237,7 @@ public sealed class Task
             }
 
             reminders[index] = reminders[index].MarkNotificationDispatched(dispatchedAt);
+            MutationAt = dispatchedAt;
             return true;
         }
 
@@ -249,6 +260,7 @@ public sealed class Task
         ArchivedAt = changedAt;
         TrashedAt = null;
         activityTimeline.Add(ActivityTimelineItem.TaskArchived(changedAt));
+        MutationAt = changedAt;
         return TaskMutationExecutionResult.ChangedResult();
     }
 
@@ -268,6 +280,7 @@ public sealed class Task
         TrashedAt = changedAt;
         ArchivedAt = null;
         activityTimeline.Add(ActivityTimelineItem.TaskMovedToTrash(changedAt));
+        MutationAt = changedAt;
         return TaskMutationExecutionResult.ChangedResult();
     }
 
@@ -287,6 +300,7 @@ public sealed class Task
         ArchivedAt = null;
         SortOrder = sortOrder;
         activityTimeline.Add(ActivityTimelineItem.TaskRestoredFromArchive(changedAt));
+        MutationAt = changedAt;
         return TaskMutationExecutionResult.ChangedResult();
     }
 
@@ -306,6 +320,7 @@ public sealed class Task
         TrashedAt = null;
         SortOrder = sortOrder;
         activityTimeline.Add(ActivityTimelineItem.TaskRestoredFromTrash(changedAt));
+        MutationAt = changedAt;
         return TaskMutationExecutionResult.ChangedResult();
     }
 
@@ -321,6 +336,11 @@ public sealed class Task
 
         if (CurrentState.Key == targetState.Key)
         {
+            if (!wasInFlow)
+            {
+                MutationAt = changedAt;
+            }
+
             return wasInFlow
                 ? TaskMutationExecutionResult.NoChanges()
                 : TaskMutationExecutionResult.ChangedResult();
@@ -344,6 +364,7 @@ public sealed class Task
             activityTimeline.Add(ActivityTimelineItem.TaskReopened(changedAt));
         }
 
+        MutationAt = changedAt;
         return TaskMutationExecutionResult.ChangedResult();
     }
 
@@ -358,6 +379,7 @@ public sealed class Task
         CompletedAt = changedAt;
         activityTimeline.Add(ActivityTimelineItem.TaskStateChanged(completedState.Label, changedAt));
         activityTimeline.Add(ActivityTimelineItem.TaskCompleted(changedAt));
+        MutationAt = changedAt;
         return true;
     }
 
@@ -406,7 +428,7 @@ public sealed class Task
         }
 
         return hasChanged
-            ? TaskMutationExecutionResult.ChangedResult()
+            ? ChangedAt(changedAt)
             : TaskMutationExecutionResult.NoChanges();
     }
 
@@ -426,6 +448,7 @@ public sealed class Task
         activityTimeline.Add(isSplitComplete
             ? ActivityTimelineItem.TaskSplitCompleted(changedAt)
             : ActivityTimelineItem.TaskSplitCompletionCleared(changedAt));
+        MutationAt = changedAt;
         return TaskMutationExecutionResult.ChangedResult();
     }
 
@@ -439,6 +462,11 @@ public sealed class Task
             activityTimeline.Add(ActivityTimelineItem.TaskReordered(changedAt));
         }
 
+        if (hasChanged || recordActivity)
+        {
+            MutationAt = changedAt;
+        }
+
         return true;
     }
 
@@ -450,6 +478,11 @@ public sealed class Task
         if (recordActivity)
         {
             activityTimeline.Add(ActivityTimelineItem.TaskReordered(changedAt));
+        }
+
+        if (hasChanged || recordActivity)
+        {
+            MutationAt = changedAt;
         }
 
         return hasChanged;
@@ -476,6 +509,7 @@ public sealed class Task
         if (hasChanged)
         {
             activityTimeline.Add(ActivityTimelineItem.TaskChecklistChanged(changedAt));
+            MutationAt = changedAt;
         }
 
         if (LifecycleState == TaskLifecycleState.ActiveRecord
@@ -492,6 +526,12 @@ public sealed class Task
         return hasChanged
             ? TaskMutationExecutionResult.ChangedResult()
             : TaskMutationExecutionResult.NoChanges();
+    }
+
+    private TaskMutationExecutionResult ChangedAt(DateTimeOffset changedAt)
+    {
+        MutationAt = changedAt;
+        return TaskMutationExecutionResult.ChangedResult();
     }
 
     /// <summary>
@@ -525,6 +565,7 @@ public sealed class Task
             LifecycleState,
             DueDate,
             CreatedAt,
+            MutationAt,
             CompletedAt,
             ArchivedAt,
             TrashedAt,

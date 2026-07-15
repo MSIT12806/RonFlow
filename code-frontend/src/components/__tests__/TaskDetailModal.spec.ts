@@ -247,7 +247,7 @@ describe('TaskDetailModal', () => {
   it('creates child tasks and opens existing child task detail', async () => {
     const wrapper = mountTaskDetail(createTask({
       childTasks: [
-        { id: 'child-task-1', title: '撰寫 SRS', isCompleted: false, isInFlow: false, isSplitComplete: false, completedAt: null, parentPath: '補上 Drawer 編輯測試', children: [] },
+        { id: 'child-task-1', title: '撰寫 SRS', isCompleted: false, isInFlow: false, isSplitComplete: false, createdAt: '2026-05-12T08:00:00.000Z', completedAt: null, parentPath: '補上 Drawer 編輯測試', children: [] },
       ],
     }))
 
@@ -266,8 +266,8 @@ describe('TaskDetailModal', () => {
   it('shows direct child completion progress for parent tasks', () => {
     const wrapper = mountTaskDetail(createTask({
       childTasks: [
-        { id: 'child-task-1', title: '撰寫 SRS', isCompleted: true, isInFlow: false, isSplitComplete: false, completedAt: '2026-05-13T09:30:00.000Z', parentPath: '補上 Drawer 編輯測試', children: [] },
-        { id: 'child-task-2', title: '撰寫驗收測試', isCompleted: false, isInFlow: false, isSplitComplete: false, completedAt: null, parentPath: '補上 Drawer 編輯測試', children: [] },
+        { id: 'child-task-1', title: '撰寫 SRS', isCompleted: true, isInFlow: false, isSplitComplete: false, createdAt: '2026-05-12T08:00:00.000Z', completedAt: '2026-05-13T09:30:00.000Z', parentPath: '補上 Drawer 編輯測試', children: [] },
+        { id: 'child-task-2', title: '撰寫驗收測試', isCompleted: false, isInFlow: false, isSplitComplete: false, createdAt: '2026-05-12T08:01:00.000Z', completedAt: null, parentPath: '補上 Drawer 編輯測試', children: [] },
       ],
     }))
 
@@ -279,7 +279,7 @@ describe('TaskDetailModal', () => {
       isInFlow: false,
       isSplitComplete: true,
       childTasks: [
-        { id: 'child-task-1', title: '撰寫 SRS', isCompleted: false, isInFlow: false, isSplitComplete: false, completedAt: null, parentPath: '補上 Drawer 編輯測試', children: [] },
+        { id: 'child-task-1', title: '撰寫 SRS', isCompleted: false, isInFlow: false, isSplitComplete: false, createdAt: '2026-05-12T08:00:00.000Z', completedAt: null, parentPath: '補上 Drawer 編輯測試', children: [] },
       ],
     }))
 
@@ -297,7 +297,7 @@ describe('TaskDetailModal', () => {
   it('shows split-complete badge on child tasks', () => {
     const wrapper = mountTaskDetail(createTask({
       childTasks: [
-        { id: 'child-task-1', title: '撰寫 SRS', isCompleted: false, isInFlow: false, isSplitComplete: true, completedAt: null, parentPath: '補上 Drawer 編輯測試', children: [] },
+        { id: 'child-task-1', title: '撰寫 SRS', isCompleted: false, isInFlow: false, isSplitComplete: true, createdAt: '2026-05-12T08:00:00.000Z', completedAt: null, parentPath: '補上 Drawer 編輯測試', children: [] },
       ],
     }))
 
@@ -322,7 +322,7 @@ describe('TaskDetailModal', () => {
     await wrapper.setProps({
       task: createTask({
         childTasks: [
-          { id: 'child-task-1', title: '撰寫驗收測試', isCompleted: false, isInFlow: false, isSplitComplete: false, completedAt: null, parentPath: '補上 Drawer 編輯測試', children: [] },
+          { id: 'child-task-1', title: '撰寫驗收測試', isCompleted: false, isInFlow: false, isSplitComplete: false, createdAt: '2026-05-12T08:00:00.000Z', completedAt: null, parentPath: '補上 Drawer 編輯測試', children: [] },
         ],
       }),
     })
