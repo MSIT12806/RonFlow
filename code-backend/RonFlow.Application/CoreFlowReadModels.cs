@@ -104,7 +104,8 @@ public sealed record TaskDetailView(
     string ParentPath,
     TaskCodeTraceabilityView CodeTraceability,
     IReadOnlyList<TaskReminderView> Reminders,
-    IReadOnlyList<ActivityTimelineItemView> ActivityTimeline);
+    IReadOnlyList<ActivityTimelineItemView> ActivityTimeline,
+    TaskEstimatedEffortView? CompletedEffort = null);
 
 public sealed record ProjectSubtaskTemplateListView(IReadOnlyList<ProjectSubtaskTemplateView> Items);
 
@@ -209,7 +210,8 @@ internal static class CoreFlowReadModelFactory
             parentPaths.GetValueOrDefault(task.Id, string.Empty),
             CreateTaskCodeTraceability(task.CodeTraceability),
             task.Reminders.Select(CreateTaskReminder).ToArray(),
-            task.ActivityTimeline.Select(CreateActivityTimelineItem).ToArray());
+            task.ActivityTimeline.Select(CreateActivityTimelineItem).ToArray(),
+            task.CompletedEffort is null ? null : new TaskEstimatedEffortView(task.CompletedEffort.Value, task.CompletedEffort.Unit));
     }
 
     public static ProjectCodeTraceabilityView CreateProjectCodeTraceability(ProjectBoardModel board)

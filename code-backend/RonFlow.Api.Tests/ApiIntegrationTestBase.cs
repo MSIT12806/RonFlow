@@ -140,12 +140,12 @@ public abstract class ApiIntegrationTestBase
         return task!;
     }
 
-    protected async Task<TaskDetailResponse> ReadyTaskForFlowAsync(Guid projectId, TaskDetailResponse task)
+    protected async Task<TaskDetailResponse> ReadyTaskForFlowAsync(Guid projectId, TaskDetailResponse task, int estimatedHours = 2)
     {
-        return await ReadyTaskForFlowAsync(Client, projectId, task);
+        return await ReadyTaskForFlowAsync(Client, projectId, task, estimatedHours);
     }
 
-    protected async Task<TaskDetailResponse> ReadyTaskForFlowAsync(HttpClient client, Guid projectId, TaskDetailResponse task)
+    protected async Task<TaskDetailResponse> ReadyTaskForFlowAsync(HttpClient client, Guid projectId, TaskDetailResponse task, int estimatedHours = 2)
     {
         var lockResponse = await client.PostAsync($"/api/projects/{projectId}/tasks/{task.Id}/content-edit-lock", content: null);
         lockResponse.EnsureSuccessStatusCode();
@@ -157,7 +157,7 @@ public abstract class ApiIntegrationTestBase
                 title = task.Title,
                 description = task.Description,
                 dueDate = task.DueDate,
-                estimatedEffort = new { value = 2, unit = "hours" },
+                estimatedEffort = new { value = estimatedHours, unit = "hours" },
                 codeTraceability = task.CodeTraceability,
             });
 

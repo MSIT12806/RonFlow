@@ -39,7 +39,8 @@ public sealed record WorkflowThroughputProjectionSource(
     string EventType,
     string? StateKey,
     DateTimeOffset OccurredAt,
-    DateTimeOffset? ProcessedAt);
+    DateTimeOffset? ProcessedAt,
+    int? CompletedEffortMinutes = null);
 
 public sealed record WorkflowThroughputBucketView(
     DateOnly BucketStart,
@@ -47,7 +48,8 @@ public sealed record WorkflowThroughputBucketView(
     int MovedToActiveCount,
     int MovedToReviewCount,
     int CompletedCount,
-    int ReopenedCount);
+    int ReopenedCount,
+    double CompletedEffortHours = 0);
 
 public sealed record WorkflowThroughputReportView(
     Guid ProjectId,
@@ -61,7 +63,7 @@ public interface IWorkflowThroughputProjectionOutbox
 
     void EnqueueTaskStateChanged(Guid projectId, Guid taskId, string stateKey, DateTimeOffset occurredAt);
 
-    void EnqueueTaskCompleted(Guid projectId, Guid taskId, DateTimeOffset occurredAt);
+    void EnqueueTaskCompleted(Guid projectId, Guid taskId, DateTimeOffset occurredAt, int? completedEffortMinutes = null);
 
     void EnqueueTaskReopened(Guid projectId, Guid taskId, DateTimeOffset occurredAt);
 
@@ -87,7 +89,7 @@ public sealed class NoOpWorkflowThroughputProjectionOutbox : IWorkflowThroughput
     {
     }
 
-    public void EnqueueTaskCompleted(Guid projectId, Guid taskId, DateTimeOffset occurredAt)
+    public void EnqueueTaskCompleted(Guid projectId, Guid taskId, DateTimeOffset occurredAt, int? completedEffortMinutes = null)
     {
     }
 

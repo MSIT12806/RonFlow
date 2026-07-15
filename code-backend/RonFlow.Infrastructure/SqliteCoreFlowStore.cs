@@ -108,7 +108,8 @@ CREATE TABLE IF NOT EXISTS WorkflowThroughputOutbox (
     EventType TEXT NOT NULL,
     StateKey TEXT NULL,
     OccurredAt TEXT NOT NULL,
-    ProcessedAt TEXT NULL
+    ProcessedAt TEXT NULL,
+    CompletedEffortMinutes INTEGER NULL
 );
 
 CREATE TABLE IF NOT EXISTS WorkflowThroughputBuckets (
@@ -120,6 +121,7 @@ CREATE TABLE IF NOT EXISTS WorkflowThroughputBuckets (
     MovedToReviewCount INTEGER NOT NULL,
     CompletedCount INTEGER NOT NULL,
     ReopenedCount INTEGER NOT NULL,
+    CompletedEffortMinutes INTEGER NOT NULL DEFAULT 0,
     LastUpdatedAt TEXT NOT NULL,
     PRIMARY KEY (ProjectId, BucketType, BucketStart)
 );
@@ -154,5 +156,34 @@ CREATE TABLE IF NOT EXISTS AiAuditReadModel (
 );";
 
         command.ExecuteNonQuery();
+        EnsureColumn(connection, "WorkflowThroughputOutbox", "CompletedEffortMinutes", "INTEGER NULL");
+        EnsureColumn(connection, "WorkflowThroughputBuckets", "CompletedEffortMinutes", "INTEGER NOT NULL DEFAULT 0");
+    }
+
+    private static void EnsureColumn(SqliteConnection connection, string tableName, string columnName, string definition)
+    {
+        using var checkCommand = connection.CreateCommand();
+        checkCommand.CommandText = $"PRAGMA table_info({tableName})";
+        var exists = false;
+        using (var reader = checkCommand.ExecuteReader())
+        {
+            while (reader.Read())
+            {
+                if (string.Equals(reader.GetString(1), columnName, StringComparison.OrdinalIgnoreCase))
+                {
+                    exists = true;
+                    break;
+                }
+            }
+        }
+
+        if (exists)
+        {
+            return;
+        }
+
+        using var alterCommand = connection.CreateCommand();
+        alterCommand.CommandText = $"ALTER TABLE {tableName} ADD COLUMN {columnName} {definition}";
+        alterCommand.ExecuteNonQuery();
     }
 }

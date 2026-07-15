@@ -188,6 +188,11 @@
             <strong>{{ formatTimelineTime(task.completedAt) }}</strong>
           </div>
 
+          <div v-if="task.completedEffort" class="detail-card" data-testid="task-completed-effort">
+            <p class="detail-label">完成工時</p>
+            <strong>{{ task.completedEffort.value }} {{ formatEffortUnit(task.completedEffort.unit) }}</strong>
+          </div>
+
           <div class="detail-card detail-card-full" data-testid="task-child-tasks-section">
             <div class="detail-section-header">
               <div>
@@ -664,6 +669,10 @@ const traceabilityChangeTypeOptions: Array<{ value: TaskCodeTraceabilityChangeTy
   { value: 'modified', label: '修改' },
   { value: 'removed', label: '移除' },
 ]
+
+function formatEffortUnit(unit: TaskEstimatedEffortUnit) {
+  return unit === 'minutes' ? '分鐘' : unit === 'hours' ? '小時' : '天'
+}
 
 const isForcedReadOnly = computed(() => Boolean(props.isReadOnly))
 const isLifecycleReadOnly = computed(() => props.mode !== 'active')

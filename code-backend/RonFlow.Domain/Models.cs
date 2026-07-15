@@ -48,7 +48,8 @@ public sealed record TaskModel(
     IReadOnlyList<TaskSubtaskModel> Subtasks,
     IReadOnlyList<TaskReminderModel> Reminders,
     TaskCodeTraceabilityModel CodeTraceability,
-    IReadOnlyList<ActivityTimelineItemModel> ActivityTimeline);
+    IReadOnlyList<ActivityTimelineItemModel> ActivityTimeline,
+    TaskEstimatedEffortModel? CompletedEffort = null);
 
 public sealed record ProjectModel(
     Guid Id,

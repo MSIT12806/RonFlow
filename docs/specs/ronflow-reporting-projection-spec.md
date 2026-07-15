@@ -280,6 +280,7 @@ flowchart TD
 6. 每個 bucket 的 moved to Review count
 7. 每個 bucket 的 completed count
 8. 每個 bucket 的 reopened count
+9. 每個 bucket 的 completed effort hours（以完成當下的預估耗時快照加總）
 ```
 
 **User Actions**
@@ -288,6 +289,7 @@ flowchart TD
 1. 切換日 / 週粒度
 2. 調整日期區間
 3. 查看某個 bucket 的統計值
+4. 查看該 bucket 累計完成工時
 ```
 
 **Visible Names**
@@ -295,6 +297,7 @@ flowchart TD
 ```text
 1. 報表名稱：工作流量
 2. 粒度切換：每日 / 每週
+3. 完成工時：以小時顯示，1 天以 8 個工作小時計算
 ```
 
 **Expected Behavior**

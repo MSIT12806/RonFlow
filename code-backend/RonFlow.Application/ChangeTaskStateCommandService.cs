@@ -93,7 +93,7 @@ public sealed class ChangeTaskStateCommandService(
         workflowThroughputProjectionOutbox.EnqueueTaskStateChanged(project.Id, task.Id, targetState.Key, changedAt);
         if (!wasCompleted && targetState.IsCompletedState)
         {
-            workflowThroughputProjectionOutbox.EnqueueTaskCompleted(project.Id, task.Id, changedAt);
+            workflowThroughputProjectionOutbox.EnqueueTaskCompleted(project.Id, task.Id, changedAt, task.CompletedEffort?.ToMinutes());
         }
 
         if (wasCompleted && !targetState.IsCompletedState)
@@ -141,7 +141,7 @@ public sealed class ChangeTaskStateCommandService(
             {
                 taskRepository.Update(parentTask);
                 workflowThroughputProjectionOutbox.EnqueueTaskStateChanged(project.Id, parentTask.Id, completedState.Key, changedAt);
-                workflowThroughputProjectionOutbox.EnqueueTaskCompleted(project.Id, parentTask.Id, changedAt);
+                workflowThroughputProjectionOutbox.EnqueueTaskCompleted(project.Id, parentTask.Id, changedAt, parentTask.CompletedEffort?.ToMinutes());
             }
 
             parentTaskId = parentTask.ParentTaskId;

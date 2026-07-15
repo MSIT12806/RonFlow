@@ -71,6 +71,7 @@ export type TaskDetailResponse = {
   createdAt: string
   completedAt: string | null
   estimatedEffort: TaskEstimatedEffortResponse | null
+  completedEffort: TaskEstimatedEffortResponse | null
   subtasks: TaskSubtaskResponse[]
   childTasks: BoardTaskCardResponse[]
   parentPath: string
@@ -144,6 +145,7 @@ export type WorkflowThroughputBucketResponse = {
   movedToReviewCount: number
   completedCount: number
   reopenedCount: number
+  completedEffortHours: number
 }
 
 export type WorkflowThroughputReportResponse = {

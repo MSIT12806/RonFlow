@@ -459,7 +459,8 @@ public sealed record TaskDetailResponse(
     TaskCodeTraceabilityResponse CodeTraceability,
     IReadOnlyList<TaskReminderResponse> Reminders,
     IReadOnlyList<ActivityTimelineItemResponse> ActivityTimeline,
-    bool CanEnterEdit)
+    bool CanEnterEdit,
+    TaskEstimatedEffortResponse? CompletedEffort = null)
 {
     public static TaskDetailResponse FromOutput(CreateTaskOutput output, bool canEnterEdit = true)
     {
@@ -484,7 +485,8 @@ public sealed record TaskDetailResponse(
             TaskCodeTraceabilityResponse.FromOutput(output.CodeTraceability),
             output.Reminders.Select(TaskReminderResponse.FromOutput).ToArray(),
             output.ActivityTimeline.Select(ActivityTimelineItemResponse.FromOutput).ToArray(),
-            canEnterEdit);
+            canEnterEdit,
+            output.CompletedEffort is null ? null : TaskEstimatedEffortResponse.FromOutput(output.CompletedEffort));
     }
 
     public static TaskDetailResponse FromView(TaskDetailView view, bool canEnterEdit = true)
@@ -510,7 +512,8 @@ public sealed record TaskDetailResponse(
             TaskCodeTraceabilityResponse.FromView(view.CodeTraceability),
             view.Reminders.Select(TaskReminderResponse.FromView).ToArray(),
             view.ActivityTimeline.Select(ActivityTimelineItemResponse.FromView).ToArray(),
-            canEnterEdit);
+            canEnterEdit,
+            view.CompletedEffort is null ? null : TaskEstimatedEffortResponse.FromView(view.CompletedEffort));
     }
 
     private static string ToTaskLifecycleStateResponse(TaskLifecycleState lifecycleState)
@@ -585,7 +588,8 @@ public sealed record WorkflowThroughputBucketResponse(
     int MovedToActiveCount,
     int MovedToReviewCount,
     int CompletedCount,
-    int ReopenedCount)
+    int ReopenedCount,
+    double CompletedEffortHours = 0)
 {
     public static WorkflowThroughputBucketResponse FromView(WorkflowThroughputBucketView view)
     {
@@ -595,7 +599,8 @@ public sealed record WorkflowThroughputBucketResponse(
             view.MovedToActiveCount,
             view.MovedToReviewCount,
             view.CompletedCount,
-            view.ReopenedCount);
+            view.ReopenedCount,
+            view.CompletedEffortHours);
     }
 }
 

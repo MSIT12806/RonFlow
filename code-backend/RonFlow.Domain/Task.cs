@@ -29,6 +29,7 @@ public sealed class Task
         DateTimeOffset? trashedAt,
         int sortOrder,
         TaskEstimatedEffort? estimatedEffort,
+        TaskEstimatedEffort? completedEffort,
         IEnumerable<TaskSubtask> subtasks,
         IEnumerable<TaskReminder> reminders,
         TaskCodeTraceability codeTraceability,
@@ -52,6 +53,7 @@ public sealed class Task
         TrashedAt = trashedAt;
         SortOrder = sortOrder;
         EstimatedEffort = estimatedEffort;
+        CompletedEffort = completedEffort;
         this.subtasks = subtasks.OrderBy(subtask => subtask.Order).ToList();
         this.reminders = reminders.ToList();
         this.codeTraceability = codeTraceability;
@@ -93,6 +95,8 @@ public sealed class Task
     public int SortOrder { get; private set; }
 
     public TaskEstimatedEffort? EstimatedEffort { get; private set; }
+
+    public TaskEstimatedEffort? CompletedEffort { get; private set; }
 
     public IReadOnlyList<TaskSubtask> Subtasks => subtasks;
 
@@ -138,6 +142,7 @@ public sealed class Task
             null,
             sortOrder,
             estimatedEffort,
+            null,
             subtasks ?? [],
             [],
             TaskCodeTraceability.Empty,
@@ -171,6 +176,7 @@ public sealed class Task
             null,
             sortOrder,
             source.EstimatedEffort,
+            null,
             source.Subtasks.Select(subtask => new TaskSubtask(Guid.NewGuid(), subtask.Title, subtask.IsChecked, subtask.Order)),
             [],
             CloneCodeTraceability(source.CodeTraceability),
@@ -199,9 +205,10 @@ public sealed class Task
         IEnumerable<TaskSubtask> subtasks,
         IEnumerable<TaskReminder> reminders,
         TaskCodeTraceability codeTraceability,
-        IEnumerable<ActivityTimelineItem> activityTimeline)
+        IEnumerable<ActivityTimelineItem> activityTimeline,
+        TaskEstimatedEffort? completedEffort = null)
     {
-        return new Task(id, projectId, parentTaskId, title, description, currentState, isInFlow, isSplitComplete, isShort, lifecycleState, dueDate, createdAt, mutationAt, completedAt, archivedAt, trashedAt, sortOrder, estimatedEffort, subtasks, reminders, codeTraceability, activityTimeline);
+        return new Task(id, projectId, parentTaskId, title, description, currentState, isInFlow, isSplitComplete, isShort, lifecycleState, dueDate, createdAt, mutationAt, completedAt, archivedAt, trashedAt, sortOrder, estimatedEffort, completedEffort, subtasks, reminders, codeTraceability, activityTimeline);
     }
 
     public TaskMutationExecutionResult MarkChildTaskAdded(TaskMutationAuthorization authorization, DateTimeOffset changedAt)
@@ -401,12 +408,14 @@ public sealed class Task
         if (!wasDone && isDone)
         {
             CompletedAt = changedAt;
+            CompletedEffort = EstimatedEffort;
             activityTimeline.Add(ActivityTimelineItem.TaskCompleted(changedAt));
         }
 
         if (wasDone && !isDone)
         {
             CompletedAt = null;
+            CompletedEffort = null;
             activityTimeline.Add(ActivityTimelineItem.TaskReopened(changedAt));
         }
 
@@ -423,6 +432,7 @@ public sealed class Task
 
         CurrentState = completedState;
         CompletedAt = changedAt;
+        CompletedEffort = EstimatedEffort;
         activityTimeline.Add(ActivityTimelineItem.TaskStateChanged(completedState.Label, changedAt));
         activityTimeline.Add(ActivityTimelineItem.TaskCompleted(changedAt));
         MutationAt = changedAt;
@@ -635,6 +645,7 @@ public sealed class Task
             subtasks.OrderBy(subtask => subtask.Order).Select(subtask => subtask.ToModel()).ToArray(),
             reminders.Select(reminder => reminder.ToModel()).ToArray(),
             codeTraceability.ToModel(),
-            activityTimeline.Select(item => item.ToModel()).ToArray());
+            activityTimeline.Select(item => item.ToModel()).ToArray(),
+            CompletedEffort?.ToModel());
     }
 }

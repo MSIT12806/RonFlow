@@ -68,6 +68,7 @@
               <div><dt>審查中</dt><dd data-testid="throughput-review-count">{{ bucket.movedToReviewCount }}</dd></div>
               <div><dt>已完成</dt><dd data-testid="throughput-completed-count">{{ bucket.completedCount }}</dd></div>
               <div><dt>重新開啟</dt><dd data-testid="throughput-reopened-count">{{ bucket.reopenedCount }}</dd></div>
+              <div><dt>完成工時</dt><dd data-testid="throughput-completed-effort-hours">{{ formatCompletedEffort(bucket.completedEffortHours) }}</dd></div>
             </dl>
           </article>
         </div>
@@ -409,6 +410,10 @@ function formatBucketStart(value: string) {
   return props.bucketType === 'day'
     ? `${value}`
     : `${value} 起`
+}
+
+function formatCompletedEffort(value: number) {
+  return `${Number.isInteger(value) ? value : value.toFixed(2)} 小時`
 }
 
 function formatDuration(value: number | null) {

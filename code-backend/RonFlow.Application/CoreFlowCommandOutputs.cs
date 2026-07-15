@@ -28,7 +28,8 @@ public sealed record CreateTaskOutput(
     IReadOnlyList<TaskSubtaskOutput> Subtasks,
     TaskCodeTraceabilityOutput CodeTraceability,
     IReadOnlyList<CreatedTaskReminderOutput> Reminders,
-    IReadOnlyList<CreatedActivityTimelineItemOutput> ActivityTimeline);
+    IReadOnlyList<CreatedActivityTimelineItemOutput> ActivityTimeline,
+    TaskEstimatedEffortOutput? CompletedEffort = null);
 
 public sealed record CreatedTaskReminderOutput(Guid Id, string ReminderDateTime, string Description);
 
@@ -78,7 +79,8 @@ internal static class CoreFlowCommandOutputFactory
             task.Subtasks.Select(CreateTaskSubtask).ToArray(),
             CreateTaskCodeTraceability(task.CodeTraceability),
             task.Reminders.Select(CreateTaskReminder).ToArray(),
-            task.ActivityTimeline.Select(CreateActivityTimelineItem).ToArray());
+            task.ActivityTimeline.Select(CreateActivityTimelineItem).ToArray(),
+            task.CompletedEffort is null ? null : new TaskEstimatedEffortOutput(task.CompletedEffort.Value, task.CompletedEffort.Unit));
     }
 
     public static IReadOnlyList<ProjectSubtaskTemplateOutput> CreateProjectSubtaskTemplates(ProjectModel project)

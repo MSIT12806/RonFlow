@@ -238,6 +238,19 @@ internal static class CoreFlowJsonSerializer
             writer.WriteEndObject();
         }
 
+        if (task.CompletedEffort is null)
+        {
+            writer.WriteNull("completedEffort");
+        }
+        else
+        {
+            writer.WritePropertyName("completedEffort");
+            writer.WriteStartObject();
+            writer.WriteNumber("value", task.CompletedEffort.Value);
+            writer.WriteString("unit", task.CompletedEffort.Unit);
+            writer.WriteEndObject();
+        }
+
         writer.WritePropertyName("subtasks");
         writer.WriteStartArray();
 
@@ -335,6 +348,9 @@ internal static class CoreFlowJsonSerializer
         var estimatedEffort = root.TryGetProperty("estimatedEffort", out var estimatedEffortElement) && estimatedEffortElement.ValueKind != JsonValueKind.Null
             ? ReadTaskEstimatedEffort(estimatedEffortElement)
             : null;
+        var completedEffort = root.TryGetProperty("completedEffort", out var completedEffortElement) && completedEffortElement.ValueKind != JsonValueKind.Null
+            ? ReadTaskEstimatedEffort(completedEffortElement)
+            : null;
         var subtasks = root.TryGetProperty("subtasks", out var subtasksElement) && subtasksElement.ValueKind != JsonValueKind.Null
             ? subtasksElement
                 .EnumerateArray()
@@ -388,7 +404,8 @@ internal static class CoreFlowJsonSerializer
             root.GetProperty("activityTimeline")
                 .EnumerateArray()
                 .Select(ReadActivityTimelineItem)
-                .ToArray());
+                .ToArray(),
+            completedEffort);
     }
 
     private static DateTimeOffset ReadTaskMutationAt(

@@ -14,9 +14,9 @@ public sealed class SqliteWorkflowThroughputProjectionOutbox(SqliteCoreFlowStore
         Add(new WorkflowThroughputProjectionSource(Guid.NewGuid(), projectId, taskId, "TaskStateChanged", stateKey, occurredAt, null));
     }
 
-    public void EnqueueTaskCompleted(Guid projectId, Guid taskId, DateTimeOffset occurredAt)
+    public void EnqueueTaskCompleted(Guid projectId, Guid taskId, DateTimeOffset occurredAt, int? completedEffortMinutes = null)
     {
-        Add(new WorkflowThroughputProjectionSource(Guid.NewGuid(), projectId, taskId, "TaskCompleted", null, occurredAt, null));
+        Add(new WorkflowThroughputProjectionSource(Guid.NewGuid(), projectId, taskId, "TaskCompleted", null, occurredAt, null, completedEffortMinutes));
     }
 
     public void EnqueueTaskReopened(Guid projectId, Guid taskId, DateTimeOffset occurredAt)
@@ -29,7 +29,7 @@ public sealed class SqliteWorkflowThroughputProjectionOutbox(SqliteCoreFlowStore
         using var connection = store.OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = @"
-SELECT MessageId, ProjectId, TaskId, EventType, StateKey, OccurredAt, ProcessedAt
+SELECT MessageId, ProjectId, TaskId, EventType, StateKey, OccurredAt, ProcessedAt, CompletedEffortMinutes
 FROM WorkflowThroughputOutbox
 WHERE ProcessedAt IS NULL
 ORDER BY OccurredAt";
@@ -45,7 +45,8 @@ ORDER BY OccurredAt";
                 reader.GetString(3),
                 reader.IsDBNull(4) ? null : reader.GetString(4),
                 DateTimeOffset.Parse(reader.GetString(5)),
-                reader.IsDBNull(6) ? null : DateTimeOffset.Parse(reader.GetString(6))));
+                reader.IsDBNull(6) ? null : DateTimeOffset.Parse(reader.GetString(6)),
+                reader.IsDBNull(7) ? null : reader.GetInt32(7)));
         }
 
         return items;
@@ -69,14 +70,15 @@ ORDER BY OccurredAt";
         using var connection = store.OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = @"
-INSERT INTO WorkflowThroughputOutbox (MessageId, ProjectId, TaskId, EventType, StateKey, OccurredAt, ProcessedAt)
-VALUES ($messageId, $projectId, $taskId, $eventType, $stateKey, $occurredAt, NULL)";
+INSERT INTO WorkflowThroughputOutbox (MessageId, ProjectId, TaskId, EventType, StateKey, OccurredAt, ProcessedAt, CompletedEffortMinutes)
+VALUES ($messageId, $projectId, $taskId, $eventType, $stateKey, $occurredAt, NULL, $completedEffortMinutes)";
         command.Parameters.AddWithValue("$messageId", source.MessageId.ToString());
         command.Parameters.AddWithValue("$projectId", source.ProjectId.ToString());
         command.Parameters.AddWithValue("$taskId", source.TaskId.ToString());
         command.Parameters.AddWithValue("$eventType", source.EventType);
         command.Parameters.AddWithValue("$stateKey", (object?)source.StateKey ?? DBNull.Value);
         command.Parameters.AddWithValue("$occurredAt", source.OccurredAt.ToString("O"));
+        command.Parameters.AddWithValue("$completedEffortMinutes", (object?)source.CompletedEffortMinutes ?? DBNull.Value);
         if (command.ExecuteNonQuery() > 0)
         {
             store.NotifyChanged("workflow throughput outbox enqueued");
@@ -101,8 +103,9 @@ INSERT INTO WorkflowThroughputBuckets (
     MovedToReviewCount,
     CompletedCount,
     ReopenedCount,
+    CompletedEffortMinutes,
     LastUpdatedAt)
-VALUES ($projectId, $bucketType, $bucketStart, 0, 0, 0, 0, 0, $lastUpdatedAt)
+VALUES ($projectId, $bucketType, $bucketStart, 0, 0, 0, 0, 0, 0, $lastUpdatedAt)
 ON CONFLICT(ProjectId, BucketType, BucketStart) DO NOTHING";
         ensureCommand.Parameters.AddWithValue("$projectId", source.ProjectId.ToString());
         ensureCommand.Parameters.AddWithValue("$bucketType", bucketType.ToContractValue());
@@ -143,9 +146,11 @@ WHERE ProjectId = $projectId AND BucketType = $bucketType AND BucketStart = $buc
         updateCommand.CommandText = $@"
 UPDATE WorkflowThroughputBuckets
 SET {counterColumn} = {counterColumn} + 1,
+    CompletedEffortMinutes = CompletedEffortMinutes + $completedEffortMinutes,
     LastUpdatedAt = $lastUpdatedAt
 WHERE ProjectId = $projectId AND BucketType = $bucketType AND BucketStart = $bucketStart";
         updateCommand.Parameters.AddWithValue("$lastUpdatedAt", processedAt.ToString("O"));
+        updateCommand.Parameters.AddWithValue("$completedEffortMinutes", source.EventType == "TaskCompleted" ? source.CompletedEffortMinutes ?? 0 : 0);
         updateCommand.Parameters.AddWithValue("$projectId", source.ProjectId.ToString());
         updateCommand.Parameters.AddWithValue("$bucketType", bucketType.ToContractValue());
         updateCommand.Parameters.AddWithValue("$bucketStart", bucketStart);
@@ -160,7 +165,7 @@ WHERE ProjectId = $projectId AND BucketType = $bucketType AND BucketStart = $buc
         using var connection = store.OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = @"
-SELECT BucketStart, CreatedCount, MovedToActiveCount, MovedToReviewCount, CompletedCount, ReopenedCount, LastUpdatedAt
+SELECT BucketStart, CreatedCount, MovedToActiveCount, MovedToReviewCount, CompletedCount, ReopenedCount, CompletedEffortMinutes, LastUpdatedAt
 FROM WorkflowThroughputBuckets
 WHERE ProjectId = $projectId AND BucketType = $bucketType
 ORDER BY BucketStart";
@@ -178,9 +183,10 @@ ORDER BY BucketStart";
                 reader.GetInt32(2),
                 reader.GetInt32(3),
                 reader.GetInt32(4),
-                reader.GetInt32(5)));
+                reader.GetInt32(5),
+                reader.GetInt32(6) / 60d));
 
-            var candidateUpdatedAt = DateTimeOffset.Parse(reader.GetString(6));
+            var candidateUpdatedAt = DateTimeOffset.Parse(reader.GetString(7));
             if (lastUpdatedAt is null || candidateUpdatedAt > lastUpdatedAt)
             {
                 lastUpdatedAt = candidateUpdatedAt;

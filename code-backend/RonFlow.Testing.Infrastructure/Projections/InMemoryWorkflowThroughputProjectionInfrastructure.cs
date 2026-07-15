@@ -17,9 +17,9 @@ public sealed class InMemoryWorkflowThroughputProjectionOutbox : IWorkflowThroug
         Add(new WorkflowThroughputProjectionSource(Guid.NewGuid(), projectId, taskId, "TaskStateChanged", stateKey, occurredAt, null));
     }
 
-    public void EnqueueTaskCompleted(Guid projectId, Guid taskId, DateTimeOffset occurredAt)
+    public void EnqueueTaskCompleted(Guid projectId, Guid taskId, DateTimeOffset occurredAt, int? completedEffortMinutes = null)
     {
-        Add(new WorkflowThroughputProjectionSource(Guid.NewGuid(), projectId, taskId, "TaskCompleted", null, occurredAt, null));
+        Add(new WorkflowThroughputProjectionSource(Guid.NewGuid(), projectId, taskId, "TaskCompleted", null, occurredAt, null, completedEffortMinutes));
     }
 
     public void EnqueueTaskReopened(Guid projectId, Guid taskId, DateTimeOffset occurredAt)
@@ -117,6 +117,7 @@ public sealed class InMemoryWorkflowThroughputProjectionStore : IWorkflowThrough
         public int MovedToReviewCount { get; private set; }
         public int CompletedCount { get; private set; }
         public int ReopenedCount { get; private set; }
+        public int CompletedEffortMinutes { get; private set; }
 
         public void Apply(WorkflowThroughputProjectionSource source)
         {
@@ -133,6 +134,7 @@ public sealed class InMemoryWorkflowThroughputProjectionStore : IWorkflowThrough
                     break;
                 case "TaskCompleted":
                     CompletedCount += 1;
+                    CompletedEffortMinutes += source.CompletedEffortMinutes ?? 0;
                     break;
                 case "TaskReopened":
                     ReopenedCount += 1;
@@ -142,7 +144,7 @@ public sealed class InMemoryWorkflowThroughputProjectionStore : IWorkflowThrough
 
         public WorkflowThroughputBucketView ToView(DateOnly bucketStart)
         {
-            return new WorkflowThroughputBucketView(bucketStart, CreatedCount, MovedToActiveCount, MovedToReviewCount, CompletedCount, ReopenedCount);
+            return new WorkflowThroughputBucketView(bucketStart, CreatedCount, MovedToActiveCount, MovedToReviewCount, CompletedCount, ReopenedCount, CompletedEffortMinutes / 60d);
         }
     }
 }

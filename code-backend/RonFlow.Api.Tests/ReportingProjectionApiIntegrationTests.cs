@@ -43,6 +43,34 @@ public sealed class ReportingProjectionApiIntegrationTests : ApiIntegrationTestB
         Assert.That(bucket.MovedToReviewCount, Is.EqualTo(0));
         Assert.That(bucket.CompletedCount, Is.EqualTo(1));
         Assert.That(bucket.ReopenedCount, Is.EqualTo(0));
+        Assert.That(bucket.CompletedEffortHours, Is.EqualTo(2).Within(0.001));
+    }
+
+    [Test]
+    public async Task GetWorkflowThroughputReport_SumsCompletedEffortFromCompletionSnapshots()
+    {
+        var project = await CreateProjectAsync("Completed Effort Reporting Project");
+
+        foreach (var estimatedHours in new[] { 1, 2, 3, 4 })
+        {
+            var task = await CreateTaskAsync(project.Id, $"Completed {estimatedHours} hour task");
+            task = await ReadyTaskForFlowAsync(project.Id, task, estimatedHours);
+
+            var completeResponse = await Client.PatchAsJsonAsync(
+                $"/api/projects/{project.Id}/tasks/{task.Id}/state",
+                new ChangeTaskStateRequest("done"));
+            Assert.That(completeResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        }
+
+        GetRequiredService<ProcessWorkflowThroughputProjectionService>().ProcessPending();
+
+        var response = await Client.GetAsync($"/api/projects/{project.Id}/reports/workflow-throughput?bucket=day");
+        var report = await response.Content.ReadFromJsonAsync<WorkflowThroughputReportResponse>();
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(report, Is.Not.Null);
+        Assert.That(report!.Buckets.Single().CompletedCount, Is.EqualTo(4));
+        Assert.That(report.Buckets.Single().CompletedEffortHours, Is.EqualTo(10).Within(0.001));
     }
 
     [Test]

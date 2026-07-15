@@ -422,6 +422,7 @@ const playgroundTaskDetail: TaskDetailResponse = {
   createdAt: '2026-05-12T08:00:00.000Z',
   completedAt: null,
   estimatedEffort: { value: 2, unit: 'hours' },
+  completedEffort: null,
   childTasks: [],
   parentPath: '整理 Hatchery 需求',
   subtasks: [

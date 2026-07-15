@@ -91,4 +91,16 @@ public sealed record TaskEstimatedEffort
     {
         return new(Value, Unit);
     }
+
+    public int ToMinutes()
+    {
+        return Unit switch
+        {
+            "minutes" => Value,
+            "hours" => checked(Value * 60),
+            // A workday is treated as eight working hours for reporting.
+            "days" => checked(Value * 8 * 60),
+            _ => 0,
+        };
+    }
 }
