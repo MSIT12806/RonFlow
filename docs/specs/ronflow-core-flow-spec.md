@@ -1,6 +1,8 @@
 # RonFlow Core Flow Spec
 
-## 1. 文件定位
+## 1. 關於本文件
+
+### 文件定位
 
 本文件是 RonFlow 的 living spec，用來描述這個站台目前應該如何運作。
 
@@ -19,7 +21,19 @@ RonFlow 的 AI companion spec 為 [ronflow-ai-interaction-surface-spec.md](./ron
 
 RonFlow 的 reporting / projection companion spec 為 [ronflow-reporting-projection-spec.md](./ronflow-reporting-projection-spec.md)。若本文件新增 Task 建立、workflow state 轉移、完成、重新開啟或其他會影響 reporting model / projection 的共享規則，應同批更新 companion spec，避免 core flow 與 reporting projection 規格漂移。
 
-## Related Acceptance Tests
+### 文件使用原則
+
+閱讀與維護本文件時，採以下原則：
+
+1. 內容描述的是 RonFlow 現在應有的行為，而不是某個歷史版本曾經長怎樣。
+2. 若 UI、規則、驗證或驗收方式改變，應直接更新本文件。
+3. 若某功能尚未實作但已決定會納入目前產品行為，可先寫入並標記其狀態。
+4. 若只是某次 release 或 milestone 暫時不做，應放在獨立的 release 文件，而不是從核心規格中刪除產品意圖。
+5. 本文件描述可驗證的產品行為，但不規定必須由 E2E、integration test 或 unit test 承接。
+6. 未定議題、討論中選項與暫存決策應放在其他討論文件，不保留在本 spec 中。
+7. 若需規劃 authentication / ownership 前提在各層測試中的承接方式，請參考 [RonFlow Authentication / Ownership Test Strategy](./ronflow-auth-ownership-test-strategy.md)。
+
+### Related Acceptance Tests
 
 這份 spec 對應的是目前 RonFlow 的主要 acceptance baseline。做 spec / E2E 差異比對時，可優先從下列 Playwright 檔案開始：
 
@@ -34,13 +48,9 @@ RonFlow 的 reporting / projection companion spec 為 [ronflow-reporting-project
 
 這份對照是「主要入口」，不是保證 coverage 已完整。實際評估進度時，仍應逐段比對 spec 與 acceptance tests 是否一一承接。
 
----
-
 ## 2. 核心產品流程
 
-本文件目前描述的是 authenticated collaborative-project 版本的 RonFlow。
-
-也就是說：
+### authenticated collaborative-project
 
 ```text
 1. 除登入、註冊與 session restore 入口外，使用者必須先登入才能使用 RonFlow。
@@ -49,7 +59,7 @@ RonFlow 的 reporting / projection companion spec 為 [ronflow-reporting-project
 4. 目前協作邊界以 Project 為單位，不包含 workspace / tenant / organization 等更高層級邊界。
 ```
 
-RonFlow 目前的核心流程是：
+### RonFlow 核心流程
 
 1. 使用者進入 Project List Page。
 2. 使用者建立 Project。
@@ -61,7 +71,7 @@ RonFlow 目前的核心流程是：
 8. Project 成員可以開啟 Task Detail Drawer 查看基本資訊。
 9. Project 成員可以在 Task Detail Drawer 設定與刪除提醒。
 
-目前預設 workflow columns 的工程 key 與使用者可見名稱如下：
+預設 workflow columns 的工程 key 與使用者可見名稱如下：
 
 ```text
 Todo   -> 待處理
@@ -69,22 +79,6 @@ Active -> 進行中
 Review -> 審查中
 Done   -> 已完成
 ```
-
----
-
-## 3. 文件使用原則
-
-閱讀與維護本文件時，採以下原則：
-
-1. 內容描述的是 RonFlow 現在應有的行為，而不是某個歷史版本曾經長怎樣。
-2. 若 UI、規則、驗證或驗收方式改變，應直接更新本文件。
-3. 若某功能尚未實作但已決定會納入目前產品行為，可先寫入並標記其狀態。
-4. 若只是某次 release 或 milestone 暫時不做，應放在獨立的 release 文件，而不是從核心規格中刪除產品意圖。
-5. 本文件描述可驗證的產品行為，但不規定必須由 E2E、integration test 或 unit test 承接。
-6. 未定議題、討論中選項與暫存決策應放在其他討論文件，不保留在本 spec 中。
-7. 若需規劃 authentication / ownership 前提在各層測試中的承接方式，請參考 [RonFlow Authentication / Ownership Test Strategy](./ronflow-auth-ownership-test-strategy.md)。
-
----
 
 ## 4. 核心功能範圍
 
