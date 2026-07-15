@@ -1,0 +1,30 @@
+#!/bin/sh
+
+# Trigger the already-installed elevated Windows Task Scheduler job. The job
+# performs the actual IIS deployment and writes its own logs/status files.
+
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -z "$repo_root" ]; then
+  echo "[post-commit] Unable to resolve the repository root; skipping IIS deployment." >&2
+  exit 0
+fi
+
+deploy_trigger="$repo_root/scripts/deployment/Invoke-LocalhostDeployScheduledTask.ps1"
+if [ ! -f "$deploy_trigger" ]; then
+  echo "[post-commit] Deployment trigger not found: $deploy_trigger" >&2
+  exit 0
+fi
+
+if ! command -v pwsh >/dev/null 2>&1; then
+  echo "[post-commit] PowerShell 7 (pwsh) was not found; skipping IIS deployment." >&2
+  exit 0
+fi
+
+echo "[post-commit] Triggering RonFlow IIS deployment..."
+if ! pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File "$deploy_trigger"; then
+  echo "[post-commit] Could not start the IIS deployment task. The commit was kept." >&2
+  exit 0
+fi
+
+echo "[post-commit] IIS deployment task started. Check the scheduled-task log for completion."
+exit 0
