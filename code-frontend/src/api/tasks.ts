@@ -88,6 +88,12 @@ export async function moveTaskInTree(projectId: string, taskId: string, payload:
   })
 }
 
+export async function duplicateTaskSubtree(projectId: string, taskId: string) {
+  return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}/duplicate-subtree`), {
+    method: 'POST',
+  })
+}
+
 export async function acquireTaskContentEditLock(projectId: string, taskId: string) {
   return request<TaskDetailResponse>(apiPath(`/projects/${projectId}/tasks/${taskId}/content-edit-lock`), {
     method: 'POST',

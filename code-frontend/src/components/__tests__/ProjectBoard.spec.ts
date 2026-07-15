@@ -89,6 +89,29 @@ describe('ProjectBoard', () => {
     expect(wrapper.get('[data-testid="task-tree-item-completed-root"]').classes()).toContain('task-tree-item-completed')
   })
 
+  it('moves only the selected task to trash when Delete is pressed outside an editable field', async () => {
+    const wrapper = mountProjectBoard({
+      taskTree: [createTask()],
+    })
+
+    await wrapper.get('[data-testid="task-tree-item-task-1"]').trigger('click')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete' }))
+
+    expect(wrapper.emitted('move-task-to-trash')).toEqual([['task-1']])
+  })
+
+  it('duplicates the selected task tree when Ctrl+C and Ctrl+V are pressed', async () => {
+    const wrapper = mountProjectBoard({
+      taskTree: [createTask()],
+    })
+
+    await wrapper.get('[data-testid="task-tree-item-task-1"]').trigger('click')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', ctrlKey: true }))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'v', ctrlKey: true }))
+
+    expect(wrapper.emitted('duplicate-task-subtree')).toEqual([['task-1']])
+  })
+
   it('keeps manual order by default and can order the task tree and workflow columns by created time', async () => {
     const wrapper = mountProjectBoard({
       taskTree: [

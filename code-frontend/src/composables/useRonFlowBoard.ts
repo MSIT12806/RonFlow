@@ -213,6 +213,13 @@ export function useRonFlowBoard() {
     ) => taskCommandService.moveInTree(projectId, taskId, payload),
   )
 
+  const duplicateTaskSubtreeResource = useApiResource(
+    (projectId: string, taskId: string) => taskCommandService.duplicateSubtree(projectId, taskId),
+    {
+      mapErrorMessage: () => '複製任務樹失敗，請稍後再試。',
+    },
+  )
+
   const createTaskReminderResource = useApiResource(
     (projectId: string, taskId: string, reminderDateTime: string, description: string) =>
       taskCommandService.createReminder(projectId, taskId, reminderDateTime, description),
@@ -267,6 +274,7 @@ export function useRonFlowBoard() {
     || replaceTaskSubtasksResource.isLoading.value
     || createChildTaskResource.isLoading.value
     || setTaskSplitCompleteResource.isLoading.value
+    || duplicateTaskSubtreeResource.isLoading.value
     || createTaskReminderResource.isLoading.value
     || deleteTaskReminderResource.isLoading.value
     || archiveTaskResource.isLoading.value
@@ -723,6 +731,20 @@ export function useRonFlowBoard() {
     }
   }
 
+  async function duplicateTaskSubtree(taskId: string) {
+    if (!activeProjectId.value) {
+      return false
+    }
+
+    try {
+      await duplicateTaskSubtreeResource.execute(activeProjectId.value, taskId)
+      await loadBoard(activeProjectId.value)
+      return true
+    } catch {
+      return false
+    }
+  }
+
   async function createReminder(taskId: string, reminderDateTime: string, description: string) {
     if (!activeProjectId.value) {
       return false
@@ -1052,6 +1074,7 @@ export function useRonFlowBoard() {
     deleteReminder,
     reorderTaskWithinColumn,
     moveTaskWithinTree,
+    duplicateTaskSubtree,
     loadArchivedTasks,
     loadTrashedTasks,
     archiveTask,

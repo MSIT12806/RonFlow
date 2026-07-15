@@ -474,6 +474,7 @@ Feature: 建立專案
 7. 專案成員入口
 8. 完成條件模板入口
 9. 目前在線成員清單
+10. 任務樹
 ```
 
 **User Actions**
@@ -487,6 +488,10 @@ Feature: 建立專案
 6. 進入 Trash View
 7. 開啟 Project Members Panel
 8. 開啟與管理完成條件模板
+9. 在任務樹選取 Task
+10. 從任務樹展開 Task Detail Drawer
+11. 將任務樹中目前選取的 Task 移到垃圾桶
+12. 複製與貼上任務樹 selected Task
 ```
 
 **Visible Names**
@@ -518,6 +523,16 @@ Feature: 建立專案
 16. 程式修改紀錄查詢頁應以一個 Task 一張 card 的形式列出符合查詢條件的 Task，card 內呈現該 Task 的紀錄類別、change type 與 target。
 17. 程式修改紀錄查詢頁應提供類別、change type 與關鍵字篩選；關鍵字至少比對 Task 標題與 target。
 18. 使用者點擊程式修改紀錄查詢頁中的 Task card 時，系統應開啟該 Task 的 Task Detail Modal。
+19. 使用者點擊任務樹的 Task 時，系統應只選取該 Task，不應開啟 Task Detail Drawer。
+20. 任務樹中同一時間最多只能選取一個 Task；切換選取時，前一個選取狀態應清除。
+21. 任務樹每個 Task 都應提供可存取名稱為「展開任務詳細資訊」的操作；使用者只能透過此操作開啟該 Task 的 Task Detail Drawer。
+22. 當任務樹有選取中的 Task 且焦點不在文字輸入、文字區域、select 或可編輯內容時，按下 Delete 鍵應將該 Task 移到垃圾桶；沒有選取 Task 時不應送出刪除請求。
+23. Delete 鍵操作完成後，Task 不應繼續顯示在任務樹或 Board，且不應保留 selected 狀態；Task 應可在 Trash View 還原。
+24. 當任務樹有 selected Task 且焦點不在文字輸入、文字區域、select 或可編輯內容時，按下 Ctrl+C 應將 selected Task 與其所有 descendant Task 存入頁面內剪貼簿；沒有 selected Task 時不應改變剪貼簿或送出請求。
+25. 當頁面內剪貼簿有內容且焦點不在文字輸入、文字區域、select 或可編輯內容時，按下 Ctrl+V 應建立一份新子樹，並將新 root 貼到任務樹最上層。
+26. 貼上的每個 Task 都應有新的 ID、CreatedAt、排序位置與 Activity Timeline；Task Title 應為原標題加上「（複本）」。
+27. 新子樹應複製原 Task 與 descendant Task 的 Title、Description、Due Date、Estimated Effort、Code Traceability、完成條件與階層；不應複製 Reminder、Activity Timeline、Workflow State、Lifecycle State、CompletedAt、Archive/Trash 時間或內容編輯 lock。
+28. 貼上的所有 Task 應為 ActiveRecord、未進入 Flow，並以專案初始 workflow state 作為目前狀態；原 Task 與其子樹不得被修改。
 ```
 
 **UI / UX Notes**
@@ -532,6 +547,8 @@ Feature: 建立專案
 7. 程式修改紀錄查詢頁入口應與 Archived Tasks View、Trash View 同層，維持 Project-level 工具入口的一致性。
 8. 程式修改紀錄查詢頁應可返回 Project Kanban Board，且不應打開或覆蓋 Task Detail Drawer。
 9. 從程式修改紀錄查詢頁開啟的 Task Detail Modal 應為唯讀模式，不提供編輯、Archive、Move To Trash、提醒新增或完成條件變更操作。
+10. 任務樹的 selected 視覺狀態應明確區別於 Todo、In Flow、Completed 與拆解完成等 Task 狀態；前端應以集中管理的色彩 token 定義這些視覺狀態，不得在元件中分散硬編碼顏色。
+11. Ctrl+C / Ctrl+V 屬於任務樹快捷鍵；瀏覽器焦點在可輸入內容時，系統不應攔截這兩個快捷鍵。
 ```
 
 **Empty State**
@@ -593,6 +610,32 @@ Feature: Project Kanban Board
     When 使用者點擊程式修改紀錄中的 Task card
     Then 系統應開啟該 Task 的 Task Detail Modal
     And Task Detail Modal 不應提供編輯操作
+
+  Scenario: 使用者從任務樹選取並展開 Task
+    Given 使用者已進入某個 Project Kanban Board
+    And 任務樹中有標題為 "Build Kanban Board" 的 Task
+    When 使用者點擊該 Task
+    Then 該 Task 應顯示為 selected
+    And 系統不應開啟 Task Detail Drawer
+    When 使用者點擊該 Task 的「展開任務詳細資訊」操作
+    Then 系統應開啟該 Task 的 Task Detail Drawer
+
+  Scenario: 使用者使用 Delete 鍵將任務樹選取的 Task 移到垃圾桶
+    Given 使用者已進入某個 Project Kanban Board
+    And 任務樹中有標題為 "Build Kanban Board" 的 selected Task
+    When 使用者按下 Delete 鍵
+    Then 該 Task 不應繼續顯示在任務樹或 Board
+    And 該 Task 應顯示在 Trash View
+
+  Scenario: 使用者複製並貼上任務樹 selected Task 的完整子樹
+    Given 任務樹中有標題為 "設計規格" 的 selected Task
+    And "設計規格" 有標題為 "撰寫驗收測試" 的 child Task
+    When 使用者按下 Ctrl+C
+    And 使用者按下 Ctrl+V
+    Then 任務樹最上層應新增標題為 "設計規格（複本）" 的 Task
+    And 該 Task 應有標題為 "撰寫驗收測試（複本）" 的 child Task
+    And 新子樹的 Task 都不應位於 Flow
+    And 原 Task 與原 child Task 不應被修改
 ```
 
 ### 7.4 Create Task Modal

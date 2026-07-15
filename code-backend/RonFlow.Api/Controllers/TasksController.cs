@@ -445,6 +445,30 @@ public sealed class TasksController : AuthenticatedControllerBase
             : Results.Ok(TaskDetailResponse.FromOutput(result.Task!));
     }
 
+    [HttpPost("{taskId:guid}/duplicate-subtree")]
+    [ProducesResponseType<TaskDetailResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public IResult DuplicateTaskSubtree(
+        Guid projectId,
+        Guid taskId,
+        [FromServices] DuplicateTaskSubtreeCommandService commandService)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var result = commandService.Duplicate(currentUserId, projectId, taskId);
+        if (result.AccessDenied)
+        {
+            return AccessDenied();
+        }
+
+        return result.TaskNotFound
+            ? Results.NotFound()
+            : Results.Ok(TaskDetailResponse.FromOutput(result.Task!));
+    }
+
     [HttpGet("{taskId:guid}")]
     [ProducesResponseType<TaskDetailResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

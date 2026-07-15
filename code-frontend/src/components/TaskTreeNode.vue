@@ -28,10 +28,11 @@
           'task-tree-item-completed': task.isCompleted,
           'task-tree-item-in-flow': task.isInFlow,
           'task-tree-item-split-complete': task.isSplitComplete,
+          'task-tree-item-selected': isSelected,
           'task-tree-item-drop-inside': isDropInside,
         }"
         draggable="true"
-        @click="$emit('open-task-detail', task.id, task.title)"
+        @click="$emit('select-task', task.id)"
         @dragstart="$emit('task-drag-start', $event, task.id)"
         @dragend="$emit('task-drag-end')"
         @dragenter.prevent="handleDragOver"
@@ -79,6 +80,14 @@
         </span>
         <span v-else class="task-meta">{{ nodeMeta }}</span>
       </button>
+      <button
+        type="button"
+        class="task-tree-open-detail-button"
+        aria-label="展開任務詳細資訊"
+        @click="$emit('open-task-detail', task.id, task.title)"
+      >
+        展開
+      </button>
     </div>
 
     <ul v-if="hasChildren && isExpanded" class="task-tree-children">
@@ -88,9 +97,11 @@
         :task="child"
         :depth="depth + 1"
         :parent-task-id="task.id"
+        :selected-task-id="selectedTaskId"
         :dragging-task-id="draggingTaskId"
         :active-drop-target="activeDropTarget"
         @open-task-detail="(taskId, taskTitle) => $emit('open-task-detail', taskId, taskTitle)"
+        @select-task="(taskId) => $emit('select-task', taskId)"
         @task-drag-start="(event, taskId) => $emit('task-drag-start', event, taskId)"
         @task-drag-end="$emit('task-drag-end')"
         @task-drag-over="(payload) => $emit('task-drag-over', payload)"
@@ -111,17 +122,20 @@ const props = withDefaults(defineProps<{
   task: BoardTaskCardResponse
   depth?: number
   parentTaskId?: string | null
+  selectedTaskId?: string | null
   draggingTaskId?: string | null
   activeDropTarget?: { taskId: string; placement: TaskTreeDropPlacement } | null
 }>(), {
   depth: 0,
   parentTaskId: null,
+  selectedTaskId: null,
   draggingTaskId: null,
   activeDropTarget: null,
 })
 
 const emit = defineEmits<{
   (event: 'open-task-detail', taskId: string, taskTitle: string): void
+  (event: 'select-task', taskId: string): void
   (event: 'task-drag-start', dragEvent: DragEvent, taskId: string): void
   (event: 'task-drag-end'): void
   (event: 'task-drag-over', payload: { taskId: string; parentTaskId: string | null; placement: TaskTreeDropPlacement }): void
@@ -133,6 +147,7 @@ type TaskTreeStatus = 'todo' | 'doing' | 'completed'
 
 const isExpanded = ref(!props.task.isCompleted)
 const hasChildren = computed(() => props.task.children.length > 0)
+const isSelected = computed(() => props.selectedTaskId === props.task.id)
 const isDropBefore = computed(() => props.activeDropTarget?.taskId === props.task.id && props.activeDropTarget.placement === 'before')
 const isDropAfter = computed(() => props.activeDropTarget?.taskId === props.task.id && props.activeDropTarget.placement === 'after')
 const isDropInside = computed(() => props.activeDropTarget?.taskId === props.task.id && props.activeDropTarget.placement === 'inside')

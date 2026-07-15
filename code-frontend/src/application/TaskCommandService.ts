@@ -6,6 +6,7 @@ import {
   createTask,
   createTaskReminder,
   deleteTaskReminder,
+  duplicateTaskSubtree,
   moveTaskInTree,
   moveTaskToTrash,
   replaceTaskSubtasks,
@@ -68,6 +69,10 @@ export class TaskCommandService {
     },
   ): Promise<TaskDetailResponse> {
     return moveTaskInTree(projectId, taskId, payload)
+  }
+
+  async duplicateSubtree(projectId: string, taskId: string): Promise<TaskDetailResponse> {
+    return duplicateTaskSubtree(projectId, taskId)
   }
 
   async replaceSubtasks(

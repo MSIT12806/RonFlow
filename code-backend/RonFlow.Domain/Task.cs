@@ -144,6 +144,39 @@ public sealed class Task
             [ActivityTimelineItem.TaskCreated(createdAt)]);
     }
 
+    public static Task Duplicate(
+        Task source,
+        TaskTitle title,
+        WorkflowState initialState,
+        DateTimeOffset createdAt,
+        int sortOrder,
+        Guid? parentTaskId)
+    {
+        return new Task(
+            Guid.NewGuid(),
+            source.ProjectId,
+            parentTaskId,
+            title.Value,
+            source.Description,
+            initialState,
+            false,
+            false,
+            false,
+            TaskLifecycleState.ActiveRecord,
+            source.DueDate,
+            createdAt,
+            createdAt,
+            null,
+            null,
+            null,
+            sortOrder,
+            source.EstimatedEffort,
+            source.Subtasks.Select(subtask => new TaskSubtask(Guid.NewGuid(), subtask.Title, subtask.IsChecked, subtask.Order)),
+            [],
+            CloneCodeTraceability(source.CodeTraceability),
+            [ActivityTimelineItem.TaskCreated(createdAt)]);
+    }
+
     public static Task Rehydrate(
         Guid id,
         Guid projectId,
@@ -551,6 +584,14 @@ public sealed class Task
     {
         MutationAt = changedAt;
         return TaskMutationExecutionResult.ChangedResult();
+    }
+
+    private static TaskCodeTraceability CloneCodeTraceability(TaskCodeTraceability source)
+    {
+        return new TaskCodeTraceability(
+            source.Api.Select(item => new TaskCodeTraceabilityItem(item.ChangeType, item.Target)).ToArray(),
+            source.FrontendPages.Select(item => new TaskCodeTraceabilityItem(item.ChangeType, item.Target)).ToArray(),
+            source.FrontendComponents.Select(item => new TaskCodeTraceabilityItem(item.ChangeType, item.Target)).ToArray());
     }
 
     /// <summary>

@@ -222,6 +222,122 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
     }
 
     [Test]
+    public async Task DuplicateTaskSubtree_CreatesAnIndependentTopLevelCopyWithAllDescendants()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        await Client.PutAsJsonAsync(
+            $"/api/projects/{project.Id}/subtask-templates",
+            new
+            {
+                items = new[]
+                {
+                    new { title = "需求已釐清" },
+                    new { title = "驗收測試已撰寫" },
+                },
+            });
+
+        var sourceTask = await CreateTaskAsync(project.Id, "Copy source");
+        var existingRootTask = await CreateTaskAsync(project.Id, "Existing root");
+
+        var childResponse = await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{sourceTask.Id}/children",
+            new CreateChildTaskRequest("Copy child"));
+        var sourceChild = await childResponse.Content.ReadFromJsonAsync<TaskDetailResponse>();
+
+        var grandchildResponse = await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{sourceChild!.Id}/children",
+            new CreateChildTaskRequest("Copy grandchild"));
+        var sourceGrandchild = await grandchildResponse.Content.ReadFromJsonAsync<TaskDetailResponse>();
+
+        var acquireLockResponse = await Client.PostAsync(
+            $"/api/projects/{project.Id}/tasks/{sourceTask.Id}/content-edit-lock",
+            content: null);
+        Assert.That(acquireLockResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var updateResponse = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{sourceTask.Id}",
+            new
+            {
+                title = "Copy source",
+                description = "保留任務內容",
+                dueDate = "2026-07-31",
+                estimatedEffort = new { value = 2, unit = "hours" },
+                codeTraceability = new
+                {
+                    api = new[] { new { changeType = "added", target = "POST /api/projects/{projectId}/tasks/{taskId}/duplicate-subtree" } },
+                    frontendPages = new[] { new { changeType = "modified", target = "ProjectBoard" } },
+                    frontendComponents = new[] { new { changeType = "modified", target = "ProjectBoard.vue" } },
+                },
+            });
+        Assert.That(updateResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var replaceSubtasksResponse = await Client.PutAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{sourceTask.Id}/subtasks",
+            new
+            {
+                items = sourceTask.Subtasks.Select(item => new
+                {
+                    id = item.Id,
+                    title = item.Title,
+                    isChecked = item.Order == 0,
+                    order = item.Order,
+                }).ToArray(),
+            });
+        Assert.That(replaceSubtasksResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var duplicateResponse = await Client.PostAsync(
+            $"/api/projects/{project.Id}/tasks/{sourceTask.Id}/duplicate-subtree",
+            content: null);
+
+        Assert.That(duplicateResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var copiedRoot = await duplicateResponse.Content.ReadFromJsonAsync<TaskDetailResponse>();
+        Assert.That(copiedRoot, Is.Not.Null);
+        Assert.That(copiedRoot!.Id, Is.Not.EqualTo(sourceTask.Id));
+        Assert.That(copiedRoot.Title, Is.EqualTo("Copy source（複本）"));
+        Assert.That(copiedRoot.ParentTaskId, Is.Null);
+        Assert.That(copiedRoot.Description, Is.EqualTo("保留任務內容"));
+        Assert.That(copiedRoot.DueDate, Is.EqualTo(new DateOnly(2026, 7, 31)));
+        Assert.That(copiedRoot.EstimatedEffort, Is.Not.Null);
+        Assert.That(copiedRoot.EstimatedEffort!.Value, Is.EqualTo(2));
+        Assert.That(copiedRoot.EstimatedEffort.Unit, Is.EqualTo("hours"));
+        Assert.That(copiedRoot.CodeTraceability.Api.Select(item => item.Target), Is.EqualTo(new[] { "POST /api/projects/{projectId}/tasks/{taskId}/duplicate-subtree" }));
+        Assert.That(copiedRoot.Subtasks.Select(item => item.Title), Is.EqualTo(new[] { "需求已釐清", "驗收測試已撰寫" }));
+        Assert.That(copiedRoot.Subtasks.Select(item => item.IsChecked), Is.EqualTo(new[] { true, false }));
+        Assert.That(copiedRoot.Subtasks.Select(item => item.Id), Is.Not.EqualTo(sourceTask.Subtasks.Select(item => item.Id)));
+        Assert.That(copiedRoot.CurrentState.Key, Is.EqualTo("todo"));
+        Assert.That(copiedRoot.IsInFlow, Is.False);
+        Assert.That(copiedRoot.IsShort, Is.False);
+        Assert.That(copiedRoot.LifecycleState, Is.EqualTo("activeRecord"));
+        Assert.That(copiedRoot.CompletedAt, Is.Null);
+
+        var boardResponse = await Client.GetAsync($"/api/projects/{project.Id}/board");
+        var board = await boardResponse.Content.ReadFromJsonAsync<ProjectBoardResponse>();
+
+        Assert.That(boardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(board, Is.Not.Null);
+        Assert.That(board!.TaskTree.Select(task => task.Id), Is.EqualTo(new[] { copiedRoot.Id, sourceTask.Id, existingRootTask.Id }));
+
+        var copiedChildId = board.TaskTree.Single(task => task.Id == copiedRoot.Id).Children.Single().Id;
+        var copiedChildResponse = await Client.GetAsync($"/api/projects/{project.Id}/tasks/{copiedChildId}");
+        var copiedChild = await copiedChildResponse.Content.ReadFromJsonAsync<TaskDetailResponse>();
+        Assert.That(copiedChild, Is.Not.Null);
+        Assert.That(copiedChild!.Id, Is.Not.EqualTo(sourceChild.Id));
+        Assert.That(copiedChild.Title, Is.EqualTo("Copy child（複本）"));
+        Assert.That(copiedChild.ParentTaskId, Is.EqualTo(copiedRoot.Id));
+        Assert.That(copiedChild.Subtasks.Select(item => item.Title), Is.EqualTo(sourceChild.Subtasks.Select(item => item.Title)));
+        Assert.That(copiedChild.Subtasks.Select(item => item.Id), Is.Not.EqualTo(sourceChild.Subtasks.Select(item => item.Id)));
+
+        var copiedGrandchildId = copiedChild.ChildTasks.Single().Id;
+        var copiedGrandchildResponse = await Client.GetAsync($"/api/projects/{project.Id}/tasks/{copiedGrandchildId}");
+        var copiedGrandchild = await copiedGrandchildResponse.Content.ReadFromJsonAsync<TaskDetailResponse>();
+        Assert.That(copiedGrandchild, Is.Not.Null);
+        Assert.That(copiedGrandchild!.Id, Is.Not.EqualTo(sourceGrandchild!.Id));
+        Assert.That(copiedGrandchild.Title, Is.EqualTo("Copy grandchild（複本）"));
+        Assert.That(copiedGrandchild.ParentTaskId, Is.EqualTo(copiedChild.Id));
+    }
+
+    [Test]
     public async Task CreateChildTask_WithBlankTitle_ReturnsValidationError()
     {
         var project = await CreateProjectAsync("RonFlow Project");
@@ -1418,6 +1534,7 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
         Assert.That(boardResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
         Assert.That(board, Is.Not.Null);
         Assert.That(board!.Columns.SelectMany(column => column.Tasks).Select(task => task.Id), Does.Not.Contain(createdTask.Id));
+        Assert.That(board.TaskTree.Select(task => task.Id), Does.Not.Contain(createdTask.Id));
 
         var archivedListResponse = await Client.GetAsync($"/api/projects/{project.Id}/tasks/archived");
         var archivedList = await archivedListResponse.Content.ReadFromJsonAsync<LifecycleTaskListResponse>();

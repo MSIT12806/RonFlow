@@ -70,6 +70,34 @@ describe('TaskTreeNode', () => {
     expect(wrapper.get('.task-tree-completion-indicator').text()).toBe('✓')
   })
 
+  it('selects the task without opening its detail', async () => {
+    const wrapper = mount(TaskTreeNode, {
+      props: {
+        task: createTask(),
+        selectedTaskId: 'task-1',
+      },
+    })
+
+    expect(wrapper.get('.task-tree-item').classes()).toContain('task-tree-item-selected')
+
+    await wrapper.get('.task-tree-item').trigger('click')
+
+    expect(wrapper.emitted('select-task')).toEqual([['task-1']])
+    expect(wrapper.emitted('open-task-detail')).toBeUndefined()
+  })
+
+  it('opens task detail only from the dedicated expand button', async () => {
+    const wrapper = mount(TaskTreeNode, {
+      props: {
+        task: createTask(),
+      },
+    })
+
+    await wrapper.get('[aria-label="展開任務詳細資訊"]').trigger('click')
+
+    expect(wrapper.emitted('open-task-detail')).toEqual([['task-1', 'Task 1']])
+  })
+
   it('shows an inside drop guide on the target task card', () => {
     const wrapper = mount(TaskTreeNode, {
       props: {

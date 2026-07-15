@@ -20,6 +20,27 @@
   --brand-strong: #0f766e;
   --brand-accent: #ea580c;
   --text-soft: #526174;
+  --task-tree-todo-text: #64748b;
+  --task-tree-in-flow-border: rgba(14, 165, 233, 0.34);
+  --task-tree-in-flow-indicator-border: rgba(14, 165, 233, 0.38);
+  --task-tree-in-flow-surface: rgba(240, 249, 255, 0.96);
+  --task-tree-in-flow-text: #0369a1;
+  --task-tree-completed-border: rgba(15, 118, 110, 0.24);
+  --task-tree-completed-border-hover: rgba(15, 118, 110, 0.34);
+  --task-tree-completed-surface: rgba(236, 253, 245, 0.88);
+  --task-tree-completed-surface-hover: rgba(236, 253, 245, 0.94);
+  --task-tree-completed-fill: #0f766e;
+  --task-tree-completed-text: #34524e;
+  --task-tree-completed-decoration: rgba(15, 118, 110, 0.44);
+  --task-tree-split-border: rgba(249, 115, 22, 0.34);
+  --task-tree-split-surface: rgba(255, 237, 213, 0.86);
+  --task-tree-split-text: #9a3412;
+  --task-tree-hover-border: rgba(20, 184, 166, 0.42);
+  --task-tree-hover-surface: rgba(240, 253, 250, 0.82);
+  --task-tree-selected-border: #7c3aed;
+  --task-tree-selected-surface: rgba(245, 243, 255, 0.96);
+  --task-tree-selected-ring: rgba(124, 58, 237, 0.2);
+  --task-tree-selected-text: #4c1d95;
 }
 
 * {
@@ -952,7 +973,7 @@ button {
 
 .task-tree-row {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
+  grid-template-columns: 28px minmax(0, 1fr) auto;
   gap: 8px;
   align-items: stretch;
   padding-left: calc(var(--task-tree-depth, 0) * 24px);
@@ -1044,59 +1065,59 @@ button {
 }
 
 .task-tree-completion-indicator-todo {
-  color: #64748b;
+  color: var(--task-tree-todo-text);
 }
 
 .task-tree-completion-indicator-doing {
-  border-color: rgba(14, 165, 233, 0.38);
-  background: rgba(240, 249, 255, 0.96);
-  color: #0369a1;
+  border-color: var(--task-tree-in-flow-indicator-border);
+  background: var(--task-tree-in-flow-surface);
+  color: var(--task-tree-in-flow-text);
 }
 
 .task-tree-completion-indicator-done {
-  border-color: rgba(15, 118, 110, 0.34);
-  background: #0f766e;
+  border-color: var(--task-tree-completed-border-hover);
+  background: var(--task-tree-completed-fill);
 }
 
 .task-tree-item-completed {
-  border-color: rgba(15, 118, 110, 0.24);
-  background: rgba(236, 253, 245, 0.88);
+  border-color: var(--task-tree-completed-border);
+  background: var(--task-tree-completed-surface);
 }
 
 .task-tree-item-completed .task-title {
-  color: #34524e;
+  color: var(--task-tree-completed-text);
   text-decoration: line-through;
   text-decoration-thickness: 2px;
-  text-decoration-color: rgba(15, 118, 110, 0.44);
+  text-decoration-color: var(--task-tree-completed-decoration);
 }
 
 .task-tree-item-in-flow {
   border-style: dashed;
-  border-color: rgba(14, 165, 233, 0.34);
-  background: rgba(240, 249, 255, 0.72);
+  border-color: var(--task-tree-in-flow-border);
+  background: var(--task-tree-in-flow-surface);
 }
 
 .task-tree-item-split-complete {
-  border-color: rgba(249, 115, 22, 0.34);
+  border-color: var(--task-tree-split-border);
   background:
-    linear-gradient(135deg, rgba(255, 237, 213, 0.86), rgba(255, 255, 255, 0.9)),
+    linear-gradient(135deg, var(--task-tree-split-surface), rgba(255, 255, 255, 0.9)),
     rgba(248, 250, 252, 0.82);
 }
 
 .task-tree-item-split-complete .task-title {
-  color: #9a3412;
+  color: var(--task-tree-split-text);
 }
 
 .task-tree-item-completed.task-tree-item-in-flow,
 .task-tree-item-completed.task-tree-item-split-complete {
   border-style: solid;
-  border-color: rgba(15, 118, 110, 0.24);
-  background: rgba(236, 253, 245, 0.88);
+  border-color: var(--task-tree-completed-border);
+  background: var(--task-tree-completed-surface);
 }
 
 .task-tree-item-completed.task-tree-item-in-flow .task-title,
 .task-tree-item-completed.task-tree-item-split-complete .task-title {
-  color: #34524e;
+  color: var(--task-tree-completed-text);
 }
 
 .task-tree-flow-badge {
@@ -1105,8 +1126,8 @@ button {
   margin-left: 8px;
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(14, 165, 233, 0.12);
-  color: #0369a1;
+  background: var(--task-tree-in-flow-surface);
+  color: var(--task-tree-in-flow-text);
   font-size: 0.72rem;
   font-weight: 800;
   text-decoration: none;
@@ -1132,19 +1153,46 @@ button {
 }
 
 .task-tree-item:hover {
-  border-color: rgba(20, 184, 166, 0.42);
-  background: rgba(240, 253, 250, 0.82);
+  border-color: var(--task-tree-hover-border);
+  background: var(--task-tree-hover-surface);
 }
 
 .task-tree-item-completed:hover,
 .task-tree-item-completed.task-tree-item-in-flow:hover,
 .task-tree-item-completed.task-tree-item-split-complete:hover {
-  border-color: rgba(15, 118, 110, 0.34);
-  background: rgba(236, 253, 245, 0.94);
+  border-color: var(--task-tree-completed-border-hover);
+  background: var(--task-tree-completed-surface-hover);
+}
+
+.task-tree-item-selected,
+.task-tree-item-selected:hover {
+  border-color: var(--task-tree-selected-border);
+  background: var(--task-tree-selected-surface);
+  box-shadow: 0 0 0 3px var(--task-tree-selected-ring);
+}
+
+.task-tree-item-selected .task-title {
+  color: var(--task-tree-selected-text);
+}
+
+.task-tree-open-detail-button {
+  align-self: center;
+  padding: 7px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.task-tree-open-detail-button:hover {
+  border-color: var(--task-tree-selected-border);
+  color: var(--task-tree-selected-text);
 }
 
 .task-tree-item-drop-inside {
-  border-color: rgba(14, 165, 233, 0.74);
+  border-color: var(--task-tree-in-flow-border);
   box-shadow:
     inset 0 0 0 2px rgba(14, 165, 233, 0.84),
     0 14px 28px rgba(14, 165, 233, 0.14);

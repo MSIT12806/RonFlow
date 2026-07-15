@@ -142,6 +142,7 @@
             @open-trash-view="openTrashView"
             @open-task-detail="onOpenTaskDetail"
             @move-task-to-trash="onMoveTaskToTrash"
+            @duplicate-task-subtree="onDuplicateTaskSubtree"
             @move-task-to-state="moveTaskToState"
             @reorder-task-within-column="reorderTaskWithinColumn"
             @move-task-within-tree="moveTaskWithinTree"
@@ -517,6 +518,7 @@ const {
   deleteReminder,
   reorderTaskWithinColumn,
   moveTaskWithinTree,
+  duplicateTaskSubtree,
   loadArchivedTasks,
   loadTrashedTasks,
   archiveTask,
@@ -998,6 +1000,11 @@ async function onArchiveTask(taskId: string) {
 
 async function onMoveTaskToTrash(taskId: string) {
   await moveTaskIntoTrash(taskId)
+  currentWorkspaceView.value = 'board'
+}
+
+async function onDuplicateTaskSubtree(taskId: string) {
+  await duplicateTaskSubtree(taskId)
   currentWorkspaceView.value = 'board'
 }
 

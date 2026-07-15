@@ -7,10 +7,12 @@ import {
   expectTaskTreeRootOrder,
   expectTaskOrder,
   getTaskTreeItem,
+  getLifecycleTaskItem,
   getTaskCard,
   openCreateTaskModal,
   openProjectFromList,
   openTaskDetail,
+  openTrashView,
   setupProjectBoard,
   setupTaskBoard,
 } from './support/ronflowTestHelpers'
@@ -251,6 +253,80 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Workflow Behavior', () => {
     await expect(parentTaskTreeItem).toBeVisible()
     await expect(parentTaskTreeItem).toContainText('✓ 1')
     await expect(getTaskTreeItem(page, childTaskTitle)).toHaveCount(0)
+  })
+
+  test('使用者點擊任務樹 task 會選取而不開啟詳細資訊，並可透過展開按鈕開啟', async ({ page }, testInfo) => {
+    const { projectName, taskTitle } = createScenarioData(testInfo)
+
+    await setupTaskBoard(page, projectName, taskTitle)
+
+    const taskTreeItem = getTaskTreeItem(page, taskTitle)
+
+    await taskTreeItem.click()
+
+    await expect(taskTreeItem).toHaveClass(/task-tree-item-selected/)
+    await expect(page.getByRole('dialog', { name: '任務詳細資訊' })).toHaveCount(0)
+
+    await taskTreeItem.locator('..').getByRole('button', { name: '展開任務詳細資訊' }).click()
+
+    await expect(page.getByRole('dialog', { name: '任務詳細資訊' })).toBeVisible()
+  })
+
+  test('使用者按 Delete 會將任務樹 selected task 移到垃圾桶', async ({ page }, testInfo) => {
+    const { projectName, taskTitle } = createScenarioData(testInfo)
+
+    await setupTaskBoard(page, projectName, taskTitle)
+
+    const taskTreeItem = getTaskTreeItem(page, taskTitle)
+    await taskTreeItem.click()
+    await expect(taskTreeItem).toHaveClass(/task-tree-item-selected/)
+
+    const responsePromise = page.waitForResponse((response) => {
+      return response.request().method() === 'PATCH'
+        && /\/api\/projects\/[^/]+\/tasks\/[^/]+\/trash$/.test(response.url())
+        && response.ok()
+    })
+
+    await page.keyboard.press('Delete')
+    await responsePromise
+
+    await expect(page.locator('.task-tree-panel').getByText(taskTitle, { exact: true })).toHaveCount(0)
+    await expect(page.getByTestId('workflow-column-todo')).not.toContainText(taskTitle)
+
+    await openTrashView(page)
+    await expect(getLifecycleTaskItem(page, taskTitle)).toBeVisible()
+  })
+
+  test('使用者可用 Ctrl+C 和 Ctrl+V 複製 selected task 與完整子樹到任務樹最上層', async ({ page, request }, testInfo) => {
+    const { projectName } = createScenarioData(testInfo)
+    const parentTaskTitle = createTaskTitle(testInfo, 'Copy Source Parent')
+    const childTaskTitle = createTaskTitle(testInfo, 'Copy Source Child')
+    const userSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
+    const project = await createProjectThroughApi(request, userSession, projectName)
+    const parentTask = await createTaskThroughApi(request, userSession, project.id, parentTaskTitle)
+    await createChildTaskThroughApi(request, userSession, project.id, parentTask.id, childTaskTitle)
+
+    await loginAndEnterWorkspace(page, userSession.user)
+    await openProjectFromList(page, projectName)
+
+    await getTaskTreeItem(page, parentTaskTitle).click()
+
+    const copyResponse = page.waitForResponse((response) => {
+      return response.request().method() === 'POST'
+        && /\/api\/projects\/[^/]+\/tasks\/[^/]+\/duplicate-subtree$/.test(response.url())
+        && response.ok()
+    })
+
+    await page.keyboard.press('Control+c')
+    await page.keyboard.press('Control+v')
+    await copyResponse
+
+    const copiedParentTitle = `${parentTaskTitle}（複本）`
+    const copiedChildTitle = `${childTaskTitle}（複本）`
+
+    await expectTaskTreeRootOrder(page, [copiedParentTitle, parentTaskTitle])
+    await expect(getTaskTreeItem(page, copiedChildTitle)).toBeVisible()
+    await expect(getTaskTreeItem(page, childTaskTitle)).toBeVisible()
   })
 
   test('使用者可以在任務樹內拖曳調整根任務順序', async ({ page }, testInfo) => {

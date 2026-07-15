@@ -228,6 +228,24 @@ public sealed record ReorderTaskResult(CreateTaskOutput? Task, ValidationError? 
     }
 }
 
+public sealed record DuplicateTaskSubtreeResult(CreateTaskOutput? Task, bool TaskNotFound, bool AccessDenied)
+{
+    public static DuplicateTaskSubtreeResult Success(CreateTaskOutput task)
+    {
+        return new(task, false, false);
+    }
+
+    public static DuplicateTaskSubtreeResult NotFound()
+    {
+        return new(null, true, false);
+    }
+
+    public static DuplicateTaskSubtreeResult Denied()
+    {
+        return new(null, false, true);
+    }
+}
+
 public sealed record TaskLifecycleCommandResult(CreateTaskOutput? Task, ValidationError? ValidationError, bool TaskNotFound, bool AccessDenied, bool Conflict)
 {
     public static TaskLifecycleCommandResult Success(CreateTaskOutput task)

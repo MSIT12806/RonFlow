@@ -98,9 +98,11 @@
               :key="task.id"
               :task="task"
               :parent-task-id="null"
+              :selected-task-id="selectedTaskTreeId"
               :dragging-task-id="draggingTaskSource?.source === 'tree' ? draggingTaskSource.taskId : null"
               :active-drop-target="activeTaskTreeDropTarget"
               @open-task-detail="(taskId, taskTitle) => $emit('open-task-detail', taskId, taskTitle)"
+              @select-task="selectTaskTreeItem"
               @task-drag-start="handleTaskTreeDragStart"
               @task-drag-end="handleTaskTreeDragEnd"
               @task-drag-over="handleTaskTreeDragOver"
@@ -190,7 +192,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import AsyncStateBoundary from './bases/AsyncStateBoundary.vue'
 import BaseErrorState from './bases/BaseErrorState.vue'
 import TaskTreeNode from './TaskTreeNode.vue'
@@ -219,6 +221,8 @@ const emit = defineEmits<{
   (event: 'open-reports'): void
   (event: 'open-trash-view'): void
   (event: 'open-task-detail', taskId: string, taskTitle: string): void
+  (event: 'move-task-to-trash', taskId: string): void
+  (event: 'duplicate-task-subtree', taskId: string): void
   (event: 'move-task-to-state', taskId: string, stateKey: WorkflowKey): void
   (event: 'reorder-task-within-column', taskId: string, targetTaskId: string): void
   (event: 'move-task-within-tree', taskId: string, payload: {
@@ -232,6 +236,8 @@ type TaskDisplayOrder = 'manual' | 'created-asc' | 'created-desc'
 
 const showCompletedTaskTree = ref(false)
 const createdAtSortDirection = ref<TaskDisplayOrder>('manual')
+const selectedTaskTreeId = ref<string | null>(null)
+const copiedTaskTreeId = ref<string | null>(null)
 const displayTaskTree = computed(() => orderTaskTree(props.taskTree, createdAtSortDirection.value, showCompletedTaskTree.value))
 const displayColumns = computed<BoardColumnResponse[]>(() =>
   props.columns.map((column) => ({
@@ -293,6 +299,45 @@ const dragOverStateKey = ref<WorkflowKey | null>(null)
 const dragOverTaskId = ref<string | null>(null)
 const draggingTaskSource = ref<{ taskId: string; source: 'board' | 'tree' } | null>(null)
 const activeTaskTreeDropTarget = ref<{ taskId: string; placement: 'before' | 'after' | 'inside' } | null>(null)
+
+function selectTaskTreeItem(taskId: string) {
+  selectedTaskTreeId.value = taskId
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+
+  return Boolean(target.closest('input, textarea, select, [contenteditable="true"], [role="textbox"]'))
+}
+
+function handleDocumentKeydown(event: KeyboardEvent) {
+  if (isEditableTarget(event.target)) {
+    return
+  }
+
+  if (event.ctrlKey && event.key.toLowerCase() === 'c' && selectedTaskTreeId.value) {
+    event.preventDefault()
+    copiedTaskTreeId.value = selectedTaskTreeId.value
+    return
+  }
+
+  if (event.ctrlKey && event.key.toLowerCase() === 'v' && copiedTaskTreeId.value) {
+    event.preventDefault()
+    emit('duplicate-task-subtree', copiedTaskTreeId.value)
+    return
+  }
+
+  if (event.key === 'Delete' && selectedTaskTreeId.value) {
+    const taskId = selectedTaskTreeId.value
+    selectedTaskTreeId.value = null
+    emit('move-task-to-trash', taskId)
+  }
+}
+
+onMounted(() => window.addEventListener('keydown', handleDocumentKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', handleDocumentKeydown))
 
 type TaskTreeDropPlacement = 'before' | 'after' | 'inside'
 
