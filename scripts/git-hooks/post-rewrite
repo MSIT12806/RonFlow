@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# git pull --rebase normally ends in this hook after rewritten commits.
+
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -z "$repo_root" ]; then
+  echo "[post-rewrite] Unable to resolve the repository root; skipping IIS deployment." >&2
+  exit 0
+fi
+
+deploy_trigger="$repo_root/scripts/deployment/Trigger-LocalhostDeployIfRevisionChanged.ps1"
+if [ ! -f "$deploy_trigger" ] || ! command -v pwsh >/dev/null 2>&1; then
+  echo "[post-rewrite] Deployment prerequisites are unavailable; skipping IIS deployment." >&2
+  exit 0
+fi
+
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File "$deploy_trigger" -RepositoryRoot "$repo_root" -EventName "post-rewrite"
+exit 0

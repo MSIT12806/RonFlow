@@ -148,3 +148,20 @@ Get-Content C:\inetpub\ronflow-web\build-info.json
 ```powershell
 Invoke-WebRequest http://localhost/
 ```
+
+## Git commit / pull 後自動部署
+
+本 repository 已將 Git hooks 設定到 `scripts/git-hooks`。`post-commit`、
+`post-merge` 與 `post-rewrite` 會讀取目前的 `HEAD` commit hash，只有版本真的
+改變時才觸發 `RonFlowLocalhostDeploy` 排程工作。因此下列操作都能觸發本機
+IIS 部署：
+
+- `git commit`
+- 一般 `git pull`
+- `git pull --rebase`
+
+同一個 revision 不會重複觸發。去重狀態與部署紀錄位於：
+
+```text
+%LOCALAPPDATA%\RonFlow\localhost-deploy
+```

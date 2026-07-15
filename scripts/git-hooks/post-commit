@@ -1,7 +1,7 @@
 #!/bin/sh
 
-# Trigger the already-installed elevated Windows Task Scheduler job. The job
-# performs the actual IIS deployment and writes its own logs/status files.
+# Trigger the shared version-aware deployment helper. The helper starts the
+# already-installed elevated Windows Task Scheduler job only when HEAD changed.
 
 repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
 if [ -z "$repo_root" ]; then
@@ -9,9 +9,9 @@ if [ -z "$repo_root" ]; then
   exit 0
 fi
 
-deploy_trigger="$repo_root/scripts/deployment/Invoke-LocalhostDeployScheduledTask.ps1"
+deploy_trigger="$repo_root/scripts/deployment/Trigger-LocalhostDeployIfRevisionChanged.ps1"
 if [ ! -f "$deploy_trigger" ]; then
-  echo "[post-commit] Deployment trigger not found: $deploy_trigger" >&2
+  echo "[post-commit] Version-aware deployment trigger not found: $deploy_trigger" >&2
   exit 0
 fi
 
@@ -20,11 +20,10 @@ if ! command -v pwsh >/dev/null 2>&1; then
   exit 0
 fi
 
-echo "[post-commit] Triggering RonFlow IIS deployment..."
-if ! pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File "$deploy_trigger"; then
-  echo "[post-commit] Could not start the IIS deployment task. The commit was kept." >&2
+echo "[post-commit] Checking whether the current HEAD requires an IIS deployment..."
+if ! pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File "$deploy_trigger" -RepositoryRoot "$repo_root" -EventName "post-commit"; then
+  echo "[post-commit] Could not evaluate the IIS deployment trigger. The commit was kept." >&2
   exit 0
 fi
 
-echo "[post-commit] IIS deployment task started. Check the scheduled-task log for completion."
 exit 0

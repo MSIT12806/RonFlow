@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# git pull normally ends in this hook, including fast-forward pulls.
+
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -z "$repo_root" ]; then
+  echo "[post-merge] Unable to resolve the repository root; skipping IIS deployment." >&2
+  exit 0
+fi
+
+deploy_trigger="$repo_root/scripts/deployment/Trigger-LocalhostDeployIfRevisionChanged.ps1"
+if [ ! -f "$deploy_trigger" ] || ! command -v pwsh >/dev/null 2>&1; then
+  echo "[post-merge] Deployment prerequisites are unavailable; skipping IIS deployment." >&2
+  exit 0
+fi
+
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File "$deploy_trigger" -RepositoryRoot "$repo_root" -EventName "post-merge"
+exit 0

@@ -472,7 +472,8 @@ Feature: 建立專案
 5. 已封存任務入口
 6. 垃圾桶入口
 7. 專案成員入口
-8. 目前在線成員清單
+8. 完成條件模板入口
+9. 目前在線成員清單
 ```
 
 **User Actions**
@@ -485,6 +486,7 @@ Feature: 建立專案
 5. 進入 Archived Tasks View
 6. 進入 Trash View
 7. 開啟 Project Members Panel
+8. 開啟與管理完成條件模板
 ```
 
 **Visible Names**
@@ -508,13 +510,14 @@ Feature: 建立專案
 8. 使用者可以從 Project Kanban Board 進入 Archived Tasks View
 9. 使用者可以從 Project Kanban Board 進入 Trash View
 10. Project Owner 應可從 Project Kanban Board 開啟成員管理入口以邀請成員
-11. 其他成員已儲存的 Task 變更，應近即時反映在目前 Board 上可見的資訊中。
-12. 若某張 Task 正由其他使用者拖曳、編輯或執行 lifecycle 操作，該 Task 仍可被查看，但衝突操作應被禁止。
-13. Board 應顯示目前仍在此 Project scope 中的在線成員清單。
-14. 使用者可以從 Project Kanban Board 進入程式修改紀錄查詢頁，查看目前 Project 中所有 ActiveRecord Task 已填寫的程式修改追蹤。
-15. 程式修改紀錄查詢頁應以一個 Task 一張 card 的形式列出符合查詢條件的 Task，card 內呈現該 Task 的紀錄類別、change type 與 target。
-16. 程式修改紀錄查詢頁應提供類別、change type 與關鍵字篩選；關鍵字至少比對 Task 標題與 target。
-17. 使用者點擊程式修改紀錄查詢頁中的 Task card 時，系統應開啟該 Task 的 Task Detail Modal。
+11. Project Owner 與已接受邀請的 Project Member 都應可從 Project Kanban Board 開啟完成條件模板入口。
+12. 其他成員已儲存的 Task 變更，應近即時反映在目前 Board 上可見的資訊中。
+13. 若某張 Task 正由其他使用者拖曳、編輯或執行 lifecycle 操作，該 Task 仍可被查看，但衝突操作應被禁止。
+14. Board 應顯示目前仍在此 Project scope 中的在線成員清單。
+15. 使用者可以從 Project Kanban Board 進入程式修改紀錄查詢頁，查看目前 Project 中所有 ActiveRecord Task 已填寫的程式修改追蹤。
+16. 程式修改紀錄查詢頁應以一個 Task 一張 card 的形式列出符合查詢條件的 Task，card 內呈現該 Task 的紀錄類別、change type 與 target。
+17. 程式修改紀錄查詢頁應提供類別、change type 與關鍵字篩選；關鍵字至少比對 Task 標題與 target。
+18. 使用者點擊程式修改紀錄查詢頁中的 Task card 時，系統應開啟該 Task 的 Task Detail Modal。
 ```
 
 **UI / UX Notes**
@@ -1450,6 +1453,8 @@ Feature: Invitation inbox
 6. Project Owner 可以邀請其他已註冊使用者加入該 Project
 7. 被邀請使用者接受邀請後，成為該 Project 的 Member
 8. Project Name 的必填錯誤訊息為「專案名稱為必填欄位」
+9. Project Owner 與已接受邀請的 Project Member 都可讀取及管理該 Project 的完成條件模板。
+10. 非該 Project Owner 或已接受邀請 Member 的使用者，不可讀取或修改完成條件模板，系統應回應 Access Denied。
 ```
 
 <a id="task-rules"></a>
@@ -1664,12 +1669,13 @@ Feature: Invitation inbox
 
 ```text
 1. Project 可以定義預設的 subtask templates，作為工程任務的標準完成條件。
-2. Project Owner 或已接受邀請的 Project Member 可以新增、修改、刪除與排序 project-level subtask templates。
-3. Project-level subtask templates 應可被新建立的 Task 繼承。
-4. Task 建立後，仍可依自身情境覆寫或調整 subtasks，不受 template 綁死。
-5. Project template 更新後，不應自動改寫既有 Task 的 subtasks。
-6. Project 成員可以從既有 Task Detail Drawer 手動套用目前 Project template，以整份取代該 Task 的 subtasks。
-7. 手動套用 Project template 後，既有 subtasks 的內容、順序與完成狀態都不應保留。
+2. Project Owner 或已接受邀請的 Project Member 可以讀取、新增、修改、刪除與排序 project-level subtask templates。
+3. 未接受邀請、已拒絕邀請或非該 Project 成員的使用者，不可看見、讀取或修改 project-level subtask templates，系統應回應 Access Denied。
+4. Project-level subtask templates 應可被新建立的 Task 繼承。
+5. Task 建立後，仍可依自身情境覆寫或調整 subtasks，不受 template 綁死。
+6. Project template 更新後，不應自動改寫既有 Task 的 subtasks。
+7. Project 成員可以從既有 Task Detail Drawer 手動套用目前 Project template，以整份取代該 Task 的 subtasks。
+8. 手動套用 Project template 後，既有 subtasks 的內容、順序與完成狀態都不應保留。
 ```
 
 ### 9.5 Move Task State To Another Workflow State
