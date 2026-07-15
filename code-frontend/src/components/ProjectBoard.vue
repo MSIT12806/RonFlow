@@ -9,7 +9,6 @@
 
         <div class="board-header-actions">
           <button
-            v-if="canManageMembers"
             type="button"
             class="secondary-button"
             @click="$emit('open-project-subtask-templates')"

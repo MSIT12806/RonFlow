@@ -46,6 +46,18 @@ function mountProjectBoard(options: {
 }
 
 describe('ProjectBoard', () => {
+  it('allows project members to open completion condition templates without exposing member management', async () => {
+    const wrapper = mountProjectBoard()
+    const templateButton = wrapper.findAll('button').find((button) => button.text() === '完成條件模板')
+
+    expect(templateButton).toBeDefined()
+    expect(wrapper.findAll('button').some((button) => button.text() === '專案成員')).toBe(false)
+
+    await templateButton!.trigger('click')
+
+    expect(wrapper.emitted('open-project-subtask-templates')).toHaveLength(1)
+  })
+
   it('hides completed task tree branches by default and shows them collapsed when requested', async () => {
     const wrapper = mountProjectBoard({
       taskTree: [

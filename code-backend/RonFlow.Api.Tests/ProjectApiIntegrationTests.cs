@@ -7,6 +7,8 @@ namespace RonFlow.Api.Tests;
 
 public sealed class ProjectApiIntegrationTests : ApiIntegrationTestBase
 {
+    public sealed record ProjectInvitationResponse(Guid Id, string Invitee, string Status);
+
     public sealed record ProjectSubtaskTemplateResponse(Guid Id, string Title, int Order);
 
     public sealed record ProjectSubtaskTemplateListResponse(IReadOnlyList<ProjectSubtaskTemplateResponse> Items);
@@ -317,6 +319,62 @@ public sealed class ProjectApiIntegrationTests : ApiIntegrationTestBase
             "需求已釐清",
             "spec 文件已寫入",
             "已部署到 localhost",
+        }));
+    }
+
+    [Test]
+    public async Task ReplaceProjectSubtaskTemplates_AllowsProjectMemberToReplaceTemplates()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var replaceResponse = await Client.PutAsJsonAsync(
+            $"/api/projects/{project.Id}/subtask-templates",
+            new
+            {
+                items = new[]
+                {
+                    new { title = "需求已釐清" },
+                    new { title = "驗收測試已撰寫" },
+                },
+            });
+
+        Assert.That(replaceResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        using var memberClient = CreateAuthenticatedClient(TestUser.OwnerB);
+        await EnsureKnownUserAsync(Client);
+        await EnsureKnownUserAsync(memberClient);
+
+        var invitationResponse = await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/invitations",
+            new CreateProjectInvitationRequest(TestUser.OwnerB.Email));
+        var invitation = await invitationResponse.Content.ReadFromJsonAsync<ProjectInvitationResponse>();
+
+        Assert.That(invitationResponse.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+        Assert.That(invitation, Is.Not.Null);
+
+        var acceptResponse = await memberClient.PostAsync($"/api/invitations/{invitation!.Id}/accept", content: null);
+
+        Assert.That(acceptResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var memberReplaceResponse = await memberClient.PutAsJsonAsync(
+            $"/api/projects/{project.Id}/subtask-templates",
+            new
+            {
+                items = new[]
+                {
+                    new { title = "成員已更新模板" },
+                },
+            });
+
+        Assert.That(memberReplaceResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var getResponse = await memberClient.GetAsync($"/api/projects/{project.Id}/subtask-templates");
+        var templates = await getResponse.Content.ReadFromJsonAsync<ProjectSubtaskTemplateListResponse>();
+
+        Assert.That(getResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(templates, Is.Not.Null);
+        Assert.That(templates!.Items.Select(item => item.Title), Is.EqualTo(new[]
+        {
+            "成員已更新模板",
         }));
     }
 }

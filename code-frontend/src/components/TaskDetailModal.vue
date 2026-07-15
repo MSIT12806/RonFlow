@@ -258,6 +258,18 @@
               >
                 新增完成條件
               </button>
+
+              <button
+                v-if="canApplyCompletionTemplate"
+                type="button"
+                class="secondary-button"
+                data-testid="task-apply-completion-template"
+                :disabled="isSaving || isLoadingCompletionTemplates || completionTemplates.length === 0"
+                title="會以目前專案模板取代全部完成條件，並清除勾選狀態"
+                @click="applyCompletionTemplate"
+              >
+                套用完成條件模板
+              </button>
             </div>
 
             <div class="detail-ready-grid">
@@ -540,6 +552,7 @@ import AsyncStateBoundary from './bases/AsyncStateBoundary.vue'
 import ApiCommandResourceView from './bases/ApiCommandResourceView.vue'
 import BaseModalShell from './bases/BaseModalShell.vue'
 import type {
+  ProjectSubtaskTemplateResponse,
   TaskCodeTraceabilityChangeType,
   TaskDetailResponse,
   TaskEstimatedEffortUnit,
@@ -636,6 +649,8 @@ const draftSubtasks = ref<DraftTaskSubtask[]>([])
 const draftCodeTraceability = ref<DraftTaskCodeTraceability>(createEmptyCodeTraceability())
 const isActionsOpen = ref(false)
 const canUseShortTask = ref(false)
+const completionTemplates = ref<ProjectSubtaskTemplateResponse[]>([])
+const isLoadingCompletionTemplates = ref(false)
 const projectQueryService = new ProjectQueryService()
 
 const traceabilityCategories: Array<{ key: TraceabilityCategoryKey; label: string; testId: string }> = [
@@ -661,6 +676,14 @@ const isChecklistTextReadOnly = computed(() => isForcedReadOnly.value || isLifec
 const taskReminders = computed(() => props.task?.reminders ?? [])
 const childTasks = computed(() => props.task?.childTasks ?? [])
 const isParentTask = computed(() => childTasks.value.length > 0)
+const canApplyCompletionTemplate = computed(() =>
+  Boolean(props.task)
+  && !isForcedReadOnly.value
+  && !isLifecycleReadOnly.value
+  && !isEditing.value
+  && canEnterEdit.value
+  && !isParentTask.value,
+)
 const showsSplitCompleteStatus = computed(() => isParentTask.value || Boolean(props.task?.isSplitComplete))
 const canToggleSplitCompleteAction = computed(() =>
   Boolean(props.task)
@@ -798,6 +821,24 @@ function addSubtask() {
       isChecked: false,
     },
   ]
+}
+
+function applyCompletionTemplate() {
+  if (!props.task || props.isSaving || !canApplyCompletionTemplate.value || completionTemplates.value.length === 0) {
+    return
+  }
+
+  emit('replace-subtasks', {
+    taskId: props.task.id,
+    subtasks: [...completionTemplates.value]
+      .sort((left, right) => left.order - right.order)
+      .map((template, index) => ({
+        id: null,
+        title: template.title,
+        isChecked: false,
+        order: index,
+      })),
+  })
 }
 
 function submitChildTask() {
@@ -1144,15 +1185,21 @@ watch(
   () => [props.isOpen, props.task?.projectId] as const,
   async ([isOpen, projectId]) => {
     canUseShortTask.value = false
+    completionTemplates.value = []
+    isLoadingCompletionTemplates.value = false
     if (!isOpen || !projectId) {
       return
     }
 
+    isLoadingCompletionTemplates.value = true
     try {
       const templates = await projectQueryService.getSubtaskTemplates(projectId)
+      completionTemplates.value = templates.items
       canUseShortTask.value = templates.items.length > 0
     } catch {
       canUseShortTask.value = false
+    } finally {
+      isLoadingCompletionTemplates.value = false
     }
   },
   { immediate: true },

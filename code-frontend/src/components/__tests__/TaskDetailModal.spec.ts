@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import TaskDetailModal from '../TaskDetailModal.vue'
 import type { TaskDetailResponse } from '../../api/ronflowApi'
 
@@ -238,6 +238,50 @@ describe('TaskDetailModal', () => {
             title: '需求已釐清',
             isChecked: true,
             order: 0,
+          },
+        ],
+      },
+    ]])
+  })
+
+  it('replaces all completion criteria with the project template and clears checked state', async () => {
+    const wrapper = mountTaskDetail(createTask({
+      subtasks: [
+        {
+          id: 'subtask-1',
+          title: '舊的完成條件',
+          isChecked: true,
+          order: 0,
+        },
+      ],
+    }))
+
+    await flushPromises()
+    ;(wrapper.vm as unknown as {
+      completionTemplates: Array<{ id: string; title: string; order: number }>
+    }).completionTemplates = [
+      { id: 'template-2', title: '驗收測試已撰寫', order: 1 },
+      { id: 'template-1', title: '需求已釐清', order: 0 },
+    ]
+    await wrapper.vm.$nextTick()
+
+    await wrapper.get('[data-testid="task-apply-completion-template"]').trigger('click')
+
+    expect(wrapper.emitted('replace-subtasks')).toEqual([[
+      {
+        taskId: 'task-1',
+        subtasks: [
+          {
+            id: null,
+            title: '需求已釐清',
+            isChecked: false,
+            order: 0,
+          },
+          {
+            id: null,
+            title: '驗收測試已撰寫',
+            isChecked: false,
+            order: 1,
           },
         ],
       },

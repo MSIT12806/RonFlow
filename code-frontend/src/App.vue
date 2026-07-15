@@ -1031,7 +1031,7 @@ async function loadProjectSubtaskTemplates(projectId: string) {
 }
 
 async function openProjectSubtaskTemplatesModal() {
-  if (!activeProjectId.value || activeProject.value?.role === '專案成員') {
+  if (!activeProjectId.value) {
     return
   }
 

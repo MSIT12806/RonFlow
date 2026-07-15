@@ -10,7 +10,7 @@ public sealed class GetProjectSubtaskTemplatesQueryService(ProjectAccessService 
 {
     public OwnedResourceQueryResult<ProjectSubtaskTemplateListView> Get(Guid currentUserId, Guid projectId)
     {
-        var access = projectAccessService.GetOwnerProject(currentUserId, projectId);
+        var access = projectAccessService.GetOwnedProject(currentUserId, projectId);
         if (access.ProjectNotFound)
         {
             return OwnedResourceQueryResult<ProjectSubtaskTemplateListView>.Missing();
@@ -34,7 +34,7 @@ public sealed class ReplaceProjectSubtaskTemplatesCommandService(
 {
     public ReplaceProjectSubtaskTemplatesResult Replace(Guid currentUserId, Guid projectId, IReadOnlyList<ProjectSubtaskTemplateInput> inputs)
     {
-        var access = projectAccessService.GetOwnerProject(currentUserId, projectId);
+        var access = projectAccessService.GetOwnedProject(currentUserId, projectId);
         if (access.ProjectNotFound)
         {
             return ReplaceProjectSubtaskTemplatesResult.NotFound();
