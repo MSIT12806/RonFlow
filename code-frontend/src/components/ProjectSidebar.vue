@@ -39,8 +39,8 @@
             <span class="project-chip-title">{{ project.name }}</span>
             <small>{{ props.formatProjectMeta(project.updatedAt) }}</small>
             <small class="project-chip-role">{{ project.role || '專案擁有者' }}</small>
-            <small v-if="project.activeTasks.length > 0" class="project-chip-active-tasks">
-              進行中：{{ project.activeTasks.map((task) => task.title).join('、') }}
+            <small v-if="project.activeTaskCount > 0" class="project-chip-active-tasks">
+              進行中任務：{{ project.activeTaskCount }}
             </small>
           </button>
         </li>

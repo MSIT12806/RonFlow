@@ -90,7 +90,7 @@ public sealed class ProjectApiIntegrationTests : ApiIntegrationTestBase
     }
 
     [Test]
-    public async Task GetProjects_WhenProjectHasActiveTasks_ReturnsTheirSummaries()
+    public async Task GetProjects_WhenProjectHasActiveTasks_ReturnsTheirCount()
     {
         var project = await CreateProjectAsync("Active Task Summary Project");
         var activeTask = await CreateTaskAsync(project.Id, "Keep the release moving");
@@ -106,9 +106,7 @@ public sealed class ProjectApiIntegrationTests : ApiIntegrationTestBase
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
         Assert.That(payload, Is.Not.Null);
-        Assert.That(payload!.Items.Single().ActiveTasks, Has.Count.EqualTo(1));
-        Assert.That(payload.Items.Single().ActiveTasks.Single().Id, Is.EqualTo(activeTask.Id));
-        Assert.That(payload.Items.Single().ActiveTasks.Single().Title, Is.EqualTo("Keep the release moving"));
+        Assert.That(payload!.Items.Single().ActiveTaskCount, Is.EqualTo(1));
     }
 
     [Test]

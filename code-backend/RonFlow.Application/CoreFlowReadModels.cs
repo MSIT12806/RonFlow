@@ -9,9 +9,7 @@ public sealed record ProjectListItemView(
     string Name,
     DateTimeOffset UpdatedAt,
     string Role,
-    IReadOnlyList<ProjectActiveTaskView> ActiveTasks);
-
-public sealed record ProjectActiveTaskView(Guid Id, string Title);
+    int ActiveTaskCount);
 
 public sealed record ProjectMemberListView(
     IReadOnlyList<ProjectMemberView> Items,
@@ -241,7 +239,7 @@ internal static class CoreFlowReadModelFactory
 
     private static ProjectListItemView CreateProjectListItem(ProjectSummaryModel project)
     {
-        return new ProjectListItemView(project.Id, project.Name, project.UpdatedAt, "專案擁有者", []);
+        return new ProjectListItemView(project.Id, project.Name, project.UpdatedAt, "專案擁有者", 0);
     }
 
     private static BoardTaskCardView CreateBoardTaskCard(

@@ -214,7 +214,7 @@ public sealed record ProjectListItemResponse(
     string Name,
     DateTimeOffset UpdatedAt,
     string Role,
-    IReadOnlyList<ProjectActiveTaskResponse> ActiveTasks)
+    int ActiveTaskCount)
 {
     public static ProjectListItemResponse FromView(ProjectListItemView view)
     {
@@ -223,15 +223,7 @@ public sealed record ProjectListItemResponse(
             view.Name,
             view.UpdatedAt,
             view.Role,
-            view.ActiveTasks.Select(ProjectActiveTaskResponse.FromView).ToArray());
-    }
-}
-
-public sealed record ProjectActiveTaskResponse(Guid Id, string Title)
-{
-    public static ProjectActiveTaskResponse FromView(ProjectActiveTaskView view)
-    {
-        return new(view.Id, view.Title);
+            view.ActiveTaskCount);
     }
 }
 

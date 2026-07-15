@@ -53,7 +53,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Project List Behavior', () => {
     await expect(page.locator('.project-chip-role').filter({ hasText: '專案成員' })).toBeVisible()
   })
 
-  test('專案列表會顯示進行中的任務', async ({ page, request }, testInfo) => {
+  test('專案列表會顯示進行中的任務數量', async ({ page, request }, testInfo) => {
     const { projectName } = createScenarioData(testInfo)
     const activeTaskTitle = `進行中任務 ${testInfo.workerIndex}-${testInfo.retry}-${Date.now()}`
     const userSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
@@ -64,7 +64,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Project List Behavior', () => {
     await moveTaskStateThroughApi(request, userSession, project.id, task.id, 'active')
     await loginAndEnterWorkspace(page, userSession.user)
 
-    await expect(page.getByRole('button', { name: new RegExp(projectName) })).toContainText(`進行中：${activeTaskTitle}`)
+    await expect(page.getByRole('button', { name: new RegExp(projectName) })).toContainText('進行中任務：1')
   })
 
   test('拒絕空白的專案名稱', async ({ page }) => {

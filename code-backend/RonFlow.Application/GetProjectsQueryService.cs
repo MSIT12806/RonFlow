@@ -8,18 +8,14 @@ public sealed class GetProjectsQueryService(
 {
     public ProjectListView Get(Guid currentUserId)
     {
-        var activeTasksByProjectId = taskRepository.GetAll()
+        var activeTaskCountsByProjectId = taskRepository.GetAll()
             .Where(task => task.LifecycleState == TaskLifecycleState.ActiveRecord)
             .Where(task => task.IsInFlow)
             .Where(task => string.Equals(task.CurrentState.Key, "active", StringComparison.OrdinalIgnoreCase))
             .GroupBy(task => task.ProjectId)
             .ToDictionary(
                 group => group.Key,
-                group => (IReadOnlyList<ProjectActiveTaskView>)group
-                    .OrderBy(task => task.SortOrder)
-                    .ThenBy(task => task.CreatedAt)
-                    .Select(task => new ProjectActiveTaskView(task.Id, task.Title))
-                    .ToArray());
+                group => group.Count());
 
         return CoreFlowReadModelFactory.CreateProjectList(
             projectRepository.GetAll()
@@ -29,7 +25,7 @@ public sealed class GetProjectsQueryService(
                     project.Name,
                     project.UpdatedAt,
                     project.IsOwnedBy(currentUserId) ? "專案擁有者" : "專案成員",
-                    activeTasksByProjectId.GetValueOrDefault(project.Id, [])))
+                    activeTaskCountsByProjectId.GetValueOrDefault(project.Id)))
                 .ToArray());
     }
 }
