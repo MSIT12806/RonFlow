@@ -489,7 +489,7 @@ export function useRonFlowBoard() {
         taskDetailResource.setData(updatedTask)
       }
 
-      await loadBoard(activeProjectId.value)
+      await refreshBoardSilently(activeProjectId.value)
     } catch (error) {
       if (error instanceof ApiRequestError && error.status === 404) {
         boardCommandError.value = '找不到指定的任務，請重新整理專案看板。'

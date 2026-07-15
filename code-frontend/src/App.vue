@@ -141,6 +141,7 @@
             @open-reports="openReportsView"
             @open-trash-view="openTrashView"
             @open-task-detail="onOpenTaskDetail"
+            @move-task-to-trash="onMoveTaskToTrash"
             @move-task-to-state="moveTaskToState"
             @reorder-task-within-column="reorderTaskWithinColumn"
             @move-task-within-tree="moveTaskWithinTree"
@@ -602,8 +603,10 @@ async function initializeWorkspace() {
   currentWorkspaceView.value = 'board'
   await activateRonFlowSession()
   void startDatabaseSyncNotifications()
-  await loadProjects()
-  await refreshInvitationInboxCount()
+  await Promise.all([
+    loadProjects(),
+    refreshInvitationInboxCount(),
+  ])
   startWorkspacePolling()
 }
 

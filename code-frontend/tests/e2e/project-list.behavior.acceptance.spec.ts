@@ -8,9 +8,12 @@ import {
   acceptInvitationThroughApi,
   configureTestFaultsThroughApi,
   createProjectThroughApi,
+  createTaskThroughApi,
   getInvitationInboxThroughApi,
   inviteProjectMemberThroughApi,
+  moveTaskStateThroughApi,
   registerRonFlowApiUser,
+  replaceProjectSubtaskTemplatesThroughApi,
 } from './support/ronflowApiTestHelpers'
 
 test.describe('RonFlow UI/UX 驗收規格 - Project List Behavior', () => {
@@ -48,6 +51,20 @@ test.describe('RonFlow UI/UX 驗收規格 - Project List Behavior', () => {
 
     await expect(page.getByRole('button', { name: new RegExp(projectName) })).toBeVisible({ timeout: 10000 })
     await expect(page.locator('.project-chip-role').filter({ hasText: '專案成員' })).toBeVisible()
+  })
+
+  test('專案列表會顯示進行中的任務', async ({ page, request }, testInfo) => {
+    const { projectName } = createScenarioData(testInfo)
+    const activeTaskTitle = `進行中任務 ${testInfo.workerIndex}-${testInfo.retry}-${Date.now()}`
+    const userSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
+    const project = await createProjectThroughApi(request, userSession, projectName)
+    await replaceProjectSubtaskTemplatesThroughApi(request, userSession, project.id, ['完成 short 任務'])
+    const task = await createTaskThroughApi(request, userSession, project.id, activeTaskTitle, true)
+
+    await moveTaskStateThroughApi(request, userSession, project.id, task.id, 'active')
+    await loginAndEnterWorkspace(page, userSession.user)
+
+    await expect(page.getByRole('button', { name: new RegExp(projectName) })).toContainText(`進行中：${activeTaskTitle}`)
   })
 
   test('拒絕空白的專案名稱', async ({ page }) => {

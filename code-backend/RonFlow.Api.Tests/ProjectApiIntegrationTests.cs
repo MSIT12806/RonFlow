@@ -90,6 +90,28 @@ public sealed class ProjectApiIntegrationTests : ApiIntegrationTestBase
     }
 
     [Test]
+    public async Task GetProjects_WhenProjectHasActiveTasks_ReturnsTheirSummaries()
+    {
+        var project = await CreateProjectAsync("Active Task Summary Project");
+        var activeTask = await CreateTaskAsync(project.Id, "Keep the release moving");
+        activeTask = await ReadyTaskForFlowAsync(project.Id, activeTask);
+
+        var moveResponse = await Client.PatchAsJsonAsync(
+            $"/api/projects/{project.Id}/tasks/{activeTask.Id}/state",
+            new ChangeTaskStateRequest("active"));
+        Assert.That(moveResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var response = await Client.GetAsync("/api/projects");
+        var payload = await response.Content.ReadFromJsonAsync<ProjectListResponse>();
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(payload, Is.Not.Null);
+        Assert.That(payload!.Items.Single().ActiveTasks, Has.Count.EqualTo(1));
+        Assert.That(payload.Items.Single().ActiveTasks.Single().Id, Is.EqualTo(activeTask.Id));
+        Assert.That(payload.Items.Single().ActiveTasks.Single().Title, Is.EqualTo("Keep the release moving"));
+    }
+
+    [Test]
     public async Task CreateProject_WithBlankName_ReturnsValidationError()
     {
         var response = await Client.PostAsJsonAsync("/api/projects", new CreateProjectRequest("   "));

@@ -146,14 +146,31 @@ export async function createTaskThroughApi(
   session: RonFlowApiSession,
   projectId: string,
   taskTitle: string,
+  isShort = false,
 ) {
   const response = await request.post(`${backendApiBaseUrl}/projects/${projectId}/tasks`, {
     headers: authHeaders(session.accessToken),
-    data: { title: taskTitle },
+    data: { title: taskTitle, isShort },
   })
 
   await expectJsonOk(response)
   return response.json() as Promise<TaskResponse>
+}
+
+export async function replaceProjectSubtaskTemplatesThroughApi(
+  request: APIRequestContext,
+  session: RonFlowApiSession,
+  projectId: string,
+  titles: string[],
+) {
+  const response = await request.put(`${backendApiBaseUrl}/projects/${projectId}/subtask-templates`, {
+    headers: authHeaders(session.accessToken),
+    data: {
+      items: titles.map((title, order) => ({ id: null, title, order })),
+    },
+  })
+
+  await expectJsonOk(response)
 }
 
 export async function createChildTaskThroughApi(

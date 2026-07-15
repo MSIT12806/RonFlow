@@ -4,7 +4,14 @@ namespace RonFlow.Application;
 
 public sealed record ProjectListView(IReadOnlyList<ProjectListItemView> Items);
 
-public sealed record ProjectListItemView(Guid Id, string Name, DateTimeOffset UpdatedAt, string Role);
+public sealed record ProjectListItemView(
+    Guid Id,
+    string Name,
+    DateTimeOffset UpdatedAt,
+    string Role,
+    IReadOnlyList<ProjectActiveTaskView> ActiveTasks);
+
+public sealed record ProjectActiveTaskView(Guid Id, string Title);
 
 public sealed record ProjectMemberListView(
     IReadOnlyList<ProjectMemberView> Items,
@@ -234,7 +241,7 @@ internal static class CoreFlowReadModelFactory
 
     private static ProjectListItemView CreateProjectListItem(ProjectSummaryModel project)
     {
-        return new ProjectListItemView(project.Id, project.Name, project.UpdatedAt, "專案擁有者");
+        return new ProjectListItemView(project.Id, project.Name, project.UpdatedAt, "專案擁有者", []);
     }
 
     private static BoardTaskCardView CreateBoardTaskCard(

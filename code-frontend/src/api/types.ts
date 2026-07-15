@@ -232,6 +232,12 @@ export type ProjectListItemResponse = {
   name: string
   updatedAt: string
   role?: string
+  activeTasks: ProjectActiveTaskResponse[]
+}
+
+export type ProjectActiveTaskResponse = {
+  id: string
+  title: string
 }
 
 export type ProjectMemberResponse = {

@@ -209,11 +209,29 @@ public sealed record InvitationInboxItemResponse(Guid Id, Guid ProjectId, string
     }
 }
 
-public sealed record ProjectListItemResponse(Guid Id, string Name, DateTimeOffset UpdatedAt, string Role)
+public sealed record ProjectListItemResponse(
+    Guid Id,
+    string Name,
+    DateTimeOffset UpdatedAt,
+    string Role,
+    IReadOnlyList<ProjectActiveTaskResponse> ActiveTasks)
 {
     public static ProjectListItemResponse FromView(ProjectListItemView view)
     {
-        return new(view.Id, view.Name, view.UpdatedAt, view.Role);
+        return new(
+            view.Id,
+            view.Name,
+            view.UpdatedAt,
+            view.Role,
+            view.ActiveTasks.Select(ProjectActiveTaskResponse.FromView).ToArray());
+    }
+}
+
+public sealed record ProjectActiveTaskResponse(Guid Id, string Title)
+{
+    public static ProjectActiveTaskResponse FromView(ProjectActiveTaskView view)
+    {
+        return new(view.Id, view.Title);
     }
 }
 
