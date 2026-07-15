@@ -111,7 +111,10 @@ SQLite 檔案不能直接假設在寫入中仍可安全複製，因此 sync 流�
 7. 啟動時的 runtime snapshot / pull / DbMerger merge / commit / push / restore 是預設行為。
 8. 每次資料異動後，先 snapshot，再 pull，再用 DbMerger merge，最後 commit + push 是預設行為。
 9. 若 Git sync 失敗，不得把本地 mutation 視為失敗。
-10. 若 DbMerger 回報 unresolved conflict，第一版採手動解決，不應覆蓋 runtime DB。
+10. Project / Task aggregate JSON 使用 `mutationAt` 做 latest mutation wins；若 `mutationAt` 相同或兩邊都無法判斷，local wins。
+11. Project / Task aggregate JSON 的 same-id different-content 不記為 unresolved conflict；DbMerger 應直接套用第 10 點規則。
+12. `DatabaseSyncMetadata.DatabaseMutationAtUtc` 只代表整個 SQLite database 的最後資料變異水位，不得用來判斷單筆 Project / Task 誰勝出。
+13. 若 DbMerger 對其他未定義語意的資料回報 unresolved conflict，第一版採手動解決，不應覆蓋 runtime DB。
 
 ## 6. Layering Contract
 

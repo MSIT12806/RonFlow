@@ -29,6 +29,7 @@ internal static class CoreFlowJsonSerializer
         writer.WriteString("ownerEmail", project.OwnerEmail);
         writer.WriteString("name", project.Name);
         writer.WriteString("updatedAt", project.UpdatedAt);
+        writer.WriteString("mutationAt", project.MutationAt);
         writer.WritePropertyName("workflowStates");
         writer.WriteStartArray();
 
@@ -98,6 +99,11 @@ internal static class CoreFlowJsonSerializer
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
 
+        var updatedAt = root.GetProperty("updatedAt").GetDateTimeOffset();
+        var mutationAt = root.TryGetProperty("mutationAt", out var mutationAtElement) && mutationAtElement.ValueKind != JsonValueKind.Null
+            ? mutationAtElement.GetDateTimeOffset()
+            : updatedAt;
+
         return Project.Rehydrate(
             root.GetProperty("id").GetGuid(),
             root.TryGetProperty("ownerId", out var ownerIdElement) && ownerIdElement.ValueKind != JsonValueKind.Null
@@ -110,7 +116,8 @@ internal static class CoreFlowJsonSerializer
                 ? ownerEmailElement.GetString() ?? string.Empty
                 : string.Empty,
             GetRequiredString(root, "name"),
-            root.GetProperty("updatedAt").GetDateTimeOffset(),
+            updatedAt,
+            mutationAt,
             root.GetProperty("workflowStates")
                 .EnumerateArray()
                 .Select(ReadWorkflowState)
@@ -186,6 +193,7 @@ internal static class CoreFlowJsonSerializer
             writer.WriteString("dueDate", task.DueDate.Value.ToString("yyyy-MM-dd"));
         }
         writer.WriteString("createdAt", task.CreatedAt);
+        writer.WriteString("mutationAt", task.MutationAt);
 
         if (task.CompletedAt is null)
         {
@@ -318,6 +326,8 @@ internal static class CoreFlowJsonSerializer
         var sortOrder = root.TryGetProperty("sortOrder", out var sortOrderElement)
             ? sortOrderElement.GetInt32()
             : 0;
+        var createdAt = root.GetProperty("createdAt").GetDateTimeOffset();
+        var mutationAt = ReadTaskMutationAt(root, createdAt, completedAt, archivedAt, trashedAt);
         var estimatedEffort = root.TryGetProperty("estimatedEffort", out var estimatedEffortElement) && estimatedEffortElement.ValueKind != JsonValueKind.Null
             ? ReadTaskEstimatedEffort(estimatedEffortElement)
             : null;
@@ -360,7 +370,8 @@ internal static class CoreFlowJsonSerializer
             isSplitComplete,
             lifecycleState,
             dueDate,
-            root.GetProperty("createdAt").GetDateTimeOffset(),
+            createdAt,
+            mutationAt,
             completedAt,
             archivedAt,
             trashedAt,
@@ -373,6 +384,55 @@ internal static class CoreFlowJsonSerializer
                 .EnumerateArray()
                 .Select(ReadActivityTimelineItem)
                 .ToArray());
+    }
+
+    private static DateTimeOffset ReadTaskMutationAt(
+        JsonElement root,
+        DateTimeOffset createdAt,
+        DateTimeOffset? completedAt,
+        DateTimeOffset? archivedAt,
+        DateTimeOffset? trashedAt)
+    {
+        if (root.TryGetProperty("mutationAt", out var mutationAtElement) && mutationAtElement.ValueKind != JsonValueKind.Null)
+        {
+            return mutationAtElement.GetDateTimeOffset();
+        }
+
+        var mutationAt = Max(createdAt, completedAt, archivedAt, trashedAt);
+        if (!root.TryGetProperty("activityTimeline", out var activityTimelineElement) || activityTimelineElement.ValueKind == JsonValueKind.Null)
+        {
+            return mutationAt;
+        }
+
+        foreach (var item in activityTimelineElement.EnumerateArray())
+        {
+            if (!item.TryGetProperty("occurredAt", out var occurredAtElement) || occurredAtElement.ValueKind == JsonValueKind.Null)
+            {
+                continue;
+            }
+
+            var occurredAt = occurredAtElement.GetDateTimeOffset();
+            if (occurredAt > mutationAt)
+            {
+                mutationAt = occurredAt;
+            }
+        }
+
+        return mutationAt;
+    }
+
+    private static DateTimeOffset Max(DateTimeOffset first, params DateTimeOffset?[] candidates)
+    {
+        var max = first;
+        foreach (var candidate in candidates)
+        {
+            if (candidate is not null && candidate.Value > max)
+            {
+                max = candidate.Value;
+            }
+        }
+
+        return max;
     }
 
     private static string GetRequiredString(JsonElement element, string propertyName)

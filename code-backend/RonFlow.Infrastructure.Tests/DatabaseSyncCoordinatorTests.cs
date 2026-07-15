@@ -1,4 +1,5 @@
 using RonFlow.Infrastructure;
+using Microsoft.Data.Sqlite;
 
 namespace RonFlow.Infrastructure.Tests;
 
@@ -224,6 +225,60 @@ public sealed class DatabaseSyncCoordinatorTests
         Assert.DoesNotThrow(() => coordinator.FlushPendingMutations());
     }
 
+    [Test]
+    public void DbMergerDatabaseSnapshotMerger_WhenRemoteTaskMutationIsNewer_WritesRemoteTask()
+    {
+        using var temp = new TempDirectory();
+        var localPath = temp.DatabasePath("local.db");
+        var remotePath = temp.DatabasePath("remote.db");
+        var outputPath = temp.DatabasePath("merged.db");
+        var localTask = new KeyedJsonRecord("shared-task", """{"id":"shared-task","title":"local","mutationAt":"2026-07-15T01:00:00+00:00"}""");
+        var remoteTask = new KeyedJsonRecord("shared-task", """{"id":"shared-task","title":"remote","mutationAt":"2026-07-15T02:00:00+00:00"}""");
+        CreateRonFlowCoreDatabase(localPath, projects: [], tasks: [localTask]);
+        CreateRonFlowCoreDatabase(remotePath, projects: [], tasks: [remoteTask]);
+
+        var result = new DbMergerDatabaseSnapshotMerger().Merge(localPath, remotePath, outputPath);
+
+        Assert.That(result.Succeeded, Is.True);
+        Assert.That(ReadJsonData(outputPath, "Tasks", "shared-task"), Is.EqualTo(remoteTask.Data));
+    }
+
+    [Test]
+    public void DbMergerDatabaseSnapshotMerger_WhenTaskMutationAtTies_WritesLocalTask()
+    {
+        using var temp = new TempDirectory();
+        var localPath = temp.DatabasePath("local.db");
+        var remotePath = temp.DatabasePath("remote.db");
+        var outputPath = temp.DatabasePath("merged.db");
+        var localTask = new KeyedJsonRecord("shared-task", """{"id":"shared-task","title":"local","mutationAt":"2026-07-15T01:00:00+00:00"}""");
+        var remoteTask = new KeyedJsonRecord("shared-task", """{"id":"shared-task","title":"remote","mutationAt":"2026-07-15T01:00:00+00:00"}""");
+        CreateRonFlowCoreDatabase(localPath, projects: [], tasks: [localTask]);
+        CreateRonFlowCoreDatabase(remotePath, projects: [], tasks: [remoteTask]);
+
+        var result = new DbMergerDatabaseSnapshotMerger().Merge(localPath, remotePath, outputPath);
+
+        Assert.That(result.Succeeded, Is.True);
+        Assert.That(ReadJsonData(outputPath, "Tasks", "shared-task"), Is.EqualTo(localTask.Data));
+    }
+
+    [Test]
+    public void DbMergerDatabaseSnapshotMerger_WhenLocalProjectMutationIsNewer_WritesLocalProject()
+    {
+        using var temp = new TempDirectory();
+        var localPath = temp.DatabasePath("local.db");
+        var remotePath = temp.DatabasePath("remote.db");
+        var outputPath = temp.DatabasePath("merged.db");
+        var localProject = new KeyedJsonRecord("shared-project", """{"id":"shared-project","name":"local","mutationAt":"2026-07-15T03:00:00+00:00"}""");
+        var remoteProject = new KeyedJsonRecord("shared-project", """{"id":"shared-project","name":"remote","mutationAt":"2026-07-15T02:00:00+00:00"}""");
+        CreateRonFlowCoreDatabase(localPath, projects: [localProject], tasks: []);
+        CreateRonFlowCoreDatabase(remotePath, projects: [remoteProject], tasks: []);
+
+        var result = new DbMergerDatabaseSnapshotMerger().Merge(localPath, remotePath, outputPath);
+
+        Assert.That(result.Succeeded, Is.True);
+        Assert.That(ReadJsonData(outputPath, "Projects", "shared-project"), Is.EqualTo(localProject.Data));
+    }
+
     private static DatabaseSyncCoordinator CreateCoordinator(
         string repositoryPath,
         string runtimeDatabasePath,
@@ -275,6 +330,64 @@ public sealed class DatabaseSyncCoordinatorTests
 
         return new DateTimeOffset(DateTime.SpecifyKind(lastUpdateTime, DateTimeKind.Utc));
     }
+
+    private static void CreateRonFlowCoreDatabase(
+        string path,
+        IEnumerable<KeyedJsonRecord> projects,
+        IEnumerable<KeyedJsonRecord> tasks)
+    {
+        using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = path,
+            Mode = SqliteOpenMode.ReadWriteCreate,
+            Pooling = false,
+        }.ToString());
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+CREATE TABLE Projects (
+    Id TEXT NOT NULL PRIMARY KEY,
+    Data TEXT NOT NULL
+);
+
+CREATE TABLE Tasks (
+    Id TEXT NOT NULL PRIMARY KEY,
+    Data TEXT NOT NULL
+);";
+        command.ExecuteNonQuery();
+
+        InsertKeyedJsonRecords(connection, "Projects", projects);
+        InsertKeyedJsonRecords(connection, "Tasks", tasks);
+    }
+
+    private static void InsertKeyedJsonRecords(SqliteConnection connection, string tableName, IEnumerable<KeyedJsonRecord> records)
+    {
+        foreach (var record in records)
+        {
+            using var insert = connection.CreateCommand();
+            insert.CommandText = $"INSERT INTO {tableName} (Id, Data) VALUES ($id, $data)";
+            insert.Parameters.AddWithValue("$id", record.Id);
+            insert.Parameters.AddWithValue("$data", record.Data);
+            insert.ExecuteNonQuery();
+        }
+    }
+
+    private static string ReadJsonData(string path, string tableName, string id)
+    {
+        using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = path,
+            Mode = SqliteOpenMode.ReadOnly,
+            Pooling = false,
+        }.ToString());
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT Data FROM {tableName} WHERE Id = $id";
+        command.Parameters.AddWithValue("$id", id);
+        return (string)command.ExecuteScalar()!;
+    }
+
+    private sealed record KeyedJsonRecord(string Id, string Data);
 
     private sealed class RecordingSnapshotStore : IDatabaseSnapshotStore
     {
@@ -389,6 +502,11 @@ public sealed class DatabaseSyncCoordinatorTests
         }
 
         public string Path { get; }
+
+        public string DatabasePath(string fileName)
+        {
+            return System.IO.Path.Combine(Path, fileName);
+        }
 
         public void Dispose()
         {

@@ -20,6 +20,7 @@ public sealed class SqliteCoreFlowStoreTests
         AssertTableExists(databasePath, "Projects");
         AssertTableExists(databasePath, "Tasks");
         AssertTableExists(databasePath, "KnownUsers");
+        AssertTableExists(databasePath, "DatabaseSyncMetadata");
     }
 
     [Test]
@@ -33,6 +34,7 @@ public sealed class SqliteCoreFlowStoreTests
 
         var domainEvent = AssertDomainEvent<CoreFlowDataChangedDomainEvent>(dispatcher.SingleEvent);
         Assert.That(domainEvent.Reason, Is.EqualTo("task updated"));
+        Assert.That(store.GetDatabaseMutationAt(), Is.Not.Null);
     }
 
     private static void AssertTableExists(string databasePath, string tableName)

@@ -42,7 +42,31 @@ public sealed class SqliteCoreFlowStore
 
     public void NotifyChanged(string reason)
     {
+        TouchDatabaseMutationAt(DateTimeOffset.UtcNow);
         domainEventDispatcher.Dispatch(new CoreFlowDataChangedDomainEvent(reason));
+    }
+
+    public DateTimeOffset? GetDatabaseMutationAt()
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT DatabaseMutationAtUtc FROM DatabaseSyncMetadata WHERE Id = 1";
+        var value = command.ExecuteScalar() as string;
+        return string.IsNullOrWhiteSpace(value)
+            ? null
+            : DateTimeOffset.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private void TouchDatabaseMutationAt(DateTimeOffset mutationAt)
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+INSERT INTO DatabaseSyncMetadata (Id, DatabaseMutationAtUtc, LastSuccessfulSyncAtUtc)
+VALUES (1, $mutationAt, NULL)
+ON CONFLICT(Id) DO UPDATE SET DatabaseMutationAtUtc = excluded.DatabaseMutationAtUtc;";
+        command.Parameters.AddWithValue("$mutationAt", mutationAt.ToString("O"));
+        command.ExecuteNonQuery();
     }
 
     private void EnsureInitialized()
@@ -69,6 +93,12 @@ CREATE TABLE IF NOT EXISTS KnownUsers (
     UserId TEXT NOT NULL PRIMARY KEY,
     UserName TEXT NOT NULL,
     Email TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS DatabaseSyncMetadata (
+    Id INTEGER NOT NULL PRIMARY KEY CHECK (Id = 1),
+    DatabaseMutationAtUtc TEXT NOT NULL,
+    LastSuccessfulSyncAtUtc TEXT NULL
 );
 
 CREATE TABLE IF NOT EXISTS WorkflowThroughputOutbox (
