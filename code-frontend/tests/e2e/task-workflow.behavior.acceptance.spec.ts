@@ -16,6 +16,7 @@ import {
 } from './support/ronflowTestHelpers'
 import {
   configureTestFaultsThroughApi,
+  createChildTaskThroughApi,
   createProjectThroughApi,
   createTaskThroughApi,
   moveTaskStateThroughApi,
@@ -200,6 +201,56 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Workflow Behavior', () => {
 
     const detailDialog = page.getByRole('dialog', { name: '任務詳細資訊' })
     await expect(detailDialog.getByText('已調整任務順序', { exact: true })).toBeVisible()
+  })
+
+  test('使用者可以切換任務樹與 Flow 依建立時間排序', async ({ page }, testInfo) => {
+    const { projectName } = createScenarioData(testInfo)
+    const firstTaskTitle = createTaskTitle(testInfo, 'Created First Task')
+    const secondTaskTitle = createTaskTitle(testInfo, 'Created Second Task')
+
+    await setupProjectBoard(page, projectName)
+
+    await openCreateTaskModal(page)
+    await createTask(page, firstTaskTitle)
+
+    await openCreateTaskModal(page)
+    await createTask(page, secondTaskTitle)
+
+    await expectTaskTreeRootOrder(page, [firstTaskTitle, secondTaskTitle])
+    await expectTaskOrder(page, 'todo', [firstTaskTitle, secondTaskTitle])
+
+    await page.getByTestId('task-created-at-sort').selectOption('created-desc')
+
+    await expectTaskTreeRootOrder(page, [secondTaskTitle, firstTaskTitle])
+    await expectTaskOrder(page, 'todo', [secondTaskTitle, firstTaskTitle])
+
+    await page.getByTestId('task-created-at-sort').selectOption('created-asc')
+
+    await expectTaskTreeRootOrder(page, [firstTaskTitle, secondTaskTitle])
+    await expectTaskOrder(page, 'todo', [firstTaskTitle, secondTaskTitle])
+  })
+
+  test('任務樹預設隱藏已完成 subtree，勾選後以收合狀態顯示', async ({ page, request }, testInfo) => {
+    const { projectName } = createScenarioData(testInfo)
+    const parentTaskTitle = createTaskTitle(testInfo, 'Completed Parent Task')
+    const childTaskTitle = createTaskTitle(testInfo, 'Completed Child Task')
+    const userSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
+    const project = await createProjectThroughApi(request, userSession, projectName)
+    const parentTask = await createTaskThroughApi(request, userSession, project.id, parentTaskTitle)
+    const childTask = await createChildTaskThroughApi(request, userSession, project.id, parentTask.id, childTaskTitle)
+
+    await moveTaskStateThroughApi(request, userSession, project.id, childTask.id, 'done')
+    await loginAndEnterWorkspace(page, userSession.user)
+    await openProjectFromList(page, projectName)
+
+    await expect(getTaskTreeItem(page, parentTaskTitle)).toHaveCount(0)
+
+    await page.getByTestId('show-completed-task-tree').check()
+
+    const parentTaskTreeItem = getTaskTreeItem(page, parentTaskTitle)
+    await expect(parentTaskTreeItem).toBeVisible()
+    await expect(parentTaskTreeItem).toContainText('✓ 1')
+    await expect(getTaskTreeItem(page, childTaskTitle)).toHaveCount(0)
   })
 
   test('使用者可以在任務樹內拖曳調整根任務順序', async ({ page }, testInfo) => {

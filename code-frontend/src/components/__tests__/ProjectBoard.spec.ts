@@ -77,7 +77,7 @@ describe('ProjectBoard', () => {
     expect(wrapper.get('[data-testid="task-tree-item-completed-root"]').classes()).toContain('task-tree-item-completed')
   })
 
-  it('orders the task tree and workflow columns by created time', async () => {
+  it('keeps manual order by default and can order the task tree and workflow columns by created time', async () => {
     const wrapper = mountProjectBoard({
       taskTree: [
         createTask({ id: 'new-tree-task', title: 'New tree task', createdAt: '2026-05-12T10:00:00.000Z' }),
@@ -94,6 +94,17 @@ describe('ProjectBoard', () => {
     })
 
     expect(wrapper.findAll('[data-testid^="task-tree-item-"]').map((item) => item.attributes('data-testid'))).toEqual([
+      'task-tree-item-new-tree-task',
+      'task-tree-item-old-tree-task',
+    ])
+    expect(wrapper.findAll('[data-testid^="workflow-task-"]').map((item) => item.attributes('data-testid'))).toEqual([
+      'workflow-task-new-flow-task',
+      'workflow-task-old-flow-task',
+    ])
+
+    await wrapper.get('[data-testid="task-created-at-sort"]').setValue('created-asc')
+
+    expect(wrapper.findAll('[data-testid^="task-tree-item-"]').map((item) => item.attributes('data-testid'))).toEqual([
       'task-tree-item-old-tree-task',
       'task-tree-item-new-tree-task',
     ])
@@ -102,7 +113,7 @@ describe('ProjectBoard', () => {
       'workflow-task-new-flow-task',
     ])
 
-    await wrapper.get('[data-testid="task-created-at-sort"]').setValue('desc')
+    await wrapper.get('[data-testid="task-created-at-sort"]').setValue('created-desc')
 
     expect(wrapper.findAll('[data-testid^="task-tree-item-"]').map((item) => item.attributes('data-testid'))).toEqual([
       'task-tree-item-new-tree-task',

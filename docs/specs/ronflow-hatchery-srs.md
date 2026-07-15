@@ -248,6 +248,11 @@ Flow / Kanban 區域
 1. 大型任務與未 Ready 任務不直接污染 Flow。
 2. 使用者仍能在同一個 Project 脈絡中看見任務樹與 Flow 任務。
 3. 任務樹上的子任務應能一目瞭然。
+4. 任務樹節點應以一致 icon 表達任務狀態：`○` 表示 Todo、`◐` 表示 Doing、`✓` 表示 Completed。
+5. 若任務已進 Flow 但也已完成，任務樹上的視覺狀態以 Completed 為準，底色應呈現完成狀態。
+6. 任務樹預設不顯示整串已完成的 root task subtree；若某個 root task 與其所有 descendant 都已完成，該 root task 不應出現在預設任務樹。
+7. 任務樹應提供「顯示已完成任務」checkbox。勾選後，已完成的 subtree 重新顯示，且 completed parent task 預設為收合狀態。
+8. 任務樹與 Flow / Kanban 區域應共用建立時間排序控制。預設保留既有自訂排序；使用者可切換為依建立時間由舊到新或由新到舊顯示。
 
 ### 9.2 任務建立
 
@@ -384,21 +389,25 @@ MVP 不採 AI 判讀、不採自動複雜度估算、不處理不 Ready 原因�
 
 MVP 中，父任務已標記拆解完成後仍可新增 child task。新增 child task 後，MVP 不自動取消拆解完成、不提示、不做狀態回退。
 
-### 11.4 父任務進度
+### 11.4 父任務子任務狀態摘要
 
-父任務進度顯示格式為：
+任務樹上的父任務應顯示直接子任務狀態摘要，而不是只顯示完成比例。
 
-```text
-完成直接子任務數 / 直接子任務總數
-```
-
-例如：
+摘要應使用 icon + 數字格式：
 
 ```text
-3 / 10
+○ Todo 數量
+◐ Doing 數量
+✓ Completed 數量
 ```
 
-MVP 不以所有 descendant 計算父任務進度。
+各狀態定義如下：
+
+1. Todo：子任務尚未進入 Flow，且尚未完成。
+2. Doing：子任務已進入 Flow，但尚未完成。
+3. Completed：子任務已完成。
+
+統計範圍採直接子任務，不以所有 descendant 計算父任務摘要。若需要顯示更深層 descendant 狀態，使用者應展開下一層父任務查看。
 
 ### 11.5 父任務自動完成
 
@@ -423,6 +432,8 @@ MVP 暫定送進 Flow 後進入 Todo。若既有 RonFlow 固定流程已有不�
 ### 12.2 Flow 完成同步
 
 同一筆任務在 Flow 中完成後，任務樹中的該任務也視為完成。
+
+若任務同時是 in Flow 與 completed，任務樹上應以 completed 視覺為準，包含 completed icon 與 completed 底色。
 
 當父任務底下所有直接子任務完成後，父任務自動完成。
 

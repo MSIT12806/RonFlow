@@ -80,8 +80,9 @@
                   aria-label="任務建立時間排序"
                   data-testid="task-created-at-sort"
                 >
-                  <option value="asc">由舊到新</option>
-                  <option value="desc">由新到舊</option>
+                  <option value="manual">自訂排序</option>
+                  <option value="created-asc">由舊到新</option>
+                  <option value="created-desc">由新到舊</option>
                 </select>
               </label>
               <span class="count-badge">{{ taskTreeNodeCount }}</span>
@@ -228,15 +229,15 @@ const emit = defineEmits<{
   }): void
 }>()
 
-type CreatedAtSortDirection = 'asc' | 'desc'
+type TaskDisplayOrder = 'manual' | 'created-asc' | 'created-desc'
 
 const showCompletedTaskTree = ref(false)
-const createdAtSortDirection = ref<CreatedAtSortDirection>('asc')
-const displayTaskTree = computed(() => sortTaskTree(props.taskTree, createdAtSortDirection.value, showCompletedTaskTree.value))
+const createdAtSortDirection = ref<TaskDisplayOrder>('manual')
+const displayTaskTree = computed(() => orderTaskTree(props.taskTree, createdAtSortDirection.value, showCompletedTaskTree.value))
 const displayColumns = computed<BoardColumnResponse[]>(() =>
   props.columns.map((column) => ({
     ...column,
-    tasks: sortTasksByCreatedAt(column.tasks, createdAtSortDirection.value),
+    tasks: orderTasks(column.tasks, createdAtSortDirection.value),
   })),
 )
 const taskTreeNodeCount = computed(() => countTaskTreeNodes(displayTaskTree.value))
@@ -245,25 +246,29 @@ function countTaskTreeNodes(tasks: BoardTaskCardResponse[]): number {
   return tasks.reduce((total, task) => total + 1 + countTaskTreeNodes(task.children), 0)
 }
 
-function sortTaskTree(
+function orderTaskTree(
   tasks: BoardTaskCardResponse[],
-  direction: CreatedAtSortDirection,
+  displayOrder: TaskDisplayOrder,
   showCompletedTasks: boolean,
 ): BoardTaskCardResponse[] {
-  return sortTasksByCreatedAt(tasks, direction)
+  return orderTasks(tasks, displayOrder)
     .filter((task) => showCompletedTasks || !isCompletedTaskSubtree(task))
     .map((task) => ({
       ...task,
-      children: sortTaskTree(task.children, direction, showCompletedTasks),
+      children: orderTaskTree(task.children, displayOrder, showCompletedTasks),
     }))
 }
 
-function sortTasksByCreatedAt(tasks: BoardTaskCardResponse[], direction: CreatedAtSortDirection): BoardTaskCardResponse[] {
+function orderTasks(tasks: BoardTaskCardResponse[], displayOrder: TaskDisplayOrder): BoardTaskCardResponse[] {
+  if (displayOrder === 'manual') {
+    return tasks
+  }
+
   return [...tasks].sort((firstTask, secondTask) => {
     const firstCreatedAt = Date.parse(firstTask.createdAt)
     const secondCreatedAt = Date.parse(secondTask.createdAt)
     const createdAtDelta = firstCreatedAt - secondCreatedAt
-    const directedDelta = direction === 'asc' ? createdAtDelta : -createdAtDelta
+    const directedDelta = displayOrder === 'created-asc' ? createdAtDelta : -createdAtDelta
 
     return directedDelta || firstTask.title.localeCompare(secondTask.title, 'zh-Hant')
   })
