@@ -157,7 +157,7 @@ function Ensure-Directory {
 }
 
 function Get-ElevatedDeployCommand {
-  return 'pwsh -NoLogo -NoProfile -File .\scripts\deployment\Deploy-LocalhostSites.ps1 -EnsureIisApplications -StopIisHosting -SkipFrontendInstall'
+  return 'pwsh -NoLogo -NoProfile -File .\scripts\deployment\Deploy-LocalhostSites.ps1 -EnsureIisApplications -StopIisHosting'
 }
 
 function Test-DirectoryWritable {

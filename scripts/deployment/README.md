@@ -47,8 +47,10 @@ pwsh -NoLogo -NoProfile -File .\scripts\deployment\Start-LocalhostDeploy.ps1
 這個入口會跳出 Windows UAC。你同意後，它會在 elevated 子程序中執行：
 
 ```powershell
-Deploy-LocalhostSites.ps1 -EnsureIisApplications -StopIisHosting -SkipFrontendInstall
+Deploy-LocalhostSites.ps1 -EnsureIisApplications -StopIisHosting
 ```
+
+`Start-LocalhostDeploy.ps1` 與排程工作入口的完整部署，預設每次都會先執行 `npm ci` 安裝前端依賴；只有直接執行 `Deploy-LocalhostSites.ps1` 並明確傳入 `-SkipFrontendInstall` 時才會略過。
 
 執行紀錄會寫到：
 
@@ -118,7 +120,7 @@ pwsh -NoLogo -NoProfile -File .\scripts\deployment\Invoke-LocalhostDeploySchedul
 排程工作預設會執行：
 
 ```powershell
-Deploy-LocalhostSites.ps1 -EnsureIisApplications -StopIisHosting -SkipFrontendInstall
+Deploy-LocalhostSites.ps1 -EnsureIisApplications -StopIisHosting
 ```
 
 執行紀錄會寫到：

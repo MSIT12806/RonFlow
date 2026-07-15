@@ -3,7 +3,7 @@ param(
   [string]$DeployScriptPath,
   [string]$PwshPath,
   [string]$LogDirectory = (Join-Path $env:LOCALAPPDATA 'RonFlow\localhost-deploy'),
-  [string[]]$DeployArguments = @('-EnsureIisApplications', '-StopIisHosting', '-SkipFrontendInstall'),
+  [string[]]$DeployArguments = @('-EnsureIisApplications', '-StopIisHosting'),
   [string]$InvocationStatePath,
   [switch]$NoSelfElevate
 )

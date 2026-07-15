@@ -2,7 +2,7 @@
 param(
   [string]$DeployScriptPath,
   [string]$LogDirectory = (Join-Path $env:LOCALAPPDATA 'RonFlow\localhost-deploy'),
-  [string[]]$DeployArguments = @('-EnsureIisApplications', '-StopIisHosting', '-SkipFrontendInstall')
+  [string[]]$DeployArguments = @('-EnsureIisApplications', '-StopIisHosting')
 )
 
 Set-StrictMode -Version Latest
