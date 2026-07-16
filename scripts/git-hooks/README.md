@@ -26,3 +26,5 @@ pwsh -NoLogo -NoProfile -File .\scripts\deployment\Install-LocalhostDeploySchedu
 The hook is intentionally non-blocking for the Git operation: a
 deployment-start failure is reported as a warning, while the commit or pull
 remains successful.
+
+
