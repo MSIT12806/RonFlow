@@ -146,6 +146,11 @@ public sealed class TaskLifecycleController : AuthenticatedControllerBase
             return AccessDenied();
         }
 
+        if (result.Conflict)
+        {
+            return Results.Conflict();
+        }
+
         return result.TaskNotFound
             ? Results.NotFound()
             : Results.Ok(TaskDetailResponse.FromOutput(result.Task!));
@@ -175,6 +180,11 @@ public sealed class TaskLifecycleController : AuthenticatedControllerBase
         if (result.AccessDenied)
         {
             return AccessDenied();
+        }
+
+        if (result.Conflict)
+        {
+            return Results.Conflict();
         }
 
         return result.TaskNotFound

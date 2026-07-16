@@ -911,6 +911,36 @@ public sealed class TaskApiIntegrationTests : ApiIntegrationTestBase
     }
 
     [Test]
+    public async Task MoveTaskToTrash_WhenAnotherUserHoldsContentEditLock_ReturnsConflict()
+    {
+        var project = await CreateProjectAsync("RonFlow Project");
+        var createdTask = await CreateTaskAsync(project.Id, "Build Kanban Board");
+        using var memberClient = CreateAuthenticatedClient(TestUser.OwnerB);
+
+        await EnsureKnownUserAsync(Client);
+        await EnsureKnownUserAsync(memberClient);
+
+        var invitationResponse = await Client.PostAsJsonAsync(
+            $"/api/projects/{project.Id}/invitations",
+            new CreateProjectInvitationRequest(TestUser.OwnerB.Email));
+
+        Assert.That(invitationResponse.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+
+        var invitation = await invitationResponse.Content.ReadFromJsonAsync<ProjectInvitationResponse>();
+        Assert.That(invitation, Is.Not.Null);
+
+        var acceptResponse = await memberClient.PostAsync($"/api/invitations/{invitation!.Id}/accept", content: null);
+        Assert.That(acceptResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var ownerAcquireResponse = await Client.PostAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}/content-edit-lock", content: null);
+        Assert.That(ownerAcquireResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var trashResponse = await memberClient.PatchAsync($"/api/projects/{project.Id}/tasks/{createdTask.Id}/trash", content: null);
+
+        Assert.That(trashResponse.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+    }
+
+    [Test]
     public async Task ChangeTaskState_ToAnotherWorkflowState_UpdatesBoardAndDoesNotSetCompletedAt()
     {
         var project = await CreateProjectAsync("RonFlow Project");
