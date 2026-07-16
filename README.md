@@ -81,6 +81,30 @@ RonFlow 採用 spec-first 的開發流程。
 
 使用方式與參數說明請看 [scripts/deployment/README.md](scripts/deployment/README.md)。
 
+### Git commit 後自動部署
+
+本 repository 已將 `core.hooksPath` 設定為 `scripts/git-hooks`。因此在本機完成一次排程工作安裝後，以下操作會自動觸發 localhost 部署：
+
+- `git commit`
+- 一般 `git pull`
+- `git pull --rebase`
+
+安裝一次性排程工作（會出現 UAC 提示）：
+
+```powershell
+pwsh -NoLogo -NoProfile -File .\scripts\deployment\Install-LocalhostDeployScheduledTask.ps1
+```
+
+Git hook 會檢查目前 `HEAD` 是否已部署或已觸發過部署，只有 revision 改變時才啟動 `RonFlowLocalhostDeploy` 排程工作；相同 revision 不會重複部署。hook 本身是 non-blocking，部署啟動失敗只會顯示 warning，不會讓 commit 或 pull 失敗。
+
+部署完成與失敗狀態、log 會寫在 `%LOCALAPPDATA%\RonFlow\localhost-deploy`。可用下列指令查看最近一次執行結果：
+
+```powershell
+pwsh -NoLogo -NoProfile -File .\scripts\deployment\Invoke-LocalhostDeployScheduledTask.ps1 -ShowLastRun
+```
+
+注意：commit hook 會觸發部署，但不會自動執行完整測試套件；部署流程中的 frontend production build 也不等同於測試通過。測試仍請依變更範圍手動執行下列指令。
+
 ### 前端建置
 
 code-frontend 已初始化完成，可使用以下流程：
@@ -108,7 +132,14 @@ npm install
 npm run build
 ```
 
-若已加入 Playwright 測試設定：
+元件測試：
+
+```powershell
+Set-Location code-frontend
+npm run test:components
+```
+
+E2E 測試：
 
 ```powershell
 Set-Location code-frontend
