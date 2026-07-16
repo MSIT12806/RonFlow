@@ -11,7 +11,11 @@ import { getRonFlowSessionId } from '../ronflowSession'
 
 const seenStorageKey = 'ronflow.databaseSyncNotifications.seenOperationIds'
 
-export function useDatabaseSyncNotifications() {
+type UseDatabaseSyncNotificationsOptions = {
+  onCompletedOperation?: (operation: DatabaseSyncOperationResponse) => void
+}
+
+export function useDatabaseSyncNotifications(options: UseDatabaseSyncNotificationsOptions = {}) {
   const operations = ref<DatabaseSyncOperationResponse[]>([])
   const seenOperationIds = ref<Set<string>>(loadSeenOperationIds())
   const isConnected = ref(false)
@@ -96,6 +100,9 @@ export function useDatabaseSyncNotifications() {
 
       connection.on('databaseSyncCompleted', (operation: DatabaseSyncOperationResponse) => {
         mergeOperations([operation])
+        if (isCompleted(operation)) {
+          options.onCompletedOperation?.(operation)
+        }
       })
 
       connection.onreconnected(() => {

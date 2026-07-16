@@ -4,6 +4,8 @@
   <AsyncStatePlayground v-if="showAsyncStatePlayground" />
 
   <main v-else class="app-shell">
+    <Toast group="database-sync" position="bottom-right" />
+
     <div class="ambient ambient-left"></div>
     <div class="ambient ambient-right"></div>
 
@@ -309,6 +311,8 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import Toast from 'primevue/toast'
+import { useToast } from 'primevue/usetoast'
 import AsyncStatePlayground from './devtools/playground/AsyncStatePlayground.vue'
 import AsyncStateBoundary from './components/bases/AsyncStateBoundary.vue'
 import CodeTraceabilityQueryView from './components/CodeTraceabilityQueryView.vue'
@@ -440,6 +444,7 @@ const isDatabaseSyncNotificationsOpen = ref(false)
 
 const projectQueryService = new ProjectQueryService()
 const projectCommandService = new ProjectCommandService()
+const toast = useToast()
 let workspacePollTimer: ReturnType<typeof window.setInterval> | null = null
 let isPollingWorkspace = false
 let removeSessionInvalidatedListener: (() => void) | null = null
@@ -474,7 +479,9 @@ const {
   start: startDatabaseSyncNotifications,
   stop: stopDatabaseSyncNotifications,
   markAllSeen: markDatabaseSyncNotificationsSeen,
-} = useDatabaseSyncNotifications()
+} = useDatabaseSyncNotifications({
+  onCompletedOperation: showDatabaseSyncToast,
+})
 
 const {
   projects,
@@ -725,6 +732,17 @@ function formatDatabaseSyncStatus(status: DatabaseSyncOperationStatus) {
 
 function formatDatabaseSyncTime(operation: DatabaseSyncOperationResponse) {
   return formatTimelineTime(operation.completedAt ?? operation.startedAt ?? operation.requestedAt)
+}
+
+function showDatabaseSyncToast(operation: DatabaseSyncOperationResponse) {
+  const succeeded = operation.status === 'succeeded'
+  toast.add({
+    group: 'database-sync',
+    severity: succeeded ? 'success' : 'error',
+    summary: succeeded ? 'Git 同步完成' : 'Git 同步失敗',
+    detail: operation.failureSummary ?? operation.reason,
+    life: 5000,
+  })
 }
 
 async function leaveActiveProjectScope() {
