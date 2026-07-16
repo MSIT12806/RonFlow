@@ -25,6 +25,7 @@ public partial class Program
         builder.Services.AddSignalR();
         builder.Services.AddSingleton<IDatabaseSyncInitiatorContext, HttpContextDatabaseSyncInitiatorContext>();
         builder.Services.AddSingleton<IDatabaseSyncNotificationPublisher, SignalRDatabaseSyncNotificationPublisher>();
+        builder.Services.AddSingleton<ITaskNotificationPublisher, SignalRTaskNotificationPublisher>();
         builder.Services.AddCors(options =>
         {
             options.AddPolicy("Frontend", policy =>

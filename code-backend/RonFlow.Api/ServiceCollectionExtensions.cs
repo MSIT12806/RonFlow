@@ -26,8 +26,10 @@ internal static class ServiceCollectionExtensions
             configuration["PushNotifications:PrivateKey"]));
         services.AddSingleton<IDomainEventDispatcher, InProcessDomainEventDispatcher>();
         services.AddSingleton<IDomainEventHandler, DatabaseSyncDomainEventHandler>();
+        services.AddSingleton<IDomainEventHandler, TaskNotificationDomainEventHandler>();
         services.TryAddSingleton<IDatabaseSyncInitiatorContext>(NoOpDatabaseSyncInitiatorContext.Instance);
         services.TryAddSingleton<IDatabaseSyncNotificationPublisher>(NoOpDatabaseSyncNotificationPublisher.Instance);
+        services.TryAddSingleton<ITaskNotificationPublisher>(NoOpTaskNotificationPublisher.Instance);
 
         return services;
     }
@@ -48,6 +50,7 @@ internal static class ServiceCollectionExtensions
             services.AddSingleton<IAiAuditReadModelStore, InMemoryAiAuditReadModelStore>();
             services.AddSingleton<IWorkflowThroughputProjectionOutbox, InMemoryWorkflowThroughputProjectionOutbox>();
             services.AddSingleton<IWorkflowThroughputProjectionStore, InMemoryWorkflowThroughputProjectionStore>();
+            services.AddSingleton<ITaskNotificationOutbox, InMemoryTaskNotificationOutbox>();
             services.AddSingleton<InMemoryCoreFlowReadStore>();
             services.AddSingleton<ICoreFlowReadStore>(serviceProvider =>
                 new ObservedCoreFlowReadStore(serviceProvider.GetRequiredService<InMemoryCoreFlowReadStore>()));
@@ -110,6 +113,7 @@ internal static class ServiceCollectionExtensions
         services.AddSingleton<IAiAuditReadModelStore, SqliteAiAuditReadModelStore>();
         services.AddSingleton<IWorkflowThroughputProjectionOutbox, SqliteWorkflowThroughputProjectionOutbox>();
         services.AddSingleton<IWorkflowThroughputProjectionStore, SqliteWorkflowThroughputProjectionStore>();
+        services.AddSingleton<ITaskNotificationOutbox, SqliteTaskNotificationOutbox>();
         services.AddSingleton<SqliteCoreFlowReadStore>();
         services.AddSingleton<ICoreFlowReadStore>(serviceProvider =>
             new ObservedCoreFlowReadStore(serviceProvider.GetRequiredService<SqliteCoreFlowReadStore>()));
@@ -128,6 +132,7 @@ internal static class ServiceCollectionExtensions
         services.AddSingleton<ProcessAiAuditProjectionService>();
         services.AddSingleton<RonFlowActiveSessionRegistry>();
         services.AddSingleton<ProcessWorkflowThroughputProjectionService>();
+        services.AddSingleton<ProcessTaskNotificationsService>();
         services.AddSingleton<IPushNotificationSender, WebPushNotificationSender>();
 
         services.AddSingleton<CreateProjectCommandService>();
@@ -178,6 +183,7 @@ internal static class ServiceCollectionExtensions
         services.AddHostedService<ReminderNotificationBackgroundService>();
         services.AddHostedService<AiAuditProjectionBackgroundService>();
         services.AddHostedService<WorkflowThroughputProjectionBackgroundService>();
+        services.AddHostedService<TaskNotificationBackgroundService>();
         services.AddHostedService<DatabaseSyncBackgroundService>();
 
         return services;

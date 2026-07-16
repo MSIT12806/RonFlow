@@ -17,6 +17,11 @@ export default defineConfig({
         target: process.env.RONFLOW_API_PROXY_TARGET ?? 'http://127.0.0.1:5078',
         changeOrigin: true,
       },
+      '/hubs': {
+        target: process.env.RONFLOW_API_PROXY_TARGET ?? 'http://127.0.0.1:5078',
+        changeOrigin: true,
+        ws: true,
+      },
       '/ronauth-api': {
         target: process.env.RONAUTH_API_PROXY_TARGET ?? 'http://127.0.0.1:5136',
         changeOrigin: true,

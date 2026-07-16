@@ -485,7 +485,7 @@ export function useRonFlowBoard() {
 
   async function moveTaskToState(taskId: string, stateKey: WorkflowKey) {
     if (!activeProjectId.value) {
-      return
+      return false
     }
 
     boardCommandError.value = ''
@@ -498,13 +498,15 @@ export function useRonFlowBoard() {
       }
 
       await refreshBoardSilently(activeProjectId.value)
+      return true
     } catch (error) {
       if (error instanceof ApiRequestError && error.status === 404) {
         boardCommandError.value = '找不到指定的任務，請重新整理專案看板。'
-        return
+        return false
       }
 
       boardCommandError.value = '變更任務狀態失敗，請稍後再試。'
+      return false
     }
   }
 
@@ -572,7 +574,7 @@ export function useRonFlowBoard() {
 
   async function sendTaskToFlow(taskId: string) {
     const initialStateKey = activeColumns.value.find((column) => column.isInitialState)?.stateKey ?? 'todo'
-    await moveTaskToState(taskId, initialStateKey)
+    return moveTaskToState(taskId, initialStateKey)
   }
 
   async function replaceTaskSubtasks(taskId: string, subtasks: EditableTaskSubtask[]) {

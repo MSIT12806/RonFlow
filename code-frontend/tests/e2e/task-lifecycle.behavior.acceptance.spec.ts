@@ -4,14 +4,17 @@ import {
   createScenarioData,
   createTask,
   createTaskTitle,
+  expectTaskTreeRootOrder,
   expectTaskOrder,
   getLifecycleTaskItem,
+  getTaskTreeItem,
   moveTaskToTrashFromDrawer,
   openArchivedTasksView,
   openCreateTaskModal,
   openProjectFromList,
   openTaskDetail,
   openTrashView,
+  setupFlowTaskBoard,
   setupProjectBoard,
   setupTaskBoard,
 } from './support/ronflowTestHelpers'
@@ -75,20 +78,21 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Lifecycle Behavior', () => {
     await detailDialog.getByRole('button', { name: '還原' }).click()
 
     await expect(page.getByRole('heading', { name: projectName })).toBeVisible()
-    await expectTaskOrder(page, 'todo', [firstTaskTitle, archivedTaskTitle])
+    await expectTaskTreeRootOrder(page, [firstTaskTitle, archivedTaskTitle])
 
     await openTaskDetail(page, 'todo', archivedTaskTitle)
     await expect(page.getByRole('dialog', { name: '任務詳細資訊' }).getByText('已還原封存任務', { exact: true })).toBeVisible()
   })
 
-  test('使用者可以將任務移到垃圾桶，任務會離開看板並出現在垃圾桶頁', async ({ page }, testInfo) => {
+  test('使用者可以將任務移到垃圾桶，任務會離開看板並出現在垃圾桶頁', async ({ page, request }, testInfo) => {
     const { projectName, taskTitle } = createScenarioData(testInfo)
 
-    await setupTaskBoard(page, projectName, taskTitle)
+    await setupFlowTaskBoard(request, page, projectName, taskTitle)
     await openTaskDetail(page, 'todo', taskTitle)
 
     await moveTaskToTrashFromDrawer(page)
 
+    await expect(page.locator('.p-toast-message').filter({ hasText: '任務已刪除' })).toBeVisible()
     await expect(page.getByRole('dialog', { name: '任務詳細資訊' })).toHaveCount(0)
     await expect(page.getByRole('heading', { name: projectName })).toBeVisible()
     await expect(page.getByTestId('workflow-column-todo')).not.toContainText(taskTitle)
@@ -131,7 +135,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Lifecycle Behavior', () => {
     await detailDialog.getByRole('button', { name: '還原' }).click()
 
     await expect(page.getByRole('heading', { name: projectName })).toBeVisible()
-    await expectTaskOrder(page, 'todo', [firstTaskTitle, trashedTaskTitle])
+    await expectTaskTreeRootOrder(page, [firstTaskTitle, trashedTaskTitle])
 
     await openTaskDetail(page, 'todo', trashedTaskTitle)
     await expect(page.getByRole('dialog', { name: '任務詳細資訊' }).getByText('已從垃圾桶還原', { exact: true })).toBeVisible()
@@ -205,7 +209,7 @@ test.describe('RonFlow UI/UX 驗收規格 - Task Lifecycle Behavior', () => {
     await getLifecycleTaskItem(ownerPage, taskTitle).getByRole('button', { name: '還原', exact: true }).click()
 
     const memberDetailDialog = memberPage.getByRole('dialog', { name: '任務詳細資訊' })
-    await expect(memberPage.getByTestId('workflow-column-todo')).toContainText(taskTitle, { timeout: 10000 })
+    await expect(getTaskTreeItem(memberPage, taskTitle)).toBeVisible({ timeout: 10000 })
     await expect(memberDetailDialog.getByText('此任務已封存', { exact: true })).toHaveCount(0, { timeout: 10000 })
     await expect(memberDetailDialog.getByRole('button', { name: '編輯', exact: true })).toBeVisible({ timeout: 10000 })
     await expect(memberDetailDialog.getByRole('button', { name: '還原', exact: true })).toHaveCount(0)

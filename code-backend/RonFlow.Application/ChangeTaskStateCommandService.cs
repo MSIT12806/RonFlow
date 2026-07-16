@@ -8,13 +8,14 @@ public sealed class ChangeTaskStateCommandService(
     ITaskRepository taskRepository,
     TaskMutationGuard taskMutationGuard,
     IWorkflowThroughputProjectionOutbox workflowThroughputProjectionOutbox,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    IDomainEventDispatcher domainEventDispatcher)
 {
     public ChangeTaskStateCommandService(
         IProjectRepository projectRepository,
         ITaskRepository taskRepository,
         TimeProvider timeProvider)
-        : this(projectRepository, new ProjectAccessService(projectRepository), taskRepository, new TaskMutationGuard(new TaskContentEditLockService()), new NoOpWorkflowThroughputProjectionOutbox(), timeProvider)
+        : this(projectRepository, new ProjectAccessService(projectRepository), taskRepository, new TaskMutationGuard(new TaskContentEditLockService()), new NoOpWorkflowThroughputProjectionOutbox(), timeProvider, NoOpDomainEventDispatcher.Instance)
     {
     }
 
@@ -101,18 +102,33 @@ public sealed class ChangeTaskStateCommandService(
             workflowThroughputProjectionOutbox.EnqueueTaskReopened(project.Id, task.Id, changedAt);
         }
 
+        var taskNotificationEvents = new List<TaskWorkflowStateChangedDomainEvent>
+        {
+            new(currentUserId, project.Id, task.Id, task.Title, targetState.Key, targetState.Label, changedAt),
+        };
+
         if (!wasCompleted && targetState.IsCompletedState)
         {
-            CompleteParentsWhenAllChildrenAreDone(project, task, changedAt);
+            CompleteParentsWhenAllChildrenAreDone(project, task, changedAt, currentUserId, taskNotificationEvents);
         }
 
         project.Touch(changedAt);
         projectRepository.Update(project);
 
+        foreach (var domainEvent in taskNotificationEvents)
+        {
+            domainEventDispatcher.Dispatch(domainEvent);
+        }
+
         return ChangeTaskStateResult.Success(CoreFlowCommandOutputFactory.CreateTask(task.ToModel()));
     }
 
-    private void CompleteParentsWhenAllChildrenAreDone(Project project, RonFlow.Domain.Task completedTask, DateTimeOffset changedAt)
+    private void CompleteParentsWhenAllChildrenAreDone(
+        Project project,
+        RonFlow.Domain.Task completedTask,
+        DateTimeOffset changedAt,
+        Guid actorUserId,
+        ICollection<TaskWorkflowStateChangedDomainEvent> taskNotificationEvents)
     {
         var activeTasks = taskRepository.GetByProjectId(project.Id)
             .Where(projectTask => projectTask.LifecycleState == TaskLifecycleState.ActiveRecord)
@@ -140,6 +156,14 @@ public sealed class ChangeTaskStateCommandService(
             if (parentTask.CompleteFromChildren(completedState, changedAt))
             {
                 taskRepository.Update(parentTask);
+                taskNotificationEvents.Add(new TaskWorkflowStateChangedDomainEvent(
+                    actorUserId,
+                    project.Id,
+                    parentTask.Id,
+                    parentTask.Title,
+                    completedState.Key,
+                    completedState.Label,
+                    changedAt));
                 workflowThroughputProjectionOutbox.EnqueueTaskStateChanged(project.Id, parentTask.Id, completedState.Key, changedAt);
                 workflowThroughputProjectionOutbox.EnqueueTaskCompleted(project.Id, parentTask.Id, changedAt, parentTask.CompletedEffort?.ToMinutes());
             }

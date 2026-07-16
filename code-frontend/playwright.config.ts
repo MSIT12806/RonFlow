@@ -23,7 +23,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `dotnet run --no-build --no-launch-profile --project ../../RonAuth/code-backend/RonAuth.Api/RonAuth.Api.csproj --urls http://127.0.0.1:${e2eRonAuthPort}`,
+      command: `dotnet run --no-launch-profile --project ../../RonAuth/code-backend/RonAuth.Api/RonAuth.Api.csproj --urls http://127.0.0.1:${e2eRonAuthPort}`,
       env: {
         ...process.env,
         ASPNETCORE_ENVIRONMENT: 'Development',
@@ -33,7 +33,7 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
-      command: `dotnet run --no-build --no-launch-profile --project ../code-backend/RonFlow.Api/RonFlow.Api.csproj --urls http://127.0.0.1:${e2eBackendPort}`,
+      command: `dotnet run --no-launch-profile --project ../code-backend/RonFlow.Api/RonFlow.Api.csproj --urls http://127.0.0.1:${e2eBackendPort}`,
       env: {
         ...process.env,
         ASPNETCORE_ENVIRONMENT: 'Testing',

@@ -287,3 +287,16 @@ export type DatabaseSyncOperationResponse = {
 export type DatabaseSyncOperationListResponse = {
   items: DatabaseSyncOperationResponse[]
 }
+
+export type TaskNotificationResponse = {
+  id: string
+  eventType: string
+  projectId: string
+  taskId: string
+  taskTitle: string
+  stateKey: string | null
+  stateLabel: string | null
+  summary: string
+  detail: string
+  occurredAt: string
+}

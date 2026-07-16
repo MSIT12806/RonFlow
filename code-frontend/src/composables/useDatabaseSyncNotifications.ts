@@ -4,7 +4,7 @@ import {
   HubConnectionState,
   type HubConnection,
 } from '@microsoft/signalr'
-import { getDatabaseSyncOperations, type DatabaseSyncOperationResponse } from '../api/ronflowApi'
+import { getDatabaseSyncOperations, type DatabaseSyncOperationResponse, type TaskNotificationResponse } from '../api/ronflowApi'
 import { apiBaseUrl } from '../api/request'
 import { ronAuthAccessTokenStore } from '../auth/ronauthClient'
 import { getRonFlowSessionId } from '../ronflowSession'
@@ -13,6 +13,7 @@ const seenStorageKey = 'ronflow.databaseSyncNotifications.seenOperationIds'
 
 type UseDatabaseSyncNotificationsOptions = {
   onCompletedOperation?: (operation: DatabaseSyncOperationResponse) => void
+  onTaskNotification?: (notification: TaskNotificationResponse) => void
 }
 
 export function useDatabaseSyncNotifications(options: UseDatabaseSyncNotificationsOptions = {}) {
@@ -61,6 +62,7 @@ export function useDatabaseSyncNotifications(options: UseDatabaseSyncNotificatio
     const currentConnection = connection
     connection = null
     currentConnection.off('databaseSyncCompleted')
+    currentConnection.off('taskNotification')
     await currentConnection.stop()
   }
 
@@ -103,6 +105,10 @@ export function useDatabaseSyncNotifications(options: UseDatabaseSyncNotificatio
         if (isCompleted(operation)) {
           options.onCompletedOperation?.(operation)
         }
+      })
+
+      connection.on('taskNotification', (notification: TaskNotificationResponse) => {
+        options.onTaskNotification?.(notification)
       })
 
       connection.onreconnected(() => {

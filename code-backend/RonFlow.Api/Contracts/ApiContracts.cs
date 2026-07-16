@@ -99,6 +99,40 @@ public sealed record PushNotificationPublicKeyResponse(string PublicKey);
 
 public sealed record DatabaseSyncOperationListResponse(IReadOnlyList<DatabaseSyncOperationResponse> Items);
 
+public sealed record TaskNotificationResponse(
+    Guid Id,
+    string EventType,
+    Guid ProjectId,
+    Guid TaskId,
+    string TaskTitle,
+    string? StateKey,
+    string? StateLabel,
+    string Summary,
+    string Detail,
+    DateTimeOffset OccurredAt)
+{
+    public static TaskNotificationResponse FromSource(TaskNotificationSource source)
+    {
+        var isWorkflowStateChanged = string.Equals(source.EventType, "TaskWorkflowStateChanged", StringComparison.Ordinal);
+        var summary = isWorkflowStateChanged ? "任務流程已更新" : "任務已刪除";
+        var detail = isWorkflowStateChanged
+            ? $"任務已移至「{source.StateLabel ?? source.StateKey ?? "未知狀態"}」。"
+            : "任務已移到垃圾桶。";
+
+        return new(
+            source.MessageId,
+            source.EventType,
+            source.ProjectId,
+            source.TaskId,
+            source.TaskTitle,
+            source.StateKey,
+            source.StateLabel,
+            summary,
+            detail,
+            source.OccurredAt);
+    }
+}
+
 public sealed record DatabaseSyncOperationResponse(
     Guid Id,
     string Reason,

@@ -69,6 +69,41 @@ public sealed class SignalRDatabaseSyncNotificationPublisher(
     }
 }
 
+public sealed class SignalRTaskNotificationPublisher(
+    IHubContext<DatabaseSyncNotificationHub> hubContext,
+    RonFlowActiveSessionRegistry activeSessionRegistry,
+    ILogger<SignalRTaskNotificationPublisher> logger) : ITaskNotificationPublisher
+{
+    public bool Publish(TaskNotificationSource notification)
+    {
+        if (notification.RecipientUserId == Guid.Empty ||
+            !activeSessionRegistry.TryGetActiveSession(notification.RecipientUserId, out var sessionId))
+        {
+            return false;
+        }
+
+        var groupName = DatabaseSyncNotificationHub.CreateGroupName(notification.RecipientUserId, sessionId);
+        try
+        {
+            hubContext.Clients
+                .Group(groupName)
+                .SendAsync("taskNotification", TaskNotificationResponse.FromSource(notification))
+                .GetAwaiter()
+                .GetResult();
+            return true;
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                exception,
+                "Failed to send task notification. MessageId: {MessageId}; RecipientUserId: {RecipientUserId}",
+                notification.MessageId,
+                notification.RecipientUserId);
+            return false;
+        }
+    }
+}
+
 public sealed class HttpContextDatabaseSyncInitiatorContext(IHttpContextAccessor httpContextAccessor) : IDatabaseSyncInitiatorContext
 {
     public DatabaseSyncInitiator? GetCurrent()

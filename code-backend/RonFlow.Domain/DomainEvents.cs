@@ -44,3 +44,19 @@ public sealed record CoreFlowDataChangedDomainEvent(string Reason, DateTimeOffse
             : reason.Trim();
     }
 }
+
+public sealed record TaskWorkflowStateChangedDomainEvent(
+    Guid ActorUserId,
+    Guid ProjectId,
+    Guid TaskId,
+    string TaskTitle,
+    string StateKey,
+    string StateLabel,
+    DateTimeOffset OccurredAt) : IDomainEvent;
+
+public sealed record TaskMovedToTrashDomainEvent(
+    Guid ActorUserId,
+    Guid ProjectId,
+    Guid TaskId,
+    string TaskTitle,
+    DateTimeOffset OccurredAt) : IDomainEvent;

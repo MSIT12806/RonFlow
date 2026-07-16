@@ -112,6 +112,19 @@ CREATE TABLE IF NOT EXISTS WorkflowThroughputOutbox (
     CompletedEffortMinutes INTEGER NULL
 );
 
+CREATE TABLE IF NOT EXISTS TaskNotificationOutbox (
+    MessageId TEXT NOT NULL PRIMARY KEY,
+    RecipientUserId TEXT NOT NULL,
+    ProjectId TEXT NOT NULL,
+    TaskId TEXT NOT NULL,
+    EventType TEXT NOT NULL,
+    TaskTitle TEXT NOT NULL,
+    StateKey TEXT NULL,
+    StateLabel TEXT NULL,
+    OccurredAt TEXT NOT NULL,
+    ProcessedAt TEXT NULL
+);
+
 CREATE TABLE IF NOT EXISTS WorkflowThroughputBuckets (
     ProjectId TEXT NOT NULL,
     BucketType TEXT NOT NULL,

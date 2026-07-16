@@ -157,6 +157,32 @@ export async function createTaskThroughApi(
   return response.json() as Promise<TaskResponse>
 }
 
+export async function markTaskShortThroughApi(
+  request: APIRequestContext,
+  session: RonFlowApiSession,
+  projectId: string,
+  taskId: string,
+  taskTitle: string,
+) {
+  const lockResponse = await request.post(`${backendApiBaseUrl}/projects/${projectId}/tasks/${taskId}/content-edit-lock`, {
+    headers: authHeaders(session.accessToken),
+  })
+  await expectJsonOk(lockResponse)
+
+  const response = await request.patch(`${backendApiBaseUrl}/projects/${projectId}/tasks/${taskId}`, {
+    headers: authHeaders(session.accessToken),
+    data: { title: taskTitle, isShort: true },
+  })
+
+  if (!response.ok()) {
+    throw new Error(`Mark task short failed: ${response.status()} ${await response.text()}`)
+  }
+
+  await request.delete(`${backendApiBaseUrl}/projects/${projectId}/tasks/${taskId}/content-edit-lock`, {
+    headers: authHeaders(session.accessToken),
+  })
+}
+
 export async function replaceProjectSubtaskTemplatesThroughApi(
   request: APIRequestContext,
   session: RonFlowApiSession,

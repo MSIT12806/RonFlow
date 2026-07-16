@@ -5,6 +5,7 @@
 
   <main v-else class="app-shell">
     <Toast group="database-sync" position="bottom-right" />
+    <Toast position="bottom-right" />
 
     <div class="ambient ambient-left"></div>
     <div class="ambient ambient-right"></div>
@@ -145,7 +146,7 @@
             @open-task-detail="onOpenTaskDetail"
             @move-task-to-trash="onMoveTaskToTrash"
             @duplicate-task-subtree="onDuplicateTaskSubtree"
-            @move-task-to-state="moveTaskToState"
+            @move-task-to-state="onMoveTaskToState"
             @reorder-task-within-column="reorderTaskWithinColumn"
             @move-task-within-tree="moveTaskWithinTree"
           />
@@ -334,10 +335,12 @@ import type {
   CycleTimeReportResponse,
   DatabaseSyncOperationResponse,
   DatabaseSyncOperationStatus,
+  TaskNotificationResponse,
   ProjectCodeTraceabilityItemResponse,
   ProjectSubtaskTemplateResponse,
   TaskAgingReportResponse,
   TaskEstimatedEffortResponse,
+  WorkflowKey,
   WorkflowThroughputReportResponse,
 } from './api/ronflowApi'
 import { ApiValidationError, activateRonFlowSession, releaseRonFlowProjectScope } from './api/ronflowApi'
@@ -481,6 +484,7 @@ const {
   markAllSeen: markDatabaseSyncNotificationsSeen,
 } = useDatabaseSyncNotifications({
   onCompletedOperation: showDatabaseSyncToast,
+  onTaskNotification: showTaskNotificationToast,
 })
 
 const {
@@ -745,6 +749,15 @@ function showDatabaseSyncToast(operation: DatabaseSyncOperationResponse) {
   })
 }
 
+function showTaskNotificationToast(notification: TaskNotificationResponse) {
+  toast.add({
+    severity: 'success',
+    summary: notification.summary,
+    detail: notification.detail,
+    life: 4000,
+  })
+}
+
 async function leaveActiveProjectScope() {
   if (!activeProjectId.value) {
     return
@@ -989,6 +1002,10 @@ async function onTaskDetailSave(payload: {
 
 async function onSendTaskToFlow(taskId: string) {
   await sendTaskToFlow(taskId)
+}
+
+async function onMoveTaskToState(taskId: string, stateKey: WorkflowKey) {
+  await moveTaskToState(taskId, stateKey)
 }
 
 async function onReplaceTaskSubtasks(payload: { taskId: string; subtasks: EditableTaskSubtask[] }) {

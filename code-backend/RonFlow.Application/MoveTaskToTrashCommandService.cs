@@ -7,7 +7,8 @@ public sealed class MoveTaskToTrashCommandService(
     ProjectAccessService projectAccessService,
     ITaskRepository taskRepository,
     TaskMutationGuard taskMutationGuard,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    IDomainEventDispatcher domainEventDispatcher)
 {
     public TaskLifecycleCommandResult Move(Guid currentUserId, Guid projectId, Guid taskId)
     {
@@ -44,6 +45,13 @@ public sealed class MoveTaskToTrashCommandService(
 
         project.Touch(changedAt);
         projectRepository.Update(project);
+
+        domainEventDispatcher.Dispatch(new TaskMovedToTrashDomainEvent(
+            currentUserId,
+            project.Id,
+            task.Id,
+            task.Title,
+            changedAt));
 
         return TaskLifecycleCommandResult.Success(CoreFlowCommandOutputFactory.CreateTask(task.ToModel()));
     }

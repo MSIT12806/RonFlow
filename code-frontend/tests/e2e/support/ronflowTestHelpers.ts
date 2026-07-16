@@ -1,5 +1,12 @@
-import { expect, type Page, type TestInfo } from '@playwright/test'
-import { registerAndEnterWorkspace } from './ronflowAuthTestHelpers'
+import { expect, type APIRequestContext, type Page, type TestInfo } from '@playwright/test'
+import {
+  createProjectThroughApi,
+  createTaskThroughApi,
+  registerRonFlowApiUser,
+  replaceProjectSubtaskTemplatesThroughApi,
+  moveTaskStateThroughApi,
+} from './ronflowApiTestHelpers'
+import { createRonFlowAuthUser, loginAndEnterWorkspace, registerAndEnterWorkspace } from './ronflowAuthTestHelpers'
 
 export const workflowColumns = [
   { key: 'todo', label: '待處理' },
@@ -78,7 +85,8 @@ export async function openTaskDetail(page: Page, stateKey: string, taskTitle: st
     await expect(workflowTask).toBeVisible({ timeout: 3000 })
     await workflowTask.click()
   } catch {
-    await taskTreeTask.click()
+    const taskTreeRow = page.locator('.task-tree-row').filter({ hasText: taskTitle }).first()
+    await taskTreeRow.getByRole('button', { name: '展開任務詳細資訊' }).click()
   }
 
   await expect(page.getByRole('dialog', { name: '任務詳細資訊' })).toBeVisible()
@@ -215,6 +223,33 @@ export async function setupTaskBoard(page: Page, projectName: string, taskTitle:
   await setupProjectBoard(page, projectName)
   await openCreateTaskModal(page)
   await createTask(page, taskTitle)
+}
+
+export async function setupFlowTaskBoard(
+  request: APIRequestContext,
+  page: Page,
+  projectName: string,
+  taskTitle: string,
+  taskStates: string[] = [],
+  additionalTaskTitles: string[] = [],
+) {
+  const userSession = await registerRonFlowApiUser(request, createRonFlowAuthUser('owner'))
+  const project = await createProjectThroughApi(request, userSession, projectName)
+  await replaceProjectSubtaskTemplatesThroughApi(request, userSession, project.id, ['完成 short 任務'])
+  const tasks = []
+  for (const title of [taskTitle, ...additionalTaskTitles]) {
+    tasks.push(await createTaskThroughApi(request, userSession, project.id, title, true))
+  }
+  const task = tasks[0]
+
+  for (const stateKey of taskStates) {
+    await moveTaskStateThroughApi(request, userSession, project.id, task.id, stateKey)
+  }
+
+  await loginAndEnterWorkspace(page, userSession.user)
+  await openProjectFromList(page, projectName)
+
+  return { userSession, project, task }
 }
 
 export async function expectTaskOrder(page: Page, stateKey: string, expectedTaskTitles: string[]) {
