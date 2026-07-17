@@ -88,7 +88,8 @@ internal static class ServiceCollectionExtensions
                     new DbMergerDatabaseSnapshotMerger(),
                     serviceProvider.GetRequiredService<ILogger<DatabaseSyncCoordinator>>(),
                     operationStore: serviceProvider.GetRequiredService<IDatabaseSyncOperationStore>(),
-                    notificationPublisher: serviceProvider.GetRequiredService<IDatabaseSyncNotificationPublisher>());
+                    notificationPublisher: serviceProvider.GetRequiredService<IDatabaseSyncNotificationPublisher>(),
+                    runtimeDatabaseAccessGate: serviceProvider.GetRequiredService<IRuntimeDatabaseAccessGate>());
             }
             else
             {
@@ -105,7 +106,7 @@ internal static class ServiceCollectionExtensions
             return databaseSyncCoordinator;
         });
         services.AddSingleton(serviceProvider =>
-            new SqliteCoreFlowStore(databasePath, serviceProvider.GetRequiredService<IDomainEventDispatcher>()));
+            new SqliteCoreFlowStore(databasePath, () => serviceProvider.GetRequiredService<IDomainEventDispatcher>()));
         services.AddSingleton<IProjectRepository, SqliteProjectRepository>();
         services.AddSingleton<ITaskRepository, SqliteTaskRepository>();
         services.AddSingleton<IPushSubscriptionRepository, SqlitePushSubscriptionRepository>();

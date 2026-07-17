@@ -12,8 +12,6 @@ public sealed class AiAuditProjectionBackgroundService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Yield();
-
         using var timer = new PeriodicTimer(PollingInterval);
 
         while (!stoppingToken.IsCancellationRequested)

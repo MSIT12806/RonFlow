@@ -626,8 +626,9 @@ function Test-HttpStatusCode {
     return [int]$response.StatusCode
   }
   catch {
-    if ($null -ne $_.Exception.Response) {
-      return [int]$_.Exception.Response.StatusCode
+    $responseProperty = $_.Exception.PSObject.Properties['Response']
+    if ($null -ne $responseProperty -and $null -ne $responseProperty.Value) {
+      return [int]$responseProperty.Value.StatusCode
     }
 
     throw

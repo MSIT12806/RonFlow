@@ -6,16 +6,21 @@ namespace RonFlow.Infrastructure;
 public sealed class SqliteCoreFlowStore
 {
     private readonly string connectionString;
-    private readonly IDomainEventDispatcher domainEventDispatcher;
+    private readonly Func<IDomainEventDispatcher> domainEventDispatcherAccessor;
 
     public SqliteCoreFlowStore(string databasePath)
-        : this(databasePath, NoOpDomainEventDispatcher.Instance)
+        : this(databasePath, () => NoOpDomainEventDispatcher.Instance)
     {
     }
 
     public SqliteCoreFlowStore(string databasePath, IDomainEventDispatcher domainEventDispatcher)
+        : this(databasePath, () => domainEventDispatcher)
     {
-        this.domainEventDispatcher = domainEventDispatcher;
+    }
+
+    public SqliteCoreFlowStore(string databasePath, Func<IDomainEventDispatcher> domainEventDispatcherAccessor)
+    {
+        this.domainEventDispatcherAccessor = domainEventDispatcherAccessor;
         var fullPath = Path.GetFullPath(databasePath);
         var directory = Path.GetDirectoryName(fullPath);
 
@@ -43,7 +48,7 @@ public sealed class SqliteCoreFlowStore
     public void NotifyChanged(string reason)
     {
         TouchDatabaseMutationAt(DateTimeOffset.UtcNow);
-        domainEventDispatcher.Dispatch(new CoreFlowDataChangedDomainEvent(reason));
+        domainEventDispatcherAccessor().Dispatch(new CoreFlowDataChangedDomainEvent(reason));
     }
 
     public DateTimeOffset? GetDatabaseMutationAt()
