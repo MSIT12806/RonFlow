@@ -26,6 +26,7 @@ internal static class ServiceCollectionExtensions
             configuration["PushNotifications:PrivateKey"]));
         services.AddSingleton<IDomainEventDispatcher, InProcessDomainEventDispatcher>();
         services.AddSingleton<IDomainEventHandler, DatabaseSyncDomainEventHandler>();
+        services.AddSingleton<IRuntimeDatabaseAccessGate, RuntimeDatabaseAccessGate>();
         services.TryAddSingleton<IDatabaseSyncInitiatorContext>(NoOpDatabaseSyncInitiatorContext.Instance);
         services.TryAddSingleton<IDatabaseSyncNotificationPublisher>(NoOpDatabaseSyncNotificationPublisher.Instance);
 
@@ -84,7 +85,8 @@ internal static class ServiceCollectionExtensions
                     new DbMergerDatabaseSnapshotMerger(),
                     serviceProvider.GetRequiredService<ILogger<DatabaseSyncCoordinator>>(),
                     operationStore: serviceProvider.GetRequiredService<IDatabaseSyncOperationStore>(),
-                    notificationPublisher: serviceProvider.GetRequiredService<IDatabaseSyncNotificationPublisher>());
+                    notificationPublisher: serviceProvider.GetRequiredService<IDatabaseSyncNotificationPublisher>(),
+                    runtimeDatabaseAccessGate: serviceProvider.GetRequiredService<IRuntimeDatabaseAccessGate>());
             }
             else
             {
@@ -97,8 +99,6 @@ internal static class ServiceCollectionExtensions
                     databaseSyncOptions.DatabaseFileName);
                 databaseSyncCoordinator = NoOpDatabaseSyncCoordinator.Instance;
             }
-
-            databaseSyncCoordinator.PullBeforeOpen();
             return databaseSyncCoordinator;
         });
         services.AddSingleton(serviceProvider =>

@@ -6,7 +6,7 @@ namespace RonFlow.Infrastructure.Tests;
 public sealed class DatabaseSyncCoordinatorTests
 {
     [Test]
-    public void PullBeforeOpen_WhenRuntimeAndRepositoryDatabasesExist_PullsMergesCommitsPushesAndRestoresMergedSnapshot()
+    public void SynchronizeStartupSnapshot_WhenRuntimeAndRepositoryDatabasesExist_PullsMergesCommitsPushesAndRestoresMergedSnapshot()
     {
         using var temp = new TempDirectory();
         var repositoryPath = Path.Combine(temp.Path, "repo");
@@ -21,7 +21,7 @@ public sealed class DatabaseSyncCoordinatorTests
         var snapshotMerger = new RecordingSnapshotMerger();
         var coordinator = CreateCoordinator(repositoryPath, runtimeDatabasePath, snapshotStore, repositorySync, snapshotMerger);
 
-        coordinator.PullBeforeOpen();
+        coordinator.SynchronizeStartupSnapshot();
 
         Assert.That(repositorySync.Calls, Is.EqualTo(["EnsureReady", "Pull", "Commit:ronflow.db:Sync RonFlow database: startup local snapshot", "Push"]));
         Assert.That(snapshotStore.WrittenSnapshots.Single().RuntimeDatabasePath, Is.EqualTo(runtimeDatabasePath));
@@ -33,7 +33,7 @@ public sealed class DatabaseSyncCoordinatorTests
     }
 
     [Test]
-    public void PullBeforeOpen_WhenRuntimeDatabaseDoesNotExist_PullsPushesAndRestoresRepositorySnapshot()
+    public void SynchronizeStartupSnapshot_WhenRuntimeDatabaseDoesNotExist_PullsPushesAndRestoresRepositorySnapshot()
     {
         using var temp = new TempDirectory();
         var repositoryPath = Path.Combine(temp.Path, "repo");
@@ -45,7 +45,7 @@ public sealed class DatabaseSyncCoordinatorTests
         var snapshotStore = new RecordingSnapshotStore();
         var coordinator = CreateCoordinator(repositoryPath, runtimeDatabasePath, snapshotStore, repositorySync);
 
-        coordinator.PullBeforeOpen();
+        coordinator.SynchronizeStartupSnapshot();
 
         Assert.That(repositorySync.Calls, Is.EqualTo(["EnsureReady", "Pull"]));
         Assert.That(snapshotStore.WrittenSnapshots, Is.Empty);
@@ -124,7 +124,7 @@ public sealed class DatabaseSyncCoordinatorTests
         var snapshotStore = new RecordingSnapshotStore();
         var timeProvider = new ManualTimeProvider(GetUtcTimeAfterLastUpdate().AddHours(2));
         var coordinator = CreateCoordinator(repositoryPath, runtimeDatabasePath, snapshotStore, repositorySync, timeProvider: timeProvider);
-        coordinator.PullBeforeOpen();
+        coordinator.SynchronizeStartupSnapshot();
         repositorySync.Calls.Clear();
 
         timeProvider.SetUtcNow(timeProvider.GetUtcNow().AddMinutes(59));

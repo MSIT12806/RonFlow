@@ -10,11 +10,22 @@ public sealed class DatabaseSyncBackgroundService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        await Task.Yield();
+
         logger.LogInformation(
             "RonFlow database Git sync background service started. PollingIntervalSeconds: {PollingIntervalSeconds}",
             PollingInterval.TotalSeconds);
 
         using var timer = new PeriodicTimer(PollingInterval);
+
+        try
+        {
+            databaseSyncCoordinator.SynchronizeStartupSnapshot();
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Failed to synchronize the RonFlow database snapshot after startup.");
+        }
 
         while (!stoppingToken.IsCancellationRequested)
         {
