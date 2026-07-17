@@ -102,7 +102,6 @@ internal static class ServiceCollectionExtensions
                 databaseSyncCoordinator = NoOpDatabaseSyncCoordinator.Instance;
             }
 
-            databaseSyncCoordinator.PullBeforeOpen();
             return databaseSyncCoordinator;
         });
         services.AddSingleton(serviceProvider =>
