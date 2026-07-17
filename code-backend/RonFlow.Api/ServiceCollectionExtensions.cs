@@ -27,6 +27,7 @@ internal static class ServiceCollectionExtensions
         services.AddSingleton<IDomainEventDispatcher, InProcessDomainEventDispatcher>();
         services.AddSingleton<IDomainEventHandler, DatabaseSyncDomainEventHandler>();
         services.AddSingleton<IDomainEventHandler, TaskNotificationDomainEventHandler>();
+        services.AddSingleton<IRuntimeDatabaseAccessGate, RuntimeDatabaseAccessGate>();
         services.TryAddSingleton<IDatabaseSyncInitiatorContext>(NoOpDatabaseSyncInitiatorContext.Instance);
         services.TryAddSingleton<IDatabaseSyncNotificationPublisher>(NoOpDatabaseSyncNotificationPublisher.Instance);
         services.TryAddSingleton<ITaskNotificationPublisher>(NoOpTaskNotificationPublisher.Instance);

@@ -48,7 +48,7 @@ public sealed class DatabaseSyncDomainEventHandlerTests
 
         public int FlushCount { get; private set; }
 
-        public void PullBeforeOpen()
+        public void SynchronizeStartupSnapshot()
         {
         }
 

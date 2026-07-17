@@ -30,7 +30,7 @@ public sealed class DatabaseSyncOptions
 
 public interface IDatabaseSyncCoordinator
 {
-    void PullBeforeOpen();
+    void SynchronizeStartupSnapshot();
 
     void RequestPullIfStale(string reason);
 
@@ -54,7 +54,7 @@ public sealed class NoOpDatabaseSyncCoordinator : IDatabaseSyncCoordinator
     {
     }
 
-    public void PullBeforeOpen()
+    public void SynchronizeStartupSnapshot()
     {
     }
 
@@ -89,7 +89,8 @@ public sealed class DatabaseSyncCoordinator(
     ILogger<DatabaseSyncCoordinator>? logger = null,
     TimeProvider? timeProvider = null,
     IDatabaseSyncOperationStore? operationStore = null,
-    IDatabaseSyncNotificationPublisher? notificationPublisher = null) : IDatabaseSyncCoordinator
+    IDatabaseSyncNotificationPublisher? notificationPublisher = null,
+    IRuntimeDatabaseAccessGate? runtimeDatabaseAccessGate = null) : IDatabaseSyncCoordinator
 {
     private const string UserVisibleFailureSummary = "Git database sync failed. Please check server sync diagnostics.";
     private const string RequestPullReason = "request-triggered pull refresh";
@@ -105,6 +106,7 @@ public sealed class DatabaseSyncCoordinator(
     private readonly TimeProvider timeProvider = timeProvider ?? TimeProvider.System;
     private readonly IDatabaseSyncOperationStore operationStore = operationStore ?? NoOpDatabaseSyncOperationStore.Instance;
     private readonly IDatabaseSyncNotificationPublisher notificationPublisher = notificationPublisher ?? NoOpDatabaseSyncNotificationPublisher.Instance;
+    private readonly IRuntimeDatabaseAccessGate runtimeDatabaseAccessGate = runtimeDatabaseAccessGate ?? new RuntimeDatabaseAccessGate();
 
     public static DateTime LastUpdateTime
     {
@@ -117,7 +119,7 @@ public sealed class DatabaseSyncCoordinator(
         }
     }
 
-    public void PullBeforeOpen()
+    public void SynchronizeStartupSnapshot()
     {
         if (!options.Enabled)
         {
@@ -336,50 +338,59 @@ public sealed class DatabaseSyncCoordinator(
     private void PullAndMergeDatabaseSnapshot(string reason)
     {
         repositorySync.EnsureReady();
-        var localSnapshotPath = TryCreateRuntimeSnapshot();
         repositorySync.Pull();
 
-        var repositoryDatabasePath = GetRepositoryDatabasePath();
-        if (localSnapshotPath is not null && File.Exists(repositoryDatabasePath))
+        string? localSnapshotPath = null;
+        string? mergedSnapshotPath = null;
+        var shouldPushRepositorySnapshot = false;
+        try
         {
-            var mergedSnapshotPath = CreateTemporarySnapshotPath("merged");
-            try
+            using (runtimeDatabaseAccessGate.EnterExclusive())
             {
-                var mergeResult = snapshotMerger.Merge(localSnapshotPath, repositoryDatabasePath, mergedSnapshotPath);
-                if (!mergeResult.Succeeded)
+                localSnapshotPath = TryCreateRuntimeSnapshot();
+                var repositoryDatabasePath = GetRepositoryDatabasePath();
+                if (localSnapshotPath is not null && File.Exists(repositoryDatabasePath))
                 {
-                    throw new InvalidOperationException($"Database snapshot merge failed: {mergeResult.Message}");
-                }
+                    mergedSnapshotPath = CreateTemporarySnapshotPath("merged");
+                    var mergeResult = snapshotMerger.Merge(localSnapshotPath, repositoryDatabasePath, mergedSnapshotPath);
+                    if (!mergeResult.Succeeded)
+                    {
+                        throw new InvalidOperationException($"Database snapshot merge failed: {mergeResult.Message}");
+                    }
 
-                snapshotStore.RestoreSnapshot(mergedSnapshotPath, repositoryDatabasePath);
+                    snapshotStore.RestoreSnapshot(mergedSnapshotPath, repositoryDatabasePath);
+                    snapshotStore.RestoreSnapshot(mergedSnapshotPath, options.RuntimeDatabasePath);
+                    shouldPushRepositorySnapshot = true;
+                }
+                else if (localSnapshotPath is not null)
+                {
+                    snapshotStore.RestoreSnapshot(localSnapshotPath, repositoryDatabasePath);
+                    shouldPushRepositorySnapshot = true;
+                }
+                else if (File.Exists(repositoryDatabasePath))
+                {
+                    snapshotStore.RestoreSnapshot(repositoryDatabasePath, options.RuntimeDatabasePath);
+                }
+            }
+
+            if (shouldPushRepositorySnapshot)
+            {
                 repositorySync.Commit(options.DatabaseFileName, CreateCommitMessage(reason));
                 repositorySync.Push();
-                snapshotStore.RestoreSnapshot(mergedSnapshotPath, options.RuntimeDatabasePath);
-                return;
             }
-            finally
+        }
+        finally
+        {
+            if (localSnapshotPath is not null)
             {
                 DeleteTemporarySnapshot(localSnapshotPath);
+            }
+
+            if (mergedSnapshotPath is not null)
+            {
                 DeleteTemporarySnapshot(mergedSnapshotPath);
             }
         }
-
-        if (localSnapshotPath is not null)
-        {
-            try
-            {
-                snapshotStore.RestoreSnapshot(localSnapshotPath, repositoryDatabasePath);
-                repositorySync.Commit(options.DatabaseFileName, CreateCommitMessage(reason));
-                repositorySync.Push();
-                return;
-            }
-            finally
-            {
-                DeleteTemporarySnapshot(localSnapshotPath);
-            }
-        }
-
-        RestoreRepositorySnapshotIfExists();
     }
 
     private bool PushDatabaseSnapshot(string reason, int mutationCount)

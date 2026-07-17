@@ -106,6 +106,7 @@ public partial class Program
 
         app.UseCors("Frontend");
         app.UseAuthentication();
+        app.UseMiddleware<RuntimeDatabaseAccessMiddleware>();
         app.UseHttpLogging();
         app.UseMiddleware<DatabaseSyncRequestUpdateMiddleware>();
         app.UseMiddleware<ObservedOperationTimingMiddleware>();

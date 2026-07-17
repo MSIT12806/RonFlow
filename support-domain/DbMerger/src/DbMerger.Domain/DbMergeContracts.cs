@@ -737,6 +737,7 @@ CREATE TABLE KnownUsers (
         new("Tasks", ["Id"], ["Id", "Data"]),
         new("PushSubscriptions", ["Endpoint"], ["Endpoint", "Data"]),
         new("DatabaseSyncMetadata", ["Id"], ["Id", "DatabaseMutationAtUtc", "LastSuccessfulSyncAtUtc"]),
+        new("DatabaseSyncOperations", ["Id"], ["Id", "InitiatorUserId", "Reason", "Status", "RequestedAt", "StartedAt", "CompletedAt", "FailureSummary"]),
         new("WorkflowThroughputOutbox", ["MessageId"], ["MessageId", "ProjectId", "TaskId", "EventType", "StateKey", "OccurredAt", "ProcessedAt"]),
         new("WorkflowThroughputBuckets", ["ProjectId", "BucketType", "BucketStart"], ["ProjectId", "BucketType", "BucketStart", "CreatedCount", "MovedToActiveCount", "MovedToReviewCount", "CompletedCount", "ReopenedCount", "LastUpdatedAt"]),
         new("AiAuditOutbox", ["MessageId"], ["MessageId", "AuditEntryId", "SessionId", "ActorType", "ActorIdentity", "TargetType", "TargetId", "RequestedChange", "ResultStatus", "ActualDiffText", "OccurredAt", "ProcessedAt"]),
@@ -770,6 +771,20 @@ CREATE TABLE IF NOT EXISTS DatabaseSyncMetadata (
     DatabaseMutationAtUtc TEXT NOT NULL,
     LastSuccessfulSyncAtUtc TEXT NULL
 );
+
+CREATE TABLE IF NOT EXISTS DatabaseSyncOperations (
+    Id TEXT NOT NULL PRIMARY KEY,
+    InitiatorUserId TEXT NOT NULL,
+    Reason TEXT NOT NULL,
+    Status TEXT NOT NULL,
+    RequestedAt TEXT NOT NULL,
+    StartedAt TEXT NULL,
+    CompletedAt TEXT NULL,
+    FailureSummary TEXT NULL
+);
+
+CREATE INDEX IF NOT EXISTS IX_DatabaseSyncOperations_InitiatorUserId_RequestedAt
+ON DatabaseSyncOperations (InitiatorUserId, RequestedAt DESC);
 
 CREATE TABLE IF NOT EXISTS WorkflowThroughputOutbox (
     MessageId TEXT NOT NULL PRIMARY KEY,

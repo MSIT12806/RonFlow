@@ -137,6 +137,37 @@ public sealed class DbMergerAcceptanceTests
     }
 
     [Test]
+    public void Merge_RonFlowSnapshots_PreservesDatabaseSyncOperations()
+    {
+        using var temp = new TempDirectory();
+        var localPath = temp.DatabasePath("local.db");
+        var remotePath = temp.DatabasePath("remote.db");
+        var outputPath = temp.DatabasePath("merged.db");
+        CreateRonFlowCoreDatabase(localPath, projects: [], tasks: []);
+        CreateRonFlowCoreDatabase(remotePath, projects: [], tasks: []);
+        CreateDatabaseSyncOperationsTable(localPath, [
+            new DatabaseSyncOperationRecord("local-operation", "local-user", "task added", "Queued", "2026-07-17T01:00:00+00:00", null, null, null),
+        ]);
+        CreateDatabaseSyncOperationsTable(remotePath, [
+            new DatabaseSyncOperationRecord("remote-operation", "remote-user", "task updated", "Succeeded", "2026-07-17T02:00:00+00:00", "2026-07-17T02:00:01+00:00", "2026-07-17T02:00:02+00:00", null),
+        ]);
+
+        var result = new DbMergeService().Merge(new DbMergeRequest(
+            localPath,
+            remotePath,
+            outputPath,
+            DbMergeRecipeIds.RonFlow,
+            ConflictResolutionPolicy.LocalWin()));
+
+        Assert.That(result.Status, Is.EqualTo(DbMergeStatus.Succeeded));
+        Assert.That(ReadDatabaseSyncOperations(outputPath), Is.EquivalentTo(new[]
+        {
+            new DatabaseSyncOperationRecord("local-operation", "local-user", "task added", "Queued", "2026-07-17T01:00:00+00:00", null, null, null),
+            new DatabaseSyncOperationRecord("remote-operation", "remote-user", "task updated", "Succeeded", "2026-07-17T02:00:00+00:00", "2026-07-17T02:00:01+00:00", "2026-07-17T02:00:02+00:00", null),
+        }));
+    }
+
+    [Test]
     public void Merge_RonFlowSameIdentityDifferentContent_WithoutMutationAt_FallsBackToLocalRow()
     {
         using var temp = new TempDirectory();
@@ -394,11 +425,96 @@ CREATE TABLE Tasks (
         return records;
     }
 
+    private static void CreateDatabaseSyncOperationsTable(string path, IEnumerable<DatabaseSyncOperationRecord> operations)
+    {
+        using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = path,
+            Mode = SqliteOpenMode.ReadWriteCreate,
+            Pooling = false,
+        }.ToString());
+        connection.Open();
+        using (var create = connection.CreateCommand())
+        {
+            create.CommandText = @"
+CREATE TABLE DatabaseSyncOperations (
+    Id TEXT NOT NULL PRIMARY KEY,
+    InitiatorUserId TEXT NOT NULL,
+    Reason TEXT NOT NULL,
+    Status TEXT NOT NULL,
+    RequestedAt TEXT NOT NULL,
+    StartedAt TEXT NULL,
+    CompletedAt TEXT NULL,
+    FailureSummary TEXT NULL
+);";
+            create.ExecuteNonQuery();
+        }
+
+        foreach (var operation in operations)
+        {
+            using var insert = connection.CreateCommand();
+            insert.CommandText = @"
+INSERT INTO DatabaseSyncOperations (Id, InitiatorUserId, Reason, Status, RequestedAt, StartedAt, CompletedAt, FailureSummary)
+VALUES ($id, $initiatorUserId, $reason, $status, $requestedAt, $startedAt, $completedAt, $failureSummary);";
+            insert.Parameters.AddWithValue("$id", operation.Id);
+            insert.Parameters.AddWithValue("$initiatorUserId", operation.InitiatorUserId);
+            insert.Parameters.AddWithValue("$reason", operation.Reason);
+            insert.Parameters.AddWithValue("$status", operation.Status);
+            insert.Parameters.AddWithValue("$requestedAt", operation.RequestedAt);
+            insert.Parameters.AddWithValue("$startedAt", (object?)operation.StartedAt ?? DBNull.Value);
+            insert.Parameters.AddWithValue("$completedAt", (object?)operation.CompletedAt ?? DBNull.Value);
+            insert.Parameters.AddWithValue("$failureSummary", (object?)operation.FailureSummary ?? DBNull.Value);
+            insert.ExecuteNonQuery();
+        }
+    }
+
+    private static IReadOnlyList<DatabaseSyncOperationRecord> ReadDatabaseSyncOperations(string path)
+    {
+        using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = path,
+            Mode = SqliteOpenMode.ReadOnly,
+            Pooling = false,
+        }.ToString());
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT Id, InitiatorUserId, Reason, Status, RequestedAt, StartedAt, CompletedAt, FailureSummary
+FROM DatabaseSyncOperations
+ORDER BY Id;";
+        using var reader = command.ExecuteReader();
+        var operations = new List<DatabaseSyncOperationRecord>();
+        while (reader.Read())
+        {
+            operations.Add(new DatabaseSyncOperationRecord(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.GetString(3),
+                reader.GetString(4),
+                reader.IsDBNull(5) ? null : reader.GetString(5),
+                reader.IsDBNull(6) ? null : reader.GetString(6),
+                reader.IsDBNull(7) ? null : reader.GetString(7)));
+        }
+
+        return operations;
+    }
+
     private sealed record GenericRecord(string Id, string Data);
 
     private sealed record KnownUserRecord(string UserId, string UserName, string Email);
 
     private sealed record KeyedJsonRecord(string Id, string Data);
+
+    private sealed record DatabaseSyncOperationRecord(
+        string Id,
+        string InitiatorUserId,
+        string Reason,
+        string Status,
+        string RequestedAt,
+        string? StartedAt,
+        string? CompletedAt,
+        string? FailureSummary);
 
     private sealed class TempDirectory : IDisposable
     {
